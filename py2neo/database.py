@@ -24,13 +24,12 @@ from time import sleep
 from warnings import warn
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import Graph, Node, Record, Table
+from py2neo.data import Graph, Record, Table
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
-from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import string_types, xstr
 from py2neo.internal.util import version_tuple, title_case, snake_case
-from py2neo.matching import NodeMatcher
+from py2neo.matching import NodeMatcher, RelationshipMatcher
 
 
 update_stats_keys = [
@@ -388,62 +387,9 @@ class RemoteGraph(Graph):
         :param bidirectional: :const:`True` if reversed relationships should also be included
         :param limit: maximum number of relationships to match (:const:`None` means unlimited)
         """
-        clauses = []
-        returns = []
-        if start_node is None and end_node is None:
-            clauses.append("MATCH (a)")
-            parameters = {}
-            returns.append("a")
-            returns.append("b")
-        elif end_node is None:
-            clauses.append("MATCH (a) WHERE id(a) = {1}")
-            start_node = Node.cast(start_node)
-            if start_node.graph != self:
-                raise ValueError("Start node does not belong to this graph")
-            if start_node.identity is None:
-                raise ValueError("Start node is not bound to a graph")
-            parameters = {"1": start_node.identity}
-            returns.append("b")
-        elif start_node is None:
-            clauses.append("MATCH (b) WHERE id(b) = {2}")
-            end_node = Node.cast(end_node)
-            if end_node.graph != self:
-                raise ValueError("End node does not belong to this graph")
-            if end_node.identity is None:
-                raise ValueError("End node is not bound to a graph")
-            parameters = {"2": end_node.identity}
-            returns.append("a")
-        else:
-            clauses.append("MATCH (a) WHERE id(a) = {1} MATCH (b) WHERE id(b) = {2}")
-            start_node = Node.cast(start_node)
-            if start_node.graph != self:
-                raise ValueError("Start node does not belong to this graph")
-            if start_node.identity is None:
-                raise ValueError("Start node is not bound to a graph")
-            end_node = Node.cast(end_node)
-            if end_node.graph != self:
-                raise ValueError("End node does not belong to this graph")
-            if end_node.identity is None:
-                raise ValueError("End node is not bound to a graph")
-            parameters = {"1": start_node.identity, "2": end_node.identity}
-        if rel_type is None:
-            relationship_detail = ""
-        elif is_collection(rel_type):
-            relationship_detail = ":" + "|:".join(cypher_escape(t) for t in rel_type)
-        else:
-            relationship_detail = ":%s" % cypher_escape(rel_type)
-        if bidirectional:
-            clauses.append("MATCH (a)-[_" + relationship_detail + "]-(b)")
-        else:
-            clauses.append("MATCH (a)-[_" + relationship_detail + "]->(b)")
-        returns.append("_")
-        clauses.append("RETURN %s" % ", ".join(returns))
-        if limit is not None:
-            clauses.append("LIMIT %d" % limit)
-        cursor = self.run(" ".join(clauses), parameters)
-        while cursor.forward():
-            record = cursor.current()
-            yield record["_"]
+        return iter(RelationshipMatcher(self).match(
+            start_node=start_node, rel_type=rel_type, end_node=end_node,
+            bidirectional=bidirectional).limit(limit))
 
     def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
         """ Match and return one relationship with specific criteria.

@@ -49,8 +49,8 @@ class NodeMatch(object):
         self._limit = limit
 
     def __iter__(self):
-        for node, in self.graph.run(*self._query_and_parameters):
-            yield node
+        for record in self.graph.run(*self._query_and_parameters):
+            yield record[0]
 
     def first(self):
         """ Evaluate the match and return the first :class:`.Node`
@@ -183,7 +183,6 @@ class NodeMatcher(object):
 
     def __init__(self, graph):
         self.graph = graph
-        self._all = self._match_class(self.graph)
 
     def get(self, identity):
         """ Create a new :class:`.NodeMatch` that filters by identity and
@@ -209,8 +208,197 @@ class NodeMatcher(object):
         :param properties: set of property keys and values to match
         :return: :class:`.NodeMatch` instance
         """
-        if labels or properties:
-            return self._match_class(self.graph, frozenset(labels),
-                                     tuple(_property_equality_conditions(properties)))
+        criteria = {}
+        if labels:
+            criteria["labels"] = frozenset(labels)
+        if properties:
+            criteria["conditions"] = tuple(_property_equality_conditions(properties))
+        return self._match_class(self.graph, **criteria)
+
+
+class RelationshipMatch(object):
+
+    def __init__(self, graph, start_node=None, rel_type=None, end_node=None, bidirectional=False,
+                 conditions=tuple(), order_by=tuple(), skip=None, limit=None):
+        self.graph = graph
+        self._start_node = start_node
+        self._rel_type = rel_type
+        self._end_node = end_node
+        self._bidirectional = bidirectional
+        self._conditions = tuple(conditions)
+        self._order_by = tuple(order_by)
+        self._skip = skip
+        self._limit = limit
+
+    def __iter__(self):
+        for record in self.graph.run(*self._query_and_parameters):
+            yield record[0]
+
+    def first(self):
+        """ Evaluate the selection and return the first
+        :class:`.Relationship` selected or :const:`None` if no matching
+        relationships are found.
+
+        :return: a single matching :class:`.Relationship` or :const:`None`
+        """
+        return self.graph.evaluate(*self._query_and_parameters)
+
+    @property
+    def _query_and_parameters(self):
+        """ A tuple of the Cypher query and parameters used to select
+        the nodes that match the criteria for this selection.
+
+        :return: Cypher query string
+        """
+        clauses = []
+        parameters = {}
+        if self._start_node is not None:
+            clauses.append("MATCH (a) WHERE id(a) = {x}")
+            start_node = Node.cast(self._start_node)
+            if start_node.graph != self.graph:
+                raise ValueError("Start node does not belong to this graph")
+            if start_node.identity is None:
+                raise ValueError("Start node is not bound to a graph")
+            parameters["x"] = start_node.identity
+        if self._end_node is not None:
+            clauses.append("MATCH (b) WHERE id(b) = {y}")
+            end_node = Node.cast(self._end_node)
+            if end_node.graph != self.graph:
+                raise ValueError("End node does not belong to this graph")
+            if end_node.identity is None:
+                raise ValueError("End node is not bound to a graph")
+            parameters["y"] = end_node.identity
+        if self._rel_type is None:
+            relationship_detail = ""
+        elif is_collection(self._rel_type):
+            relationship_detail = ":" + "|:".join(cypher_escape(t) for t in self._rel_type)
         else:
-            return self._all
+            relationship_detail = ":%s" % cypher_escape(self._rel_type)
+        if self._bidirectional:
+            clauses.append("MATCH (a)-[_" + relationship_detail + "]-(b)")
+        else:
+            clauses.append("MATCH (a)-[_" + relationship_detail + "]->(b)")
+        if self._conditions:
+            conditions = []
+            for condition in self._conditions:
+                if isinstance(condition, tuple):
+                    condition, param = condition
+                    parameters.update(param)
+                conditions.append(condition)
+            clauses.append("WHERE %s" % " AND ".join(conditions))
+        clauses.append("RETURN _")
+        if self._order_by:
+            clauses.append("ORDER BY %s" % (", ".join(self._order_by)))
+        if self._skip:
+            clauses.append("SKIP %d" % self._skip)
+        if self._limit is not None:
+            clauses.append("LIMIT %d" % self._limit)
+        return " ".join(clauses), parameters
+
+    def where(self, *conditions, **properties):
+        """ Refine this match to create a new match. The criteria specified
+        for refining the match consist of conditions and properties.
+        Conditions are individual Cypher expressions that would be found
+        in a `WHERE` clause; properties are used as exact matches for
+        property values.
+
+        To refer to the current node within a condition expression, use
+        the underscore character ``_``. For example::
+
+            match.where("_.name =~ 'J.*")
+
+        Simple property equalities can also be specified::
+
+            match.where(born=1976)
+
+        :param conditions: Cypher expressions to add to the `WHERE` clause
+        :param properties: exact property match keys and values
+        :return: refined :class:`.NodeMatch` object
+        """
+        return self.__class__(self.graph, self._start_node, self._rel_type, self._end_node, self._bidirectional,
+                              self._conditions + conditions + tuple(_property_equality_conditions(properties)),
+                              self._order_by, self._skip, self._limit)
+
+    def order_by(self, *fields):
+        """ Order by the fields or field expressions specified.
+
+        To refer to the current node within a field or field expression,
+        use the underscore character ``_``. For example::
+
+            match.order_by("_.name", "max(_.a, _.b)")
+
+        :param fields: fields or field expressions to order by
+        :return: refined :class:`.NodeMatch` object
+        """
+        return self.__class__(self.graph, self._start_node, self._rel_type, self._end_node, self._bidirectional,
+                              self._conditions, fields, self._skip, self._limit)
+
+    def skip(self, amount):
+        """ Skip the first `amount` nodes in the result.
+
+        :param amount: number of nodes to skip
+        :return: refined :class:`.NodeMatch` object
+        """
+        return self.__class__(self.graph, self._start_node, self._rel_type, self._end_node, self._bidirectional,
+                              self._conditions, self._order_by, amount, self._limit)
+
+    def limit(self, amount):
+        """ Limit to at most `amount` nodes.
+
+        :param amount: maximum number of nodes to return
+        :return: refined :class:`.NodeMatch` object
+        """
+        return self.__class__(self.graph, self._start_node, self._rel_type, self._end_node, self._bidirectional,
+                              self._conditions, self._order_by, self._skip, amount)
+
+
+class RelationshipMatcher(object):
+    """ A :py:class:`.RelationshipMatcher` can be used to locate
+    relationships that fulfil a specific set of criteria.
+    """
+
+    _match_class = RelationshipMatch
+
+    def __init__(self, graph):
+        self.graph = graph
+        self._all = self._match_class(self.graph)
+
+    def get(self, identity):
+        """ Create a new :class:`.RelationshipMatch` that filters by identity and
+        returns the first matched :class:`.Node`. This can essentially be
+        used to match and return a :class:`.Node` by ID.
+
+            matcher.get(1234)
+
+        """
+        try:
+            return self.graph.relationship_cache[identity]
+        except KeyError:
+            relationship = self.match().where("id(_) = %d" % identity).first()
+            if relationship is None:
+                raise IndexError("Relationship %d not found" % identity)
+            else:
+                return relationship
+
+    def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=None, **properties):
+        """ Describe a basic relationship match...
+
+        :param start_node:
+        :param rel_type:
+        :param end_node:
+        :param bidirectional:
+        :param properties: set of property keys and values to match
+        :return: :class:`.RelationshipMatch` instance
+        """
+        criteria = {}
+        if start_node is not None:
+            criteria["start_node"] = start_node
+        if rel_type is not None:
+            criteria["rel_type"] = rel_type
+        if end_node is not None:
+            criteria["end_node"] = end_node
+        if bidirectional is not None:
+            criteria["bidirectional"] = bidirectional
+        if properties:
+            criteria["conditions"] = tuple(_property_equality_conditions(properties))
+        return self._match_class(self.graph, **criteria)
