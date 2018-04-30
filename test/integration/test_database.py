@@ -194,8 +194,9 @@ class GraphObjectTestCase(IntegrationTestCase):
         node_id = node.identity
         self.graph.delete(node)
         self.graph.node_cache.clear()
-        with self.assertRaises(IndexError):
-            _ = self.graph.nodes.get(node_id)
+        with self.assertRaises(KeyError):
+            _ = self.graph.nodes[node_id]
+        self.assertIsNone(self.graph.nodes.get(node_id))
 
     def test_node_cache_is_thread_local(self):
         from threading import Thread
@@ -220,7 +221,7 @@ class GraphObjectTestCase(IntegrationTestCase):
     def test_can_get_same_instance(self):
         graph_1 = Graph()
         graph_2 = Graph()
-        assert graph_1 is graph_2
+        self.assertIs(graph_1, graph_2)
 
     def test_create_single_empty_node(self):
         a = Node()

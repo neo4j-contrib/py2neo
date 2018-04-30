@@ -427,6 +427,8 @@ class RemoteGraph(Graph):
         """ Obtain a :class:`.NodeMatcher` for this graph.
 
             >>> graph = Graph()
+            >>> graph.nodes[1234]
+            (_1234:Person {name: 'Alice'})
             >>> graph.nodes.get(1234)
             (_1234:Person {name: 'Alice'})
             >>> graph.nodes.match("Person", name="Alice").first()
@@ -456,19 +458,11 @@ class RemoteGraph(Graph):
         with self.begin() as tx:
             tx.push(subgraph)
 
-    def relationship(self, identity):
-        """ Fetch a relationship by ID.
-
-        :param identity:
+    @property
+    def relationships(self):
+        """ Obtain a :class:`.RelationshipMatcher` for this graph.
         """
-        try:
-            return self.relationship_cache[identity]
-        except KeyError:
-            relationship = self.evaluate("MATCH ()-[r]->() WHERE id(r)={x} RETURN r", x=identity)
-            if relationship is None:
-                raise IndexError("Relationship %d not found" % identity)
-            else:
-                return relationship
+        return RelationshipMatcher(self)
 
     def run(self, cypher, parameters=None, **kwparameters):
         """ Run a :meth:`.Transaction.run` operation within an

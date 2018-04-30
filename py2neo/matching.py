@@ -184,6 +184,12 @@ class NodeMatcher(object):
     def __init__(self, graph):
         self.graph = graph
 
+    def __getitem__(self, identity):
+        entity = self.get(identity)
+        if entity is None:
+            raise KeyError("Node %d not found" % identity)
+        return entity
+
     def get(self, identity):
         """ Create a new :class:`.NodeMatch` that filters by identity and
         returns the first matched :class:`.Node`. This can essentially be
@@ -191,15 +197,14 @@ class NodeMatcher(object):
 
             matcher.get(1234)
 
+        If no such :class:`.Node` is found, py:const:`None` is returned
+        instead. Contrast with `matcher[1234]` which raises a `KeyError`
+        if no entity is found.
         """
         try:
             return self.graph.node_cache[identity]
         except KeyError:
-            node = self.match().where("id(_) = %d" % identity).first()
-            if node is None:
-                raise IndexError("Node %d not found" % identity)
-            else:
-                return node
+            return self.match().where("id(_) = %d" % identity).first()
 
     def match(self, *labels, **properties):
         """ Describe a basic node match using labels and property equality.
@@ -363,22 +368,27 @@ class RelationshipMatcher(object):
         self.graph = graph
         self._all = self._match_class(self.graph)
 
+    def __getitem__(self, identity):
+        entity = self.get(identity)
+        if entity is None:
+            raise KeyError("Relationship %d not found" % identity)
+        return entity
+
     def get(self, identity):
         """ Create a new :class:`.RelationshipMatch` that filters by identity and
-        returns the first matched :class:`.Node`. This can essentially be
-        used to match and return a :class:`.Node` by ID.
+        returns the first matched :class:`.Relationship`. This can essentially be
+        used to match and return a :class:`.Relationship` by ID.
 
             matcher.get(1234)
 
+        If no such :class:`.Relationship` is found, py:const:`None` is returned
+        instead. Contrast with `matcher[1234]` which raises a `KeyError`
+        if no entity is found.
         """
         try:
             return self.graph.relationship_cache[identity]
         except KeyError:
-            relationship = self.match().where("id(_) = %d" % identity).first()
-            if relationship is None:
-                raise IndexError("Relationship %d not found" % identity)
-            else:
-                return relationship
+            return self.match().where("id(_) = %d" % identity).first()
 
     def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=None, **properties):
         """ Describe a basic relationship match...

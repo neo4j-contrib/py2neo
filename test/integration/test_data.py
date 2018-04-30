@@ -170,7 +170,7 @@ class RelationshipTestCase(IntegrationTestCase):
         b = Node()
         r = Relationship(a, "TO", b)
         self.graph.create(r)
-        got = self.graph.relationship(r.identity)
+        got = self.graph.relationships.get(r.identity)
         assert got is r
 
     def test_can_get_relationship_by_id_when_not_cached(self):
@@ -179,7 +179,7 @@ class RelationshipTestCase(IntegrationTestCase):
         r = Relationship(a, "TO", b)
         self.graph.create(r)
         self.graph.relationship_cache.clear()
-        got = self.graph.relationship(r.identity)
+        got = self.graph.relationships.get(r.identity)
         assert got.identity == r.identity
 
     def test_relationship_cache_is_thread_local(self):
@@ -209,8 +209,8 @@ class RelationshipTestCase(IntegrationTestCase):
         rel_id = r.identity
         self.graph.delete(r)
         self.graph.relationship_cache.clear()
-        with self.assertRaises(IndexError):
-            _ = self.graph.relationship(rel_id)
+        with self.assertRaises(KeyError):
+            _ = self.graph.relationships[rel_id]
 
     def test_getting_no_relationships(self):
         alice = Node(name="Alice")

@@ -191,7 +191,8 @@ class Graph(object):
     def push(self, subgraph):
         raise NotImplementedError()
 
-    def relationship(self, identity):
+    @property
+    def relationships(self):
         raise NotImplementedError()
 
     def separate(self, subgraph):
@@ -1080,7 +1081,7 @@ class Table(list):
         from click import secho
 
         space = u" " * padding
-        widths = [3] * len(self._keys)
+        widths = [3 if header else 0] * len(self._keys)
 
         def calc_widths(values, **_):
             strings = [cypher_str(value).splitlines(False) for value in values]

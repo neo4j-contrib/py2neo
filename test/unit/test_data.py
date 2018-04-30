@@ -156,7 +156,7 @@ class DataListTestCase(TestCase):
         ], keys=["name", "age"])
         out = repr(table)
         self.assertEqual(out, u' name  | age \r\n'
-                              u'-------------\r\n'
+                              u'-------|-----\r\n'
                               u' Alice |  33 \r\n'
                               u' Bob   |  44 \r\n'
                               u' Carol |  55 \r\n'
@@ -201,7 +201,7 @@ class DataListTestCase(TestCase):
         out = StringIO()
         table.write(out, header={"fg": "red"})
         self.assertEqual(out.getvalue(), u' name  | age \r\n'
-                                         u'-------------\r\n'
+                                         u'-------|-----\r\n'
                                          u' Alice |  33 \r\n'
                                          u' Bob   |  44 \r\n'
                                          u' Carol |  55 \r\n'
