@@ -1080,10 +1080,7 @@ class Table(list):
         from click import secho
 
         space = u" " * padding
-        widths = [0] * len(self._keys)
-        header_styles = {}
-        if header and isinstance(header, dict):
-            header_styles.update(header)
+        widths = [3] * len(self._keys)
 
         def calc_widths(values, **_):
             strings = [cypher_str(value).splitlines(False) for value in values]
@@ -1092,11 +1089,12 @@ class Table(list):
                 if w > widths[i]:
                     widths[i] = w
 
-        def write_line(values, underline=None, **styles):
+        def write_line(values, underline=u"", **styles):
             strings = [cypher_str(value).splitlines(False) for value in values]
             height = max(map(len, strings)) if strings else 1
             for y in range(height):
                 line_text = u""
+                underline_text = u""
                 for x, _ in enumerate(values):
                     try:
                         text = strings[x][y]
@@ -1104,13 +1102,17 @@ class Table(list):
                         text = u""
                     if auto_align and self._fields[x]["numeric"]:
                         text = space + text.rjust(widths[x]) + space
+                        u_text = underline * len(text)
                     else:
                         text = space + text.ljust(widths[x]) + space
+                        u_text = underline * len(text)
                     if x > 0:
                         text = separator + text
+                        u_text = separator + u_text
                     line_text += text
+                    underline_text += u_text
                 if underline:
-                    line_text += newline + underline * len(line_text)
+                    line_text += newline + underline_text
                 line_text += newline
                 secho(line_text, file, nl=False, **styles)
 
@@ -1118,7 +1120,7 @@ class Table(list):
             count = 0
             for count, index in enumerate(self._range(skip, limit), start=1):
                 if count == 1 and header:
-                    f(self.keys(), underline=u"-", **header_styles)
+                    f(self.keys(), underline=u"-")
                 f(self[index])
             return count
 

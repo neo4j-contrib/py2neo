@@ -62,6 +62,10 @@ Slash commands provide access to supplementary functionality.
 {}
 
 \b
+Execution commands:
+  /play     run a query from a file
+
+\b
 Formatting commands:
   /csv      format output as comma-separated values
   /table    format output in a table

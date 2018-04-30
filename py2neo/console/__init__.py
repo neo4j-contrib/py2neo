@@ -56,7 +56,7 @@ def is_command(source):
 class Console(object):
 
     def echo(self, text, file=None, nl=True, err=False, color=None, **styles):
-        return click.secho(text, file=None, nl=True, err=False, color=None, **styles)
+        return click.secho(text, file=file, nl=nl, err=err, color=color, **styles)
 
     def prompt(self, *args, **kwargs):
         return prompt(*args, **kwargs)
@@ -107,6 +107,8 @@ class Console(object):
             "/x": self.exit,
             "/exit": self.exit,
 
+            "/play": self.play,
+
             "/csv": self.set_csv_result_writer,
             "/table": self.set_tabular_result_writer,
             "/tsv": self.set_tsv_result_writer,
@@ -142,7 +144,7 @@ class Console(object):
         gap = False
         for s in sources:
             if gap:
-                self.echo()
+                self.echo("")
             self.run(s)
             if not is_command(s):
                 gap = True
@@ -306,6 +308,11 @@ class Console(object):
 
     def exit(self, **kwargs):
         exit(0)
+
+    def play(self, file_name):
+        work = self.load_unit_of_work(file_name=file_name)
+        with self.graph.begin() as tx:
+            work(tx)
 
     def load_unit_of_work(self, file_name):
         """ Load a transaction function from a cypher source file.
