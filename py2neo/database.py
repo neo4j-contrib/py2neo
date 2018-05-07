@@ -373,7 +373,7 @@ class RemoteGraph(Graph):
         """
         return self.begin(autocommit=True).exists(subgraph)
 
-    def match(self, nodes=None, rel_type=None, bidirectional=False, limit=None):
+    def match(self, nodes=None, rel_type=None, limit=None):
         """ Match and return all relationships with specific criteria.
 
         For example, to find all of Alice's friends::
@@ -381,22 +381,21 @@ class RemoteGraph(Graph):
             for rel in graph.match(start_node=alice, rel_type="FRIEND"):
                 print(rel.end_node()["name"])
 
-        :param nodes: Sequence or Set of start and end nodes (:const:`None` means any node)
+        :param nodes: Sequence or Set of start and end nodes (:const:`None` means any node);
+                a Set implies a match in any direction
         :param rel_type: type of relationships to match (:const:`None` means any type)
-        :param bidirectional: :const:`True` if reversed relationships should also be included
         :param limit: maximum number of relationships to match (:const:`None` means unlimited)
         """
-        return iter(RelationshipMatcher(self).match(
-            nodes=nodes, rel_type=rel_type, bidirectional=bidirectional).limit(limit))
+        return iter(RelationshipMatcher(self).match(nodes=nodes, rel_type=rel_type).limit(limit))
 
-    def match_one(self, nodes=None, rel_type=None, bidirectional=False):
+    def match_one(self, nodes=None, rel_type=None):
         """ Match and return one relationship with specific criteria.
 
-        :param nodes: Sequence or Set of start and end nodes (:const:`None` means any node)
+        :param nodes: Sequence or Set of start and end nodes (:const:`None` means any node);
+                a Set implies a match in any direction
         :param rel_type: type of relationships to match (:const:`None` means any type)
-        :param bidirectional: :const:`True` if reversed relationships should also be included
         """
-        rels = list(self.match(nodes=nodes, rel_type=rel_type, bidirectional=bidirectional, limit=1))
+        rels = list(self.match(nodes=nodes, rel_type=rel_type, limit=1))
         if rels:
             return rels[0]
         else:

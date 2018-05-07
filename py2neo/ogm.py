@@ -132,7 +132,7 @@ class RelatedObjects(object):
             self.__end_node = False
             self.__relationship_pattern = "(a)<-[_:%s]-(b)" % cypher_escape(relationship_type)
         else:
-            self.__match_args = {"nodes": (self.node, None), "rel_type": relationship_type, "bidirectional": True}
+            self.__match_args = {"nodes": {self.node, None}, "rel_type": relationship_type}
             self.__start_node = True
             self.__end_node = True
             self.__relationship_pattern = "(a)-[_:%s]-(b)" % cypher_escape(relationship_type)
