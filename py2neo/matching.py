@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from collections import Sequence, Set
+
 from py2neo.cypher.writing import cypher_escape
 from py2neo.data import Node
 from py2neo.internal.collections import is_collection
@@ -223,12 +225,13 @@ class NodeMatcher(object):
 
 class RelationshipMatch(object):
 
-    def __init__(self, graph, start_node=None, rel_type=None, end_node=None, bidirectional=False,
+    def __init__(self, graph, nodes=None, rel_type=None, bidirectional=False,
                  conditions=tuple(), order_by=tuple(), skip=None, limit=None):
+        if nodes is not None and not isinstance(nodes, (Sequence, Set)):
+            raise ValueError("Nodes must be supplied as a Sequence or a Set")
         self.graph = graph
-        self._start_node = start_node
+        self._nodes = nodes
         self._rel_type = rel_type
-        self._end_node = end_node
         self._bidirectional = bidirectional
         self._conditions = tuple(conditions)
         self._order_by = tuple(order_by)
@@ -257,22 +260,25 @@ class RelationshipMatch(object):
         """
         clauses = []
         parameters = {}
-        if self._start_node is not None:
-            clauses.append("MATCH (a) WHERE id(a) = {x}")
-            start_node = Node.cast(self._start_node)
-            if start_node.graph != self.graph:
-                raise ValueError("Start node does not belong to this graph")
-            if start_node.identity is None:
-                raise ValueError("Start node is not bound to a graph")
-            parameters["x"] = start_node.identity
-        if self._end_node is not None:
-            clauses.append("MATCH (b) WHERE id(b) = {y}")
-            end_node = Node.cast(self._end_node)
-            if end_node.graph != self.graph:
-                raise ValueError("End node does not belong to this graph")
-            if end_node.identity is None:
-                raise ValueError("End node is not bound to a graph")
-            parameters["y"] = end_node.identity
+        if isinstance(self._nodes, Sequence):
+            if len(self._nodes) >= 1 and self._nodes[0] is not None:
+                start_node = Node.cast(self._nodes[0])
+                clauses.append("MATCH (a) WHERE id(a) = {x}")
+                if start_node.graph != self.graph:
+                    raise ValueError("Start node does not belong to this graph")
+                if start_node.identity is None:
+                    raise ValueError("Start node is not bound to a graph")
+                parameters["x"] = start_node.identity
+            if len(self._nodes) >= 2 and self._nodes[1] is not None:
+                end_node = Node.cast(self._nodes[1])
+                clauses.append("MATCH (b) WHERE id(b) = {y}")
+                if end_node.graph != self.graph:
+                    raise ValueError("End node does not belong to this graph")
+                if end_node.identity is None:
+                    raise ValueError("End node is not bound to a graph")
+                parameters["y"] = end_node.identity
+            if len(self._nodes) >= 3:
+                raise ValueError("Node sequence cannot be longer than two")
         if self._rel_type is None:
             relationship_detail = ""
         elif is_collection(self._rel_type):
@@ -320,9 +326,14 @@ class RelationshipMatch(object):
         :param properties: exact property match keys and values
         :return: refined :class:`.NodeMatch` object
         """
-        return self.__class__(self.graph, self._start_node, self._rel_type, self._end_node, self._bidirectional,
-                              self._conditions + conditions + tuple(_property_equality_conditions(properties)),
-                              self._order_by, self._skip, self._limit)
+        return self.__class__(self.graph,
+                              nodes=self._nodes,
+                              rel_type=self._rel_type,
+                              bidirectional=self._bidirectional,
+                              conditions=self._conditions + conditions + tuple(_property_equality_conditions(properties)),
+                              order_by=self._order_by,
+                              skip=self._skip,
+                              limit=self._limit)
 
     def order_by(self, *fields):
         """ Order by the fields or field expressions specified.
@@ -335,8 +346,14 @@ class RelationshipMatch(object):
         :param fields: fields or field expressions to order by
         :return: refined :class:`.NodeMatch` object
         """
-        return self.__class__(self.graph, self._start_node, self._rel_type, self._end_node, self._bidirectional,
-                              self._conditions, fields, self._skip, self._limit)
+        return self.__class__(self.graph,
+                              nodes=self._nodes,
+                              rel_type=self._rel_type,
+                              bidirectional=self._bidirectional,
+                              conditions=self._conditions,
+                              order_by=fields,
+                              skip=self._skip,
+                              limit=self._limit)
 
     def skip(self, amount):
         """ Skip the first `amount` nodes in the result.
@@ -344,8 +361,14 @@ class RelationshipMatch(object):
         :param amount: number of nodes to skip
         :return: refined :class:`.NodeMatch` object
         """
-        return self.__class__(self.graph, self._start_node, self._rel_type, self._end_node, self._bidirectional,
-                              self._conditions, self._order_by, amount, self._limit)
+        return self.__class__(self.graph,
+                              nodes=self._nodes,
+                              rel_type=self._rel_type,
+                              bidirectional=self._bidirectional,
+                              conditions=self._conditions,
+                              order_by=self._order_by,
+                              skip=amount,
+                              limit=self._limit)
 
     def limit(self, amount):
         """ Limit to at most `amount` nodes.
@@ -353,8 +376,14 @@ class RelationshipMatch(object):
         :param amount: maximum number of nodes to return
         :return: refined :class:`.NodeMatch` object
         """
-        return self.__class__(self.graph, self._start_node, self._rel_type, self._end_node, self._bidirectional,
-                              self._conditions, self._order_by, self._skip, amount)
+        return self.__class__(self.graph,
+                              nodes=self._nodes,
+                              rel_type=self._rel_type,
+                              bidirectional=self._bidirectional,
+                              conditions=self._conditions,
+                              order_by=self._order_by,
+                              skip=self._skip,
+                              limit=amount)
 
 
 class RelationshipMatcher(object):
@@ -390,23 +419,20 @@ class RelationshipMatcher(object):
         except KeyError:
             return self.match().where("id(_) = %d" % identity).first()
 
-    def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=None, **properties):
+    def match(self, nodes=None, rel_type=None, bidirectional=None, **properties):
         """ Describe a basic relationship match...
 
-        :param start_node:
+        :param nodes:
         :param rel_type:
-        :param end_node:
         :param bidirectional:
         :param properties: set of property keys and values to match
         :return: :class:`.RelationshipMatch` instance
         """
         criteria = {}
-        if start_node is not None:
-            criteria["start_node"] = start_node
+        if nodes is not None:
+            criteria["nodes"] = nodes
         if rel_type is not None:
             criteria["rel_type"] = rel_type
-        if end_node is not None:
-            criteria["end_node"] = end_node
         if bidirectional is not None:
             criteria["bidirectional"] = bidirectional
         if properties:

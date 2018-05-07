@@ -373,7 +373,7 @@ class RemoteGraph(Graph):
         """
         return self.begin(autocommit=True).exists(subgraph)
 
-    def match(self, start_node=None, rel_type=None, end_node=None, bidirectional=False, limit=None):
+    def match(self, nodes=None, rel_type=None, bidirectional=False, limit=None):
         """ Match and return all relationships with specific criteria.
 
         For example, to find all of Alice's friends::
@@ -381,26 +381,22 @@ class RemoteGraph(Graph):
             for rel in graph.match(start_node=alice, rel_type="FRIEND"):
                 print(rel.end_node()["name"])
 
-        :param start_node: start node of relationships to match (:const:`None` means any node)
+        :param nodes: Sequence or Set of start and end nodes (:const:`None` means any node)
         :param rel_type: type of relationships to match (:const:`None` means any type)
-        :param end_node: end node of relationships to match (:const:`None` means any node)
         :param bidirectional: :const:`True` if reversed relationships should also be included
         :param limit: maximum number of relationships to match (:const:`None` means unlimited)
         """
         return iter(RelationshipMatcher(self).match(
-            start_node=start_node, rel_type=rel_type, end_node=end_node,
-            bidirectional=bidirectional).limit(limit))
+            nodes=nodes, rel_type=rel_type, bidirectional=bidirectional).limit(limit))
 
-    def match_one(self, start_node=None, rel_type=None, end_node=None, bidirectional=False):
+    def match_one(self, nodes=None, rel_type=None, bidirectional=False):
         """ Match and return one relationship with specific criteria.
 
-        :param start_node: start node of relationships to match (:const:`None` means any node)
+        :param nodes: Sequence or Set of start and end nodes (:const:`None` means any node)
         :param rel_type: type of relationships to match (:const:`None` means any type)
-        :param end_node: end node of relationships to match (:const:`None` means any node)
         :param bidirectional: :const:`True` if reversed relationships should also be included
         """
-        rels = list(self.match(start_node, rel_type, end_node,
-                               bidirectional, 1))
+        rels = list(self.match(nodes=nodes, rel_type=rel_type, bidirectional=bidirectional, limit=1))
         if rels:
             return rels[0]
         else:

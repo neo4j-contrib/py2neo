@@ -337,31 +337,31 @@ class GraphMatchTestCase(IntegrationTestCase):
         self.graph.create(s)
 
     def test_can_match_start_node(self):
-        relationships = list(self.graph.match(start_node=self.alice))
+        relationships = list(self.graph.match(nodes=(self.alice, None)))
         assert len(relationships) == 2
         assert "KNOWS" in [type(rel).__name__ for rel in relationships]
         assert "LOVES" in [type(rel).__name__ for rel in relationships]
         assert self.bob in [rel.end_node for rel in relationships]
 
     def test_can_match_start_node_and_type(self):
-        relationships = list(self.graph.match(start_node=self.alice, rel_type="KNOWS"))
+        relationships = list(self.graph.match(nodes=(self.alice, None), rel_type="KNOWS"))
         assert len(relationships) == 1
         assert self.bob in [rel.end_node for rel in relationships]
 
     def test_can_match_start_node_and_end_node(self):
-        relationships = list(self.graph.match(start_node=self.alice, end_node=self.bob))
+        relationships = list(self.graph.match(nodes=(self.alice, self.bob)))
         assert len(relationships) == 2
         assert "KNOWS" in [type(rel).__name__ for rel in relationships]
         assert "LOVES" in [type(rel).__name__ for rel in relationships]
 
     def test_can_match_type_and_end_node(self):
-        relationships = list(self.graph.match(rel_type="KNOWS", end_node=self.bob))
+        relationships = list(self.graph.match(nodes=(None, self.bob), rel_type="KNOWS"))
         assert len(relationships) == 2
         assert self.alice in [rel.start_node for rel in relationships]
         assert self.carol in [rel.start_node for rel in relationships]
 
     def test_can_bidi_match_start_node(self):
-        relationships = list(self.graph.match(start_node=self.bob, bidirectional=True))
+        relationships = list(self.graph.match(nodes=(self.bob, None), bidirectional=True))
         assert len(relationships) == 6
         assert "KNOWS" in [type(rel).__name__ for rel in relationships]
         assert "LOVES" in [type(rel).__name__ for rel in relationships]
@@ -373,7 +373,7 @@ class GraphMatchTestCase(IntegrationTestCase):
         assert self.carol in [rel.end_node for rel in relationships]
 
     def test_can_bidi_match_start_node_and_type(self):
-        relationships = list(self.graph.match(start_node=self.bob, rel_type="KNOWS", bidirectional=True))
+        relationships = list(self.graph.match(nodes=(self.bob, None), rel_type="KNOWS", bidirectional=True))
         assert len(relationships) == 4
         assert self.alice in [rel.start_node for rel in relationships]
         assert self.bob in [rel.start_node for rel in relationships]
@@ -383,7 +383,7 @@ class GraphMatchTestCase(IntegrationTestCase):
         assert self.carol in [rel.end_node for rel in relationships]
 
     def test_can_bidi_match_start_node_and_end_node(self):
-        relationships = list(self.graph.match(start_node=self.alice, end_node=self.bob, bidirectional=True))
+        relationships = list(self.graph.match(nodes=(self.alice, self.bob), bidirectional=True))
         assert len(relationships) == 4
         assert "KNOWS" in [type(rel).__name__ for rel in relationships]
         assert "LOVES" in [type(rel).__name__ for rel in relationships]
@@ -393,7 +393,7 @@ class GraphMatchTestCase(IntegrationTestCase):
         assert self.bob in [rel.end_node for rel in relationships]
 
     def test_can_bidi_match_type_and_end_node(self):
-        relationships = list(self.graph.match(rel_type="KNOWS", end_node=self.bob, bidirectional=True))
+        relationships = list(self.graph.match(nodes=(None, self.bob), rel_type="KNOWS", bidirectional=True))
         assert len(relationships) == 4
         assert self.alice in [rel.start_node for rel in relationships]
         assert self.carol in [rel.start_node for rel in relationships]
@@ -421,20 +421,20 @@ class GraphMatchTestCase(IntegrationTestCase):
         assert len(relationships) == 0
 
     def test_can_match_start_node_and_multiple_types(self):
-        relationships = list(self.graph.match(start_node=self.alice, rel_type=("LOVES", "KNOWS")))
+        relationships = list(self.graph.match(nodes=(self.alice, None), rel_type=("LOVES", "KNOWS")))
         assert len(relationships) == 2
 
     def test_relationship_start_node_must_be_bound(self):
         with self.assertRaises(ValueError):
-            list(self.graph.match(start_node=Node()))
+            list(self.graph.match(nodes=(Node(), None)))
 
     def test_relationship_end_node_must_be_bound(self):
         with self.assertRaises(ValueError):
-            list(self.graph.match(end_node=Node()))
+            list(self.graph.match(nodes=(None, Node())))
 
     def test_relationship_start_and_end_node_must_be_bound(self):
         with self.assertRaises(ValueError):
-            list(self.graph.match(start_node=Node(), end_node=Node()))
+            list(self.graph.match(nodes=(Node(), Node())))
 
 
 class GraphDeleteTestCase(IntegrationTestCase):

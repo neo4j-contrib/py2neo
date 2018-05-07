@@ -122,17 +122,17 @@ class RelatedObjects(object):
         self.related_class = related_class
         self.__related_objects = None
         if direction > 0:
-            self.__match_args = (self.node, relationship_type, None)
+            self.__match_args = {"nodes": (self.node, None), "rel_type": relationship_type}
             self.__start_node = False
             self.__end_node = True
             self.__relationship_pattern = "(a)-[_:%s]->(b)" % cypher_escape(relationship_type)
         elif direction < 0:
-            self.__match_args = (None, relationship_type, self.node)
+            self.__match_args = {"nodes": (None, self.node), "rel_type": relationship_type}
             self.__start_node = True
             self.__end_node = False
             self.__relationship_pattern = "(a)<-[_:%s]-(b)" % cypher_escape(relationship_type)
         else:
-            self.__match_args = (self.node, relationship_type, None, True)
+            self.__match_args = {"nodes": (self.node, None), "rel_type": relationship_type, "bidirectional": True}
             self.__start_node = True
             self.__end_node = True
             self.__relationship_pattern = "(a)-[_:%s]-(b)" % cypher_escape(relationship_type)
@@ -223,7 +223,7 @@ class RelatedObjects(object):
 
     def __db_pull__(self, tx):
         related_objects = {}
-        for r in tx.graph.match(*self.__match_args):
+        for r in tx.graph.match(**self.__match_args):
             nodes = []
             n = self.node
             a = r.start_node

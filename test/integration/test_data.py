@@ -81,7 +81,7 @@ class NodeTestCase(IntegrationTestCase):
         assert dict(a) == {"name": "Alice"}
         a["age"] = 33
         assert dict(a) == {"name": "Alice", "age": 33}
-        _ = list(self.graph.match(a, "KNOWS"))
+        _ = list(self.graph.match((a, None), "KNOWS"))
         assert dict(a) == {"name": "Alice", "age": 33}
 
     def test_pull_node_labels_if_stale(self):
@@ -215,7 +215,7 @@ class RelationshipTestCase(IntegrationTestCase):
     def test_getting_no_relationships(self):
         alice = Node(name="Alice")
         self.graph.create(alice)
-        rels = list(self.graph.match(alice))
+        rels = list(self.graph.match(nodes=[alice]))
         assert rels is not None
         assert isinstance(rels, list)
         assert len(rels) == 0
