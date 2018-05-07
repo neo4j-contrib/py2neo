@@ -225,13 +225,13 @@ class NodeMatcher(object):
 
 class RelationshipMatch(object):
 
-    def __init__(self, graph, nodes=None, rel_type=None,
+    def __init__(self, graph, nodes=None, r_type=None,
                  conditions=tuple(), order_by=tuple(), skip=None, limit=None):
         if nodes is not None and not isinstance(nodes, (Sequence, Set)):
             raise ValueError("Nodes must be supplied as a Sequence or a Set")
         self.graph = graph
         self._nodes = nodes
-        self._rel_type = rel_type
+        self._r_type = r_type
         self._conditions = tuple(conditions)
         self._order_by = tuple(order_by)
         self._skip = skip
@@ -266,12 +266,12 @@ class RelationshipMatch(object):
 
         clauses = []
         parameters = {}
-        if self._rel_type is None:
+        if self._r_type is None:
             relationship_detail = ""
-        elif is_collection(self._rel_type):
-            relationship_detail = ":" + "|:".join(cypher_escape(t) for t in self._rel_type)
+        elif is_collection(self._r_type):
+            relationship_detail = ":" + "|:".join(cypher_escape(t) for t in self._r_type)
         else:
-            relationship_detail = ":%s" % cypher_escape(self._rel_type)
+            relationship_detail = ":%s" % cypher_escape(self._r_type)
         if isinstance(self._nodes, Sequence):
             if len(self._nodes) >= 1 and self._nodes[0] is not None:
                 start_node = Node.cast(self._nodes[0])
@@ -342,7 +342,7 @@ class RelationshipMatch(object):
         """
         return self.__class__(self.graph,
                               nodes=self._nodes,
-                              rel_type=self._rel_type,
+                              r_type=self._r_type,
                               conditions=self._conditions + conditions + tuple(_property_equality_conditions(properties)),
                               order_by=self._order_by,
                               skip=self._skip,
@@ -361,7 +361,7 @@ class RelationshipMatch(object):
         """
         return self.__class__(self.graph,
                               nodes=self._nodes,
-                              rel_type=self._rel_type,
+                              r_type=self._r_type,
                               conditions=self._conditions,
                               order_by=fields,
                               skip=self._skip,
@@ -375,7 +375,7 @@ class RelationshipMatch(object):
         """
         return self.__class__(self.graph,
                               nodes=self._nodes,
-                              rel_type=self._rel_type,
+                              r_type=self._r_type,
                               conditions=self._conditions,
                               order_by=self._order_by,
                               skip=amount,
@@ -389,7 +389,7 @@ class RelationshipMatch(object):
         """
         return self.__class__(self.graph,
                               nodes=self._nodes,
-                              rel_type=self._rel_type,
+                              r_type=self._r_type,
                               conditions=self._conditions,
                               order_by=self._order_by,
                               skip=self._skip,
@@ -429,20 +429,20 @@ class RelationshipMatcher(object):
         except KeyError:
             return self.match().where("id(_) = %d" % identity).first()
 
-    def match(self, nodes=None, rel_type=None, **properties):
+    def match(self, nodes=None, r_type=None, **properties):
         """ Describe a basic relationship match...
 
         :param nodes: Sequence or Set of start and end nodes (:const:`None` means any node);
                 a Set implies a match in any direction
-        :param rel_type:
+        :param r_type:
         :param properties: set of property keys and values to match
         :return: :class:`.RelationshipMatch` instance
         """
         criteria = {}
         if nodes is not None:
             criteria["nodes"] = nodes
-        if rel_type is not None:
-            criteria["rel_type"] = rel_type
+        if r_type is not None:
+            criteria["r_type"] = r_type
         if properties:
             criteria["conditions"] = tuple(_property_equality_conditions(properties))
         return self._match_class(self.graph, **criteria)

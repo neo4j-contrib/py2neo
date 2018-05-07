@@ -166,10 +166,10 @@ class Graph(object):
     def exists(self, subgraph):
         raise NotImplementedError()
 
-    def match(self, nodes=None, rel_type=None, limit=None):
+    def match(self, nodes=None, r_type=None, limit=None):
         raise NotImplementedError()
 
-    def match_one(self, nodes=None, rel_type=None):
+    def match_one(self, nodes=None, r_type=None):
         raise NotImplementedError()
 
     def merge(self, subgraph, label=None, *property_keys):
