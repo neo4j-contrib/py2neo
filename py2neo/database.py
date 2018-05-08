@@ -386,7 +386,7 @@ class RemoteGraph(Graph):
         :param r_type: type of relationships to match (:const:`None` means any type)
         :param limit: maximum number of relationships to match (:const:`None` means unlimited)
         """
-        return iter(RelationshipMatcher(self).match(nodes=nodes, r_type=r_type).limit(limit))
+        return RelationshipMatcher(self).match(nodes=nodes, r_type=r_type).limit(limit)
 
     def match_one(self, nodes=None, r_type=None):
         """ Match and return one relationship with specific criteria.

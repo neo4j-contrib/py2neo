@@ -16,14 +16,16 @@
 # limitations under the License.
 
 
+from functools import reduce
+from operator import or_
 from os.path import join as path_join, dirname
 
 from py2neo.matching import NodeMatcher
 from py2neo.testing import IntegrationTestCase
-from py2neo.data import Node
+from py2neo.data import Node, Relationship
 
 
-class NodeFinderTestCase(IntegrationTestCase):
+class NodeMatcherTestCase(IntegrationTestCase):
 
     def setUp(self):
         self.graph.delete_all()
@@ -50,6 +52,10 @@ class NodeFinderTestCase(IntegrationTestCase):
     def test_can_match_all_nodes(self):
         found = list(self.matcher.match())
         assert len(found) == 169
+
+    def test_can_count_all_nodes(self):
+        count = len(self.matcher.match())
+        self.assertEqual(count, 169)
 
     def test_can_match_by_label_and_multiple_values(self):
         found = list(self.matcher.match("Person", name="Keanu Reeves", born=1964))
@@ -116,3 +122,72 @@ class NodeFinderTestCase(IntegrationTestCase):
         found = list(self.matcher.match("Person", name=frozenset(["Kevin Bacon", "Kiefer Sutherland"])))
         found_names = {actor["name"] for actor in found}
         assert found_names == {"Kevin Bacon", "Kiefer Sutherland"}
+
+
+class RelationshipMatchNodeCombinationsTestCase(IntegrationTestCase):
+
+    def setUp(self):
+        TO = Relationship.type("TO")
+        self.graph.delete_all()
+        a = self.a = Node()
+        b = self.b = Node()
+        c = self.c = Node()
+        d = self.d = Node()
+        self.r = [TO(a, b), TO(b, a), TO(b, c), TO(b, b), TO(c, d), TO(a, d)]
+        self.graph.create(reduce(or_, self.r))
+
+    def test_a_to_b(self):
+        match = self.graph.match(nodes=(self.a, self.b))
+        self.assertEqual(len(match), 1)
+        r = list(match)
+        self.assertEqual(len(r), 1)
+        self.assertSetEqual(set(r), {self.r[0]})
+
+    def test_a_to_x(self):
+        match = self.graph.match(nodes=(self.a, None))
+        self.assertEqual(len(match), 2)
+        r = list(match)
+        self.assertEqual(len(r), 2)
+        self.assertSetEqual(set(r), {self.r[0], self.r[5]})
+
+    def test_x_to_b(self):
+        match = self.graph.match(nodes=(None, self.b))
+        self.assertEqual(len(match), 2)
+        r = list(match)
+        self.assertEqual(len(r), 2)
+        self.assertSetEqual(set(r), {self.r[0], self.r[3]})
+
+    def test_x_to_x(self):
+        match = self.graph.match(nodes=(None, None))
+        self.assertEqual(len(match), 6)
+        r = list(match)
+        self.assertEqual(len(r), 6)
+        self.assertSetEqual(set(r), {self.r[0], self.r[1], self.r[2], self.r[3], self.r[4], self.r[5]})
+
+    def test_a_and_b(self):
+        match = self.graph.match(nodes={self.a, self.b})
+        self.assertEqual(len(match), 2)
+        r = list(match)
+        self.assertEqual(len(r), 2)
+        self.assertSetEqual(set(r), {self.r[0], self.r[1]})
+
+    def test_a_only(self):
+        match = self.graph.match(nodes={self.a})
+        self.assertEqual(len(match), 3)
+        r = list(match)
+        self.assertEqual(len(r), 3)
+        self.assertSetEqual(set(r), {self.r[0], self.r[1], self.r[5]})
+
+    def test_b_only(self):
+        match = self.graph.match(nodes={self.b})
+        self.assertEqual(len(match), 4)
+        r = list(match)
+        self.assertEqual(len(r), 4)
+        self.assertSetEqual(set(r), {self.r[0], self.r[1], self.r[2], self.r[3]})
+
+    def test_any(self):
+        match = self.graph.match(nodes=set())
+        self.assertEqual(len(match), 6)
+        r = list(match)
+        self.assertEqual(len(r), 6)
+        self.assertSetEqual(set(r), {self.r[0], self.r[1], self.r[2], self.r[3], self.r[4], self.r[5]})

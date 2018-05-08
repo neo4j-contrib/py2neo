@@ -19,7 +19,7 @@
 from collections import Sequence, Set
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import Node, Relationship
+from py2neo.data import Node
 from py2neo.internal.collections import is_collection
 
 
@@ -50,8 +50,15 @@ class NodeMatch(object):
         self._skip = skip
         self._limit = limit
 
+    def __len__(self):
+        """ Count matching nodes.
+        """
+        return self.graph.evaluate(*self._query_and_parameters(count=True))
+
     def __iter__(self):
-        for record in self.graph.run(*self._query_and_parameters):
+        """ Iterate through all matching nodes.
+        """
+        for record in self.graph.run(*self._query_and_parameters()):
             yield record[0]
 
     def first(self):
@@ -60,10 +67,9 @@ class NodeMatch(object):
 
         :return: a single matching :class:`.Node` or :const:`None`
         """
-        return self.graph.evaluate(*self._query_and_parameters)
+        return self.graph.evaluate(*self._query_and_parameters())
 
-    @property
-    def _query_and_parameters(self):
+    def _query_and_parameters(self, count=False):
         """ A tuple of the Cypher query and parameters used to select
         the nodes that match the criteria for this selection.
 
@@ -79,13 +85,16 @@ class NodeMatch(object):
                     parameters.update(param)
                 conditions.append(condition)
             clauses.append("WHERE %s" % " AND ".join(conditions))
-        clauses.append("RETURN _")
-        if self._order_by:
-            clauses.append("ORDER BY %s" % (", ".join(self._order_by)))
-        if self._skip:
-            clauses.append("SKIP %d" % self._skip)
-        if self._limit is not None:
-            clauses.append("LIMIT %d" % self._limit)
+        if count:
+            clauses.append("RETURN count(_)")
+        else:
+            clauses.append("RETURN _")
+            if self._order_by:
+                clauses.append("ORDER BY %s" % (", ".join(self._order_by)))
+            if self._skip:
+                clauses.append("SKIP %d" % self._skip)
+            if self._limit is not None:
+                clauses.append("LIMIT %d" % self._limit)
         return " ".join(clauses), parameters
 
     def where(self, *conditions, **properties):
@@ -186,7 +195,14 @@ class NodeMatcher(object):
     def __init__(self, graph):
         self.graph = graph
 
+    def __len__(self):
+        """ Count nodes.
+        """
+        return len(self.match())
+
     def __getitem__(self, identity):
+        """ Return a node by identity.
+        """
         entity = self.get(identity)
         if entity is None:
             raise KeyError("Node %d not found" % identity)
@@ -237,8 +253,16 @@ class RelationshipMatch(object):
         self._skip = skip
         self._limit = limit
 
+    def __len__(self):
+        """ Count all matching relationships.
+        """
+        return self.graph.evaluate(*self._query_and_parameters(count=True))
+
     def __iter__(self):
-        for record in self.graph.run(*self._query_and_parameters):
+        """ Iterate through all matching relationships.
+        """
+        query, parameters = self._query_and_parameters()
+        for record in self.graph.run(query, parameters):
             yield record[0]
 
     def first(self):
@@ -248,10 +272,9 @@ class RelationshipMatch(object):
 
         :return: a single matching :class:`.Relationship` or :const:`None`
         """
-        return self.graph.evaluate(*self._query_and_parameters)
+        return self.graph.evaluate(*self._query_and_parameters())
 
-    @property
-    def _query_and_parameters(self):
+    def _query_and_parameters(self, count=False):
         """ A tuple of the Cypher query and parameters used to select
         the nodes that match the criteria for this selection.
 
@@ -278,7 +301,9 @@ class RelationshipMatch(object):
             relationship_detail = ":" + "|:".join(cypher_escape(r_type_name(t)) for t in self._r_type)
         else:
             relationship_detail = ":%s" % cypher_escape(r_type_name(self._r_type))
-        if isinstance(self._nodes, Sequence):
+        if not self._nodes:
+            clauses.append("MATCH (a)-[_" + relationship_detail + "]->(b)")
+        elif isinstance(self._nodes, Sequence):
             if len(self._nodes) >= 1 and self._nodes[0] is not None:
                 start_node = Node.cast(self._nodes[0])
                 verify_node(start_node)
@@ -293,22 +318,22 @@ class RelationshipMatch(object):
                 raise ValueError("Node sequence cannot be longer than two")
             clauses.append("MATCH (a)-[_" + relationship_detail + "]->(b)")
         elif isinstance(self._nodes, Set):
-            self._nodes = {node for node in self._nodes if node is not None}
-            if len(self._nodes) >= 1:
-                start_node = Node.cast(self._nodes.pop())
+            nodes = {node for node in self._nodes if node is not None}
+            if len(nodes) >= 1:
+                start_node = Node.cast(nodes.pop())
                 verify_node(start_node)
                 clauses.append("MATCH (a) WHERE id(a) = {x}")
                 parameters["x"] = start_node.identity
-            if len(self._nodes) >= 1:
-                end_node = Node.cast(self._nodes.pop())
+            if len(nodes) >= 1:
+                end_node = Node.cast(nodes.pop())
                 verify_node(end_node)
                 clauses.append("MATCH (b) WHERE id(b) = {y}")
                 parameters["y"] = end_node.identity
-            if len(self._nodes) >= 1:
+            if len(nodes) >= 1:
                 raise ValueError("Node set cannot be larger than two")
             clauses.append("MATCH (a)-[_" + relationship_detail + "]-(b)")
         else:
-            clauses.append("MATCH (a)-[_" + relationship_detail + "]->(b)")
+            raise ValueError("Nodes must be passed as a Sequence or a Set")
         if self._conditions:
             conditions = []
             for condition in self._conditions:
@@ -317,13 +342,16 @@ class RelationshipMatch(object):
                     parameters.update(param)
                 conditions.append(condition)
             clauses.append("WHERE %s" % " AND ".join(conditions))
-        clauses.append("RETURN _")
-        if self._order_by:
-            clauses.append("ORDER BY %s" % (", ".join(self._order_by)))
-        if self._skip:
-            clauses.append("SKIP %d" % self._skip)
-        if self._limit is not None:
-            clauses.append("LIMIT %d" % self._limit)
+        if count:
+            clauses.append("RETURN count(_)")
+        else:
+            clauses.append("RETURN _")
+            if self._order_by:
+                clauses.append("ORDER BY %s" % (", ".join(self._order_by)))
+            if self._skip:
+                clauses.append("SKIP %d" % self._skip)
+            if self._limit is not None:
+                clauses.append("LIMIT %d" % self._limit)
         return " ".join(clauses), parameters
 
     def where(self, *conditions, **properties):
@@ -413,7 +441,14 @@ class RelationshipMatcher(object):
         self.graph = graph
         self._all = self._match_class(self.graph)
 
+    def __len__(self):
+        """ Return a count of nodes.
+        """
+        return len(self.match())
+
     def __getitem__(self, identity):
+        """ Return a relationship by identity.
+        """
         entity = self.get(identity)
         if entity is None:
             raise KeyError("Relationship %d not found" % identity)

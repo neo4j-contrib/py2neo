@@ -325,6 +325,7 @@ class GraphSchemaTestCase(IntegrationTestCase):
 class GraphMatchTestCase(IntegrationTestCase):
 
     def setUp(self):
+        self.graph.delete_all()
         self.alice = Node(name="Alice")
         self.bob = Node(name="Bob")
         self.carol = Node(name="Carol")
@@ -453,6 +454,11 @@ class GraphMatchTestCase(IntegrationTestCase):
         KNOWS = Relationship.type("KNOWS")
         relationships = list(self.graph.match(nodes=[self.alice], r_type=(LOVES, KNOWS)))
         assert len(relationships) == 2
+
+    def test_can_count_relationship_matches(self):
+        LOVES = Relationship.type("LOVES")
+        KNOWS = Relationship.type("KNOWS")
+        self.assertEqual(len(self.graph.match(nodes=[self.alice], r_type=(LOVES, KNOWS))), 2)
 
 
 class GraphDeleteTestCase(IntegrationTestCase):
