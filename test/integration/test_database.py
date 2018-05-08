@@ -448,6 +448,12 @@ class GraphMatchTestCase(IntegrationTestCase):
         relationships = list(self.graph.match(nodes={self.alice, self.bob}))
         assert len(relationships) == 4
 
+    def test_can_match_by_relationship_type_object(self):
+        LOVES = Relationship.type("LOVES")
+        KNOWS = Relationship.type("KNOWS")
+        relationships = list(self.graph.match(nodes=[self.alice], r_type=(LOVES, KNOWS)))
+        assert len(relationships) == 2
+
 
 class GraphDeleteTestCase(IntegrationTestCase):
 

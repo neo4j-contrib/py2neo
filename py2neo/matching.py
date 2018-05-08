@@ -19,7 +19,7 @@
 from collections import Sequence, Set
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import Node
+from py2neo.data import Node, Relationship
 from py2neo.internal.collections import is_collection
 
 
@@ -264,14 +264,20 @@ class RelationshipMatch(object):
             if n.identity is None:
                 raise ValueError("Node %r is not bound to a graph" % n)
 
+        def r_type_name(r):
+            try:
+                return r.__name__
+            except AttributeError:
+                return r
+
         clauses = []
         parameters = {}
         if self._r_type is None:
             relationship_detail = ""
         elif is_collection(self._r_type):
-            relationship_detail = ":" + "|:".join(cypher_escape(t) for t in self._r_type)
+            relationship_detail = ":" + "|:".join(cypher_escape(r_type_name(t)) for t in self._r_type)
         else:
-            relationship_detail = ":%s" % cypher_escape(self._r_type)
+            relationship_detail = ":%s" % cypher_escape(r_type_name(self._r_type))
         if isinstance(self._nodes, Sequence):
             if len(self._nodes) >= 1 and self._nodes[0] is not None:
                 start_node = Node.cast(self._nodes[0])
