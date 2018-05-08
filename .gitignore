@@ -45,7 +45,7 @@ htmlcov
 .idea
 
 # Sphinx
-book/_build
+docs/_build
 
 # Virtual environment
 venv
