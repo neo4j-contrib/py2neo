@@ -15,6 +15,7 @@ function run
     fi
 }
 
+rm -r *.egg-info 2> /dev/null
 pip install --upgrade -r requirements.txt -r test_requirements.txt
 coverage erase
 run "" ""
