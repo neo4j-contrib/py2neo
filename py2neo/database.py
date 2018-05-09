@@ -24,10 +24,11 @@ from time import sleep
 from warnings import warn
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import Graph, Record, Table
+from py2neo.data import Table
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.compat import string_types, xstr
+from py2neo.storage import Record
 from py2neo.internal.util import version_tuple, title_case, snake_case
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 
@@ -121,7 +122,7 @@ class Database(object):
 
     def __getitem__(self, database):
         if database == "data" and database not in self._graphs:
-            self._graphs[database] = RemoteGraph(**self._connection_data)
+            self._graphs[database] = Graph(**self._connection_data)
         return self._graphs[database]
 
     def __setitem__(self, database, graph):
@@ -250,9 +251,69 @@ class Database(object):
         return self.query_jmx("org.neo4j", name="Configuration")
 
 
-class RemoteGraph(Graph):
+class Graph(object):
+    """ The `Graph` class represents the graph data storage space within
+    a Neo4j graph database. Connection details are provided using URIs
+    and/or individual settings.
 
-    uri_schemes = ("http", "https", "bolt", "bolt+routing")
+    Supported URI schemes are:
+
+    - ``http``
+    - ``https``
+    - ``bolt``
+    - ``bolt+routing``
+
+    The full set of `settings` supported are:
+
+    auth user_agent secure scheme user password host port
+
+    ==============  =============================================  ==============  =============
+    Keyword         Description                                    Type            Default
+    ==============  =============================================  ==============  =============
+    ``auth``        A 2-tuple of (user, password)                  tuple           ``('neo4j', 'password')``
+    ``host``        Database server host name                      str             ``'localhost'``
+    ``password``    Password to use for authentication             str             ``'password'``
+    ``port``        Database server port                           int             ``7687``
+    ``scheme``      Use a specific URI scheme                      str             ``'bolt'``
+    ``secure``      Use a secure connection (TLS)                  bool            ``False``
+    ``user``        User to authenticate as                        str             ``'neo4j'``
+    ``user_agent``  User agent to send for all connections         str             `(depends on URI scheme)`
+    ==============  =============================================  ==============  =============
+
+    Each setting can be provided as a keyword argument or as part of
+    an ``http:``, ``https:``, ``bolt:`` or ``bolt+routing:`` URI. Therefore, the examples
+    below are equivalent::
+
+        >>> from py2neo import Graph
+        >>> graph_1 = Graph()
+        >>> graph_2 = Graph(host="localhost")
+        >>> graph_3 = Graph("bolt://localhost:7687")
+
+    Once obtained, the `Graph` instance provides direct or indirect
+    access to most of the functionality available within py2neo.
+    """
+
+    # TODO (maybe) - different Graph implementations
+    # uri_schemes = ()
+    # uri_schemes = ("http", "https", "bolt", "bolt+routing")
+    #
+    # def __new__(cls, uri=None, **settings):
+    #     connection_data = get_connection_data(uri, **settings)
+    #
+    #     def find_subclass(root_class, uri_scheme):
+    #         for subclass in root_class.__subclasses__():
+    #             if uri_scheme in subclass.uri_schemes:
+    #                 return subclass
+    #             found = find_subclass(subclass, uri_scheme)
+    #             if found:
+    #                 return found
+    #         return None
+    #
+    #     graph = find_subclass(cls, connection_data["scheme"])
+    #     if graph:
+    #         return graph(uri=None, **settings)
+    #     else:
+    #         raise NotImplementedError("Unsupported URI scheme %r" % connection_data["scheme"])
 
     #: The :class:`.Database` to which this :class:`.Graph` belongs.
     database = None
@@ -277,7 +338,7 @@ class RemoteGraph(Graph):
         return inst
 
     def __repr__(self):
-        return "<RemoteGraph database=%r name=%r>" % (self.database, self.__name__)
+        return "<Graph database=%r name=%r>" % (self.database, self.__name__)
 
     def __eq__(self, other):
         try:

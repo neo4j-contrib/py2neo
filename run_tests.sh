@@ -15,6 +15,7 @@ function run
     fi
     if [ "${PY2NEO_QUICK_TEST}" != "" ]
     then
+        coverage report
         exit 0
     fi
 }
