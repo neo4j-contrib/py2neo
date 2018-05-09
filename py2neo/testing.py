@@ -16,6 +16,7 @@
 # limitations under the License.
 
 
+from os import getenv
 from unittest import TestCase
 from uuid import uuid4
 
@@ -101,6 +102,7 @@ class TestRunner(object):
 
     user = "neo4j"
     password = "password"
+    quick = getenv("PY2NEO_QUICK_TEST", "")
 
     def __init__(self, versions):
         self.warehouse = Warehouse()
@@ -127,19 +129,20 @@ class TestRunner(object):
         # Re-enable the import warning. Pretend nothing dodgy happened.
         AssertionRewritingHook._warn_already_imported = self._state["warning"]
 
-    def _run_tests(self):
-        self._before_tests()
-        try:
-            status = test_main()
-            if status != 0:
-                raise RuntimeError("Tests failed with status %d" % status)
-        finally:
-            self._after_tests()
-
     def run_tests(self):
         print("Running tests")
         for self._state["version"] in self.versions:
-            self._run_tests()
+            self._before_tests()
+            try:
+                status = test_main()
+                if status != 0:
+                    raise RuntimeError("Tests failed with status %d" % status)
+            except InterruptedError:
+                break
+            finally:
+                self._after_tests()
+            if self.quick:
+                break
 
 
 def main():

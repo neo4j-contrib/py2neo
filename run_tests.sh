@@ -13,10 +13,17 @@ function run
         echo "Tests failed (NEO4J_URI=${NEO4J_URI} NEO4J_SECURE=${NEO4J_SECURE})"
         exit 1
     fi
+    if [ "${PY2NEO_QUICK_TEST}" != "" ]
+    then
+        exit 0
+    fi
 }
 
 rm -r *.egg-info 2> /dev/null
-pip install --upgrade -r requirements.txt -r test_requirements.txt
+if [ "${PY2NEO_QUICK_TEST}" == "" ]
+then
+    pip install --upgrade -r requirements.txt -r test_requirements.txt
+fi
 coverage erase
 run "" ""
 run "bolt://localhost:7687" 0

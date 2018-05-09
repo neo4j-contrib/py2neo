@@ -175,9 +175,6 @@ class Graph(object):
     def merge(self, subgraph, label=None, *property_keys):
         raise NotImplementedError()
 
-    def node(self, identity):
-        raise NotImplementedError()
-
     @property
     def nodes(self):
         raise NotImplementedError()
