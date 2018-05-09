@@ -147,7 +147,7 @@ class Graph(object):
 
         graph = find_subclass(cls, connection_data["scheme"])
         if graph:
-            return graph(uri=None, **settings)
+            return graph(uri=connection_data["uri"], **settings)
         else:
             raise NotImplementedError("Unsupported URI scheme %r" % connection_data["scheme"])
 
