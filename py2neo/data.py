@@ -183,7 +183,7 @@ class Subgraph(object):
                 end_node_id = "a%d" % nodes.index(relationship.end_node)
                 type_string = cypher_escape(type(relationship).__name__)
                 param_id = "y%d" % i
-                writes.append("CREATE UNIQUE (%s)-[%s:%s]->(%s) SET %s={%s}" %
+                writes.append("MERGE (%s)-[%s:%s]->(%s) SET %s={%s}" %
                               (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
                 parameters[param_id] = dict(relationship)
                 returns[rel_id] = relationship
@@ -584,6 +584,43 @@ class Node(Entity):
     def __ensure_labels(self):
         if self.graph is not None and self.identity is not None and "labels" in self._stale:
             self.graph.pull(self)
+
+    def __db_merge__(self, tx, primary_label=None, primary_key=None):
+        if self.graph is not None:
+            return
+        clauses = []
+        parameters = {}
+        returns = {}
+        merge_label = getattr(self, "__primarylabel__", None) or primary_label
+        if merge_label is None:
+            label_string = "".join(":" + cypher_escape(label)
+                                   for label in sorted(self.labels))
+        elif self.labels:
+            label_string = ":" + cypher_escape(merge_label)
+        else:
+            label_string = ""
+        merge_keys = getattr(self, "__primarykey__", None) or primary_key
+        if merge_keys is None:
+            merge_keys = ()
+        elif is_collection(merge_keys):
+            merge_keys = tuple(merge_keys)
+        else:
+            merge_keys = (merge_keys,)
+        if merge_keys:
+            property_map_string = cypher_repr({k: v for k, v in dict(self).items()
+                                               if k in merge_keys})
+        else:
+            property_map_string = cypher_repr(dict(self))
+        clauses.append("MERGE (a%s %s)" % (label_string, property_map_string))
+        if self.labels:
+            clauses.append("SET a%s" % ("".join(":" + cypher_escape(label) for label in sorted(self.labels))))
+        if merge_keys:
+            clauses.append("SET a=$x")
+            parameters["x"] = dict(self)
+        returns["a"] = self
+        statement = "\n".join(clauses + ["RETURN %s LIMIT 1" % ", ".join(returns)])
+        tx.entities.append(returns)
+        list(tx.run(statement, parameters))
 
     @property
     def labels(self):

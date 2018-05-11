@@ -42,7 +42,7 @@ class ConsoleTestCase(TestCase):
 
     def assertPrologue(self, console):
         self.assertEqual(console.captured_output.pop(0), "Py2neo console v" + __version__)
-        self.assertEqual(console.captured_output.pop(0), "Connected to bolt://localhost:7687")
+        self.assertEqual(console.captured_output.pop(0), "Connected to %s" % console.graph.database.uri)
         self.assertEqual(console.captured_output.pop(0), "")
         self.assertEqual(console.captured_output.pop(0), "//  to enter multi-line mode (press [Alt]+[Enter] to run)\n"
                                                          "/e  to launch external editor\n"

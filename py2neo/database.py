@@ -90,12 +90,11 @@ class Database(object):
         except KeyError:
             inst = super(Database, cls).__new__(cls)
             inst._connection_data = connection_data
-            from py2neo.internal.http import HTTPDriver
-            HTTPDriver.register()
-            from neo4j.v1 import GraphDatabase
-            inst._driver = GraphDatabase.driver(connection_data["uri"], auth=connection_data["auth"],
-                                                encrypted=connection_data["secure"],
-                                                user_agent=connection_data["user_agent"])
+            from neo4j.v1 import Driver
+            inst._driver = Driver(connection_data["uri"],
+                                  auth=connection_data["auth"],
+                                  encrypted=connection_data["secure"],
+                                  user_agent=connection_data["user_agent"])
             inst._graphs = {}
             cls._instances[key] = inst
         return inst
@@ -103,7 +102,8 @@ class Database(object):
     def __repr__(self):
         class_name = self.__class__.__name__
         data = self._connection_data
-        return "<%s uri=%r secure=%r user_agent=%r>" % (class_name, data["uri"], data["secure"], data["user_agent"])
+        return "<%s uri=%r secure=%r user_agent=%r>" % (
+            class_name, data["uri"], data["secure"], data["user_agent"])
 
     def __eq__(self, other):
         try:
@@ -361,8 +361,7 @@ class Graph(object):
     def __bool__(self):
         return True
 
-    def __nonzero__(self):
-        return True
+    __nonzero__ = __bool__
 
     def begin(self, autocommit=False):
         """ Begin a new :class:`.Transaction`.

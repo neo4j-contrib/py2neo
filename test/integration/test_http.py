@@ -146,11 +146,6 @@ class ServerErrorTestCase(HTTPGraphTestCase):
 
 class HTTPSchemeTestCase(HTTPGraphTestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        from py2neo.internal.http import HTTPDriver
-        HTTPDriver.register()
-
     def test_should_be_able_to_run_transaction_with_http_scheme(self):
         driver = GraphDatabase.driver("http://localhost:7474", auth=("neo4j", "password"))
         try:

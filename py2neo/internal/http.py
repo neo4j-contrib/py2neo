@@ -186,23 +186,54 @@ class HTTP(object):
 
 class HTTPDriver(Driver):
 
-    @staticmethod
-    def register():
-        from neo4j.v1 import GraphDatabase
-        if "http" not in GraphDatabase.uri_schemes:
-            GraphDatabase.uri_schemes["http"] = HTTPDriver
-        if "https" not in GraphDatabase.uri_schemes:
-            GraphDatabase.uri_schemes["https"] = HTTPDriver
+    uri_scheme = "http"
 
-    def __init__(self, uri, **config):
-        super(HTTPDriver, self).__init__(None)
-        self._connection_data = connection_data = get_connection_data(uri, **config)
-        self._http = HTTP(connection_data["uri"] + "/db/data/", {
+    _connection_data = None
+
+    _http = None
+
+    _graph = None
+
+    def __new__(cls, uri, **config):
+        cls._check_uri(uri)
+        instance = object.__new__(cls)
+        instance._connection_data = connection_data = get_connection_data(uri, **config)
+        instance._http = HTTP(connection_data["uri"] + "/db/data/", {
             "Authorization": HTTP.authorization(connection_data["user"], connection_data["password"]),
             "User-Agent": connection_data["user_agent"],
             "X-Stream": "true",
         }, connection_data["verified"])
-        self._graph = None
+        instance._graph = None
+        return instance
+
+    def session(self, access_mode=None, bookmark=None):
+        if self._graph is None:
+            from py2neo.database import Database
+            self._graph = Database(self._connection_data["uri"], auth=self._connection_data["auth"]).default_graph
+        return HTTPSession(self._graph, self._http)
+
+
+class HTTPSDriver(Driver):
+
+    uri_scheme = "https"
+
+    _connection_data = None
+
+    _http = None
+
+    _graph = None
+
+    def __new__(cls, uri, **config):
+        cls._check_uri(uri)
+        instance = object.__new__(cls)
+        instance._connection_data = connection_data = get_connection_data(uri, **config)
+        instance._http = HTTP(connection_data["uri"] + "/db/data/", {
+            "Authorization": HTTP.authorization(connection_data["user"], connection_data["password"]),
+            "User-Agent": connection_data["user_agent"],
+            "X-Stream": "true",
+        }, connection_data["verified"])
+        instance._graph = None
+        return instance
 
     def session(self, access_mode=None, bookmark=None):
         if self._graph is None:

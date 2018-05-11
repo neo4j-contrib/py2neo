@@ -18,8 +18,6 @@
 
 from __future__ import absolute_import
 
-from neo4j.v1.api import Hydrator
-
 from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import integer_types, string_types, ustr, bytes_types
 from py2neo.internal.hydration import hydrate_node, hydrate_relationship, hydrate_path
@@ -29,7 +27,7 @@ INT64_MIN = -(2 ** 63)
 INT64_MAX = (2 ** 63) - 1
 
 
-class JSONHydrator(Hydrator):
+class JSONHydrator(object):
 
     def __init__(self, graph, keys, entities=None):
         self.graph = graph
