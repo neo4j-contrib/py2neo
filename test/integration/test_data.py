@@ -237,13 +237,6 @@ class RelationshipTestCase(IntegrationTestCase):
         self.assertEqual(r.graph, a.graph, self.graph)
         self.assertIsNotNone(r.identity)
 
-    def test_relationship_degree(self):
-        a = Node()
-        b = Node()
-        r = Relationship(a, "TO", b)
-        self.graph.create(r)
-        self.assertEqual(self.graph.degree(r), 1)
-
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})
         assert size(rel) == 1

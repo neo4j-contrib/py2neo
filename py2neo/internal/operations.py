@@ -76,6 +76,18 @@ def create_subgraph(tx, subgraph):
             graph.relationship_cache.update(identity, relationship)
 
 
-# def delete_nodes(tx, identities):
-#     cypher = "MATCH (_) WHERE id(_) IN $x DELETE _"
-#     return [record[0] for record in tx.run(cypher, x=identities)]
+def delete_subgraph(tx, subgraph):
+    graph = tx.graph
+    node_ids = set()
+    relationship_ids = set()
+    for i, node in enumerate(subgraph.nodes):
+        if node.graph is graph:
+            node_ids.add(node.identity)
+    for i, relationship in enumerate(subgraph.relationships):
+        if relationship.graph is graph:
+            relationship_ids.add(relationship.identity)
+    statement = ("OPTIONAL MATCH (a) WHERE id(a) IN $x "
+                 "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN $y "
+                 "DELETE r, a")
+    parameters = {"x": list(node_ids), "y": list(relationship_ids)}
+    list(tx.run(statement, parameters))

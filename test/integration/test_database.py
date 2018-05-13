@@ -766,30 +766,6 @@ class TransactionSeparateTestCase(IntegrationTestCase):
             self.graph.separate("this string is definitely not graphy")
 
 
-class TransactionDegreeTestCase(IntegrationTestCase):
-
-    def test_degree_of_node(self):
-        a = Node()
-        b = Node()
-        self.graph.create(Relationship(a, "R1", b) | Relationship(a, "R2", b))
-        with self.graph.begin() as tx:
-            d = tx.degree(a)
-        assert d == 2
-
-    def test_degree_of_two_related_nodes(self):
-        a = Node()
-        b = Node()
-        self.graph.create(Relationship(a, "R1", b) | Relationship(a, "R2", b))
-        with self.graph.begin() as tx:
-            d = tx.degree(a | b)
-        assert d == 2
-
-    def test_cannot_get_degree_of_non_graphy_thing(self):
-        with self.assertRaises(TypeError):
-            with self.graph.begin() as tx:
-                tx.degree("this string is definitely not graphy")
-
-
 class TransactionExistsTestCase(IntegrationTestCase):
 
     def test_cannot_check_existence_of_non_graphy_thing(self):

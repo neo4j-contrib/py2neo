@@ -24,7 +24,7 @@ from time import sleep
 from warnings import warn
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import Table
+from py2neo.data import Subgraph, Table
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.compat import string_types, xstr
@@ -380,16 +380,6 @@ class Graph(object):
         """
         with self.begin() as tx:
             tx.create(subgraph)
-
-    def degree(self, subgraph):
-        """ Run a :meth:`.Transaction.degree` operation within an
-        `autocommit` :class:`.Transaction`.
-
-        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Subgraph` object
-        :return: the total degree of all nodes in the subgraph
-        """
-        return self.begin(autocommit=True).degree(subgraph)
 
     def delete(self, subgraph):
         """ Run a :meth:`.Transaction.delete` operation within an
@@ -959,21 +949,6 @@ class Transaction(object):
             raise TypeError("No method defined to create object %r" % subgraph)
         else:
             create(self)
-
-    def degree(self, subgraph):
-        """ Return the total number of relationships attached to all nodes in
-        a subgraph.
-
-        :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
-                       :class:`.Subgraph`
-        :returns: the total number of distinct relationships
-        """
-        try:
-            degree = subgraph.__db_degree__
-        except AttributeError:
-            raise TypeError("No method defined to determine the degree of object %r" % subgraph)
-        else:
-            return degree(self)
 
     def delete(self, subgraph):
         """ Delete the remote nodes and relationships that correspond to

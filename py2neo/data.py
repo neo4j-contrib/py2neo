@@ -23,7 +23,7 @@ from uuid import uuid4
 from py2neo.cypher.writing import LabelSetView, cypher_escape, cypher_repr, cypher_str
 from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import integer_types, numeric_types, string_types, ustr, xstr
-from py2neo.internal.operations import create_subgraph
+from py2neo.internal.operations import create_subgraph, delete_subgraph
 from py2neo.storage import PropertyDict
 
 
@@ -160,35 +160,8 @@ class Subgraph(object):
     def __db_create__(self, tx):
         create_subgraph(tx, self)
 
-    def __db_degree__(self, tx):
-        graph = tx.graph
-        node_ids = []
-        for i, node in enumerate(self.nodes):
-            if node.graph is graph:
-                node_ids.append(node.identity)
-        statement = "OPTIONAL MATCH (a)-[r]-() WHERE id(a) IN {x} RETURN count(DISTINCT r)"
-        parameters = {"x": node_ids}
-        return tx.evaluate(statement, parameters)
-
     def __db_delete__(self, tx):
-        graph = tx.graph
-        node_ids = set()
-        relationship_ids = set()
-        for i, node in enumerate(self.nodes):
-            if node.graph is graph:
-                node_ids.add(node.identity)
-            else:
-                return False
-        for i, relationship in enumerate(self.relationships):
-            if relationship.graph is graph:
-                relationship_ids.add(relationship.identity)
-            else:
-                return False
-        statement = ("OPTIONAL MATCH (a) WHERE id(a) IN {x} "
-                     "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN {y} "
-                     "DELETE r, a")
-        parameters = {"x": list(node_ids), "y": list(relationship_ids)}
-        list(tx.run(statement, parameters))
+        delete_subgraph(tx, self)
 
     def __db_exists__(self, tx):
         graph = tx.graph

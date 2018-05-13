@@ -4,7 +4,7 @@ source =
     py2neo
 omit =
     */__main__.py
-    py2neo/internal/*
+    py2neo/internal/compat.py
     py2neo/experimental/*
     test/*
     demo
