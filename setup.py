@@ -49,7 +49,7 @@ package_metadata = {
     "install_requires": [
         "click>=2.0",
         "colorama",
-        "git+https://github.com/neo4j/neo4j-python-driver.git#egg=neo4j-driver",
+        "neo4j-driver",
         "prompt_toolkit",
         "pygments>=2.0",
         "pytest",

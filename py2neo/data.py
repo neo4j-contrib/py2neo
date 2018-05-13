@@ -21,10 +21,10 @@ from itertools import chain
 from uuid import uuid4
 
 from py2neo.cypher.writing import LabelSetView, cypher_escape, cypher_repr, cypher_str
-from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import integer_types, numeric_types, string_types, ustr, xstr
-from py2neo.storage import PropertyDict, MutableGraphStore, FrozenGraphStore
+from py2neo.internal.operations import create_subgraph
+from py2neo.storage import PropertyDict
 
 
 def html_escape(s):
@@ -158,38 +158,7 @@ class Subgraph(object):
         return Subgraph(n, r)
 
     def __db_create__(self, tx):
-        graph = tx.graph
-        nodes = list(self.nodes)
-        reads = []
-        writes = []
-        parameters = {}
-        returns = {}
-        for i, node in enumerate(nodes):
-            node_id = "a%d" % i
-            param_id = "x%d" % i
-            if node.graph is graph:
-                reads.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                parameters[param_id] = node.identity
-            else:
-                label_string = "".join(":" + cypher_escape(label)
-                                       for label in sorted(node.labels))
-                writes.append("CREATE (%s%s {%s})" % (node_id, label_string, param_id))
-                parameters[param_id] = dict(node)
-            returns[node_id] = node
-        for i, relationship in enumerate(self.relationships):
-            if relationship.graph is not graph:
-                rel_id = "r%d" % i
-                start_node_id = "a%d" % nodes.index(relationship.start_node)
-                end_node_id = "a%d" % nodes.index(relationship.end_node)
-                type_string = cypher_escape(type(relationship).__name__)
-                param_id = "y%d" % i
-                writes.append("MERGE (%s)-[%s:%s]->(%s) SET %s={%s}" %
-                              (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
-                parameters[param_id] = dict(relationship)
-                returns[rel_id] = relationship
-        statement = "\n".join(reads + writes + ["RETURN %s LIMIT 1" % ", ".join(returns)])
-        tx.entities.append(returns)
-        list(tx.run(statement, parameters))
+        create_subgraph(tx, self)
 
     def __db_degree__(self, tx):
         graph = tx.graph
