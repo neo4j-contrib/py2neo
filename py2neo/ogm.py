@@ -368,8 +368,7 @@ class GraphObject(object):
 
     def __db_delete__(self, tx):
         ogm = self.__ogm__
-        if ogm.node.identity is not None:
-            tx.run("MATCH (a) WHERE id(a) = {x} OPTIONAL MATCH (a)-[r]->() DELETE r DELETE a", x=ogm.node.identity)
+        tx.delete(ogm.node)
         for related_objects in ogm.related.values():
             related_objects.clear()
 

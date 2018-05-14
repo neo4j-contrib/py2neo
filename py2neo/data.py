@@ -20,10 +20,11 @@ from io import StringIO
 from itertools import chain
 from uuid import uuid4
 
-from py2neo.cypher.writing import LabelSetView, cypher_escape, cypher_repr, cypher_str
+from py2neo.cypher.writing import LabelSetView, cypher_repr, cypher_str
 from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import integer_types, numeric_types, string_types, ustr, xstr
-from py2neo.internal.operations import create_subgraph, delete_subgraph, separate_subgraph
+from py2neo.internal.operations import create_subgraph, merge_subgraph, delete_subgraph, separate_subgraph, \
+    pull_subgraph, push_subgraph
 from py2neo.storage import PropertyDict
 
 
@@ -164,104 +165,13 @@ class Subgraph(object):
         delete_subgraph(tx, self)
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
-        graph = tx.graph
-        nodes = list(self.nodes)
-        match_clauses = []
-        merge_clauses = []
-        parameters = {}
-        returns = {}
-        for i, node in enumerate(nodes):
-            node_id = "a%d" % i
-            param_id = "x%d" % i
-            if node.graph is graph:
-                match_clauses.append("MATCH (%s) WHERE id(%s)={%s}" % (node_id, node_id, param_id))
-                parameters[param_id] = node.identity
-            else:
-                merge_label = getattr(node, "__primarylabel__", None) or primary_label
-                if merge_label is None:
-                    label_string = "".join(":" + cypher_escape(label)
-                                           for label in sorted(node.labels))
-                elif node.labels:
-                    label_string = ":" + cypher_escape(merge_label)
-                else:
-                    label_string = ""
-                merge_keys = getattr(node, "__primarykey__", None) or primary_key
-                if merge_keys is None:
-                    merge_keys = ()
-                elif is_collection(merge_keys):
-                    merge_keys = tuple(merge_keys)
-                else:
-                    merge_keys = (merge_keys,)
-                if merge_keys:
-                    property_map_string = cypher_repr({k: v for k, v in dict(node).items()
-                                                       if k in merge_keys})
-                else:
-                    property_map_string = cypher_repr(dict(node))
-                merge_clauses.append("MERGE (%s%s %s)" % (node_id, label_string, property_map_string))
-                if node.labels:
-                    merge_clauses.append("SET %s%s" % (
-                        node_id, "".join(":" + cypher_escape(label)
-                                         for label in sorted(node.labels))))
-                if merge_keys:
-                    merge_clauses.append("SET %s={%s}" % (node_id, param_id))
-                    parameters[param_id] = dict(node)
-            returns[node_id] = node
-        clauses = match_clauses + merge_clauses
-        for i, relationship in enumerate(self.relationships):
-            if relationship.graph is not graph:
-                rel_id = "r%d" % i
-                start_node_id = "a%d" % nodes.index(relationship.start_node)
-                end_node_id = "a%d" % nodes.index(relationship.end_node)
-                type_string = cypher_escape(type(relationship).__name__)
-                param_id = "y%d" % i
-                clauses.append("MERGE (%s)-[%s:%s]->(%s) SET %s={%s}" %
-                               (start_node_id, rel_id, type_string, end_node_id, rel_id, param_id))
-                parameters[param_id] = dict(relationship)
-                returns[rel_id] = relationship
-        statement = "\n".join(clauses + ["RETURN %s LIMIT 1" % ", ".join(returns)])
-        tx.entities.append(returns)
-        list(tx.run(statement, parameters))
+        merge_subgraph(tx, self, primary_label, primary_key)
 
     def __db_pull__(self, tx):
-        graph = tx.graph
-        nodes = {node: None for node in self.nodes}
-        relationships = list(self.relationships)
-        for node in nodes:
-            if node.graph is graph:
-                tx.entities.append({"_": node})
-                cursor = tx.run("MATCH (_) WHERE id(_) = {x} RETURN _, labels(_)", x=node.identity)
-                nodes[node] = cursor
-        for relationship in relationships:
-            if relationship.graph is graph:
-                tx.entities.append({"_": relationship})
-                list(tx.run("MATCH ()-[_]->() WHERE id(_) = {x} RETURN _", x=relationship.identity))
-        for node, cursor in nodes.items():
-            new_labels = cursor.evaluate(1)
-            if new_labels:
-                node._remote_labels = frozenset(new_labels)
-                labels = node._labels
-                labels.clear()
-                labels.update(new_labels)
+        pull_subgraph(tx, self)
 
     def __db_push__(self, tx):
-        graph = tx.graph
-        # TODO: reimplement this when REMOVE a:* is available in Cypher
-        for node in self.nodes:
-            if node.graph is graph:
-                clauses = ["MATCH (_) WHERE id(_) = {x}", "SET _ = {y}"]
-                parameters = {"x": node.identity, "y": dict(node)}
-                old_labels = node._remote_labels - node._labels
-                if old_labels:
-                    clauses.append("REMOVE _:%s" % ":".join(map(cypher_escape, old_labels)))
-                new_labels = node._labels - node._remote_labels
-                if new_labels:
-                    clauses.append("SET _:%s" % ":".join(map(cypher_escape, new_labels)))
-                tx.run("\n".join(clauses), parameters)
-        for relationship in self.relationships:
-            if relationship.graph is graph:
-                clauses = ["MATCH ()-[_]->() WHERE id(_) = {x}", "SET _ = {y}"]
-                parameters = {"x": relationship.identity, "y": dict(relationship)}
-                tx.run("\n".join(clauses), parameters)
+        push_subgraph(tx, self)
 
     def __db_separate__(self, tx):
         separate_subgraph(tx, self)
@@ -493,43 +403,6 @@ class Node(Entity):
     def __ensure_labels(self):
         if self.graph is not None and self.identity is not None and "labels" in self._stale:
             self.graph.pull(self)
-
-    def __db_merge__(self, tx, primary_label=None, primary_key=None):
-        if self.graph is not None:
-            return
-        clauses = []
-        parameters = {}
-        returns = {}
-        merge_label = getattr(self, "__primarylabel__", None) or primary_label
-        if merge_label is None:
-            label_string = "".join(":" + cypher_escape(label)
-                                   for label in sorted(self.labels))
-        elif self.labels:
-            label_string = ":" + cypher_escape(merge_label)
-        else:
-            label_string = ""
-        merge_keys = getattr(self, "__primarykey__", None) or primary_key
-        if merge_keys is None:
-            merge_keys = ()
-        elif is_collection(merge_keys):
-            merge_keys = tuple(merge_keys)
-        else:
-            merge_keys = (merge_keys,)
-        if merge_keys:
-            property_map_string = cypher_repr({k: v for k, v in dict(self).items()
-                                               if k in merge_keys})
-        else:
-            property_map_string = cypher_repr(dict(self))
-        clauses.append("MERGE (a%s %s)" % (label_string, property_map_string))
-        if self.labels:
-            clauses.append("SET a%s" % ("".join(":" + cypher_escape(label) for label in sorted(self.labels))))
-        if merge_keys:
-            clauses.append("SET a=$x")
-            parameters["x"] = dict(self)
-        returns["a"] = self
-        statement = "\n".join(clauses + ["RETURN %s LIMIT 1" % ", ".join(returns)])
-        tx.entities.append(returns)
-        list(tx.run(statement, parameters))
 
     @property
     def labels(self):

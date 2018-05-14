@@ -545,7 +545,7 @@ class MergeNodeTestCase(IntegrationTestCase):
     def test_can_merge_node_that_does_not_exist(self):
         alice = Node("Person", name="Alice")
         old_order = order(self.graph)
-        self.graph.merge(alice)
+        self.graph.merge(alice, "Person", "name")
         self.assertEqual(alice.graph, self.graph)
         self.assertIsNotNone(alice.identity)
         assert self.graph.exists(alice)
@@ -556,7 +556,7 @@ class MergeNodeTestCase(IntegrationTestCase):
         self.graph.create(Node("Person", name="Alice"))
         alice = Node("Person", name="Alice")
         old_order = order(self.graph)
-        self.graph.merge(alice)
+        self.graph.merge(alice, "Person", "name")
         self.assertEqual(alice.graph, self.graph)
         self.assertIsNotNone(alice.identity)
         assert self.graph.exists(alice)
@@ -567,32 +567,12 @@ class MergeNodeTestCase(IntegrationTestCase):
         alice = Node("Person", name="Alice")
         self.graph.create(alice)
         old_order = order(self.graph)
-        self.graph.merge(alice)
+        self.graph.merge(alice, "Person", "name")
         self.assertEqual(alice.graph, self.graph)
         self.assertIsNotNone(alice.identity)
         assert self.graph.exists(alice)
         new_order = order(self.graph)
         assert new_order == old_order
-
-    def test_can_merge_node_without_label(self):
-        node = Node()
-        old_order = order(self.graph)
-        self.graph.merge(node)
-        self.assertEqual(node.graph, self.graph)
-        self.assertIsNotNone(node.identity)
-        assert self.graph.exists(node)
-        new_order = order(self.graph)
-        assert new_order == old_order + 1
-
-    def test_can_merge_with_label_node_without_label(self):
-        node = Node()
-        old_order = order(self.graph)
-        self.graph.merge(node, "Person")
-        self.assertEqual(node.graph, self.graph)
-        self.assertIsNotNone(node.identity)
-        assert self.graph.exists(node)
-        new_order = order(self.graph)
-        assert new_order == old_order + 1
 
     def test_can_merge_node_that_does_not_exist_on_specific_label_and_key(self):
         alice = Node("Person", "Employee", name="Alice", age=33)
@@ -638,7 +618,7 @@ class MergeRelationshipTestCase(IntegrationTestCase):
         ab = Relationship(alice, "KNOWS", bob)
         old_order = order(self.graph)
         old_size = size(self.graph)
-        self.graph.merge(ab)
+        self.graph.merge(ab, "Person", "name")
         self.assertEqual(alice.graph, self.graph)
         self.assertIsNotNone(alice.identity)
         self.assertEqual(bob.graph, self.graph)
@@ -658,7 +638,7 @@ class MergeRelationshipTestCase(IntegrationTestCase):
         ab = Relationship(alice, "KNOWS", bob)
         old_order = order(self.graph)
         old_size = size(self.graph)
-        self.graph.merge(ab)
+        self.graph.merge(ab, "Person", "name")
         self.assertEqual(alice.graph, self.graph)
         self.assertIsNotNone(alice.identity)
         self.assertEqual(bob.graph, self.graph)
@@ -678,7 +658,7 @@ class MergeRelationshipTestCase(IntegrationTestCase):
         ab = Relationship(alice, "KNOWS", bob)
         old_order = order(self.graph)
         old_size = size(self.graph)
-        self.graph.merge(ab)
+        self.graph.merge(ab, "Person", "name")
         self.assertEqual(alice.graph, self.graph)
         self.assertIsNotNone(alice.identity)
         self.assertEqual(bob.graph, self.graph)
@@ -707,7 +687,7 @@ class MergeSubgraphTestCase(IntegrationTestCase):
         carol = Node("Person", name="Carol")
         old_order = order(self.graph)
         subgraph = alice | bob | carol
-        self.graph.merge(subgraph)
+        self.graph.merge(subgraph, "Person", "name")
         for node in subgraph.nodes:
             self.assertEqual(node.graph, self.graph)
             self.assertIsNotNone(node.identity)
@@ -722,7 +702,7 @@ class MergeSubgraphTestCase(IntegrationTestCase):
         self.graph.create(alice)
         old_order = order(self.graph)
         subgraph = alice | bob | carol
-        self.graph.merge(subgraph)
+        self.graph.merge(subgraph, "Person", "name")
         for node in subgraph.nodes:
             self.assertEqual(node.graph, self.graph)
             self.assertIsNotNone(node.identity)
@@ -737,7 +717,7 @@ class MergeSubgraphTestCase(IntegrationTestCase):
         self.graph.create(alice | bob)
         old_order = order(self.graph)
         subgraph = alice | bob | carol
-        self.graph.merge(subgraph)
+        self.graph.merge(subgraph, "Person", "name")
         for node in subgraph.nodes:
             self.assertEqual(node.graph, self.graph)
             self.assertIsNotNone(node.identity)
@@ -752,7 +732,7 @@ class MergeSubgraphTestCase(IntegrationTestCase):
         self.graph.create(alice | bob | carol)
         old_order = order(self.graph)
         subgraph = alice | bob | carol
-        self.graph.merge(subgraph)
+        self.graph.merge(subgraph, "Person", "name")
         for node in subgraph.nodes:
             self.assertEqual(node.graph, self.graph)
             self.assertIsNotNone(node.identity)
@@ -777,7 +757,7 @@ class MergeWalkableTestCase(IntegrationTestCase):
         self.graph.create(a)
         old_order = order(self.graph)
         old_size = size(self.graph)
-        self.graph.merge(ab + cb + cd)
+        self.graph.merge(ab + cb + cd, "Person", "name")
         new_order = order(self.graph)
         new_size = size(self.graph)
         assert new_order == old_order + 3
@@ -795,22 +775,16 @@ class MergeWalkableTestCase(IntegrationTestCase):
         self.graph.create(a)
         old_order = order(self.graph)
         old_size = size(self.graph)
-        self.graph.merge(ab + cb + cb + bd + cd)
+        self.graph.merge(ab + cb + cb + bd + cd, "Person", "name")
         new_order = order(self.graph)
         new_size = size(self.graph)
         assert new_order == old_order + 3
         assert new_size == old_size + 4
 
-    def test_can_merge_without_arguments(self):
-        a = Node("A", a=1)
-        b = Node("B", b=2)
-        self.graph.create(a | b)
-        a_id = a.identity
-        b_id = b.identity
-        node = Node("A", "B", a=1, b=2)
-        self.graph.merge(node)
-        assert node.identity != a_id
-        assert node.identity != b_id
+    def test_cannot_merge_without_arguments(self):
+        node = Node()
+        with self.assertRaises(ValueError):
+            self.graph.merge(node)
 
     def test_can_merge_with_arguments(self):
         a = Node("A", a=1)
@@ -832,19 +806,6 @@ class MergeWalkableTestCase(IntegrationTestCase):
         node = Node("A", "B", a=1, b=2)
         node.__primarylabel__ = "B"
         node.__primarykey__ = "b"
-        self.graph.merge(node, "A", "a")
-        assert node.identity != a_id
-        assert node.identity == b_id
-
-    def test_merge_with_primary_key_list(self):
-        a = Node("A", a=1)
-        b = Node("B", b=2)
-        self.graph.create(a | b)
-        a_id = a.identity
-        b_id = b.identity
-        node = Node("A", "B", a=1, b=2)
-        node.__primarylabel__ = "B"
-        node.__primarykey__ = ["b"]
         self.graph.merge(node, "A", "a")
         assert node.identity != a_id
         assert node.identity == b_id
