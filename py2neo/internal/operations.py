@@ -78,16 +78,28 @@ def create_subgraph(tx, subgraph):
 
 def delete_subgraph(tx, subgraph):
     graph = tx.graph
-    node_ids = set()
-    relationship_ids = set()
-    for i, node in enumerate(subgraph.nodes):
-        if node.graph is graph:
-            node_ids.add(node.identity)
-    for i, relationship in enumerate(subgraph.relationships):
+    node_identities = []
+    for relationship in subgraph.relationships:
         if relationship.graph is graph:
-            relationship_ids.add(relationship.identity)
-    statement = ("OPTIONAL MATCH (a) WHERE id(a) IN $x "
-                 "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN $y "
-                 "DELETE r, a")
-    parameters = {"x": list(node_ids), "y": list(relationship_ids)}
-    list(tx.run(statement, parameters))
+            graph.relationship_cache.update(relationship.identity, None)
+            relationship.graph = None
+            relationship.identity = None
+    for node in subgraph.nodes:
+        if node.graph is graph:
+            graph.node_cache.update(node.identity, None)
+            node_identities.append(node.identity)
+            node.graph = None
+            node.identity = None
+    list(tx.run("MATCH (_) WHERE id(_) IN $x DETACH DELETE _", x=node_identities))
+
+
+def separate_subgraph(tx, subgraph):
+    graph = tx.graph
+    relationship_identities = []
+    for relationship in subgraph.relationships:
+        if relationship.graph is graph:
+            graph.relationship_cache.update(relationship.identity, None)
+            relationship_identities.append(relationship.identity)
+            relationship.graph = None
+            relationship.identity = None
+    list(tx.run("MATCH ()-[_]->() WHERE id(_) IN $x DELETE _", x=relationship_identities))

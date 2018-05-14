@@ -24,7 +24,7 @@ from time import sleep
 from warnings import warn
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import Subgraph, Table
+from py2neo.data import Table
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.compat import string_types, xstr
@@ -975,11 +975,29 @@ class Transaction(object):
         :returns: ``True`` if all entities exist remotely, ``False`` otherwise
         """
         try:
-            exists = subgraph.__db_exists__
+            nodes = subgraph.nodes
+            relationships = subgraph.relationships
         except AttributeError:
-            raise TypeError("No method defined to determine the existence of object %r" % subgraph)
+            raise TypeError("Object %r is not a subgraph" % subgraph)
         else:
-            return exists(self)
+            graph = self.graph
+            node_ids = set()
+            relationship_ids = set()
+            for i, node in enumerate(nodes):
+                if node.graph is graph:
+                    node_ids.add(node.identity)
+                else:
+                    return False
+            for i, relationship in enumerate(relationships):
+                if relationship.graph is graph:
+                    relationship_ids.add(relationship.identity)
+                else:
+                    return False
+            statement = ("OPTIONAL MATCH (a) WHERE id(a) IN {x} "
+                         "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN {y} "
+                         "RETURN count(DISTINCT a) + count(DISTINCT r)")
+            parameters = {"x": list(node_ids), "y": list(relationship_ids)}
+            return self.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
 
     def merge(self, subgraph, primary_label=None, primary_key=None):
         """ Merge nodes and relationships from a local subgraph into the

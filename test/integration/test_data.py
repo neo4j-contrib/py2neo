@@ -208,7 +208,6 @@ class RelationshipTestCase(IntegrationTestCase):
         self.graph.create(r)
         rel_id = r.identity
         self.graph.delete(r)
-        self.graph.relationship_cache.clear()
         with self.assertRaises(KeyError):
             _ = self.graph.relationships[rel_id]
 
@@ -239,12 +238,12 @@ class RelationshipTestCase(IntegrationTestCase):
 
     def test_only_one_relationship_in_a_relationship(self):
         rel = Relationship({}, "KNOWS", {})
-        assert size(rel) == 1
+        self.assertEqual(size(rel), 1)
 
     def test_relationship_equality_with_none(self):
         rel = Relationship({}, "KNOWS", {})
         none = None
-        assert rel != none
+        self.assertNotEqual(rel, none)
 
     def test_relationship_equality_for_concrete(self):
         a = Node()
