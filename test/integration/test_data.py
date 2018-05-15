@@ -36,6 +36,13 @@ class TableTestCase(IntegrationTestCase):
         self.assertEqual(age_field["type"], int)
         self.assertEqual(age_field["optional"], False)
 
+    def test_html(self):
+        table = self.graph.run("RETURN 'number' AS Number, 1 AS Value").to_table()
+        html = table._repr_html_()
+        self.assertEqual(html, '<table><tr><th>Number</th><th>Value</th></tr>'
+                               '<tr><td style="text-align:left">number</td>'
+                               '<td style="text-align:right">1</td></tr></table>')
+
 
 class NodeTestCase(IntegrationTestCase):
 

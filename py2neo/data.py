@@ -779,7 +779,9 @@ class Table(list):
         def write_tr(values, tag):
             echo(u"<tr>", file, nl=False)
             for i, value in enumerate(values):
-                if auto_align and self._fields[i]["numeric"]:
+                if tag == "th":
+                    template = u'<{}>{}</{}>'
+                elif auto_align and self._fields[i]["numeric"]:
                     template = u'<{} style="text-align:right">{}</{}>'
                 else:
                     template = u'<{} style="text-align:left">{}</{}>'
