@@ -18,7 +18,7 @@
 
 import click
 
-from py2neo.console import Console
+from py2neo.console import Console, ConsoleError
 from py2neo.console.meta import DESCRIPTION, FULL_HELP
 from py2neo.internal.addressing import NEO4J_URI, NEO4J_AUTH
 
@@ -30,7 +30,13 @@ from py2neo.internal.addressing import NEO4J_URI, NEO4J_AUTH
 @click.option("-v", "--verbose", is_flag=True, default=False, help="Show low level communication detail.")
 @click.argument("cypher", nargs=-1)
 def main(cypher, uri, auth=None, secure=None, verbose=None):
-    raise SystemExit(Console(uri, auth=auth, secure=secure, verbose=verbose).run_all_or_loop(cypher))
+    try:
+        console = Console(uri, auth=auth, secure=secure, verbose=verbose)
+    except ConsoleError as error:
+        click.echo(error)
+        raise SystemExit(1)
+    else:
+        raise SystemExit(console.run_all_or_loop(cypher))
 
 
 if __name__ == "__main__":

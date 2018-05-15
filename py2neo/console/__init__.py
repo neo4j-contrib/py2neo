@@ -37,10 +37,11 @@ from prompt_toolkit.styles import style_from_pygments
 from pygments.styles.vim import VimStyle
 from pygments.token import Token
 
+from py2neo.console.meta import HISTORY_FILE_DIR, HISTORY_FILE, TITLE, QUICK_HELP, EDITOR, DESCRIPTION, FULL_HELP
 from py2neo.cypher.reading import CypherLexer
 from py2neo.data import Table
-from py2neo import Graph
-from py2neo.console.meta import HISTORY_FILE_DIR, HISTORY_FILE, TITLE, QUICK_HELP, EDITOR, DESCRIPTION, FULL_HELP
+from py2neo.database import Graph
+from py2neo.internal.addressing import get_connection_data
 
 
 def is_command(source):
@@ -75,7 +76,8 @@ class Console(object):
         try:
             self.graph = Graph(uri, **settings)
         except ServiceUnavailable as error:
-            raise ConsoleError("Could not connect to {} -- {}".format(uri, error))
+            connection_data = get_connection_data(uri, **settings)
+            raise ConsoleError("Could not connect to {} -- {}".format(connection_data["uri"], error))
         try:
             makedirs(HISTORY_FILE_DIR)
         except OSError:
