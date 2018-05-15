@@ -4,9 +4,9 @@
 
 .. note:: For convenience, the members of ``py2neo.data`` can also be imported directly from ``py2neo``.
 
-**Py2neo** provides a rich set of data types including the :class:`.Table` for working with simple query results and others for working specifically with graph data.
-The graph data types provided are completely compatible with Neo4j but can also be used independently.
-These types include the fundamental entities :class:`.Node` and :class:`.Relationship` as well as classes that represent collections of these entities.
+**Py2neo** provides a rich set of data types for working with graph data.
+These types are completely compatible with Neo4j but can also be used independently.
+They include the fundamental entities :class:`.Node` and :class:`.Relationship` as well as classes that represent collections of these entities.
 
 Graph data classes have been designed to work together using standard operations, most notably set operations.
 Details of these operations are covered in the sections on :ref:`subgraphs` and :ref:`walkable_types`.

@@ -29,16 +29,12 @@ __all__ = [
 ]
 
 
-from collections import namedtuple
-
 from py2neo.cypher.writing import cypher_escape
 
 
-RelationshipData = namedtuple("RelationshipData", ["nodes", "properties"])
-
-
-def node_dict(nodes):
-    """
+def _node_create_dict(nodes):
+    """ Convert a set of :class:`.Node` objects into a dictionary of
+    :class:`.Node` lists, keyed by frozenset(labels).
 
     :param nodes:
     :return: dict of frozenset(labels) to list(nodes)
@@ -50,8 +46,10 @@ def node_dict(nodes):
     return d
 
 
-def node_merge_dict(primary_label, primary_key, nodes):
-    """
+def _node_merge_dict(primary_label, primary_key, nodes):
+    """ Convert a set of :class:`.Node` objects into a dictionary of
+    :class:`.Node` lists, keyed by a 3-tuple of
+    (primary_label, primary_key, frozenset(labels)).
 
     :param primary_label:
     :param primary_key:
@@ -67,7 +65,13 @@ def node_merge_dict(primary_label, primary_key, nodes):
     return d
 
 
-def relationship_dict(relationships):
+def _rel_create_dict(relationships):
+    """ Convert a set of :class:`.Relationship` objects into a dictionary
+    of :class:`.Relationship` lists, keyed by type.
+
+    :param relationships:
+    :return:
+    """
     d = {}
     for relationship in relationships:
         key = type(relationship).__name__
@@ -75,7 +79,7 @@ def relationship_dict(relationships):
     return d
 
 
-def create_nodes(tx, labels, data):
+def _create_nodes(tx, labels, data):
     assert isinstance(labels, frozenset)
     label_string = "".join(":" + cypher_escape(label) for label in sorted(labels))
     cypher = "UNWIND $x AS data CREATE (_%s) SET _ = data RETURN id(_)" % label_string
@@ -83,7 +87,7 @@ def create_nodes(tx, labels, data):
         yield record[0]
 
 
-def merge_nodes(tx, p_label, p_key, labels, data):
+def _merge_nodes(tx, p_label, p_key, labels, data):
     """
 
     :param tx:
@@ -101,7 +105,7 @@ def merge_nodes(tx, p_label, p_key, labels, data):
         yield record[0]
 
 
-def merge_relationships(tx, r_type, data):
+def _merge_relationships(tx, r_type, data):
     """
 
     :param tx:
@@ -118,17 +122,24 @@ def merge_relationships(tx, r_type, data):
 
 
 def create_subgraph(tx, subgraph):
+    """ Create new data in a remote :class:`.Graph` from a local
+    :class:`.Subgraph`.
+
+    :param tx:
+    :param subgraph:
+    :return:
+    """
     graph = tx.graph
-    for labels, nodes in node_dict(n for n in subgraph.nodes if n.graph is None).items():
-        identities = create_nodes(tx, labels, map(dict, nodes))
+    for labels, nodes in _node_create_dict(n for n in subgraph.nodes if n.graph is None).items():
+        identities = _create_nodes(tx, labels, map(dict, nodes))
         for i, identity in enumerate(identities):
             node = nodes[i]
             node.graph = graph
             node.identity = identity
             node._remote_labels = labels
             graph.node_cache.update(identity, node)
-    for r_type, relationships in relationship_dict(r for r in subgraph.relationships if r.graph is None).items():
-        identities = merge_relationships(tx, r_type, map(
+    for r_type, relationships in _rel_create_dict(r for r in subgraph.relationships if r.graph is None).items():
+        identities = _merge_relationships(tx, r_type, map(
             lambda r: [r.start_node.identity, r.end_node.identity, dict(r)], relationships))
         for i, identity in enumerate(identities):
             relationship = relationships[i]
@@ -138,19 +149,28 @@ def create_subgraph(tx, subgraph):
 
 
 def merge_subgraph(tx, subgraph, p_label, p_key):
+    """ Merge data into a remote :class:`.Graph` from a local
+    :class:`.Subgraph`.
+
+    :param tx:
+    :param subgraph:
+    :param p_label:
+    :param p_key:
+    :return:
+    """
     graph = tx.graph
-    for (pl, pk, labels), nodes in node_merge_dict(p_label, p_key, (n for n in subgraph.nodes if n.graph is None)).items():
+    for (pl, pk, labels), nodes in _node_merge_dict(p_label, p_key, (n for n in subgraph.nodes if n.graph is None)).items():
         if pl is None or pk is None:
             raise ValueError("Primary label and primary key are required for MERGE operation")
-        identities = merge_nodes(tx, pl, pk, labels, map(lambda n: [n.get(pk), dict(n)], nodes))
+        identities = _merge_nodes(tx, pl, pk, labels, map(lambda n: [n.get(pk), dict(n)], nodes))
         for i, identity in enumerate(identities):
             node = nodes[i]
             node.graph = graph
             node.identity = identity
             node._remote_labels = labels
             graph.node_cache.update(identity, node)
-    for r_type, relationships in relationship_dict(r for r in subgraph.relationships if r.graph is None).items():
-        identities = merge_relationships(tx, r_type, map(
+    for r_type, relationships in _rel_create_dict(r for r in subgraph.relationships if r.graph is None).items():
+        identities = _merge_relationships(tx, r_type, map(
             lambda r: [r.start_node.identity, r.end_node.identity, dict(r)], relationships))
         for i, identity in enumerate(identities):
             relationship = relationships[i]
@@ -160,6 +180,13 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
 
 
 def delete_subgraph(tx, subgraph):
+    """ Delete data in a remote :class:`.Graph` based on a local
+    :class:`.Subgraph`.
+
+    :param tx:
+    :param subgraph:
+    :return:
+    """
     graph = tx.graph
     node_identities = []
     for relationship in subgraph.relationships:
@@ -177,6 +204,13 @@ def delete_subgraph(tx, subgraph):
 
 
 def separate_subgraph(tx, subgraph):
+    """ Delete relationships in a remote :class:`.Graph` based on a
+    local :class:`.Subgraph`.
+
+    :param tx:
+    :param subgraph:
+    :return:
+    """
     graph = tx.graph
     relationship_identities = []
     for relationship in subgraph.relationships:
@@ -189,6 +223,13 @@ def separate_subgraph(tx, subgraph):
 
 
 def pull_subgraph(tx, subgraph):
+    """ Copy data from a remote :class:`.Graph` into a local
+    :class:`.Subgraph`.
+
+    :param tx:
+    :param subgraph:
+    :return:
+    """
     graph = tx.graph
     nodes = {node: None for node in subgraph.nodes}
     relationships = list(subgraph.relationships)
@@ -211,6 +252,13 @@ def pull_subgraph(tx, subgraph):
 
 
 def push_subgraph(tx, subgraph):
+    """ Copy data into a remote :class:`.Graph` from a local
+    :class:`.Subgraph`.
+
+    :param tx:
+    :param subgraph:
+    :return:
+    """
     graph = tx.graph
     for node in subgraph.nodes:
         if node.graph is graph:
