@@ -16,24 +16,19 @@
 # limitations under the License.
 
 
+from collections import Mapping
+from functools import reduce
 from io import StringIO
 from itertools import chain
+from operator import xor as xor_operator
 from uuid import uuid4
 
 from py2neo.cypher.writing import LabelSetView, cypher_repr, cypher_str
-from py2neo.internal.collections import is_collection
+from py2neo.internal.collections import is_collection, iter_items
 from py2neo.internal.compat import integer_types, numeric_types, string_types, ustr, xstr
+from py2neo.internal.html import html_escape
 from py2neo.internal.operations import create_subgraph, merge_subgraph, delete_subgraph, separate_subgraph, \
     pull_subgraph, push_subgraph
-from py2neo.storage import PropertyDict
-
-
-def html_escape(s):
-    return (s.replace(u"&", u"&amp;")
-             .replace(u"<", u"&lt;")
-             .replace(u">", u"&gt;")
-             .replace(u'"', u"&quot;")
-             .replace(u"'", u"&#039;"))
 
 
 def order(graph_structure):
@@ -86,6 +81,508 @@ def walk(*walkables):
         for i, entity in enumerate(entities):
             if i > 0:
                 yield entity
+
+
+class Record(tuple, Mapping):
+    """ A :class:`.Record` is an immutable ordered collection of key-value
+    pairs. It is generally closer to a :class:`namedtuple` than to a
+    :class:`OrderedDict` inasmuch as iteration of the collection will
+    yield values rather than keys.
+    """
+
+    __keys = None
+
+    def __new__(cls, iterable):
+        from neo4j.v1.types import iter_items, Record as _Record
+        if isinstance(iterable, _Record):
+            inst = tuple.__new__(cls, iterable.values())
+            inst.__keys = tuple(iterable.keys())
+            return inst
+        keys = []
+        values = []
+        for key, value in iter_items(iterable):
+            keys.append(key)
+            values.append(value)
+        inst = tuple.__new__(cls, values)
+        inst.__keys = tuple(keys)
+        return inst
+
+    def __repr__(self):
+        return "<%s %s>" % (self.__class__.__name__,
+                            " ".join("%s=%r" % (field, self[i]) for i, field in enumerate(self.__keys)))
+
+    def __eq__(self, other):
+        return dict(self) == dict(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return reduce(xor_operator, map(hash, self.items()))
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            keys = self.__keys[key]
+            values = super(Record, self).__getitem__(key)
+            return self.__class__(zip(keys, values))
+        index = self.index(key)
+        if 0 <= index < len(self):
+            return super(Record, self).__getitem__(index)
+        else:
+            return None
+
+    def __getslice__(self, start, stop):
+        key = slice(start, stop)
+        keys = self.__keys[key]
+        values = tuple(self)[key]
+        return self.__class__(zip(keys, values))
+
+    def get(self, key, default=None):
+        try:
+            index = self.__keys.index(ustr(key))
+        except ValueError:
+            return default
+        if 0 <= index < len(self):
+            return super(Record, self).__getitem__(index)
+        else:
+            return default
+
+    def index(self, key):
+        """ Return the index of the given item.
+        """
+        if isinstance(key, integer_types):
+            if 0 <= key < len(self.__keys):
+                return key
+            raise IndexError(key)
+        elif isinstance(key, string_types):
+            try:
+                return self.__keys.index(key)
+            except ValueError:
+                raise KeyError(key)
+        else:
+            raise TypeError(key)
+
+    def value(self, key=0, default=None):
+        """ Obtain a single value from the record by index or key. If no
+        index or key is specified, the first value is returned. If the
+        specified item does not exist, the default value is returned.
+
+        :param key:
+        :param default:
+        :return:
+        """
+        try:
+            index = self.index(key)
+        except (IndexError, KeyError):
+            return default
+        else:
+            return self[index]
+
+    def keys(self):
+        """ Return the keys of the record.
+
+        :return: list of key names
+        """
+        return list(self.__keys)
+
+    def values(self, *keys):
+        """ Return the values of the record, optionally filtering to
+        include only certain values by index or key.
+
+        :param keys: indexes or keys of the items to include; if none
+                     are provided, all values will be included
+        :return: list of values
+        """
+        if keys:
+            d = []
+            for key in keys:
+                try:
+                    i = self.index(key)
+                except KeyError:
+                    d.append(None)
+                else:
+                    d.append(self[i])
+            return d
+        return list(self)
+
+    def items(self, *keys):
+        """ Return the fields of the record as a list of key and value tuples
+
+        :return:
+        """
+        if keys:
+            d = []
+            for key in keys:
+                try:
+                    i = self.index(key)
+                except KeyError:
+                    d.append((key, None))
+                else:
+                    d.append((self.__keys[i], self[i]))
+            return d
+        return list((self.__keys[i], super(Record, self).__getitem__(i)) for i in range(len(self)))
+
+    def data(self, *keys):
+        """ Return the keys and values of this record as a dictionary,
+        optionally including only certain values by index or key. Keys
+        provided in the items that are not in the record will be
+        inserted with a value of :py:const:`None`; indexes provided
+        that are out of bounds will trigger an :py:`IndexError`.
+
+        :param keys: indexes or keys of the items to include; if none
+                      are provided, all values will be included
+        :return: dictionary of values, keyed by field name
+        :raises: :py:`IndexError` if an out-of-bounds index is specified
+        """
+        if keys:
+            d = {}
+            for key in keys:
+                try:
+                    i = self.index(key)
+                except KeyError:
+                    d[key] = None
+                else:
+                    d[self.__keys[i]] = self[i]
+            return d
+        return dict(self)
+
+    def to_subgraph(self):
+        """ Return a :class:`.Subgraph` containing the union of all the
+        graph structures within this :class:`.Record`.
+
+        :return: :class:`.Subgraph` object
+        """
+        s = None
+        for value in self.values():
+            if isinstance(value, Subgraph):
+                if s is None:
+                    s = value
+                else:
+                    s |= value
+        return s
+
+
+class PropertyRecord(Record):
+    """ Immutable key-value property store.
+    """
+
+    def __new__(cls, iterable=()):
+        return Record.__new__(cls, sorted((key, value) for key, value in iter_items(iterable) if value is not None))
+
+    def __repr__(self):
+        return "{}({})".format(self.__class__.__name__,
+                               ", ".join("{}={!r}".format(key, value) for key, value in self.items()))
+
+
+class PropertyDict(dict):
+    """ Mutable key-value property store.
+
+    A dictionary for property values that treats :const:`None`
+    and missing values as semantically identical.
+
+    PropertyDict instances can be created and used in a similar way
+    to a standard dictionary. For example::
+
+        >>> fruit = PropertyDict({"name": "banana", "colour": "yellow"})
+        >>> fruit["name"]
+        'banana'
+
+    The key difference with a PropertyDict is in how it handles
+    missing values. Instead of raising a :py:class:`KeyError`,
+    attempts to access a missing value will simply return
+    :py:const:`None` instead.
+
+    These are the operations that the PropertyDict can support:
+
+   .. describe:: len(d)
+
+        Return the number of items in the PropertyDict `d`.
+
+   .. describe:: d[key]
+
+        Return the item of `d` with key `key`. Returns :py:const:`None`
+        if key is not in the map.
+
+    """
+
+    def __init__(self, iterable=None, **kwargs):
+        dict.__init__(self)
+        self.update(iterable, **kwargs)
+
+    def __eq__(self, other):
+        return dict.__eq__(self, {key: value for key, value in other.items() if value is not None})
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __getitem__(self, key):
+        return dict.get(self, key)
+
+    def __setitem__(self, key, value):
+        if value is None:
+            try:
+                dict.__delitem__(self, key)
+            except KeyError:
+                pass
+        else:
+            dict.__setitem__(self, key, value)
+
+    def setdefault(self, key, default=None):
+        if key in self:
+            value = self[key]
+        elif default is None:
+            value = None
+        else:
+            value = dict.setdefault(self, key, default)
+        return value
+
+    def update(self, iterable=None, **kwargs):
+        for key, value in dict(iterable or {}, **kwargs).items():
+            self[key] = value
+
+
+class Table(list):
+    """ Immutable list of records.
+    """
+
+    def __init__(self, records, keys=None):
+        super(Table, self).__init__(map(tuple, records))
+        if keys is None:
+            try:
+                k = records.keys()
+            except AttributeError:
+                raise ValueError("Missing keys")
+        else:
+            k = list(map(ustr, keys))
+        width = len(k)
+        t = [set() for _ in range(width)]
+        o = [False] * width
+        for record in self:
+            for i, value in enumerate(record):
+                if value is None:
+                    o[i] = True
+                else:
+                    t[i].add(type(value))
+        f = []
+        for i, _ in enumerate(k):
+            f.append({
+                "type": t[i].copy().pop() if len(t[i]) == 1 else tuple(t[i]),
+                "numeric": all(t_ in numeric_types for t_ in t[i]),
+                "optional": o[i],
+            })
+        self._keys = k
+        self._fields = f
+
+    def __repr__(self):
+        s = StringIO()
+        self.write(file=s, header=True)
+        return s.getvalue()
+
+    def _repr_html_(self):
+        s = StringIO()
+        self.write_html(file=s, header=True)
+        return s.getvalue()
+
+    def keys(self):
+        """ The list of field names for this table.
+
+        :return:
+        """
+        return list(self._keys)
+
+    def field(self, key):
+        """ Dictionary of metadata for a given field.
+
+        :param key:
+        :return:
+        """
+        if isinstance(key, integer_types):
+            return self._fields[key]
+        elif isinstance(key, string_types):
+            try:
+                index = self._keys.index(key)
+            except ValueError:
+                raise KeyError(key)
+            else:
+                return self._fields[index]
+        else:
+            raise TypeError(key)
+
+    def _range(self, skip, limit):
+        if skip is None:
+            skip = 0
+        if limit is None or skip + limit > len(self):
+            return range(skip, len(self))
+        else:
+            return range(skip, skip + limit)
+
+    def write(self, file=None, header=None, skip=None, limit=None, auto_align=True,
+              padding=1, separator=u"|", newline=u"\r\n"):
+        """ Write data to a human-readable table.
+
+        :param file:
+        :param header:
+        :param skip:
+        :param limit:
+        :param auto_align:
+        :param padding:
+        :param separator:
+        :param newline:
+        :return:
+        """
+        from click import secho
+
+        space = u" " * padding
+        widths = [3 if header else 0] * len(self._keys)
+
+        def calc_widths(values, **_):
+            strings = [cypher_str(value).splitlines(False) for value in values]
+            for i, s in enumerate(strings):
+                w = max(map(len, s)) if s else 0
+                if w > widths[i]:
+                    widths[i] = w
+
+        def write_line(values, underline=u"", **styles):
+            strings = [cypher_str(value).splitlines(False) for value in values]
+            height = max(map(len, strings)) if strings else 1
+            for y in range(height):
+                line_text = u""
+                underline_text = u""
+                for x, _ in enumerate(values):
+                    try:
+                        text = strings[x][y]
+                    except IndexError:
+                        text = u""
+                    if auto_align and self._fields[x]["numeric"]:
+                        text = space + text.rjust(widths[x]) + space
+                        u_text = underline * len(text)
+                    else:
+                        text = space + text.ljust(widths[x]) + space
+                        u_text = underline * len(text)
+                    if x > 0:
+                        text = separator + text
+                        u_text = separator + u_text
+                    line_text += text
+                    underline_text += u_text
+                if underline:
+                    line_text += newline + underline_text
+                line_text += newline
+                secho(line_text, file, nl=False, **styles)
+
+        def apply(f):
+            count = 0
+            for count, index in enumerate(self._range(skip, limit), start=1):
+                if count == 1 and header:
+                    f(self.keys(), underline=u"-")
+                f(self[index])
+            return count
+
+        apply(calc_widths)
+        return apply(write_line)
+
+    def write_html(self, file=None, header=None, skip=None, limit=None, auto_align=True):
+        """ Write data to an HTML table.
+
+        :param file:
+        :param header:
+        :param skip:
+        :param limit:
+        :param auto_align:
+        :return:
+        """
+        from click import echo
+
+        def write_tr(values, tag):
+            echo(u"<tr>", file, nl=False)
+            for i, value in enumerate(values):
+                if tag == "th":
+                    template = u'<{}>{}</{}>'
+                elif auto_align and self._fields[i]["numeric"]:
+                    template = u'<{} style="text-align:right">{}</{}>'
+                else:
+                    template = u'<{} style="text-align:left">{}</{}>'
+                echo(template.format(tag, html_escape(cypher_str(value)), tag), file, nl=False)
+            echo(u"</tr>", file, nl=False)
+
+        count = 0
+        echo(u"<table>", file, nl=False)
+        for count, index in enumerate(self._range(skip, limit), start=1):
+            if count == 1 and header:
+                write_tr(self.keys(), u"th")
+            write_tr(self[index], u"td")
+        echo(u"</table>", file, nl=False)
+        return count
+
+    def write_separated_values(self, separator, file=None, header=None, skip=None, limit=None,
+                               newline=u"\r\n", quote=u"\""):
+        """ Write data to a delimiter-separated file.
+
+        :param separator:
+        :param file:
+        :param header:
+        :param skip:
+        :param limit:
+        :param newline:
+        :param quote:
+        :return:
+        """
+        from click import secho
+
+        escaped_quote = quote + quote
+        quotable = separator + newline + quote
+        header_styles = {}
+        if header and isinstance(header, dict):
+            header_styles.update(header)
+
+        def write_value(value, **styles):
+            if value is None:
+                return
+            if isinstance(value, string_types):
+                value = ustr(value)
+                if any(ch in value for ch in quotable):
+                    value = quote + value.replace(quote, escaped_quote) + quote
+            else:
+                value = cypher_repr(value)
+            secho(value, file, nl=False, **styles)
+
+        def write_line(values, **styles):
+            for i, value in enumerate(values):
+                if i > 0:
+                    secho(separator, file, nl=False, **styles)
+                write_value(value, **styles)
+            secho(newline, file, nl=False, **styles)
+
+        def apply(f):
+            count = 0
+            for count, index in enumerate(self._range(skip, limit), start=1):
+                if count == 1 and header:
+                    f(self.keys(), underline=u"-", **header_styles)
+                f(self[index])
+            return count
+
+        return apply(write_line)
+
+    def write_csv(self, file=None, header=None, skip=None, limit=None):
+        """ Write the data as RFC4180-compatible comma-separated values.
+
+        :param file
+        :param header:
+        :param skip:
+        :param limit:
+        :return:
+        """
+        return self.write_separated_values(u",", file, header, skip, limit)
+
+    def write_tsv(self, file=None, header=None, skip=None, limit=None):
+        """ Write the data as tab-separated values.
+
+        :param file
+        :param header:
+        :param skip:
+        :param limit:
+        :return:
+        """
+        return self.write_separated_values(u"\t", file, header, skip, limit)
 
 
 class Subgraph(object):
@@ -623,247 +1120,3 @@ class Path(Walkable):
                     t, properties = entity
                     entities[i] = Relationship(start_node, t, end_node, **properties)
         Walkable.__init__(self, walk(*entities))
-
-
-class Table(list):
-    """ Immutable list of records.
-    """
-
-    def __init__(self, records, keys=None):
-        super(Table, self).__init__(map(tuple, records))
-        if keys is None:
-            try:
-                k = records.keys()
-            except AttributeError:
-                raise ValueError("Missing keys")
-        else:
-            k = list(map(ustr, keys))
-        width = len(k)
-        t = [set() for _ in range(width)]
-        o = [False] * width
-        for record in self:
-            for i, value in enumerate(record):
-                if value is None:
-                    o[i] = True
-                else:
-                    t[i].add(type(value))
-        f = []
-        for i, _ in enumerate(k):
-            f.append({
-                "type": t[i].copy().pop() if len(t[i]) == 1 else tuple(t[i]),
-                "numeric": all(t_ in numeric_types for t_ in t[i]),
-                "optional": o[i],
-            })
-        self._keys = k
-        self._fields = f
-
-    def __repr__(self):
-        s = StringIO()
-        self.write(file=s, header=True)
-        return s.getvalue()
-
-    def _repr_html_(self):
-        s = StringIO()
-        self.write_html(file=s, header=True)
-        return s.getvalue()
-
-    def keys(self):
-        """ The list of field names for this table.
-
-        :return:
-        """
-        return list(self._keys)
-
-    def field(self, key):
-        """ Dictionary of metadata for a given field.
-
-        :param key:
-        :return:
-        """
-        if isinstance(key, integer_types):
-            return self._fields[key]
-        elif isinstance(key, string_types):
-            try:
-                index = self._keys.index(key)
-            except ValueError:
-                raise KeyError(key)
-            else:
-                return self._fields[index]
-        else:
-            raise TypeError(key)
-
-    def _range(self, skip, limit):
-        if skip is None:
-            skip = 0
-        if limit is None or skip + limit > len(self):
-            return range(skip, len(self))
-        else:
-            return range(skip, skip + limit)
-
-    def write(self, file=None, header=None, skip=None, limit=None, auto_align=True,
-              padding=1, separator=u"|", newline=u"\r\n"):
-        """ Write data to a human-readable table.
-
-        :param file:
-        :param header:
-        :param skip:
-        :param limit:
-        :param auto_align:
-        :param padding:
-        :param separator:
-        :param newline:
-        :return:
-        """
-        from click import secho
-
-        space = u" " * padding
-        widths = [3 if header else 0] * len(self._keys)
-
-        def calc_widths(values, **_):
-            strings = [cypher_str(value).splitlines(False) for value in values]
-            for i, s in enumerate(strings):
-                w = max(map(len, s)) if s else 0
-                if w > widths[i]:
-                    widths[i] = w
-
-        def write_line(values, underline=u"", **styles):
-            strings = [cypher_str(value).splitlines(False) for value in values]
-            height = max(map(len, strings)) if strings else 1
-            for y in range(height):
-                line_text = u""
-                underline_text = u""
-                for x, _ in enumerate(values):
-                    try:
-                        text = strings[x][y]
-                    except IndexError:
-                        text = u""
-                    if auto_align and self._fields[x]["numeric"]:
-                        text = space + text.rjust(widths[x]) + space
-                        u_text = underline * len(text)
-                    else:
-                        text = space + text.ljust(widths[x]) + space
-                        u_text = underline * len(text)
-                    if x > 0:
-                        text = separator + text
-                        u_text = separator + u_text
-                    line_text += text
-                    underline_text += u_text
-                if underline:
-                    line_text += newline + underline_text
-                line_text += newline
-                secho(line_text, file, nl=False, **styles)
-
-        def apply(f):
-            count = 0
-            for count, index in enumerate(self._range(skip, limit), start=1):
-                if count == 1 and header:
-                    f(self.keys(), underline=u"-")
-                f(self[index])
-            return count
-
-        apply(calc_widths)
-        return apply(write_line)
-
-    def write_html(self, file=None, header=None, skip=None, limit=None, auto_align=True):
-        """ Write data to an HTML table.
-
-        :param file:
-        :param header:
-        :param skip:
-        :param limit:
-        :param auto_align:
-        :return:
-        """
-        from click import echo
-
-        def write_tr(values, tag):
-            echo(u"<tr>", file, nl=False)
-            for i, value in enumerate(values):
-                if tag == "th":
-                    template = u'<{}>{}</{}>'
-                elif auto_align and self._fields[i]["numeric"]:
-                    template = u'<{} style="text-align:right">{}</{}>'
-                else:
-                    template = u'<{} style="text-align:left">{}</{}>'
-                echo(template.format(tag, html_escape(cypher_str(value)), tag), file, nl=False)
-            echo(u"</tr>", file, nl=False)
-
-        count = 0
-        echo(u"<table>", file, nl=False)
-        for count, index in enumerate(self._range(skip, limit), start=1):
-            if count == 1 and header:
-                write_tr(self.keys(), u"th")
-            write_tr(self[index], u"td")
-        echo(u"</table>", file, nl=False)
-        return count
-
-    def write_separated_values(self, separator, file=None, header=None, skip=None, limit=None,
-                               newline=u"\r\n", quote=u"\""):
-        """ Write data to a delimiter-separated file.
-
-        :param separator:
-        :param file:
-        :param header:
-        :param skip:
-        :param limit:
-        :param newline:
-        :param quote:
-        :return:
-        """
-        from click import secho
-
-        escaped_quote = quote + quote
-        quotable = separator + newline + quote
-        header_styles = {}
-        if header and isinstance(header, dict):
-            header_styles.update(header)
-
-        def write_value(value, **styles):
-            if value is None:
-                return
-            if isinstance(value, string_types):
-                value = ustr(value)
-                if any(ch in value for ch in quotable):
-                    value = quote + value.replace(quote, escaped_quote) + quote
-            else:
-                value = cypher_repr(value)
-            secho(value, file, nl=False, **styles)
-
-        def write_line(values, **styles):
-            for i, value in enumerate(values):
-                if i > 0:
-                    secho(separator, file, nl=False, **styles)
-                write_value(value, **styles)
-            secho(newline, file, nl=False, **styles)
-
-        def apply(f):
-            count = 0
-            for count, index in enumerate(self._range(skip, limit), start=1):
-                if count == 1 and header:
-                    f(self.keys(), underline=u"-", **header_styles)
-                f(self[index])
-            return count
-
-        return apply(write_line)
-
-    def write_csv(self, file=None, header=None, skip=None, limit=None):
-        """ Write the data as RFC4180-compatible comma-separated values.
-
-        :param file
-        :param header:
-        :param skip:
-        :param limit:
-        :return:
-        """
-        return self.write_separated_values(u",", file, header, skip, limit)
-
-    def write_tsv(self, file=None, header=None, skip=None, limit=None):
-        """ Write the data as tab-separated values.
-
-        :param file
-        :param header:
-        :param skip:
-        :param limit:
-        :return:
-        """
-        return self.write_separated_values(u"\t", file, header, skip, limit)

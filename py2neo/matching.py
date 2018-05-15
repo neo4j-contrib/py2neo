@@ -39,7 +39,7 @@ def _property_equality_conditions(properties, offset=1):
 
 
 class NodeMatch(object):
-    """ An immutable set of node match criteria.
+    """ Immutable set of node selection criteria.
     """
 
     def __init__(self, graph, labels=frozenset(), conditions=tuple(), order_by=tuple(), skip=None, limit=None):
@@ -107,7 +107,7 @@ class NodeMatch(object):
         To refer to the current node within a condition expression, use
         the underscore character ``_``. For example::
 
-            match.where("_.name =~ 'J.*")
+            match.where("_.name =~ 'J.*'")
 
         Simple property equalities can also be specified::
 
@@ -155,39 +155,10 @@ class NodeMatch(object):
 
 
 class NodeMatcher(object):
-    """ A :class:`.NodeMatcher` can be used to locate nodes that
-    fulfil a specific set of criteria. Typically, a single node can be
-    identified passing a specific label and property key-value pair.
-    However, any number of labels and any condition supported by the
-    Cypher `WHERE` clause is allowed.
+    """ Base matcher for selecting nodes that fulfil a specific set of
+    criteria.
 
-    For a simple match by label and property::
-
-        >>> from py2neo import Graph, NodeMatcher
-        >>> graph = Graph()
-        >>> matcher = NodeMatcher(graph)
-        >>> matched = matcher.match("Person", name="Keanu Reeves")
-        >>> list(matched)
-        [(f9726ea:Person {born:1964,name:"Keanu Reeves"})]
-
-    For a more comprehensive match using Cypher expressions, the
-    :meth:`.NodeMatch.where` method can be used for further
-    refinement. Here, the underscore character can be used to refer to
-    the node being filtered::
-
-        >>> matched = matcher.match("Person").where("_.name =~ 'J.*'", "1960 <= _.born < 1970")
-        >>> list(matched)
-        [(a03f6eb:Person {born:1967,name:"James Marshall"}),
-         (e59993d:Person {born:1966,name:"John Cusack"}),
-         (c44901e:Person {born:1960,name:"John Goodman"}),
-         (b141775:Person {born:1965,name:"John C. Reilly"}),
-         (e40244b:Person {born:1967,name:"Julia Roberts"})]
-
-    The underlying query is only evaluated when the selection undergoes
-    iteration or when a specific evaluation method is called (such as
-    :meth:`.NodeMatch.first`). This means that a :class:`.NodeMatch`
-    instance may be reused before and after a data changes for different
-    results.
+    :param graph:
     """
 
     _match_class = NodeMatch
@@ -240,6 +211,8 @@ class NodeMatcher(object):
 
 
 class RelationshipMatch(object):
+    """ Immutable set of relationship selection criteria.
+    """
 
     def __init__(self, graph, nodes=None, r_type=None,
                  conditions=tuple(), order_by=tuple(), skip=None, limit=None):
@@ -276,7 +249,7 @@ class RelationshipMatch(object):
 
     def _query_and_parameters(self, count=False):
         """ A tuple of the Cypher query and parameters used to select
-        the nodes that match the criteria for this selection.
+        the relationships that match the criteria for this selection.
 
         :return: Cypher query string
         """
@@ -361,18 +334,18 @@ class RelationshipMatch(object):
         in a `WHERE` clause; properties are used as exact matches for
         property values.
 
-        To refer to the current node within a condition expression, use
-        the underscore character ``_``. For example::
+        To refer to the current relationship within a condition expression,
+        use the underscore character ``_``. For example::
 
-            match.where("_.name =~ 'J.*")
+            match.where("_.weight >= 30")
 
         Simple property equalities can also be specified::
 
-            match.where(born=1976)
+            match.where(since=1999)
 
         :param conditions: Cypher expressions to add to the `WHERE` clause
         :param properties: exact property match keys and values
-        :return: refined :class:`.NodeMatch` object
+        :return: refined :class:`.RelationshipMatch` object
         """
         return self.__class__(self.graph,
                               nodes=self._nodes,
@@ -385,13 +358,13 @@ class RelationshipMatch(object):
     def order_by(self, *fields):
         """ Order by the fields or field expressions specified.
 
-        To refer to the current node within a field or field expression,
-        use the underscore character ``_``. For example::
+        To refer to the current relationship within a field or field
+        expression, use the underscore character ``_``. For example::
 
-            match.order_by("_.name", "max(_.a, _.b)")
+            match.order_by("_.weight", "max(_.a, _.b)")
 
         :param fields: fields or field expressions to order by
-        :return: refined :class:`.NodeMatch` object
+        :return: refined :class:`.RelationshipMatch` object
         """
         return self.__class__(self.graph,
                               nodes=self._nodes,
@@ -402,10 +375,10 @@ class RelationshipMatch(object):
                               limit=self._limit)
 
     def skip(self, amount):
-        """ Skip the first `amount` nodes in the result.
+        """ Skip the first `amount` relationships in the result.
 
-        :param amount: number of nodes to skip
-        :return: refined :class:`.NodeMatch` object
+        :param amount: number of relationships to skip
+        :return: refined :class:`.RelationshipMatch` object
         """
         return self.__class__(self.graph,
                               nodes=self._nodes,
@@ -416,10 +389,10 @@ class RelationshipMatch(object):
                               limit=self._limit)
 
     def limit(self, amount):
-        """ Limit to at most `amount` nodes.
+        """ Limit to at most `amount` relationships.
 
-        :param amount: maximum number of nodes to return
-        :return: refined :class:`.NodeMatch` object
+        :param amount: maximum number of relationships to return
+        :return: refined :class:`.RelationshipMatch` object
         """
         return self.__class__(self.graph,
                               nodes=self._nodes,
@@ -431,8 +404,10 @@ class RelationshipMatch(object):
 
 
 class RelationshipMatcher(object):
-    """ A :py:class:`.RelationshipMatcher` can be used to locate
-    relationships that fulfil a specific set of criteria.
+    """ Base matcher for selecting relationships that fulfil a specific
+    set of criteria.
+
+    :param graph:
     """
 
     _match_class = RelationshipMatch

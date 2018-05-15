@@ -24,11 +24,10 @@ from time import sleep
 from warnings import warn
 
 from py2neo.cypher.writing import cypher_escape
-from py2neo.data import Table
+from py2neo.data import Table, Record
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.compat import string_types, xstr
-from py2neo.storage import Record
 from py2neo.internal.util import version_tuple, title_case, snake_case
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 

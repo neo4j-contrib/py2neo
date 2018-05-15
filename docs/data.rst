@@ -4,8 +4,8 @@
 
 .. note:: For convenience, the members of ``py2neo.data`` can also be imported directly from ``py2neo``.
 
-**Py2neo** provides a rich set of data types for working with graph data.
-These types are completely compatible with Neo4j but can also be used independently.
+**Py2neo** provides a rich set of data types for working with both graph and record-based data.
+The graph types are completely compatible with Neo4j but can also be used independently.
 They include the fundamental entities :class:`.Node` and :class:`.Relationship` as well as classes that represent collections of these entities.
 
 Graph data classes have been designed to work together using standard operations, most notably set operations.
@@ -350,6 +350,50 @@ Any node or relationship may be traversed one or more times in any direction.
 .. function:: walk(*walkables)
 
     Traverse over the arguments supplied, in order, yielding alternating nodes and relationships.
+
+
+:class:`.Record` objects
+========================
+
+.. class:: Record
+
+    A :class:`.Record` holds a collection of result values that are
+    both indexed by position and keyed by name. A `Record` instance can
+    therefore be seen as a combination of a `tuple` and a `Mapping`.
+
+    .. describe:: record[index]
+                  record[key]
+
+        Return the value of *record* with the specified *key* or *index*.
+
+    .. describe:: len(record)
+
+        Return the number of fields in *record*.
+
+    .. describe:: dict(record)
+
+        Return a `dict` representation of *record*.
+
+    .. method:: data()
+
+        Return a `dict` representation of the contained keys and values.
+
+    .. method:: items()
+
+        Return a `list` of key-value pairs contained within 2-tuples.
+
+    .. method:: keys()
+
+        Return a `tuple` of names by which the contained values are keyed.
+
+    .. method:: subgraph()
+
+        Convert to a :class:`.Subgraph` by collecting all nodes and relationships
+        contained within. If there are none, :const:`None` is returned.
+
+    .. method:: values()
+
+        Return a `tuple` of the contained values.
 
 
 :class:`.Table` objects

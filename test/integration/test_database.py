@@ -22,11 +22,9 @@ from unittest import TestCase
 
 from neo4j.exceptions import ConstraintError, CypherSyntaxError
 
-from py2neo import Graph
-from py2neo.data import Node, Relationship, Path, order, size
-from py2neo.database import Database, GraphError, TransactionFinished
+from py2neo.data import Node, Relationship, Path, order, size, Record
+from py2neo.database import Database, Graph, GraphError, TransactionFinished
 from py2neo.internal.json import JSONHydrator
-from py2neo.storage import Record
 from py2neo.testing import IntegrationTestCase
 
 
