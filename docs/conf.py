@@ -131,11 +131,11 @@ html_theme_path = ["_themes"]
 html_title = "The Py2neo v4 Handbook"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
-#html_short_title = None
+html_short_title = "py2neo"
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = "../art/py2neo-2016.260x152.png"
+html_logo = "../art/py2neo-2018.291x50.png"
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
