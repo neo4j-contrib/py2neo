@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 
 HOME=$(dirname $0)
+OFFLINE=$(ping -n -c 1 -W 1 8.8.8.8 > /dev/null ; echo $?)
 
-pip install --upgrade sphinx
+if [ "${OFFLINE}" == "0" ]
+then
+    pip install --upgrade sphinx
+fi
 make -C ${HOME}/docs html
 
 echo ""

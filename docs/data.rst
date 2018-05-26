@@ -2,6 +2,8 @@
 ``py2neo.data`` -- Data Types
 *****************************
 
+.. module:: py2neo.data
+
 .. note:: For convenience, the members of ``py2neo.data`` can also be imported directly from ``py2neo``.
 
 **Py2neo** provides a rich set of data types for working with both graph and record-based data.
@@ -355,11 +357,11 @@ Any node or relationship may be traversed one or more times in any direction.
 :class:`.Record` objects
 ========================
 
-.. class:: Record
+.. class:: Record(iterable=())
 
-    A :class:`.Record` holds a collection of result values that are
-    both indexed by position and keyed by name. A `Record` instance can
-    therefore be seen as a combination of a `tuple` and a `Mapping`.
+    A :class:`.Record` object holds an ordered, keyed collection of values.
+    It is in many ways similar to a `namedtuple` but allows field access only through bracketed syntax and provides more functionality.
+    :class:`.Record` extends both :class:`tuple` and :class:`Mapping`.
 
     .. describe:: record[index]
                   record[key]
@@ -374,30 +376,47 @@ Any node or relationship may be traversed one or more times in any direction.
 
         Return a `dict` representation of *record*.
 
-    .. method:: data()
+    .. automethod:: data
 
-        Return a `dict` representation of the contained keys and values.
+    .. automethod:: get
 
-    .. method:: items()
+    .. automethod:: index
 
-        Return a `list` of key-value pairs contained within 2-tuples.
+    .. automethod:: items
 
-    .. method:: keys()
+    .. automethod:: keys
 
-        Return a `tuple` of names by which the contained values are keyed.
+    .. automethod:: to_subgraph
 
-    .. method:: subgraph()
-
-        Convert to a :class:`.Subgraph` by collecting all nodes and relationships
-        contained within. If there are none, :const:`None` is returned.
-
-    .. method:: values()
-
-        Return a `tuple` of the contained values.
+    .. automethod:: values
 
 
 :class:`.Table` objects
 =======================
 
-.. autoclass:: py2neo.data.Table
-   :members:
+.. class:: Table(records, keys=None)
+
+    A :class:`.Table` holds a list of :class:`.Record` objects, typically received as the result of a Cypher query.
+    It provides a convenient container for working with a result in its entirety and provides methods for conversion into various output formats.
+    :class:`.Table` extends ``list``.
+
+    .. describe:: repr(table)
+
+        Return a string containing an ASCII art representation of this table.
+        Internally, this method calls :meth:`.write` with `header=True`, writing the output into an ``io.StringIO`` instance.
+
+    .. automethod:: _repr_html_()
+
+    .. automethod:: keys
+
+    .. automethod:: field
+
+    .. automethod:: write
+
+    .. automethod:: write_html
+
+    .. automethod:: write_separated_values
+
+    .. automethod:: write_csv
+
+    .. automethod:: write_tsv

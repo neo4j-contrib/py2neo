@@ -27,12 +27,19 @@ from operator import and_ as and_operator
 from threading import RLock
 from uuid import uuid4
 
-from py2neo.data import PropertyDict, PropertyRecord
-from py2neo.internal.collections import ReactiveSet
+from py2neo.data import PropertyDict, Record
+from py2neo.internal.collections import ReactiveSet, iter_items
 
 
 NodeEntry = namedtuple("NodeEntry", ["labels", "properties"])
 RelationshipEntry = namedtuple("RelationshipEntry", ["type", "nodes", "properties"])
+
+
+def property_record(iterable=()):
+    """ Convert a dictionary-like iterable into a :class:`.Record`
+    by sorting keys and dropping all values that are :const:`.None`.
+    """
+    return Record(sorted((key, value) for key, value in iter_items(iterable) if value is not None))
 
 
 class GraphStore(object):
@@ -298,12 +305,12 @@ class FrozenGraphStore(GraphStore):
     @classmethod
     def node_entry(cls, entry):
         labels, properties = entry
-        return NodeEntry(frozenset(labels), PropertyRecord(properties))
+        return NodeEntry(frozenset(labels), property_record(properties))
 
     @classmethod
     def relationship_entry(cls, entry):
         type_, nodes, properties = entry
-        return RelationshipEntry(type_, tuple(nodes), PropertyRecord(properties))
+        return RelationshipEntry(type_, tuple(nodes), property_record(properties))
 
     def __init__(self, graph_store=None):
         if graph_store is None:

@@ -24,7 +24,7 @@ from operator import xor as xor_operator
 from uuid import uuid4
 
 from py2neo.cypher.writing import LabelSetView, cypher_repr, cypher_str
-from py2neo.internal.collections import is_collection, iter_items
+from py2neo.internal.collections import is_collection
 from py2neo.internal.compat import integer_types, numeric_types, string_types, ustr, xstr
 from py2neo.internal.html import html_escape
 from py2neo.internal.operations import create_subgraph, merge_subgraph, delete_subgraph, separate_subgraph, \
@@ -92,7 +92,7 @@ class Record(tuple, Mapping):
 
     __keys = None
 
-    def __new__(cls, iterable):
+    def __new__(cls, iterable=()):
         from neo4j.v1.types import iter_items, Record as _Record
         if isinstance(iterable, _Record):
             inst = tuple.__new__(cls, iterable.values())
@@ -138,6 +138,13 @@ class Record(tuple, Mapping):
         return self.__class__(zip(keys, values))
 
     def get(self, key, default=None):
+        """ Obtain a single value from the record by index or key. If the
+        specified item does not exist, the default value is returned.
+
+        :param key: index or key
+        :param default: default value to be returned if `key` does not exist
+        :return: selected value
+        """
         try:
             index = self.__keys.index(ustr(key))
         except ValueError:
@@ -161,22 +168,6 @@ class Record(tuple, Mapping):
                 raise KeyError(key)
         else:
             raise TypeError(key)
-
-    def value(self, key=0, default=None):
-        """ Obtain a single value from the record by index or key. If no
-        index or key is specified, the first value is returned. If the
-        specified item does not exist, the default value is returned.
-
-        :param key:
-        :param default:
-        :return:
-        """
-        try:
-            index = self.index(key)
-        except (IndexError, KeyError):
-            return default
-        else:
-            return self[index]
 
     def keys(self):
         """ Return the keys of the record.
@@ -208,7 +199,9 @@ class Record(tuple, Mapping):
     def items(self, *keys):
         """ Return the fields of the record as a list of key and value tuples
 
-        :return:
+        :param keys: indexes or keys of the items to include; if none
+                     are provided, all values will be included
+        :return: list of (key, value) tuples
         """
         if keys:
             d = []
@@ -225,14 +218,14 @@ class Record(tuple, Mapping):
     def data(self, *keys):
         """ Return the keys and values of this record as a dictionary,
         optionally including only certain values by index or key. Keys
-        provided in the items that are not in the record will be
-        inserted with a value of :py:const:`None`; indexes provided
-        that are out of bounds will trigger an :py:`IndexError`.
+        provided that do not exist within the record will be included
+        but with a value of :py:const:`None`; indexes provided
+        that are out of bounds will trigger an :exc:`IndexError`.
 
         :param keys: indexes or keys of the items to include; if none
-                      are provided, all values will be included
+                     are provided, all values will be included
         :return: dictionary of values, keyed by field name
-        :raises: :py:`IndexError` if an out-of-bounds index is specified
+        :raises: :exc:`IndexError` if an out-of-bounds index is specified
         """
         if keys:
             d = {}
@@ -260,18 +253,6 @@ class Record(tuple, Mapping):
                 else:
                     s |= value
         return s
-
-
-class PropertyRecord(Record):
-    """ Immutable key-value property store.
-    """
-
-    def __new__(cls, iterable=()):
-        return Record.__new__(cls, sorted((key, value) for key, value in iter_items(iterable) if value is not None))
-
-    def __repr__(self):
-        return "{}({})".format(self.__class__.__name__,
-                               ", ".join("{}={!r}".format(key, value) for key, value in self.items()))
 
 
 class PropertyDict(dict):
@@ -379,22 +360,35 @@ class Table(list):
         return s.getvalue()
 
     def _repr_html_(self):
+        """ Return a string containing an HTML representation of this table.
+        This method is used by Jupyter notebooks to display the table natively within a browser.
+        Internally, this method calls :meth:`.write_html` with `header=True`, writing the output into an ``io.StringIO`` instance.
+        """
         s = StringIO()
         self.write_html(file=s, header=True)
         return s.getvalue()
 
     def keys(self):
-        """ The list of field names for this table.
-
-        :return:
+        """ Return a list of field names for this table.
         """
         return list(self._keys)
 
     def field(self, key):
-        """ Dictionary of metadata for a given field.
+        """ Return a dictionary of metadata for a given field.
+        The metadata includes the following values:
 
-        :param key:
-        :return:
+        `type`
+            Single class or tuple of classes representing the
+            field values.
+
+        `numeric`
+            :const:`True` if all field values are of a numeric
+            type, :const:`False` otherwise.
+
+        `optional`
+            :const:`True` if any field values are :const:`None`,
+            :const:`False` otherwise.
+
         """
         if isinstance(key, integer_types):
             return self._fields[key]
@@ -418,17 +412,17 @@ class Table(list):
 
     def write(self, file=None, header=None, skip=None, limit=None, auto_align=True,
               padding=1, separator=u"|", newline=u"\r\n"):
-        """ Write data to a human-readable table.
+        """ Write data to a human-readable ASCII art table.
 
-        :param file:
-        :param header:
-        :param skip:
-        :param limit:
-        :param auto_align:
-        :param padding:
-        :param separator:
-        :param newline:
-        :return:
+        :param file: file-like object capable of receiving output
+        :param header: boolean flag for addition of column headers
+        :param skip: number of records to skip before beginning output
+        :param limit: maximum number of records to include in output
+        :param auto_align: if :const:`True`, right-justify numeric values
+        :param padding: number of spaces to include between column separator and value
+        :param separator: column separator character
+        :param newline: newline character sequence
+        :return: the number of records included in output
         """
         from click import secho
 
@@ -483,12 +477,12 @@ class Table(list):
     def write_html(self, file=None, header=None, skip=None, limit=None, auto_align=True):
         """ Write data to an HTML table.
 
-        :param file:
-        :param header:
-        :param skip:
-        :param limit:
-        :param auto_align:
-        :return:
+        :param file: file-like object capable of receiving output
+        :param header: boolean flag for addition of column headers
+        :param skip: number of records to skip before beginning output
+        :param limit: maximum number of records to include in output
+        :param auto_align: if :const:`True`, right-justify numeric values
+        :return: the number of records included in output
         """
         from click import echo
 
@@ -517,14 +511,14 @@ class Table(list):
                                newline=u"\r\n", quote=u"\""):
         """ Write data to a delimiter-separated file.
 
-        :param separator:
-        :param file:
-        :param header:
-        :param skip:
-        :param limit:
-        :param newline:
-        :param quote:
-        :return:
+        :param separator: field separator character
+        :param file: file-like object capable of receiving output
+        :param header: boolean flag (or dictionary of ``click.secho`` styles) for addition of column headers
+        :param skip: number of records to skip before beginning output
+        :param limit: maximum number of records to include in output
+        :param newline: newline character sequence
+        :param quote: quote character
+        :return: the number of records included in output
         """
         from click import secho
 
@@ -564,23 +558,13 @@ class Table(list):
 
     def write_csv(self, file=None, header=None, skip=None, limit=None):
         """ Write the data as RFC4180-compatible comma-separated values.
-
-        :param file
-        :param header:
-        :param skip:
-        :param limit:
-        :return:
+        This is a customised call to :meth:`.write_separated_values`.
         """
         return self.write_separated_values(u",", file, header, skip, limit)
 
     def write_tsv(self, file=None, header=None, skip=None, limit=None):
         """ Write the data as tab-separated values.
-
-        :param file
-        :param header:
-        :param skip:
-        :param limit:
-        :return:
+        This is a customised call to :meth:`.write_separated_values`.
         """
         return self.write_separated_values(u"\t", file, header, skip, limit)
 
