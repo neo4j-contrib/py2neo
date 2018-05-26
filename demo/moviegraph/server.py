@@ -10,7 +10,7 @@ from os.path import dirname, join as path_join
 from demo.moviegraph.bottle import get, post, redirect, request, run, static_file, template, TEMPLATE_PATH
 from demo.moviegraph.model import Movie, Person, Comment
 from py2neo import Graph
-from py2neo.watcher import watch
+from neo4j.util import watch
 
 
 home = dirname(__file__)

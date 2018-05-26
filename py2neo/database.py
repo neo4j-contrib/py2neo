@@ -89,6 +89,7 @@ class Database(object):
         except KeyError:
             inst = super(Database, cls).__new__(cls)
             inst._connection_data = connection_data
+            from py2neo.internal.http import HTTPDriver, HTTPSDriver
             from neo4j.v1 import Driver
             inst._driver = Driver(connection_data["uri"],
                                   auth=connection_data["auth"],

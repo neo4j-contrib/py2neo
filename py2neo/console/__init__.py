@@ -73,10 +73,10 @@ class Console(object):
     def __init__(self, uri=None, **settings):
         self.output_file = settings.pop("file", None)
         verbose = settings.pop("verbose", False)
+        connection_data = get_connection_data(uri, **settings)
         try:
             self.graph = Graph(uri, **settings)
         except ServiceUnavailable as error:
-            connection_data = get_connection_data(uri, **settings)
             raise ConsoleError("Could not connect to {} -- {}".format(connection_data["uri"], error))
         try:
             makedirs(HISTORY_FILE_DIR)
@@ -94,8 +94,8 @@ class Console(object):
         self.lexer = CypherLexer()
         self.result_writer = Table.write
         if verbose:
-            from py2neo.watcher import watch
-            self.watcher = watch("neo4j.bolt")
+            from neo4j.util import watch
+            self.watcher = watch("neo4j.%s" % connection_data["scheme"])
 
         self.commands = {
 
