@@ -51,7 +51,7 @@ class NodeMatch(object):
         self._limit = limit
 
     def __len__(self):
-        """ Count matching nodes.
+        """ Return the number of nodes matched.
         """
         return self.graph.evaluate(*self._query_and_parameters(count=True))
 
@@ -158,7 +158,7 @@ class NodeMatcher(object):
     """ Base matcher for selecting nodes that fulfil a specific set of
     criteria.
 
-    :param graph:
+    :param graph: :class:`.Graph` object on which to perform matches
     """
 
     _match_class = NodeMatch
@@ -167,7 +167,7 @@ class NodeMatcher(object):
         self.graph = graph
 
     def __len__(self):
-        """ Count nodes.
+        """ Return the number of nodes matched.
         """
         return len(self.match())
 
@@ -227,7 +227,7 @@ class RelationshipMatch(object):
         self._limit = limit
 
     def __len__(self):
-        """ Count all matching relationships.
+        """ Return the number of relationships matched.
         """
         return self.graph.evaluate(*self._query_and_parameters(count=True))
 
@@ -407,7 +407,7 @@ class RelationshipMatcher(object):
     """ Base matcher for selecting relationships that fulfil a specific
     set of criteria.
 
-    :param graph:
+    :param graph: :class:`.Graph` object on which to perform matches
     """
 
     _match_class = RelationshipMatch
@@ -417,7 +417,7 @@ class RelationshipMatcher(object):
         self._all = self._match_class(self.graph)
 
     def __len__(self):
-        """ Return a count of nodes.
+        """ Return the number of relationships matched.
         """
         return len(self.match())
 

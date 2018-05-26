@@ -50,11 +50,11 @@ This means that a :class:`.NodeMatch` instance may be reused before and after a 
 
 .. autoclass:: py2neo.matching.NodeMatcher
    :members:
-   :special-members: __getitem__
+   :special-members: __len__, __getitem__
 
 .. autoclass:: py2neo.matching.NodeMatch
    :members:
-   :special-members: __iter__
+   :special-members: __len__, __iter__
 
 
 Relationship Matching
@@ -62,8 +62,8 @@ Relationship Matching
 
 .. autoclass:: py2neo.matching.RelationshipMatcher
    :members:
-   :special-members: __getitem__
+   :special-members: __len__, __getitem__
 
 .. autoclass:: py2neo.matching.RelationshipMatch
    :members:
-   :special-members: __iter__
+   :special-members: __len__, __iter__
