@@ -97,9 +97,6 @@ class DatabaseTestCase(IntegrationTestCase):
     def test_database_name(self):
         self.assertEqual(self.db.name, "graph.db")
 
-    def test_store_directory(self):
-        _ = self.db.store_directory
-
     def test_kernel_version(self):
         version = self.db.kernel_version
         assert isinstance(version, tuple)

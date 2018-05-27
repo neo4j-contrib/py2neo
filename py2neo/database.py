@@ -215,13 +215,6 @@ class Database(object):
         return datetime.fromtimestamp(info["StoreCreationDate"] / 1000.0)
 
     @property
-    def store_directory(self):
-        """ Return the location of the Neo4j store.
-        """
-        info = self.query_jmx("org.neo4j", name="Kernel")
-        return info.get("StoreDirectory")
-
-    @property
     def store_id(self):
         """ Return an identifier that, together with store creation time,
         uniquely identifies this Neo4j graph store.
