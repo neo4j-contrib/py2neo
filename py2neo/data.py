@@ -24,29 +24,11 @@ from operator import xor as xor_operator
 from uuid import uuid4
 
 from py2neo.cypher.writing import LabelSetView, cypher_repr, cypher_str
-from py2neo.internal.collections import is_collection
+from py2neo.internal.collections import is_collection, SetView
 from py2neo.internal.compat import integer_types, numeric_types, string_types, ustr, xstr
 from py2neo.internal.html import html_escape
 from py2neo.internal.operations import create_subgraph, merge_subgraph, delete_subgraph, separate_subgraph, \
     pull_subgraph, push_subgraph
-
-
-def order(graph_structure):
-    """ Count the number of nodes in a graph structure.
-    """
-    try:
-        return graph_structure.__graph_order__()
-    except AttributeError:
-        raise TypeError("Object is not a graph structure")
-
-
-def size(graph_structure):
-    """ Count the number of relationships in a graph structure.
-    """
-    try:
-        return graph_structure.__graph_size__()
-    except AttributeError:
-        raise TypeError("Object is not a graph structure")
 
 
 def walk(*walkables):
@@ -585,8 +567,7 @@ class Subgraph(object):
 
     def __eq__(self, other):
         try:
-            return order(self) == order(other) and size(self) == size(other) and \
-                   self.nodes == other.nodes and self.relationships == other.relationships
+            return self.nodes == other.nodes and self.relationships == other.relationships
         except (AttributeError, TypeError):
             return False
 
@@ -600,16 +581,6 @@ class Subgraph(object):
         for entity in self.__relationships:
             value ^= hash(entity)
         return value
-
-    def __graph_order__(self):
-        """ Total number of unique nodes.
-        """
-        return len(self.__nodes)
-
-    def __graph_size__(self):
-        """ Total number of unique relationships.
-        """
-        return len(self.__relationships)
 
     def __len__(self):
         return len(self.__relationships)
@@ -661,13 +632,13 @@ class Subgraph(object):
     def nodes(self):
         """ Set of all nodes.
         """
-        return self.__nodes
+        return SetView(self.__nodes)
 
     @property
     def relationships(self):
         """ Set of all relationships.
         """
-        return self.__relationships
+        return SetView(self.__relationships)
 
     @property
     def labels(self):

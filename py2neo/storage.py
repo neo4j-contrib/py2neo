@@ -102,9 +102,6 @@ class GraphStore(object):
     #
     _relationships_by_node = None
 
-    def __graph_store__(self):
-        return self
-
     @classmethod
     def build(cls, nodes=None, relationships=None):
         return cls(GraphStore(nodes, relationships))

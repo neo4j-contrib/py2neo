@@ -22,8 +22,8 @@ from collections import OrderedDict
 from re import compile as re_compile
 from unicodedata import category
 
-from py2neo.internal.compat import uchr, ustr, \
-    bytes_types, numeric_types, string_types, unicode_types
+from py2neo.internal.collections import SetView
+from py2neo.internal.compat import uchr, ustr, numeric_types, string_types, unicode_types
 
 
 ID_START = {u"_"} | {uchr(x) for x in range(0xFFFF)
@@ -42,33 +42,24 @@ DOUBLE_QUOTED_SAFE = re_compile(r"([ -!#-\[\]-~]+)")
 SINGLE_QUOTED_SAFE = re_compile(r"([ -&(-\[\]-~]+)")
 
 
-class LabelSetView(object):
+class LabelSetView(SetView):
 
     def __init__(self, elements=(), selected=(), **kwargs):
-        self.__elements = frozenset(elements)
+        super(LabelSetView, self).__init__(frozenset(elements))
         self.__selected = tuple(selected)
         self.__kwargs = kwargs
 
     def __repr__(self):
         if self.__selected:
-            return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in self.__selected if e in self.__elements)
+            return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in self.__selected if e in self)
         else:
-            return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in sorted(self.__elements))
+            return "".join(":%s" % cypher_escape(e, **self.__kwargs) for e in sorted(self))
 
     def __getattr__(self, element):
         if element in self.__selected:
-            return self.__class__(self.__elements, self.__selected)
+            return self.__class__(self, self.__selected)
         else:
-            return self.__class__(self.__elements, self.__selected + (element,))
-
-    def __len__(self):
-        return len(self.__elements)
-
-    def __iter__(self):
-        return iter(self.__elements)
-
-    def __contains__(self, element):
-        return element in self.__elements
+            return self.__class__(self, self.__selected + (element,))
 
 
 class PropertyDictView(object):

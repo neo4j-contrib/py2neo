@@ -342,14 +342,8 @@ class Graph(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
-    def __graph_order__(self):
-        return self.evaluate("MATCH (_) RETURN count(_)")
-
-    def __graph_size__(self):
-        return self.evaluate("MATCH ()-[_]->() RETURN count(_)")
-
     def __len__(self):
-        return self.__graph_size__()
+        return len(self.relationships)
 
     def __bool__(self):
         return True
@@ -464,6 +458,8 @@ class Graph(object):
     def nodes(self):
         """ Obtain a :class:`.NodeMatcher` for this graph.
 
+        This can be used to find nodes that match given criteria:
+
             >>> graph = Graph()
             >>> graph.nodes[1234]
             (_1234:Person {name: 'Alice'})
@@ -472,13 +468,15 @@ class Graph(object):
             >>> graph.nodes.match("Person", name="Alice").first()
             (_1234:Person {name: 'Alice'})
 
+        Nodes can also be efficiently counted using this attribute:
+
+            >>> len(graph.nodes)
+            55691
+            >>> len(graph.nodes.match("Person", age=33))
+            12
+
         """
         return NodeMatcher(self)
-
-    def order(self):
-        """ Count and return the number of nodes in this graph.
-        """
-        return self.evaluate("MATCH (_) RETURN count(_)")
 
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
@@ -499,6 +497,9 @@ class Graph(object):
     @property
     def relationships(self):
         """ Obtain a :class:`.RelationshipMatcher` for this graph.
+
+        This can be used to find relationships that match given criteria
+        as well as efficiently count relationships.
         """
         return RelationshipMatcher(self)
 
@@ -521,11 +522,6 @@ class Graph(object):
                        :class:`.Subgraph`
         """
         self.begin(autocommit=True).separate(subgraph)
-
-    def size(self):
-        """ Count and return the number of relationships in this graph.
-        """
-        return self.evaluate("MATCH ()-[_]->() RETURN count(_)")
 
 
 class Schema(object):
@@ -1025,7 +1021,12 @@ class Transaction(object):
             merge(self, primary_label, primary_key)
 
     def pull(self, subgraph):
-        """ TODO
+        """ Update local entities from their remote counterparts.
+
+        For any nodes and relationships that exist in both the local
+        :class:`.Subgraph` and the remote :class:`.Graph`, pull properties
+        and node labels into the local copies. This operation does not
+        create or delete any entities.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
@@ -1038,7 +1039,12 @@ class Transaction(object):
             return pull(self)
 
     def push(self, subgraph):
-        """ TODO
+        """ Update remote entities from their local counterparts.
+
+        For any nodes and relationships that exist in both the local
+        :class:`.Subgraph` and the remote :class:`.Graph`, push properties
+        and node labels into the remote copies. This operation does not
+        create or delete any entities.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`

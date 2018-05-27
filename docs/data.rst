@@ -286,16 +286,6 @@ For example::
 
         Return the set of all relationship types in this subgraph.
 
-.. function:: order(subgraph)
-
-    Return the number of nodes in `subgraph`.
-    This argument can be an instance of :class:`.Subgraph` or of any derived class, such as :class:`.Path`.
-
-.. function:: size(subgraph)
-
-    Return the number of relationships in `subgraph`.
-    This argument can be an instance of :class:`.Subgraph` or of any derived class, such as :class:`.Path`.
-
 
 .. _walkable_types:
 

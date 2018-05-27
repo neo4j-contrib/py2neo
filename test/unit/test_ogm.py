@@ -18,8 +18,6 @@
 
 from unittest import TestCase
 
-from py2neo.data import order, size
-
 from test.fixtures.ogm import Film, MacGuffin, DerivedThing
 
 
@@ -71,10 +69,6 @@ class InstanceSubgraphTestCase(TestCase):
     def setUp(self):
         self.film = Film("Die Hard")
         self.film_node = self.film.__ogm__.node
-
-    def test_instance_subgraph_is_node_like(self):
-        assert order(self.film_node) == 1
-        assert size(self.film_node) == 0
 
     def test_instance_subgraph_inherits_primary_label(self):
         assert self.film_node.__primarylabel__ == "Movie"

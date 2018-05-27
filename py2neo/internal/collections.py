@@ -18,6 +18,7 @@
 
 from __future__ import absolute_import
 
+from collections import Set
 from itertools import cycle, islice
 
 from py2neo.internal.compat import bytes_types, string_types
@@ -69,6 +70,31 @@ def round_robin(*iterables):
         except StopIteration:
             pending -= 1
             nexts = cycle(islice(nexts, pending))
+
+
+class SetView(Set):
+
+    def __init__(self, collection):
+        self.__collection = collection
+
+    def __eq__(self, other):
+        return frozenset(self) == frozenset(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __len__(self):
+        return len(self.__collection)
+
+    def __iter__(self):
+        return iter(self.__collection)
+
+    def __contains__(self, element):
+        return element in self.__collection
+
+    def difference(self, other):
+        cls = self.__class__
+        return cls(frozenset(self).difference(frozenset(other)))
 
 
 class ReactiveSet(set):

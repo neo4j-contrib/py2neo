@@ -41,10 +41,6 @@ class GraphStoreTestCase(TestCase):
         )
     )
 
-    def test_should_reflect_self_in_store_magic_method(self):
-        store = FrozenGraphStore(self.store)
-        self.assertIs(store.__graph_store__(), store)
-
     def test_should_get_counts(self):
         store = FrozenGraphStore(self.store)
         self.assertEqual(store.node_count(), 4)
