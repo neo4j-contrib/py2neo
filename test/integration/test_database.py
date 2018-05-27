@@ -95,7 +95,7 @@ class DatabaseTestCase(IntegrationTestCase):
         assert self.db.config
 
     def test_database_name(self):
-        _ = self.db.database_name
+        self.assertEqual(self.db.name, "graph.db")
 
     def test_store_directory(self):
         _ = self.db.store_directory
@@ -108,9 +108,8 @@ class DatabaseTestCase(IntegrationTestCase):
         assert isinstance(version[1], int)
         assert isinstance(version[2], int)
 
-    def test_can_get_list_of_databases(self):
-        databases = list(self.db)
-        assert databases == ["data"]
+    def test_can_get_set_of_graphs_in_database(self):
+        self.assertEqual(set(self.db), {"data"})
 
     def test_can_get_dictionary_of_databases(self):
         databases = dict(self.db)

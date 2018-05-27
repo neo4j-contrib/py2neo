@@ -186,7 +186,7 @@ class Database(object):
         return d
 
     @property
-    def database_name(self):
+    def name(self):
         """ Return the name of the active Neo4j database.
         """
         info = self.query_jmx("org.neo4j", name="Kernel")
@@ -1277,7 +1277,7 @@ class Cursor(object):
         `numpy.ndarray <https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.html>`_.
 
         .. note::
-           This method requires `numpy` to be installed, which can be done directly or via the `sci` extra.
+           This method requires `numpy` to be installed.
 
         :param dtype:
         :param order:
@@ -1287,7 +1287,7 @@ class Cursor(object):
         try:
             from numpy import array
         except ImportError:
-            warn("Numpy is not installed. This can be installed directly or via the [sci] extra.")
+            warn("Numpy is not installed.")
             raise
         else:
             return array(list(map(list, self)), dtype=dtype, order=order)
@@ -1297,7 +1297,7 @@ class Cursor(object):
         `pandas.Series <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`_.
 
         .. note::
-           This method requires `pandas` to be installed, which can be done directly or via the `sci` extra.
+           This method requires `pandas` to be installed.
 
         :param field:
         :param index:
@@ -1308,7 +1308,7 @@ class Cursor(object):
         try:
             from pandas import Series
         except ImportError:
-            warn("Pandas is not installed. This can be installed directly or via the [sci] extra.")
+            warn("Pandas is not installed.")
             raise
         else:
             return Series([record[field] for record in self], index=index, dtype=dtype)
@@ -1329,7 +1329,7 @@ class Cursor(object):
             3    1960        Hugo Weaving
 
         .. note::
-           This method requires `pandas` to be installed, which can be done directly or via the `sci` extra.
+           This method requires `pandas` to be installed.
 
         :param index: Index to use for resulting frame.
         :param columns: Column labels to use for resulting frame.
@@ -1340,7 +1340,7 @@ class Cursor(object):
         try:
             from pandas import DataFrame
         except ImportError:
-            warn("Pandas is not installed. This can be installed directly or via the [sci] extra.")
+            warn("Pandas is not installed.")
             raise
         else:
             return DataFrame(list(map(dict, self)), index=index, columns=columns, dtype=dtype)
@@ -1350,7 +1350,7 @@ class Cursor(object):
         `sympy.Matrix <http://docs.sympy.org/latest/tutorial/matrices.html>`_.
 
         .. note::
-           This method requires `sympy` to be installed, which can be done directly or via the `sci` extra.
+           This method requires `sympy` to be installed.
 
         :param mutable:
         :returns: `Matrix <http://docs.sympy.org/latest/tutorial/matrices.html>`_ object.
@@ -1358,7 +1358,7 @@ class Cursor(object):
         try:
             from sympy import MutableMatrix, ImmutableMatrix
         except ImportError:
-            warn("Sympy is not installed. This can be installed directly or via the [sci] extra.")
+            warn("Sympy is not installed.")
             raise
         else:
             if mutable:

@@ -11,13 +11,12 @@ To run a query against a local database is straightforward::
 
     >>> from py2neo import Graph
     >>> graph = Graph(password="password")
-    >>> graph.run("UNWIND range(1, 3) AS n RETURN n, n * n as n_sq").dump()
-    n   n_sq
-   ----------
-     1     1
-     2     4
-     3     9
-
+    >>> graph.run("UNWIND range(1, 3) AS n RETURN n, n * n as n_sq").to_table()
+       n | n_sq
+    -----|------
+       1 |    1
+       2 |    4
+       3 |    9
 
 
 The :class:`.Database`

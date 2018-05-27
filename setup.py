@@ -56,11 +56,6 @@ package_metadata = {
         "urllib3[secure]",
     ],
     "extras_require": {
-        "sci": [
-            "numpy",
-            "pandas",
-            "sympy",
-        ],
     },
     "license": __license__,
     "classifiers": [
