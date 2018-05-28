@@ -20,7 +20,7 @@ from unittest import TestCase
 
 from pygments.token import Token
 
-from py2neo.cypher.reading import CypherLexer
+from py2neo.cypher.lexer import CypherLexer
 
 
 class CypherLexerTestCase(TestCase):

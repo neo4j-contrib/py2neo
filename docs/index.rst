@@ -48,7 +48,7 @@ Library Reference
    database
    matching
    ogm
-   cypher/reading
+   cypher/lexer
    cypher/writing
    console
    admin

@@ -590,7 +590,7 @@ class Schema(object):
             if t and typ != t:
                 continue
             if not lbl or not properties:
-                from py2neo.cypher.reading import CypherLexer
+                from py2neo.cypher.lexer import CypherLexer
                 from pygments.token import Token
                 tokens = list(CypherLexer().get_tokens(description))
                 for token_type, token_value in tokens:

@@ -16,7 +16,39 @@
 # limitations under the License.
 
 """
-Pygments lexer for Cypher.
+This module contains a `Cypher <https://neo4j.com/developer/cypher/>`_ language lexer based on the
+`Pygments <http://pygments.org/>`_ `lexer framework <http://pygments.org/docs/lexerdevelopment/>`_.
+This can be used to parse statements and expressions for the Cypher variant available in Neo4j 3.4.
+
+To parse a Cypher statement, create a :class:`.CypherLexer` and invoke the :meth:`.get_tokens` method::
+
+    >>> from py2neo.cypher.lexer import CypherLexer
+    >>> lexer = CypherLexer()
+    >>> list(lexer.get_tokens("MATCH (a:Person)-[:KNOWS]->(b) RETURN a"))
+    [(Token.Keyword, 'MATCH'),
+     (Token.Text.Whitespace, ' '),
+     (Token.Punctuation, '('),
+     (Token.Name.Variable, 'a'),
+     (Token.Punctuation, ':'),
+     (Token.Name.Label, 'Person'),
+     (Token.Punctuation, ')-['),
+     (Token.Punctuation, ':'),
+     (Token.Name.Label, 'KNOWS'),
+     (Token.Punctuation, ']->('),
+     (Token.Name.Variable, 'b'),
+     (Token.Punctuation, ')'),
+     (Token.Text.Whitespace, ' '),
+     (Token.Keyword, 'RETURN'),
+     (Token.Text.Whitespace, ' '),
+     (Token.Name.Variable, 'a'),
+     (Token.Text.Whitespace, '\\n')]
+
+To split multiple semicolon-separated statements within a single string, use instead the :meth:`.get_statements` method::
+
+    >>> list(lexer.get_statements("CREATE (:Person {name:'Alice'}); MATCH (a:Person {name:'Alice'}) RETURN id(a)"))
+    ["CREATE (:Person {name:'Alice'})",
+     "MATCH (a:Person {name:'Alice'}) RETURN id(a)"]
+
 """
 
 import re
@@ -26,7 +58,16 @@ from pygments.token import Keyword, Punctuation, Comment, Operator, Name, \
     String, Number, Whitespace
 
 
-__all__ = ["cypher_keywords", "CypherLexer"]
+__all__ = [
+    "cypher_keywords",
+    "cypher_pseudo_keywords",
+    "cypher_operator_symbols",
+    "cypher_operator_words",
+    "cypher_constants",
+    "neo4j_built_in_functions",
+    "neo4j_user_defined_functions",
+    "CypherLexer",
+]
 
 
 cypher_keywords = [
@@ -266,11 +307,9 @@ def symbol_list(symbols, token_type):
 
 
 class CypherLexer(RegexLexer):
-    """
-    For `Cypher Query Language
+    """ Pygments lexer for the `Cypher Query Language
     <https://neo4j.com/docs/cypher-refcard/current/>`_
-
-    For the Cypher version in Neo4j 3.4
+    as available in Neo4j 3.4.
     """
     name = 'Cypher'
     aliases = ['cypher']
