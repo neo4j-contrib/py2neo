@@ -29,7 +29,7 @@ __all__ = [
 ]
 
 
-from py2neo.cypher.writing import cypher_escape
+from py2neo.cypher import cypher_escape
 
 
 def _node_create_dict(nodes):

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.cypher.writing import cypher_escape
+from py2neo.cypher import cypher_escape
 from py2neo.data import Node, PropertyDict
 from py2neo.internal.util import metaclass, label_case, relationship_case
 from py2neo.matching import NodeMatch, NodeMatcher

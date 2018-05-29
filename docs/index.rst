@@ -49,7 +49,7 @@ Library Reference
    matching
    ogm
    cypher/lexer
-   cypher/writing
+   cypher/index
    console
    admin
 

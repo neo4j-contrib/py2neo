@@ -18,7 +18,7 @@
 
 from unittest import TestCase
 
-from py2neo.cypher.writing import LabelSetView, PropertyDictView, PropertySelector
+from py2neo.cypher import LabelSetView, PropertyDictView, PropertySelector
 
 
 class LabelSetViewTestCase(TestCase):

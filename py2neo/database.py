@@ -23,7 +23,7 @@ from datetime import datetime
 from time import sleep
 from warnings import warn
 
-from py2neo.cypher.writing import cypher_escape
+from py2neo.cypher import cypher_escape
 from py2neo.data import Table, Record
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
