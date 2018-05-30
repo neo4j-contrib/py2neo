@@ -1,3 +1,2 @@
 include LICENSE NOTICE README.rst
-exclude CONTRIBUTING.md
 recursive-exclude test *
