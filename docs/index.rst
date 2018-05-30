@@ -48,8 +48,8 @@ Library Reference
    database
    matching
    ogm
-   cypher/lexer
    cypher/index
+   cypher/lexer
    console
    admin
 

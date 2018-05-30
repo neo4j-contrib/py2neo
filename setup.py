@@ -49,7 +49,7 @@ package_metadata = {
     "install_requires": [
         "click>=2.0",
         "colorama",
-        "neo4j-driver==1.6.0rc1",
+        "neo4j-driver>=1.6.0",
         "prompt_toolkit",
         "pygments>=2.0",
         "pytest",
