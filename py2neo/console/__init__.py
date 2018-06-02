@@ -122,9 +122,6 @@ class Console(object):
         self.tx = None
         self.tx_counter = 0
 
-    def run_all_or_loop(self, sources):
-        return self.run_all(sources) if sources else self.loop()
-
     def loop(self):
         self.echo(TITLE, err=True)
         self.echo("Connected to {}".format(self.graph.database.uri).rstrip(), err=True)

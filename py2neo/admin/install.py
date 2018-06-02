@@ -405,7 +405,7 @@ class Server(object):
 
 
 class AuthFile(object):
-    """ A Neo4j auth file, generally located in data/dbms/auth.
+    """ A Neo4j auth file, generally located at data/dbms/auth.
     """
 
     def __init__(self, name):

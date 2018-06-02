@@ -50,8 +50,7 @@ Library Reference
    ogm
    cypher/index
    cypher/lexer
-   console
-   admin
+   cli
 
 
 .. _Neo4j: https://neo4j.com/
