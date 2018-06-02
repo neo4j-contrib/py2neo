@@ -618,6 +618,11 @@ class Result(object):
         """
         return self.result.keys()
 
+    def summary(self):
+        """ Return the summary.
+        """
+        return self.result.summary()
+
     def plan(self):
         """ Return the query plan, if available.
         """
@@ -1134,6 +1139,11 @@ class Cursor(object):
         """ Return the field names for the records in the stream.
         """
         return self._result.keys()
+
+    def summary(self):
+        """ Return the result summary.
+        """
+        return self._result.summary()
 
     def plan(self):
         """ Return the plan returned with this result, if any.

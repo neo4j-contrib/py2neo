@@ -29,9 +29,9 @@ except ImportError:
     from collections import Mapping
 
 try:
-    from urllib.parse import urlsplit
+    from urllib.parse import urlparse, urlsplit
 except ImportError:
-    from urlparse import urlsplit
+    from urlparse import urlparse, urlsplit
 
 try:
     from urllib.request import urlretrieve

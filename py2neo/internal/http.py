@@ -23,13 +23,15 @@ from collections import OrderedDict
 from json import dumps as json_dumps, loads as json_loads
 from warnings import catch_warnings, simplefilter
 
+from neo4j.addressing import SocketAddress
+from neo4j.bolt import ServerInfo
 from neo4j.exceptions import AuthError, Forbidden
 from neo4j.v1 import Driver, Session, StatementResult, TransactionError, SessionError
 
 from py2neo.data import Record
 from py2neo.database import GraphError
 from py2neo.internal.addressing import get_connection_data
-from py2neo.internal.compat import urlsplit, ustr
+from py2neo.internal.compat import urlparse, urlsplit, ustr
 from py2neo.internal.json import JSONDehydrator
 
 
@@ -394,7 +396,13 @@ class HTTPStatementResult(StatementResult):
             if "plan" in result:
                 metadata["http_plan"] = result["plan"]
 
-            self._summary = BoltStatementResultSummary(statement=None, parameters=None, **metadata)  # TODO: statement and params
+            # TODO: fill these in
+            metadata["statement"] = None
+            metadata["parameters"] = None
+
+            metadata["server"] = ServerInfo(SocketAddress.from_uri(session.graph.database.uri))
+
+            self._summary = BoltStatementResultSummary(**metadata)
             self._session = None
             return len(self._records)
 
