@@ -853,14 +853,14 @@ class CursorCurrentTestCase(IntegrationTestCase):
 
     def test_current_is_none_at_start(self):
         cursor = self.graph.run("RETURN 1")
-        assert cursor.current() is None
+        assert cursor.current is None
 
     def test_current_updates_after_move(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n")
         n = 0
         while cursor.forward():
             n += 1
-            assert cursor.current() == Record(zip(["n"], [n]))
+            assert cursor.current == Record(zip(["n"], [n]))
 
 
 class CursorSelectionTestCase(IntegrationTestCase):

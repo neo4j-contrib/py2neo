@@ -286,28 +286,6 @@ class Graph(object):
     access to most of the functionality available within py2neo.
     """
 
-    # TODO (maybe) - different Graph implementations
-    # uri_schemes = ()
-    # uri_schemes = ("http", "https", "bolt", "bolt+routing")
-    #
-    # def __new__(cls, uri=None, **settings):
-    #     connection_data = get_connection_data(uri, **settings)
-    #
-    #     def find_subclass(root_class, uri_scheme):
-    #         for subclass in root_class.__subclasses__():
-    #             if uri_scheme in subclass.uri_schemes:
-    #                 return subclass
-    #             found = find_subclass(subclass, uri_scheme)
-    #             if found:
-    #                 return found
-    #         return None
-    #
-    #     graph = find_subclass(cls, connection_data["scheme"])
-    #     if graph:
-    #         return graph(uri=None, **settings)
-    #     else:
-    #         raise NotImplementedError("Unsupported URI scheme %r" % connection_data["scheme"])
-
     #: The :class:`.Database` to which this :class:`.Graph` belongs.
     database = None
 
@@ -1090,13 +1068,13 @@ class Cursor(object):
     records, a `while` loop can be used::
 
         while cursor.forward():
-            print(cursor.current()["name"])
+            print(cursor.current["name"])
 
     If only the first record is of interest, a similar `if` structure will
     do the job::
 
         if cursor.forward():
-            print(cursor.current()["name"])
+            print(cursor.current["name"])
 
     To combine `forward` and `current` into a single step, use :attr:`.next`::
 
@@ -1130,6 +1108,7 @@ class Cursor(object):
         while self.forward():
             yield self._current
 
+    @property
     def current(self):
         """ Returns the current record or :py:const:`None` if no record
         has yet been selected.
@@ -1222,7 +1201,7 @@ class Cursor(object):
         """
         if self.forward():
             try:
-                return self.current()[field]
+                return self.current[field]
             except IndexError:
                 return None
         else:
