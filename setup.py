@@ -49,7 +49,7 @@ package_metadata = {
         "click>=2.0",
         "colorama",
         "neo4j-driver>=1.6.0",
-        "prompt_toolkit==1.0.15",
+        "prompt_toolkit>=2.0.1",
         "pygments>=2.0",
         "pytest",
         "urllib3[secure]",

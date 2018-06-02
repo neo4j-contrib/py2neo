@@ -30,10 +30,10 @@ from timeit import default_timer as timer
 import click
 from neo4j.exceptions import ServiceUnavailable, CypherError
 from neo4j.v1 import TransactionError
-from prompt_toolkit import prompt
+from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
-from prompt_toolkit.layout.lexers import PygmentsLexer
-from prompt_toolkit.styles import style_from_pygments
+from prompt_toolkit.lexers import PygmentsLexer
+from prompt_toolkit.styles import merge_styles, style_from_pygments_cls, style_from_pygments_dict
 from pygments.styles.vim import VimStyle
 from pygments.token import Token
 
@@ -60,7 +60,7 @@ class Console(object):
         return click.secho(text, file=file, nl=nl, err=err, color=color, **styles)
 
     def prompt(self, *args, **kwargs):
-        return prompt(*args, **kwargs)
+        return self.session.prompt(*args, **kwargs)
 
     multi_line = False
     watcher = None
@@ -82,14 +82,15 @@ class Console(object):
             makedirs(HISTORY_FILE_DIR)
         except OSError:
             pass
-        self.history = FileHistory(path_join(HISTORY_FILE_DIR, HISTORY_FILE))
+        # self.history = FileHistory(path_join(HISTORY_FILE_DIR, HISTORY_FILE))
+        self.session = PromptSession(history=FileHistory(path_join(HISTORY_FILE_DIR, HISTORY_FILE)))
         self.prompt_args = {
-            "history": self.history,
+            # "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
-            "style": style_from_pygments(VimStyle, {
+            "style": merge_styles([style_from_pygments_cls(VimStyle), style_from_pygments_dict({
                 Token.Prompt: "#ansi{}".format(self.prompt_colour.replace("cyan", "teal")),
                 Token.TxCounter: "#ansi{} bold".format(self.tx_colour.replace("cyan", "teal")),
-            })
+            })])
         }
         self.lexer = CypherLexer()
         self.result_writer = Table.write
@@ -212,18 +213,10 @@ class Console(object):
         if self.multi_line:
             self.multi_line = False
             return self.prompt(u"", multiline=True, **self.prompt_args)
-
-        def get_prompt_tokens(_):
-            tokens = []
-            if self.tx is None:
-                tokens.append((Token.Prompt, "\n-> "))
-            else:
-                tokens.append((Token.Prompt, "\n-("))
-                tokens.append((Token.TxCounter, "{}".format(self.tx_counter)))
-                tokens.append((Token.Prompt, ")-> "))
-            return tokens
-
-        return self.prompt(get_prompt_tokens=get_prompt_tokens, **self.prompt_args)
+        if self.tx is None:
+            return self.prompt(u"\n-> ", **self.prompt_args)
+        else:
+            return self.prompt(u"\n-(%s)-> " % self.tx_counter, **self.prompt_args)
 
     def run_source(self, source):
         for i, statement in enumerate(self.lexer.get_statements(source)):
