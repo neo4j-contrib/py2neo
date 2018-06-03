@@ -337,8 +337,6 @@ class GraphObject(object):
         inst = GraphObject()
         inst.__ogm = OGM(node)
         inst.__class__ = cls
-        for attr in dir(inst):
-            _ = getattr(inst, attr)
         return inst
 
     @classmethod
