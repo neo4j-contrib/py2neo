@@ -27,7 +27,7 @@ class ParallelTestCase(IntegrationTestCase):
         inner_result = self.graph.run("CREATE (a) RETURN a")
         outer_result_list = list(map(tuple, outer_result))
         tx.rollback()
-        record = inner_result.next()
+        record = next(inner_result)
         created = record[0]
         assert outer_result_list == [(1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,)]
         assert self.graph.exists(created)

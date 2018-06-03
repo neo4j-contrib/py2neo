@@ -780,7 +780,7 @@ class TransactionErrorTestCase(IntegrationTestCase):
         tx = self.graph.begin()
         cursor = tx.run("CREATE (a), (b) RETURN a, b")
         tx.process()
-        record = cursor.next()
+        record = next(cursor)
         parameters = {"A": record["a"].identity, "B": record["b"].identity}
         statement = ("MATCH (a) WHERE id(a)={A} MATCH (b) WHERE id(b)={B}" +
                      "CREATE (a)-[:KNOWS]->(b)")
@@ -867,19 +867,19 @@ class CursorSelectionTestCase(IntegrationTestCase):
 
     def test_select_picks_next(self):
         cursor = self.graph.run("RETURN 1")
-        record = cursor.next()
+        record = next(cursor)
         assert record == Record(zip(["1"], [1]))
 
     def test_cannot_select_past_end(self):
         cursor = self.graph.run("RETURN 1")
         cursor.forward()
         with self.assertRaises(StopIteration):
-            _ = cursor.next()
+            _ = next(cursor)
 
     def test_selection_triggers_move(self):
         cursor = self.graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
         for i in range(1, 11):
-            n, n_sq = cursor.next()
+            n, n_sq = next(cursor)
             assert n == i
             assert n_sq == i * i
 

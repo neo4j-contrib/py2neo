@@ -1081,9 +1081,10 @@ class Cursor(object):
         if cursor.forward():
             print(cursor.current["name"])
 
-    To combine `forward` and `current` into a single step, use :attr:`.next`::
+    To combine `forward` and `current` into a single step, use the built-in
+    py:func:`next` function::
 
-        print(cursor.next()["name"])
+        print(next(cursor)["name"])
 
     Cursors are also iterable, so can be used in a loop::
 
@@ -1113,21 +1114,15 @@ class Cursor(object):
         while self.forward():
             yield self._current
 
+    def __getitem__(self, key):
+        return self._current[key]
+
     @property
     def current(self):
         """ Returns the current record or :py:const:`None` if no record
         has yet been selected.
         """
         return self._current
-
-    def next(self):
-        """ Returns the next record in the stream, or raises
-        :py:class:`StopIteration` if no more records are available.
-
-            cursor.current if cursor.forward() else None
-
-        """
-        return self.__next__()
 
     def close(self):
         """ Close this cursor and free up all associated resources.
@@ -1211,7 +1206,7 @@ class Cursor(object):
         """
         if self.forward():
             try:
-                return self.current[field]
+                return self[field]
             except IndexError:
                 return None
         else:
