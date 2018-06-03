@@ -1110,6 +1110,9 @@ class Cursor(object):
         else:
             raise StopIteration()
 
+    # Exists only for Python 2 iteration compatibility
+    next = __next__
+
     def __iter__(self):
         while self.forward():
             yield self._current
