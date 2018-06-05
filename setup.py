@@ -28,7 +28,7 @@ from py2neo.meta import __author__, __email__, __license__, __package__, __versi
 with open(path_join(dirname(__file__), "README.rst")) as f:
     README = f.read()
 
-packages = find_packages(exclude=("book", "demo", "demo.*", "test"))
+packages = find_packages(exclude=("docs", "test"))
 package_metadata = {
     "name": __package__,
     "version": __version__,

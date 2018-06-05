@@ -80,12 +80,12 @@ class Related(object):
             self.related_class = getattr(module, class_name)
 
     def __get__(self, instance, owner):
-        cog = instance.__ogm__
-        related = cog.related
+        ogm = instance.__ogm__
+        related = ogm.related
         key = (self.direction, self.relationship_type)
         if key not in related:
             self.resolve_related_class(instance)
-            related[key] = RelatedObjects(cog.node, self.direction, self.relationship_type, self.related_class)
+            related[key] = RelatedObjects(ogm.node, self.direction, self.relationship_type, self.related_class)
         return related[key]
 
 

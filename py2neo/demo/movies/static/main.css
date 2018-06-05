@@ -16,7 +16,7 @@ a:hover {
     width: 100%;
     height: 80px;
     color: #CCCCCC;
-    background: #666677 url(/images/camera.png) no-repeat 20px 50%;
+    background: #666677 url(/static/camera.png) no-repeat 20px 50%;
 }
 nav {
     padding: 2em 20px 2em 100px;

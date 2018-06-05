@@ -3,7 +3,7 @@
 
   <head>
     <title>Movie List - The Movie Graph</title>
-    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
   </head>
 
   <body>
@@ -14,9 +14,9 @@
 
     <h1>Movies</h1>
     <ul>
-    % for movie in movies:
-        <li><a href="/movie/{{movie.title}}">{{movie.title}} [{{movie.released}}]</a></li>
-    % end
+    {% for movie in movies|sort: %}
+        <li><a href="/movie/{{ movie.title }}">{{ movie.title }} [{{ movie.released }}]</a></li>
+    {% endfor %}
     </ul>
 
     <div class="footer">
