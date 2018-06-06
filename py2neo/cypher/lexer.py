@@ -311,9 +311,9 @@ class CypherLexer(RegexLexer):
     <https://neo4j.com/docs/cypher-refcard/current/>`_
     as available in Neo4j 3.4.
     """
-    name = 'Cypher'
-    aliases = ['cypher']
-    filenames = ['*.cypher', '*.cyp']
+    name = "Cypher"
+    aliases = ["cypher", "py2neo.cypher"]
+    filenames = ["*.cypher", "*.cyp"]
 
     flags = re.IGNORECASE | re.MULTILINE | re.UNICODE
 

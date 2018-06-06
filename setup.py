@@ -42,6 +42,9 @@ package_metadata = {
         "console_scripts": [
             "py2neo = py2neo.__main__:main",
         ],
+        "pygments.lexers": [
+            "py2neo.cypher = py2neo.cypher.lexer:CypherLexer",
+        ],
     },
     "packages": packages,
     "py_modules": [],
