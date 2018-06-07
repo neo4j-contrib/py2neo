@@ -256,9 +256,7 @@ class Graph(object):
     - ``bolt``
     - ``bolt+routing``
 
-    The full set of `settings` supported are:
-
-    auth user_agent secure scheme user password host port
+    The full set of supported `settings` are:
 
     ==============  =============================================  ==============  =============
     Keyword         Description                                    Type            Default

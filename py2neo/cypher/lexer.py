@@ -20,10 +20,11 @@ This module contains a `Cypher <https://neo4j.com/developer/cypher/>`_ language 
 `Pygments <http://pygments.org/>`_ `lexer framework <http://pygments.org/docs/lexerdevelopment/>`_.
 This can be used to parse statements and expressions for the Cypher variant available in Neo4j 3.4.
 
-To parse a Cypher statement, create a :class:`.CypherLexer` and invoke the :meth:`.get_tokens` method::
+To parse a Cypher statement, create a :class:`.CypherLexer` or select by the name `py2neo.cypher`,
+then invoke the :meth:`.get_tokens` method::
 
-    >>> from py2neo.cypher.lexer import CypherLexer
-    >>> lexer = CypherLexer()
+    >>> from pygments.lexers import get_lexer_by_name
+    >>> lexer = get_lexer_by_name("py2neo.cypher")
     >>> list(lexer.get_tokens("MATCH (a:Person)-[:KNOWS]->(b) RETURN a"))
     [(Token.Keyword, 'MATCH'),
      (Token.Text.Whitespace, ' '),
