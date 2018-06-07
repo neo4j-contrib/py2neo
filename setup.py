@@ -58,6 +58,11 @@ package_metadata = {
         "urllib3[secure]",
     ],
     "extras_require": {
+        "jupyter": [
+            "ipykernel",
+            "ipython",
+            "jupyter_client",
+        ],
     },
     "license": __license__,
     "classifiers": [
