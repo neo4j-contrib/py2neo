@@ -35,15 +35,12 @@ from py2neo.meta import __version__
 
 
 class CypherKernel(Kernel):
-    # ?
-    language = "Cypher"
-    language_version = "Neo4j/3.4"
 
-    implementation = 'cypher_kernel'
+    implementation = 'py2neo.cypher'
     implementation_version = __version__
     language_info = {
         "name": "cypher",
-        "version": __version__,
+        "version": "Neo4j/3.4",
         "pygments_lexer": "py2neo.cypher",
         "file_extension": ".cypher",
     }
