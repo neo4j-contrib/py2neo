@@ -41,6 +41,7 @@ package_metadata = {
     "entry_points": {
         "console_scripts": [
             "py2neo = py2neo.__main__:main",
+            "icypher = py2neo.cypher.kernel:launch_console"
         ],
         "pygments.lexers": [
             "py2neo.cypher = py2neo.cypher.lexer:CypherLexer",
@@ -51,18 +52,17 @@ package_metadata = {
     "install_requires": [
         "click>=2.0",
         "colorama",
+        "ipykernel",
+        "jupyter_client",
+        "jupyter_console",
         "neo4j-driver>=1.6.0",
         "prompt_toolkit==1.0.15",
         "pygments>=2.0",
         "pytest",
+        "traitlets>=4.1.0",
         "urllib3[secure]",
     ],
     "extras_require": {
-        "jupyter": [
-            "ipykernel",
-            "ipython",
-            "jupyter_client",
-        ],
     },
     "license": __license__,
     "classifiers": [
