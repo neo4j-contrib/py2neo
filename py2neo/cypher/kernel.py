@@ -19,21 +19,16 @@
 from io import StringIO
 import json
 import os
+from subprocess import call
 from shlex import split as shlex_split
+from shutil import rmtree
+from tempfile import mkdtemp
 
-try:
-    from ipykernel.kernelapp import IPKernelApp
-    from ipykernel.kernelbase import Kernel
-    from IPython.utils.tempdir import TemporaryDirectory
-    from jupyter_client.kernelspec import KernelSpecManager
-    from traitlets import Instance, Type
-    from traitlets.config import Config
-except ImportError:
-    from warnings import warn
-    warn("The Cypher kernel requires installation of the [jupyter] extra")
-    raise
-
+from ipykernel.kernelapp import launch_new_instance
+from ipykernel.kernelbase import Kernel
+from jupyter_client.kernelspec import KernelSpecManager
 from neo4j.exceptions import ServiceUnavailable, CypherError
+from traitlets.config import Config
 
 from py2neo.internal.addressing import get_connection_data
 from py2neo.database import Graph
@@ -41,6 +36,8 @@ from py2neo.meta import __version__ as py2neo_version
 
 
 ESCAPE = "!"
+
+KERNEL_NAME = "cypher"
 
 
 def table_to_text_plain(table):
@@ -144,7 +141,7 @@ class CypherKernel(Kernel):
             self.graph = None
             return self.error("Service Unavailable", error.args[0])
         except CypherError as error:
-            return self.error(error.code or type(error).__name__, error.message)
+            return self.error(error.code or type(error).__name__, error.message or "")
         else:
             if not silent:
                 self.send_response(self.iopub_socket, "execute_result", {
@@ -199,50 +196,33 @@ class CypherKernel(Kernel):
         raise NotImplementedError
 
 
-def install(user=True, prefix=None):
-    with TemporaryDirectory() as td:
+def install_kernel(user=True, prefix=None):
+    td = mkdtemp()
+    try:
         os.chmod(td, 0o755)  # Starts off as 700, not user readable
-        with open(os.path.join(td, 'kernel.json'), 'w') as f:
+        with open(os.path.join(td, "kernel.json"), "w") as f:
             json.dump({
                 "argv": ["python", "-m", "py2neo.cypher.kernel", "-f", "{connection_file}"],
                 "display_name": "Cypher",
                 "language": "cypher",
                 "pygments_lexer": "py2neo.cypher",
             }, f, sort_keys=True)
-        d = KernelSpecManager().install_kernel_spec(td, "cypher", user=user, prefix=prefix)
-        print("Installed Cypher kernel at " + d)
+        KernelSpecManager().install_kernel_spec(td, KERNEL_NAME, user=user, prefix=prefix)
+    finally:
+        rmtree(td)
 
 
-def uninstall():
-    KernelSpecManager().remove_kernel_spec("cypher")
-
-
-def check():
-    specs = KernelSpecManager().find_kernel_specs()
-    if "cypher" in specs:
-        print("Cypher kernel is installed at " + specs["cypher"])
-    else:
-        print("Cypher kernel is not installed")
-
-
-def launch():
+def launch_kernel():
     c = Config()
     c.TerminalInteractiveShell.highlighting_style = "vim"
-    IPKernelApp.launch_instance(kernel_class=CypherKernel, config=c)
+    launch_new_instance(kernel_class=CypherKernel, config=c)
 
 
-def main():
-    import sys
-    args = sys.argv[1:]
-    if args and args[0] == "install":
-        install()
-    elif args and args[0] == "uninstall":
-        uninstall()
-    elif args and args[0] == "check":
-        check()
-    else:
-        launch()
+def launch_console():
+    if KERNEL_NAME not in KernelSpecManager().find_kernel_specs():
+        install_kernel()
+    call("jupyter console --kernel " + KERNEL_NAME, env=os.environ.copy(), shell=True)
 
 
 if __name__ == "__main__":
-    main()
+    launch_kernel()
