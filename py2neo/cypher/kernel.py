@@ -39,6 +39,11 @@ ESCAPE = "!"
 
 KERNEL_NAME = "cypher"
 
+BANNER = """\
+Py2neo {py2neo_version} Interactive Cypher
+Type '!help' for more information.
+""".format(py2neo_version=py2neo_version)
+
 
 def table_to_text_plain(table):
     s = StringIO()
@@ -62,7 +67,7 @@ class CypherKernel(Kernel):
         "pygments_lexer": "py2neo.cypher",
         "file_extension": ".cypher",
     }
-    banner = "Py2neo Jupyter kernel for Cypher"
+    banner = BANNER.strip()
     help_links = []
 
     def __init__(self, **kwargs):
