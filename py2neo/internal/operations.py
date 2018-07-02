@@ -26,6 +26,7 @@ __all__ = [
     "pull_subgraph",
     "push_subgraph",
     "separate_subgraph",
+    "subgraph_exists",
 ]
 
 
@@ -276,3 +277,33 @@ def push_subgraph(tx, subgraph):
             clauses = ["MATCH ()-[_]->() WHERE id(_) = {x}", "SET _ = {y}"]
             parameters = {"x": relationship.identity, "y": dict(relationship)}
             tx.run("\n".join(clauses), parameters)
+
+
+def subgraph_exists(tx, subgraph):
+    """ Determine whether one or more graph entities all exist within the
+    database. Note that if any nodes or relationships in *subgraph* are not
+    bound to remote counterparts, this method will return ``False``.
+
+    :param tx:
+    :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
+                   :class:`.Subgraph`
+    :returns: ``True`` if all entities exist remotely, ``False`` otherwise
+    """
+    graph = tx.graph
+    node_ids = set()
+    relationship_ids = set()
+    for i, node in enumerate(subgraph.nodes):
+        if node.graph is graph:
+            node_ids.add(node.identity)
+        else:
+            return False
+    for i, relationship in enumerate(subgraph.relationships):
+        if relationship.graph is graph:
+            relationship_ids.add(relationship.identity)
+        else:
+            return False
+    statement = ("OPTIONAL MATCH (a) WHERE id(a) IN {x} "
+                 "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN {y} "
+                 "RETURN count(DISTINCT a) + count(DISTINCT r)")
+    parameters = {"x": list(node_ids), "y": list(relationship_ids)}
+    return tx.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)

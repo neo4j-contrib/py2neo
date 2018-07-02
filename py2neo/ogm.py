@@ -388,6 +388,9 @@ class GraphObject(object):
         for related_objects in ogm.related.values():
             related_objects.clear()
 
+    def __db_exists__(self, tx):
+        return tx.exists(GraphObject.unwrap(self))
+
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
         ogm = self.__ogm__
         node = ogm.node
