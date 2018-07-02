@@ -94,14 +94,14 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         assert johnny_foo == "bar"
 
 
-class FindTestCase(MovieGraphTestCase):
+class MatchTestCase(MovieGraphTestCase):
 
-    def test_can_find_one_object(self):
+    def test_can_match_one_object(self):
         keanu = Person.match(self.graph, "Keanu Reeves").first()
         assert keanu.name == "Keanu Reeves"
         assert keanu.year_of_birth == 1964
 
-    def test_can_find_by_id(self):
+    def test_can_match_by_id(self):
         # given
         keanu_0 = Person.match(self.graph, "Keanu Reeves").first()
         node_id = keanu_0.__ogm__.node.identity
@@ -126,7 +126,7 @@ class FindTestCase(MovieGraphTestCase):
         assert keanu.name == "Keanu Reeves"
         assert keanu.year_of_birth == 1964
 
-    def test_can_find_one_by_id(self):
+    def test_can_match_one_by_id(self):
         # given
         keanu_0 = Person.match(self.graph, "Keanu Reeves").first()
         node_id = keanu_0.__ogm__.node.identity
@@ -149,11 +149,11 @@ class FindTestCase(MovieGraphTestCase):
         assert keanu.name == "Keanu Reeves"
         assert keanu.year_of_birth == 1964
 
-    def test_cannot_find_one_that_does_not_exist(self):
+    def test_cannot_match_one_that_does_not_exist(self):
         keanu = Person.match(self.graph, "Keanu Jones").first()
         assert keanu is None
 
-    def test_can_find_multiple_objects(self):
+    def test_can_match_multiple_objects(self):
         people = list(Person.match(self.graph, ("Keanu Reeves", "Hugo Weaving")))
         if people[0].name == "Keanu Reeves":
             keanu, hugo = people
