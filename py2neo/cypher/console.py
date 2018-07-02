@@ -22,6 +22,7 @@ import os
 from subprocess import call
 from shlex import split as shlex_split
 from shutil import rmtree
+from sys import argv
 from tempfile import mkdtemp
 
 from ipykernel.kernelapp import launch_new_instance
@@ -72,11 +73,33 @@ class CypherKernel(Kernel):
 
     def __init__(self, **kwargs):
         Kernel.__init__(self, **kwargs)
-        self.server = {}
-        self.graph = None
+        self._server = {}
+        self._graph = None
+
+    @property
+    def graph(self):
+        if self._graph is None:
+            if not self._server:
+                raise NoServerConfigured()
+            self._graph = Graph(**self._server)
+        return self._graph
 
     def display(self, data):
         self.send_response(self.iopub_socket, "display_data", content={"data": data})
+
+    def display_server_info(self, silent, **_):
+        if silent:
+            return
+        try:
+            product = self.graph.database.product
+        except NoServerConfigured:
+            self.display({
+                "text/plain": "No server configured",
+            })
+        else:
+            self.display({
+                "text/plain": "Server  | {}\nProduct | {}".format(self._server["uri"], product)
+            })
 
     def error(self, name, value, traceback=None):
         error_content = {
@@ -88,26 +111,20 @@ class CypherKernel(Kernel):
         self.send_response(self.iopub_socket, "error", error_content)
         return dict(error_content, status="error")
 
-    def _execute_server(self, *args, **kwargs):
+    def _execute_server_command(self, *args, **kwargs):
         """ !server <uri>
         """
         if len(args[1:]) > 1:
-            return self.error("Too many arguments", self._execute_server.__doc__)
+            return self.error("Too many arguments", self._execute_server_command.__doc__)
         if not args[1:]:
-            if not kwargs["silent"]:
-                self.display({
-                    "text/plain": "Using server at " + self.server["uri"] if self.server else "No server configured",
-                })
+            self.display_server_info(**kwargs)
             return
-        self.server = get_connection_data(args[1])
-        self.graph = None
-        if not kwargs["silent"]:
-            self.display({
-                "text/plain": "Using server at " + self.server["uri"]
-            })
+        self._server = get_connection_data(args[1])
+        self._graph = None
+        self.display_server_info(**kwargs)
 
     commands = {
-        "server": _execute_server,
+        "server": _execute_server_command,
     }
 
     def _execute_command(self, code, **kwargs):
@@ -136,17 +153,14 @@ class CypherKernel(Kernel):
 
     def _execute_cypher(self, code, silent, store_history=True, user_expressions=None, allow_stdin=False):
         try:
-            if self.graph is None:
-                if self.server:
-                    self.graph = Graph(**self.server)
-                else:
-                    return self.error("No server configured", "use `" + ESCAPE + "server <uri>` to configure")
             table = self.graph.run(code).to_table()
         except ServiceUnavailable as error:
-            self.graph = None
+            self._graph = None
             return self.error("Service Unavailable", error.args[0])
         except CypherError as error:
             return self.error(error.code or type(error).__name__, error.message or "")
+        except NoServerConfigured:
+            return self.error("No server configured", "use `" + ESCAPE + "server <uri>` to configure")
         else:
             if not silent:
                 self.send_response(self.iopub_socket, "execute_result", {
@@ -201,33 +215,58 @@ class CypherKernel(Kernel):
         raise NotImplementedError
 
 
+class NoServerConfigured(Exception):
+
+    pass
+
+
 def install_kernel(user=True, prefix=None):
+    """ Install the kernel for use by Jupyter.
+    """
     td = mkdtemp()
     try:
         os.chmod(td, 0o755)  # Starts off as 700, not user readable
         with open(os.path.join(td, "kernel.json"), "w") as f:
             json.dump({
-                "argv": ["python", "-m", "py2neo.cypher.kernel", "-f", "{connection_file}"],
+                "argv": ["python", "-m", "py2neo.cypher.console", "kernel", "launch", "-f", "{connection_file}"],
                 "display_name": "Cypher",
                 "language": "cypher",
                 "pygments_lexer": "py2neo.cypher",
             }, f, sort_keys=True)
-        KernelSpecManager().install_kernel_spec(td, KERNEL_NAME, user=user, prefix=prefix)
+        return KernelSpecManager().install_kernel_spec(td, KERNEL_NAME, user=user, prefix=prefix)
     finally:
         rmtree(td)
 
 
 def launch_kernel():
+    """ Launch a new Jupyter application instance, using this kernel.
+    """
     c = Config()
     c.TerminalInteractiveShell.highlighting_style = "vim"
     launch_new_instance(kernel_class=CypherKernel, config=c)
 
 
-def launch_console():
-    if KERNEL_NAME not in KernelSpecManager().find_kernel_specs():
-        install_kernel()
-    call("jupyter console --kernel " + KERNEL_NAME, env=os.environ.copy(), shell=True)
+def main():
+    if not argv[1:]:
+        if KERNEL_NAME not in KernelSpecManager().find_kernel_specs():
+            install_kernel()
+        call("jupyter console --kernel %s" % KERNEL_NAME, env=os.environ.copy(), shell=True)
+        return
+    command = argv[1]
+    if command == "kernel":
+        if not argv[2:]:
+            launch_kernel()
+        subcommand = argv[2]
+        if subcommand == "install":
+            d = install_kernel()
+            print("Installed Cypher kernel to %s" % d)
+        elif subcommand == "launch":
+            launch_kernel()
+        else:
+            raise RuntimeError("Unknown kernel subcommand: %s" % subcommand)
+    else:
+        raise RuntimeError("Unknown command: %s" % command)
 
 
 if __name__ == "__main__":
-    launch_kernel()
+    main()

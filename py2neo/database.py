@@ -208,6 +208,13 @@ class Database(object):
         return version_tuple(version_string)
 
     @property
+    def product(self):
+        """ Return the product name.
+        """
+        info = self.query_jmx("org.neo4j", name="Kernel")
+        return info["KernelVersion"]
+
+    @property
     def store_creation_time(self):
         """ Return the time when this Neo4j graph store was created.
         """
