@@ -42,7 +42,8 @@ KERNEL_NAME = "cypher"
 
 BANNER = """\
 Py2neo {py2neo_version} Interactive Cypher
-Type '!help' for more information.
+Use `!server bolt://user:password@host:port` to configure a server.
+Type `!help` for more information or Ctrl+D to exit the console.
 """.format(py2neo_version=py2neo_version)
 
 
@@ -111,6 +112,16 @@ class CypherKernel(Kernel):
         self.send_response(self.iopub_socket, "error", error_content)
         return dict(error_content, status="error")
 
+    def _execute_help_command(self, *args, **kwargs):
+        """ !help
+        """
+        lines = []
+        for command in self.commands:
+            lines.append("!" + command)
+        self.display({
+            "text/plain": "\n".join(lines),
+        })
+
     def _execute_server_command(self, *args, **kwargs):
         """ !server <uri>
         """
@@ -124,6 +135,7 @@ class CypherKernel(Kernel):
         self.display_server_info(**kwargs)
 
     commands = {
+        "help": _execute_help_command,
         "server": _execute_server_command,
     }
 
