@@ -132,10 +132,9 @@ class CypherEncoder(object):
     node_template = u"{id}{labels} {properties}"
     related_node_template = u"{name}"
     relationship_template = u"{type} {properties}"
-    null = u"null"
 
     def __init__(self, encoding=None, quote=None, sequence_separator=None, key_value_separator=None,
-                 node_template=None, related_node_template=None, relationship_template=None, null=None):
+                 node_template=None, related_node_template=None, relationship_template=None):
         if encoding:
             self.encoding = encoding
         if quote:
@@ -150,8 +149,6 @@ class CypherEncoder(object):
             self.related_node_template = related_node_template
         if relationship_template:
             self.relationship_template = relationship_template
-        if null:
-            self.null = null
 
     def encode_key(self, key):
         key = ustr(key)
@@ -160,12 +157,12 @@ class CypherEncoder(object):
         if key[0] in ID_START and all(key[i] in ID_CONTINUE for i in range(1, len(key))):
             return key
         else:
-            return u"`" + key.replace(u"`", u"``") + u"`"
+            return self.encode_string(key)
 
     def encode_value(self, value):
         from py2neo.data import Node, Relationship, Path
         if value is None:
-            return self.null
+            return u"null"
         if value is True:
             return u"true"
         if value is False:
@@ -184,7 +181,8 @@ class CypherEncoder(object):
             return self.encode_list(value)
         if isinstance(value, dict):
             return self.encode_map(value)
-        raise TypeError("Values of type %s.%s are not supported" % (type(value).__module__, type(value).__name__))
+        raise TypeError("Cypher literal values of type %s.%s are not supported" %
+                        (type(value).__module__, type(value).__name__))
 
     def encode_string(self, value):
         value = ustr(value)
@@ -217,8 +215,8 @@ class CypherEncoder(object):
         return u"[" + self.sequence_separator.join(map(self.encode_value, values)) + u"]"
 
     def encode_map(self, values):
-        return u"{" + self.sequence_separator.join(self.encode_key(key) + self.key_value_separator + self.encode_value(value)
-                                                   for key, value in values.items()) + u"}"
+        return u"{" + self.sequence_separator.join(self.encode_key(key) + self.key_value_separator +
+                                                   self.encode_value(value) for key, value in values.items()) + u"}"
 
     def encode_node(self, node):
         return self._encode_node(node, self.node_template)
