@@ -379,8 +379,11 @@ class CypherLexer(RegexLexer):
         ],
 
         'comments': [
-            (r'^.*//.*\n', Comment.Single),
+            (r'//', Comment.Single, 'single-comments'),
             (r'/\*', Comment.Multiline, 'multiline-comments'),
+        ],
+        'single-comments': [
+            (r'.*$', Comment.Single, '#pop'),
         ],
         'multiline-comments': [
             (r'/\*', Comment.Multiline, 'multiline-comments'),

@@ -24,7 +24,6 @@ from py2neo.cypher.lexer import CypherLexer
 
 
 class CypherLexerTestCase(TestCase):
-
     single_statements = {
         "RETURN 1": [(Token.Keyword, 'RETURN'), (Token.Literal.Number.Integer, '1')],
         "RETURN $x": [(Token.Keyword, 'RETURN'), (Token.Punctuation, '$'), (Token.Name.Variable.Global, 'x')],
@@ -43,7 +42,61 @@ class CypherLexerTestCase(TestCase):
                                               (Token.Literal.Number.Integer, '10'), (Token.Punctuation, ')'),
                                               (Token.Keyword, 'AS'), (Token.Name.Variable, 'n'),
                                               (Token.Keyword, 'RETURN'), (Token.Name.Variable, 'n')],
-
+        "// Rest of line comment\nRETURN x": [
+            (Token.Comment.Single, '//'),
+            (Token.Comment.Single, ' Rest of line comment'),
+            (Token.Keyword, 'RETURN'),
+            (Token.Name.Variable, 'x'),
+        ],
+        "WITH x // Rest of line comment after code\nRETURN x": [
+            (Token.Keyword, 'WITH'),
+            (Token.Name.Variable, 'x'),
+            (Token.Comment.Single, '//'),
+            (Token.Comment.Single, ' Rest of line comment after code'),
+            (Token.Keyword, 'RETURN'),
+            (Token.Name.Variable, 'x'),
+        ],
+        "WITH '//' AS x // Rest of line comment after code containing '//'\n RETURN x": [
+            (Token.Keyword, 'WITH'),
+            (Token.Literal.String, "'//'"),
+            (Token.Keyword, 'AS'),
+            (Token.Name.Variable, 'x'),
+            (Token.Comment.Single, "//"),
+            (Token.Comment.Single, " Rest of line comment after code containing '//'"),
+            (Token.Keyword, 'RETURN'),
+            (Token.Name.Variable, 'x'),
+        ],
+        "SET o:`http://example.org` // This is a comment": [
+            (Token.Keyword, 'SET'),
+            (Token.Name.Variable, 'o'),
+            (Token.Punctuation, ':'),
+            (Token.Name.Label, '`http://example.org`'),
+            (Token.Comment.Single, "//"),
+            (Token.Comment.Single, " This is a comment"),
+        ],
+        "/* Block comment */": [
+            (Token.Comment.Multiline, '/*'),
+            (Token.Comment.Multiline, ' Block comment '),
+            (Token.Comment.Multiline, '*/'),
+        ],
+        "WITH x /* Block comment within code */ RETURN x": [
+            (Token.Keyword, 'WITH'),
+            (Token.Name.Variable, 'x'),
+            (Token.Comment.Multiline, '/*'),
+            (Token.Comment.Multiline, ' Block comment within code '),
+            (Token.Comment.Multiline, '*/'),
+            (Token.Keyword, 'RETURN'),
+            (Token.Name.Variable, 'x'),
+        ],
+        "WITH x /* Block comment\nwith line break */ RETURN x": [
+            (Token.Keyword, 'WITH'),
+            (Token.Name.Variable, 'x'),
+            (Token.Comment.Multiline, '/*'),
+            (Token.Comment.Multiline, ' Block comment\nwith line break '),
+            (Token.Comment.Multiline, '*/'),
+            (Token.Keyword, 'RETURN'),
+            (Token.Name.Variable, 'x'),
+        ],
     }
 
     multiple_statements = {
