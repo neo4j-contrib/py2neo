@@ -52,6 +52,7 @@ package_metadata = {
         "click>=2.0",
         "colorama",
         "neo4j-driver>=1.6.0",
+        "neotime",
         "prompt_toolkit==1.0.15",
         "pygments>=2.0",
         "pytest",

@@ -18,7 +18,10 @@
 
 from unittest import TestCase
 
-from py2neo.cypher import LabelSetView, PropertyDictView, PropertySelector
+from neotime import Date, Time, DateTime, Duration
+
+from py2neo.data import Node
+from py2neo.cypher import LabelSetView, PropertyDictView, PropertySelector, cypher_repr
 
 
 class LabelSetViewTestCase(TestCase):
@@ -124,3 +127,41 @@ class PropertySelectorTestCase(TestCase):
     def test_non_existent(self):
         selector = PropertySelector({"A": 1, "B": 2, "C": 3})
         self.assertEqual(selector.D, "null")
+
+
+class NodeReprTestCase(TestCase):
+
+    def test_empty(self):
+        a = Node()
+        r = cypher_repr(a)
+        self.assertEqual("({})", r)
+
+    def test_single_property(self):
+        a = Node(name="Alice")
+        r = cypher_repr(a)
+        self.assertEqual("({name: 'Alice'})", r)
+
+    def test_property_and_label(self):
+        a = Node("Person", name="Alice")
+        r = cypher_repr(a)
+        self.assertEqual("(:Person {name: 'Alice'})", r)
+
+    def test_date_property(self):
+        a = Node(d=Date(1970, 1, 1))
+        r = cypher_repr(a)
+        self.assertEqual("({d: date('1970-01-01')})", r)
+
+    def test_time_property(self):
+        a = Node(t=Time(12, 34, 56))
+        r = cypher_repr(a)
+        self.assertEqual("({t: time('12:34:56.000000000')})", r)
+
+    def test_datetime_property(self):
+        a = Node(dt=DateTime(1970, 1, 1, 12, 34, 56))
+        r = cypher_repr(a)
+        self.assertEqual("({dt: datetime('1970-01-01T12:34:56.000000000')})", r)
+
+    def test_duration_property(self):
+        a = Node(dur=Duration(days=3))
+        r = cypher_repr(a)
+        self.assertEqual("({dur: duration('P3D')})", r)

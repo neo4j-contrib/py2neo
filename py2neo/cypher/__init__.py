@@ -161,6 +161,7 @@ class CypherEncoder(object):
 
     def encode_value(self, value):
         from py2neo.data import Node, Relationship, Path
+        from neotime import Date, Time, DateTime, Duration
         if value is None:
             return u"null"
         if value is True:
@@ -181,6 +182,14 @@ class CypherEncoder(object):
             return self.encode_list(value)
         if isinstance(value, dict):
             return self.encode_map(value)
+        if isinstance(value, Date):
+            return u"date({})".format(self.encode_string(value.iso_format()))
+        if isinstance(value, Time):
+            return u"time({})".format(self.encode_string(value.iso_format()))
+        if isinstance(value, DateTime):
+            return u"datetime({})".format(self.encode_string(value.iso_format()))
+        if isinstance(value, Duration):
+            return u"duration({})".format(self.encode_string(value.iso_format()))
         raise TypeError("Cypher literal values of type %s.%s are not supported" %
                         (type(value).__module__, type(value).__name__))
 
