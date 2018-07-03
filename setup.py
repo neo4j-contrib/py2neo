@@ -55,7 +55,7 @@ package_metadata = {
         "prompt_toolkit==1.0.15",
         "pygments>=2.0",
         "pytest",
-        "urllib3[secure]",
+        "urllib3[secure]<1.23,>=1.21.1",
     ],
     "extras_require": {
     },

@@ -66,6 +66,10 @@ Each instance may contain attributes that represent labels, nodes or related obj
 
    .. automethod:: match
 
+   .. automethod:: wrap
+
+   .. automethod:: unwrap
+
 
 Properties
 ==========

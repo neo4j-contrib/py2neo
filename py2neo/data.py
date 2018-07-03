@@ -28,7 +28,7 @@ from py2neo.internal.collections import is_collection, SetView
 from py2neo.internal.compat import integer_types, numeric_types, string_types, ustr, xstr
 from py2neo.internal.html import html_escape
 from py2neo.internal.operations import create_subgraph, merge_subgraph, delete_subgraph, separate_subgraph, \
-    pull_subgraph, push_subgraph
+    pull_subgraph, push_subgraph, subgraph_exists
 
 
 def walk(*walkables):
@@ -615,6 +615,9 @@ class Subgraph(object):
 
     def __db_delete__(self, tx):
         delete_subgraph(tx, self)
+
+    def __db_exists__(self, tx):
+        return subgraph_exists(tx, self)
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
         merge_subgraph(tx, self, primary_label, primary_key)

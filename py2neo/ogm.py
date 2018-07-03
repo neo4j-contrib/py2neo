@@ -306,13 +306,15 @@ class GraphObject(object):
         if self is other:
             return True
         try:
-            self_node = self.__ogm__.node
-            other_node = other.__ogm__.node
+            self_node = GraphObject.unwrap(self)
+            other_node = GraphObject.unwrap(other)
             if any(x is None for x in [self_node.graph, other_node.graph, self_node.identity, other_node.identity]):
                 return self.__primarylabel__ == other.__primarylabel__ and \
                        self.__primarykey__ == other.__primarykey__ and \
                        self.__primaryvalue__ == other.__primaryvalue__
-            return type(self) is type(other) and self_node.graph == other_node.graph and self_node.identity == other_node.identity
+            return (type(self) is type(other) and
+                    self_node.graph == other_node.graph and
+                    self_node.identity == other_node.identity)
         except (AttributeError, TypeError):
             return False
 
@@ -332,12 +334,28 @@ class GraphObject(object):
 
     @classmethod
     def wrap(cls, node):
+        """ Convert a :class:`.Node` into a :class:`.GraphObject`.
+
+        :param node:
+        :return:
+        """
         if node is None:
             return None
         inst = GraphObject()
         inst.__ogm = OGM(node)
         inst.__class__ = cls
         return inst
+
+    @classmethod
+    def unwrap(cls, graph_object):
+        """ Convert a :class:`.GraphObject` into a :class:`.Node`.
+
+        :param graph_object:
+        :return:
+        """
+        if isinstance(graph_object, cls):
+            return graph_object.__ogm__.node
+        raise TypeError("%r is not a %s" % (graph_object, cls.__name__))
 
     @classmethod
     def match(cls, graph, primary_value=None):
@@ -369,6 +387,9 @@ class GraphObject(object):
         tx.delete(ogm.node)
         for related_objects in ogm.related.values():
             related_objects.clear()
+
+    def __db_exists__(self, tx):
+        return tx.exists(GraphObject.unwrap(self))
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
         ogm = self.__ogm__
