@@ -33,6 +33,7 @@ from collections import OrderedDict
 from re import compile as re_compile
 from unicodedata import category
 
+from neotime import Date
 from py2neo.internal.collections import SetView
 from py2neo.internal.compat import uchr, ustr, numeric_types, string_types, unicode_types
 
@@ -184,7 +185,10 @@ class CypherEncoder(object):
             return self.encode_list(value)
         if isinstance(value, dict):
             return self.encode_map(value)
-        raise TypeError("Values of type %s.%s are not supported" % (type(value).__module__, type(value).__name__))
+        if isinstance(value, Date):
+            return value.__str__()
+        raise TypeError("Values of type %s.%s are not supported" %
+                        (type(value).__module__, type(value).__name__))
 
     def encode_string(self, value):
         value = ustr(value)
