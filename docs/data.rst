@@ -120,7 +120,7 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
         >>> c = Node("Person", name="Carol")
         >>> class WorksWith(Relationship): pass
         >>> ac = WorksWith(a, c)
-        >>> ac.type()
+        >>> type(ac)
         'WORKS_WITH'
 
     .. describe:: relationship == other
