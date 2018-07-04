@@ -193,8 +193,8 @@ For example::
     >>> alice = Person()
     >>> alice.name = "Alice Smith"
     >>> graph.push(alice)
-    >>> alice.__ogm__.node
-   (cc3030a:Person {name:"Alice Smith"})
+    >>> alice.__node__
+   (_123:Person {name: 'Alice Smith'})
 
 
 .. method:: Graph.pull(graph_object)
