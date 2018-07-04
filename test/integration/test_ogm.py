@@ -50,7 +50,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
         keanu.acted_in.add(bill_and_ted)
         self.graph.push(keanu)
-        node_id = GraphObject.unwrap(keanu).identity
+        node_id = keanu.__node__.identity
         film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
                                                              "WHERE id(a) = {x} "
                                                              "RETURN b.title", x=node_id))
@@ -63,7 +63,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         bill_and_ted = Film("Bill & Ted's Excellent Adventure")
         keanu.acted_in.add(bill_and_ted, roles=['Ted "Theodore" Logan'])
         self.graph.push(keanu)
-        node_id = GraphObject.unwrap(keanu).identity
+        node_id = keanu.__node__.identity
         films = {title: roles for title, roles in self.graph.run("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
                                                                  "WHERE id(a) = {x} "
                                                                  "RETURN b.title, ab.roles", x=node_id)}
@@ -75,7 +75,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         johnny_mnemonic = Film.match(self.graph, "Johnny Mnemonic").first()
         keanu.acted_in.remove(johnny_mnemonic)
         self.graph.push(keanu)
-        node_id = GraphObject.unwrap(keanu).identity
+        node_id = keanu.__node__.identity
         film_titles = set(title for title, in self.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
                                                              "WHERE id(a) = {x} "
                                                              "RETURN b.title", x=node_id))
@@ -87,7 +87,7 @@ class InstanceRelatedObjectTestCase(MovieGraphTestCase):
         johnny_mnemonic = Film.match(self.graph, "Johnny Mnemonic").first()
         keanu.acted_in.add(johnny_mnemonic, foo="bar")
         self.graph.push(keanu)
-        node_id = GraphObject.unwrap(keanu).identity
+        node_id = keanu.__node__.identity
         johnny_foo = self.graph.evaluate("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
                                          "WHERE id(a) = {x} AND b.title = 'Johnny Mnemonic' "
                                          "RETURN ab.foo", x=node_id)
@@ -104,7 +104,7 @@ class MatchTestCase(MovieGraphTestCase):
     def test_can_match_by_id(self):
         # given
         keanu_0 = Person.match(self.graph, "Keanu Reeves").first()
-        node_id = GraphObject.unwrap(keanu_0).identity
+        node_id = keanu_0.__node__.identity
 
         # when
 
@@ -129,7 +129,7 @@ class MatchTestCase(MovieGraphTestCase):
     def test_can_match_one_by_id(self):
         # given
         keanu_0 = Person.match(self.graph, "Keanu Reeves").first()
-        node_id = GraphObject.unwrap(keanu_0).identity
+        node_id = keanu_0.__node__.identity
 
         # when
 
@@ -178,7 +178,7 @@ class CreateTestCase(MovieGraphTestCase):
         self.graph.create(alice)
 
         # then
-        node = GraphObject.unwrap(alice)
+        node = alice.__node__
         self.assertEqual(node.graph, self.graph)
         self.assertIsNotNone(node.identity)
 
@@ -191,7 +191,7 @@ class CreateTestCase(MovieGraphTestCase):
         self.graph.create(keanu)
 
         # then
-        node_id = GraphObject.unwrap(keanu).identity
+        node_id = keanu.__node__.identity
         remote_name = self.graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
                                           "RETURN a.name", x=node_id)
         self.assertEqual(remote_name, "Keanu Reeves")
@@ -246,7 +246,7 @@ class PushTestCase(MovieGraphTestCase):
         self.graph.push(keanu)
 
         # then
-        node_id = GraphObject.unwrap(keanu).identity
+        node_id = keanu.__node__.identity
         remote_name = self.graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
                                           "RETURN a.name", x=node_id)
         self.assertEqual(remote_name, "Keanu Charles Reeves")
@@ -261,7 +261,7 @@ class PushTestCase(MovieGraphTestCase):
         self.graph.push(alice)
 
         # then
-        node_id = GraphObject.unwrap(alice).identity
+        node_id = alice.__node__.identity
         remote_name = self.graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
                                           "RETURN a.name", x=node_id)
         self.assertEqual(remote_name, "Alice Smith")
@@ -277,7 +277,7 @@ class PushTestCase(MovieGraphTestCase):
         self.graph.push(alice)
 
         # then
-        node_id = GraphObject.unwrap(alice).identity
+        node_id = alice.__node__.identity
         film_node = self.graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) WHERE id(a) = {x} RETURN b",
                                         x=node_id)
         self.assertEqual(film_node["title"], "The Matrix")
@@ -295,7 +295,7 @@ class PushTestCase(MovieGraphTestCase):
         self.graph.push(alice)
 
         # then
-        node_id = GraphObject.unwrap(alice).identity
+        node_id = alice.__node__.identity
         film_node = self.graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) WHERE id(a) = {x} RETURN b",
                                         x=node_id)
         self.assertEqual(film_node["title"], "The Dominatrix")
@@ -309,7 +309,7 @@ class PushTestCase(MovieGraphTestCase):
         self.graph.push(matrix)
 
         # then
-        node_id = GraphObject.unwrap(matrix).identity
+        node_id = matrix.__node__.identity
         names = set()
         for name, in self.graph.run("MATCH (a:Movie)<-[:ACTED_IN]-(b) WHERE id(a) = {x} "
                                     "RETURN b.name", x=node_id):
@@ -322,7 +322,7 @@ class PullTestCase(MovieGraphTestCase):
     def test_can_load_and_pull(self):
         keanu = Person.match(self.graph, "Keanu Reeves").first()
         self.assertEqual(keanu.name, "Keanu Reeves")
-        node_id = GraphObject.unwrap(keanu).identity
+        node_id = keanu.__node__.identity
         self.graph.run("MATCH (a:Person) WHERE id(a) = {x} SET a.name = {y}",
                        x=node_id, y="Keanu Charles Reeves")
         self.graph.pull(keanu)
@@ -337,7 +337,7 @@ class PullTestCase(MovieGraphTestCase):
     def test_can_pull_with_incoming_relationships(self):
         # given
         matrix = Film.match(self.graph, "The Matrix").first()
-        node_id = GraphObject.unwrap(matrix).identity
+        node_id = matrix.__node__.identity
         self.graph.run("MATCH (a:Movie)<-[r:ACTED_IN]-(b) WHERE id(a) = {x} AND b.name = 'Emil Eifrem' DELETE r",
                        x=node_id)
 
@@ -665,17 +665,17 @@ class SimpleThingTestCase(IntegrationTestCase):
     def test_create(self):
         thing = SimpleThing()
         self.graph.create(thing)
-        self.assertEqual(GraphObject.unwrap(thing).graph, self.graph)
-        self.assertIsNotNone(GraphObject.unwrap(thing).identity)
+        self.assertEqual(thing.__node__.graph, self.graph)
+        self.assertIsNotNone(thing.__node__.identity)
 
     def test_merge(self):
         thing = SimpleThing()
         self.graph.merge(thing)
-        self.assertEqual(GraphObject.unwrap(thing).graph, self.graph)
-        self.assertIsNotNone(GraphObject.unwrap(thing).identity)
+        self.assertEqual(thing.__node__.graph, self.graph)
+        self.assertIsNotNone(thing.__node__.identity)
 
     def test_push(self):
         thing = SimpleThing()
         self.graph.push(thing)
-        self.assertEqual(GraphObject.unwrap(thing).graph, self.graph)
-        self.assertIsNotNone(GraphObject.unwrap(thing).identity)
+        self.assertEqual(thing.__node__.graph, self.graph)
+        self.assertIsNotNone(thing.__node__.identity)

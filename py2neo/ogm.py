@@ -27,6 +27,16 @@ UNDIRECTED = 0
 INCOMING = -1
 
 
+def resolve_class(cls, instance):
+    if isinstance(cls, type):
+        return cls
+    module_name, _, class_name = cls.rpartition(".")
+    if not module_name:
+        module_name = instance.__class__.__module__
+    module = __import__(module_name, fromlist=".")
+    return getattr(module, class_name)
+
+
 class Property(object):
     """ A property definition for a :class:`.GraphObject`.
     """
@@ -35,10 +45,10 @@ class Property(object):
         self.key = key
 
     def __get__(self, instance, owner):
-        return instance.__ogm__.node[self.key]
+        return instance.__node__[self.key]
 
     def __set__(self, instance, value):
-        instance.__ogm__.node[self.key] = value
+        instance.__node__[self.key] = value
 
 
 class Label(object):
@@ -49,13 +59,13 @@ class Label(object):
         self.name = name
 
     def __get__(self, instance, owner):
-        return instance.__ogm__.node.has_label(self.name)
+        return instance.__node__.has_label(self.name)
 
     def __set__(self, instance, value):
         if value:
-            instance.__ogm__.node.add_label(self.name)
+            instance.__node__.add_label(self.name)
         else:
-            instance.__ogm__.node.remove_label(self.name)
+            instance.__node__.remove_label(self.name)
 
 
 class Related(object):
@@ -71,22 +81,9 @@ class Related(object):
         self.related_class = related_class
         self.relationship_type = relationship_type
 
-    def resolve_related_class(self, instance):
-        if not isinstance(self.related_class, type):
-            module_name, _, class_name = self.related_class.rpartition(".")
-            if not module_name:
-                module_name = instance.__class__.__module__
-            module = __import__(module_name, fromlist=".")
-            self.related_class = getattr(module, class_name)
-
     def __get__(self, instance, owner):
-        ogm = instance.__ogm__
-        related = ogm.related
-        key = (self.direction, self.relationship_type)
-        if key not in related:
-            self.resolve_related_class(instance)
-            related[key] = RelatedObjects(ogm.node, self.direction, self.relationship_type, self.related_class)
-        return related[key]
+        return instance.__ogm__.related(self.direction, self.relationship_type,
+                                        resolve_class(self.related_class, instance))
 
 
 class RelatedTo(Related):
@@ -248,19 +245,32 @@ class RelatedObjects(object):
         # 2a. remove any relationships not in list of nodes
         subject_id = self.node.identity
         tx.run("MATCH %s WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE _" % self.__relationship_pattern,
-               x=subject_id, y=[obj.__ogm__.node.identity for obj, _ in related_objects])
+               x=subject_id, y=[obj.__node__.identity for obj, _ in related_objects])
         # 2b. merge all relationships
         for related_object, properties in related_objects:
             tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
                    "MERGE %s SET _ = {z}" % self.__relationship_pattern,
-                   x=subject_id, y=related_object.__ogm__.node.identity, z=properties)
+                   x=subject_id, y=related_object.__node__.identity, z=properties)
 
 
 class OGM(object):
 
     def __init__(self, node):
         self.node = node
-        self.related = {}
+        self._related = {}
+
+    def all_related(self):
+        """ Return an iterator through all :class:`.RelatedObjects`.
+        """
+        return iter(self._related.values())
+
+    def related(self, direction, relationship_type, related_class):
+        """ Return :class:`.RelatedObjects` for given criteria.
+        """
+        key = (direction, relationship_type)
+        if key not in self._related:
+            self._related[key] = RelatedObjects(self.node, direction, relationship_type, related_class)
+        return self._related[key]
 
 
 class GraphObjectType(type):
@@ -306,8 +316,8 @@ class GraphObject(object):
         if self is other:
             return True
         try:
-            self_node = GraphObject.unwrap(self)
-            other_node = GraphObject.unwrap(other)
+            self_node = self.__node__
+            other_node = other.__node__
             if any(x is None for x in [self_node.graph, other_node.graph, self_node.identity, other_node.identity]):
                 return self.__primarylabel__ == other.__primarylabel__ and \
                        self.__primarykey__ == other.__primarykey__ and \
@@ -347,17 +357,6 @@ class GraphObject(object):
         return inst
 
     @classmethod
-    def unwrap(cls, graph_object):
-        """ Convert a :class:`.GraphObject` into a :class:`.Node`.
-
-        :param graph_object:
-        :return:
-        """
-        if isinstance(graph_object, cls):
-            return graph_object.__ogm__.node
-        raise TypeError("%r is not a %s" % (graph_object, cls.__name__))
-
-    @classmethod
     def match(cls, graph, primary_value=None):
         """ Select one or more nodes from the database, wrapped as instances of this class.
 
@@ -372,12 +371,18 @@ class GraphObject(object):
 
     @property
     def __primaryvalue__(self):
-        node = self.__ogm__.node
+        node = self.__node__
         primary_key = self.__primarykey__
         if primary_key == "__id__":
             return node.identity
         else:
             return node[primary_key]
+
+    @property
+    def __node__(self):
+        """ The :class:`.Node` wrapped by this :class:`.GraphObject`.
+        """
+        return self.__ogm__.node
 
     def __db_create__(self, tx):
         self.__db_merge__(tx)
@@ -385,11 +390,11 @@ class GraphObject(object):
     def __db_delete__(self, tx):
         ogm = self.__ogm__
         tx.delete(ogm.node)
-        for related_objects in ogm.related.values():
+        for related_objects in ogm.all_related():
             related_objects.clear()
 
     def __db_exists__(self, tx):
-        return tx.exists(GraphObject.unwrap(self))
+        return tx.exists(self.__node__)
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
         ogm = self.__ogm__
@@ -404,7 +409,7 @@ class GraphObject(object):
                 tx.create(node)
             else:
                 tx.merge(node, primary_label, primary_key)
-            for related_objects in ogm.related.values():
+            for related_objects in ogm.all_related():
                 related_objects.__db_push__(tx)
 
     def __db_pull__(self, tx):
@@ -414,7 +419,7 @@ class GraphObject(object):
             matcher._match_class = NodeMatch
             ogm.node = matcher.match(self.__primaryvalue__).first()
         tx.pull(ogm.node)
-        for related_objects in ogm.related.values():
+        for related_objects in ogm.all_related():
             related_objects.__db_pull__(tx)
 
     def __db_push__(self, tx):
@@ -428,7 +433,7 @@ class GraphObject(object):
                 tx.create(node)
             else:
                 tx.merge(node)
-        for related_objects in ogm.related.values():
+        for related_objects in ogm.all_related():
             related_objects.__db_push__(tx)
 
 

@@ -68,7 +68,7 @@ class InstanceSubgraphTestCase(TestCase):
 
     def setUp(self):
         self.film = Film("Die Hard")
-        self.film_node = self.film.__ogm__.node
+        self.film_node = self.film.__node__
 
     def test_instance_subgraph_inherits_primary_label(self):
         assert self.film_node.__primarylabel__ == "Movie"
@@ -83,7 +83,7 @@ class InstanceLabelTestCase(TestCase):
         self.film = Film("Die Hard")
         self.film.awesome = True
         self.film.science_fiction = True
-        self.film_node = self.film.__ogm__.node
+        self.film_node = self.film.__node__
 
     def test_instance_label_name_defaults_to_attribute_name_variant(self):
         assert self.film_node.has_label("Awesome")
@@ -105,7 +105,7 @@ class InstancePropertyTestCase(TestCase):
     def setUp(self):
         self.film = Film("Die Hard")
         self.film.year_of_release = 1988
-        self.film_node = self.film.__ogm__.node
+        self.film_node = self.film.__node__
 
     def test_instance_property_key_defaults_to_attribute_name(self):
         assert "title" in self.film_node
