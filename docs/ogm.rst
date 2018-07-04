@@ -37,9 +37,9 @@ Graph Objects
 
 At the heart of the py2neo OGM framework is the :class:`.GraphObject`.
 This is a base class for all classes that are to be mapped onto the graph database.
-Each `GraphObject` represents a node plus a set of pointers to :class:`.RelatedObjects` as well as the relationship details that connect them.
+Each :class:`.GraphObject` wraps a node as well as a set of pointers to :class:`.RelatedObjects` and the relationship details that connect them.
 
-A `GraphObject` instance may be constructed just like any other Python object but can also be `matched <#py2neo.ogm.GraphObject.match>`_ from the database.
+A :class:`.GraphObject` instance may be constructed just like any other Python object but can also be `matched <#py2neo.ogm.GraphObject.match>`_ from the database.
 Each instance may contain attributes that represent labels, nodes or related objects.
 
 .. class:: py2neo.ogm.GraphObject
@@ -74,13 +74,21 @@ Each instance may contain attributes that represent labels, nodes or related obj
 Properties
 ==========
 
-A :class:`.Property` defined on a :class:`.GraphObject` provides an accessor to a property of the underlying central node.
+A :class:`.Property` defined on a :class:`.GraphObject` provides an accessor to a property of the underlying node.
 
 
 .. autoclass:: py2neo.ogm.Property
    :members:
 
-.. NOTE:: There is currently no support for constraining property type.
+.. code-block:: python
+
+    >>> class Person(GraphObject):
+    ...     name = Property()
+    ...
+    >>> alice = Person()
+    >>> alice.name = "Alice Smith"
+    >>> alice.name
+    "Alice Smith"
 
 
 Labels
@@ -89,9 +97,25 @@ Labels
 A :class:`.Label` defined on a :class:`.GraphObject` provides an accessor to a label of the underlying central node.
 It is exposed as a boolean value, the setting of which allows the label to be toggled on or off.
 
+Labels are exposed in the API in an identical way to boolean properties.
+The difference between these is in how the value translates into the graph database.
+A label should generally be used if matches are regularly carried out on that value.
+Secondary or supporting information could be stored in a boolean property.
+
 .. autoclass:: py2neo.ogm.Label
    :members:
 
+.. code-block:: python
+
+    >>> class Food(GraphObject):
+    ...     hot = Label()
+    ...
+    >>> pizza = Food()
+    >>> pizza.hot
+    False
+    >>> pizza.hot = True
+    >>> pizza.hot
+    True
 
 
 Related Objects
