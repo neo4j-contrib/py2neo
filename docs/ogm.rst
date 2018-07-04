@@ -64,9 +64,13 @@ Each instance may contain attributes that represent labels, nodes or related obj
       If the key is ``"__id__"`` then this value returns the internal
       node ID.
 
-   .. automethod:: match
+   .. attribute:: __node__
+
+      The :class:`.Node` wrapped by this :class:`.GraphObject`.
 
    .. automethod:: wrap
+
+   .. automethod:: match
 
 
 Properties
