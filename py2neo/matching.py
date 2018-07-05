@@ -29,7 +29,10 @@ def _property_equality_conditions(properties, offset=1):
             condition = "id(_)"
         else:
             condition = "_.%s" % cypher_escape(key)
-        if isinstance(value, (tuple, set, frozenset)):
+        if value is None:
+            condition += " IS NULL"
+            parameters = {}
+        elif isinstance(value, (tuple, set, frozenset)):
             condition += " IN {%d}" % i
             parameters = {"%d" % i: list(value)}
         else:

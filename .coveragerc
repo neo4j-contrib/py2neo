@@ -4,10 +4,10 @@ source =
     py2neo
 omit =
     */__main__.py
-    py2neo/internal/compat.py
+    py2neo/demo/*
     py2neo/experimental/*
+    py2neo/internal/compat.py
     test/*
-    demo
     */site-packages/*
     */dist-packages/*
 
