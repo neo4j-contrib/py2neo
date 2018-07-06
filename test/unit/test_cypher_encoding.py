@@ -21,7 +21,8 @@ from unittest import TestCase
 from neotime import Date, Time, DateTime, Duration
 
 from py2neo.data import Node
-from py2neo.cypher import LabelSetView, PropertyDictView, PropertySelector, cypher_repr
+from py2neo.cypher import cypher_repr
+from py2neo.cypher.encoding import LabelSetView, PropertyDictView, PropertySelector
 
 
 class LabelSetViewTestCase(TestCase):

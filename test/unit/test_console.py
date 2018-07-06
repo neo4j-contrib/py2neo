@@ -63,7 +63,7 @@ class ConsoleTestCase(TestCase):
         with self.assertRaises(SystemExit):
             console.loop()
         self.assertPrologue(console)
-        self.assertEqual(console.output_file.getvalue(),  "   x \r\n-----\r\n   1 \r\n")
+        self.assertEqual(console.output_file.getvalue(),  " x \r\n---\r\n 1 \r\n")
         self.assertEqual(console.captured_output.pop(0), "\r\n")
         self.assertTrue(console.captured_output.pop(0).startswith("(1 record from "))
         self.assertFalse(console.captured_output)
