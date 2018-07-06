@@ -17,9 +17,8 @@
 
 
 from io import StringIO
-import json
-import os
-from subprocess import call
+from json import dump as json_dump
+from os import chmod, path
 from shlex import split as shlex_split
 from shutil import rmtree
 from sys import argv
@@ -32,8 +31,8 @@ from neo4j.exceptions import ServiceUnavailable, CypherError
 from neotime import DateTime
 from traitlets.config import Config
 
-from py2neo.internal.addressing import get_connection_data
 from py2neo.database import Graph
+from py2neo.internal.addressing import get_connection_data
 from py2neo.meta import __version__ as py2neo_version
 
 
@@ -279,9 +278,9 @@ def install_kernel(user=True, prefix=None):
     """
     td = mkdtemp()
     try:
-        os.chmod(td, 0o755)  # Starts off as 700, not user readable
-        with open(os.path.join(td, "kernel.json"), "w") as f:
-            json.dump({
+        chmod(td, 0o755)  # Starts off as 700, not user readable
+        with open(path.join(td, "kernel.json"), "w") as f:
+            json_dump({
                 "argv": ["python", "-m", "py2neo.cypher.kernel", "launch", "-f", "{connection_file}"],
                 "display_name": "Cypher",
                 "language": "cypher",
