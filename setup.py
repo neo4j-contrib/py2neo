@@ -41,7 +41,10 @@ package_metadata = {
     "entry_points": {
         "console_scripts": [
             "py2neo = py2neo.__main__:main",
-            "icypher = py2neo.cypher.console:main"
+            "icypher = py2neo.cypher.console:main",
+            "icypher-install = py2neo.cypher.kernel:install_kernel",
+            "icypher-uninstall = py2neo.cypher.kernel:uninstall_kernel",
+            "icypher-launch = py2neo.cypher.kernel:launch_kernel",
         ],
         "pygments.lexers": [
             "py2neo.cypher = py2neo.cypher.lexer:CypherLexer",

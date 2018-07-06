@@ -410,7 +410,7 @@ class Table(list):
         from click import secho
 
         space = u" " * padding
-        widths = [3 if header else 0] * len(self._keys)
+        widths = [1 if header else 0] * len(self._keys)
 
         def calc_widths(values, **_):
             strings = [cypher_str(value).splitlines(False) for value in values]
