@@ -398,7 +398,7 @@ class Graph(object):
 
         For example, to find all of Alice's friends::
 
-            for rel in graph.match(start_node=alice, r_type="FRIEND"):
+            for rel in graph.match((alice, ), r_type="FRIEND"):
                 print(rel.end_node["name"])
 
         :param nodes: Sequence or Set of start and end nodes (:const:`None` means any node);
