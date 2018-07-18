@@ -78,11 +78,14 @@ class LocalCluster(object):
         for database, role, member in self._walk_installations():
             self.installations.setdefault(database, {}).setdefault(role, {})[member] = warehouse.get(name, database, role, member)
 
-    def databases(self):
+    def iter_databases(self):
         for database in listdir(path_join(self.warehouse.cc, self.name)):
             yield database
 
-    def members(self, database):
+    def databases(self):
+        return list(self.iter_databases())
+
+    def iter_members(self, database):
         core_path = path_join(self.warehouse.cc, self.name, database, "core")
         if isdir(core_path):
             for member in listdir(core_path):
@@ -93,6 +96,9 @@ class LocalCluster(object):
         if isdir(rr_path):
             for member in listdir(rr_path):
                 yield "rr", member
+
+    def members(self, database):
+        return list(self.iter_members(database))
 
     def _walk_installations(self):
         """ For each installation in the cluster, yield a 3-tuple
@@ -175,6 +181,24 @@ class LocalCluster(object):
         for database in self.databases():
             threads.extend(self.for_each(database, {"core", "rr"}, lambda install: install.auth.update(user, password)))
         self.join_all(threads)
+
+    @property
+    def http_uris(self):
+        uris = set()
+        threads = []
+        for database in self.databases():
+            threads.extend(self.for_each(database, {"core", "rr"}, lambda install: uris.add(install.http_uri)))
+        self.join_all(threads)
+        return uris
+
+    @property
+    def https_uris(self):
+        uris = set()
+        threads = []
+        for database in self.databases():
+            threads.extend(self.for_each(database, {"core", "rr"}, lambda install: uris.add(install.https_uri)))
+        self.join_all(threads)
+        return uris
 
     @property
     def bolt_uris(self):
