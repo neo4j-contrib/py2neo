@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+import re
+
 from collections import Sequence, Set
 
 from py2neo.cypher import cypher_escape
@@ -23,7 +25,21 @@ from py2neo.data import Node
 from py2neo.internal.collections import is_collection
 
 
-def _property_equality_conditions(properties, offset=1):
+_operators = {
+    "exact": "=",
+    "not": "<>",
+    "regex": "=~",
+    "gt": ">", "gte": ">=",
+    "lt": "<", "lte": "<=",
+    "startswith": "STARTS WITH",
+    "endswith": "ENDS WITH",
+    "contains": "CONTAINS",
+}
+
+_operators_search = "^(.+)__(%s)$" % "|".join(_operators.keys())
+
+
+def _property_conditions(properties, offset=1):
     for i, (key, value) in enumerate(properties.items(), start=offset):
         if key == "__id__":
             condition = "id(_)"
@@ -35,6 +51,12 @@ def _property_equality_conditions(properties, offset=1):
         elif isinstance(value, (tuple, set, frozenset)):
             condition += " IN {%d}" % i
             parameters = {"%d" % i: list(value)}
+        elif re.match(_operators_search, key):
+            parts = re.search(_operators_search, key)
+            prop = parts.group(1)
+            operator = parts.group(2)
+            condition = "_.%s %s {%d}" % (prop, _operators[operator], i)
+            parameters = {"%d" % i: value}
         else:
             condition += " = {%d}" % i
             parameters = {"%d" % i: value}
@@ -121,7 +143,7 @@ class NodeMatch(object):
         :return: refined :class:`.NodeMatch` object
         """
         return self.__class__(self.graph, self._labels,
-                              self._conditions + conditions + tuple(_property_equality_conditions(properties)),
+                              self._conditions + conditions + tuple(_property_conditions(properties)),
                               self._order_by, self._skip, self._limit)
 
     def order_by(self, *fields):
@@ -209,7 +231,7 @@ class NodeMatcher(object):
         if labels:
             criteria["labels"] = frozenset(labels)
         if properties:
-            criteria["conditions"] = tuple(_property_equality_conditions(properties))
+            criteria["conditions"] = tuple(_property_conditions(properties))
         return self._match_class(self.graph, **criteria)
 
 
@@ -353,7 +375,7 @@ class RelationshipMatch(object):
         return self.__class__(self.graph,
                               nodes=self._nodes,
                               r_type=self._r_type,
-                              conditions=self._conditions + conditions + tuple(_property_equality_conditions(properties)),
+                              conditions=self._conditions + conditions + tuple(_property_conditions(properties)),
                               order_by=self._order_by,
                               skip=self._skip,
                               limit=self._limit)
@@ -463,5 +485,5 @@ class RelationshipMatcher(object):
         if r_type is not None:
             criteria["r_type"] = r_type
         if properties:
-            criteria["conditions"] = tuple(_property_equality_conditions(properties))
+            criteria["conditions"] = tuple(_property_conditions(properties))
         return self._match_class(self.graph, **criteria)
