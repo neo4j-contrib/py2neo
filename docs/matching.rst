@@ -22,6 +22,39 @@ For a simple match by label and property::
         >>> matcher.match("Person", name="Keanu Reeves").first()
         (_224:Person {born:1964,name:"Keanu Reeves"})
 
+Many types of comparisons can be made with operator suffixes. By appending the opeartor suffix you change the operator used in Cypher expression.
+
+        +--------------------------+--------------+-------------+------------------------------------------------------------+
+        | Description              | Suffix       | Operator    | Example                                                    |
+        +--------------------------+--------------+-------------+------------------------------------------------------------+
+        | Explicit Equal           | __exact      | =           | >>>matcher.match("Person", name__exact="Kevin Bacon")         |
+        |                          |              |             | MATCH (_:Person) WHERE name = "Kevin Bacon" RETURN _       |
+        +--------------------------+--------------+-------------+------------------------------------------------------------+
+        | Not Equal                | __not        | <>          | matcher.match("Person", name__not="Rick Astley")           |
+        |                          |              |             | MATCH (_:Person) WHERE _.name <> "Rick Astley" RETURN _    |
+        +--------------------------+--------------+-------------+------------------------------------------------------------+
+        | Greater than             | __gt         | >           | matcher.match("Person", born__gt=1985)                     |
+        |                          |              |             | MATCH (_:Person) WHERE _.born > 1985 RETURN _              |
+        +--------------------------+--------------+-------------+------------------------------------------------------------+
+        | Greater than or equal to | __gte        | >=          | matcher.match("Person", born__gte=1965)                    |
+        |                          |              |             | MATCH (_:Person) WHERE _.born >= 1965 RETURN _             |
+        +--------------------------+--------------+-------------+------------------------------------------------------------+
+        | Less than                | __lt         | <           | matcher.match("Person", born__lt=1965)                     |
+        |                          |              |             | MATCH (_:Person) WHERE _.born < 1965 RETURN _              |
+        +--------------------------+--------------+-------------+------------------------------------------------------------+
+        | Less than or equal to    | __lte        | <=          | matcher.match("Person", born__lte=1965)                    |
+        |                          |              |             | MATCH (_:Person) WHERE _.born <= 1965 RETURN _             |
+        +--------------------------+--------------+-------------+------------------------------------------------------------+
+        | Starts with              | __startswith | STARTS WITH | matcher.match("Person", name__startswith="Kevin")          |
+        |                          |              |             | MATCH (_:Person) WHERE _.name STARTS WITH "Kevin" RETURN _ |
+        +--------------------------+--------------+-------------+------------------------------------------------------------+
+        | Ends with                | __endswith   | ENDS WITH   | matcher.match("Person", name__endswith="Smith")            |
+        |                          |              |             | MATCH (_:Person) WHERE _.name ENDS WITH "Smith" RETURN _   |
+        +--------------------------+--------------+-------------+------------------------------------------------------------+
+        | Contains                 | __contains   | CONTAINS    | matcher.match("Person", name__contains="James")            |
+        |                          |              |             | MATCH (_:Person) HWERE _.name CONTAINS "James" RETURN _    |
+        +--------------------------+--------------+-------------+------------------------------------------------------------+
+
 For a more comprehensive match using Cypher expressions, the :meth:`.NodeMatch.where` method can be used to further refine the selection.
 Here, the underscore character can be used to refer to the node being filtered::
 

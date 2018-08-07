@@ -118,6 +118,13 @@ class NodeMatcherTestCase(IntegrationTestCase):
         for actor in found:
             assert actor["born"] == year
 
+    def test_special_parameters_not(self):
+        year = 1985
+        found = list(self.matcher.match("Person", born__not=year))
+        assert len(found) >= 1
+        for actor in found:
+            assert actor["born"] != year
+
     def test_special_parameters_regex(self):
         found = list(self.matcher.match("Person", name__regex='K.*'))
         found_names = {actor["name"] for actor in found}
