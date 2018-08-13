@@ -27,7 +27,7 @@ Many types of comparisons can be made with operator suffixes. By appending the o
         +--------------------------+--------------+-------------+------------------------------------------------------------+
         | Description              | Suffix       | Operator    | Example                                                    |
         +--------------------------+--------------+-------------+------------------------------------------------------------+
-        | Explicit Equal           | __exact      | =           | >>>matcher.match("Person", name__exact="Kevin Bacon")         |
+        | Explicit Equal           | __exact      | =           | matcher.match("Person", name__exact="Kevin Bacon")         |
         |                          |              |             | MATCH (_:Person) WHERE name = "Kevin Bacon" RETURN _       |
         +--------------------------+--------------+-------------+------------------------------------------------------------+
         | Not Equal                | __not        | <>          | matcher.match("Person", name__not="Rick Astley")           |

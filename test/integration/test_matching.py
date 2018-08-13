@@ -86,42 +86,42 @@ class NodeMatcherTestCase(IntegrationTestCase):
     def test_special_parameters_gt(self):
         year = 1985
         found = list(self.matcher.match("Person", born__gt=year))
-        assert len(found) >= 1
+        assert found
         for actor in found:
             assert actor["born"] > year
 
     def test_special_parameters_gte(self):
         year = 1985
         found = list(self.matcher.match("Person", born__gte=year))
-        assert len(found) >= 1
+        assert found
         for actor in found:
             assert actor["born"] >= year
 
     def test_special_parameters_lt(self):
         year = 1985
         found = list(self.matcher.match("Person", born__lt=year))
-        assert len(found) >= 1
+        assert found
         for actor in found:
             assert actor["born"] < year
 
     def test_special_parameters_lte(self):
         year = 1985
         found = list(self.matcher.match("Person", born__lte=year))
-        assert len(found) >= 1
+        assert found
         for actor in found:
             assert actor["born"] <= year
 
     def test_special_parameters_exact(self):
         year = 1985
         found = list(self.matcher.match("Person", born__exact=year))
-        assert len(found) >= 1
+        assert found
         for actor in found:
             assert actor["born"] == year
 
     def test_special_parameters_not(self):
         year = 1985
         found = list(self.matcher.match("Person", born__not=year))
-        assert len(found) >= 1
+        assert found
         for actor in found:
             assert actor["born"] != year
 
