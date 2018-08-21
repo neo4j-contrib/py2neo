@@ -84,29 +84,33 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
 
         Yield *node* as the only item in a :func:`walk`.
 
-    .. method:: labels()
+    .. attribute:: node.labels
 
-        Return the full set of labels associated with the node.
+        Return the full set of labels associated with *node*.
 
-    .. method:: has_label(label)
+    .. describe:: label in node.labels
 
-        Return :const:`True` if the node has the label *label*.
+        Return :const:`True` if *node* has the label *label*.
 
-    .. method:: add_label(label)
+    .. method:: node.labels.add(label)
 
-        Add the label *label* to the node.
+        Add the label *label* to *node*.
 
-    .. method:: remove_label(label)
+    .. method:: node.labels.discard(label)
 
-        Remove the label *label* from the node if it exists.
+        Remove the label *label* from *node*, if it exists.
 
-    .. method:: clear_labels()
+    .. method:: node.labels.remove(label)
 
-        Remove all labels from the node.
+        Remove the label *label* from *node*, raising a :exc:`ValueError` if it does not exist.
 
-    .. method:: update_labels(labels)
+    .. method:: node.labels.clear()
 
-        Add multiple labels to the node from the iterable *labels*.
+        Remove all labels from *node*.
+
+    .. method:: node.labels.update(labels)
+
+        Add multiple labels to *node* from the iterable *labels*.
 
 .. class:: Relationship(start_node, type, end_node, **properties)
            Relationship(start_node, end_node, **properties)
