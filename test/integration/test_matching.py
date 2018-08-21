@@ -83,6 +83,69 @@ class NodeMatcherTestCase(IntegrationTestCase):
         assert first["name"] == "Keanu Reeves"
         assert first["born"] == 1964
 
+    def test_special_parameters_gt(self):
+        year = 1985
+        found = list(self.matcher.match("Person", born__gt=year))
+        assert found
+        for actor in found:
+            assert actor["born"] > year
+
+    def test_special_parameters_gte(self):
+        year = 1985
+        found = list(self.matcher.match("Person", born__gte=year))
+        assert found
+        for actor in found:
+            assert actor["born"] >= year
+
+    def test_special_parameters_lt(self):
+        year = 1985
+        found = list(self.matcher.match("Person", born__lt=year))
+        assert found
+        for actor in found:
+            assert actor["born"] < year
+
+    def test_special_parameters_lte(self):
+        year = 1985
+        found = list(self.matcher.match("Person", born__lte=year))
+        assert found
+        for actor in found:
+            assert actor["born"] <= year
+
+    def test_special_parameters_exact(self):
+        year = 1985
+        found = list(self.matcher.match("Person", born__exact=year))
+        assert found
+        for actor in found:
+            assert actor["born"] == year
+
+    def test_special_parameters_not(self):
+        year = 1985
+        found = list(self.matcher.match("Person", born__not=year))
+        assert found
+        for actor in found:
+            assert actor["born"] != year
+
+    def test_special_parameters_regex(self):
+        found = list(self.matcher.match("Person", name__regex='K.*'))
+        found_names = {actor["name"] for actor in found}
+        assert found_names == {'Keanu Reeves', 'Kelly McGillis', 'Kevin Bacon',
+                               'Kevin Pollak', 'Kiefer Sutherland', 'Kelly Preston'}
+
+    def test_special_parameters_startswith(self):
+        found = list(self.matcher.match("Person", name__startswith='K'))
+        for actor in found:
+            assert actor["name"].startswith("K")
+
+    def test_special_parameters_endswith(self):
+        found = list(self.matcher.match("Person", name__endswith='eeves'))
+        for actor in found:
+            assert actor["name"].endswith("eeves")
+
+    def test_special_parameters_contains(self):
+        found = list(self.matcher.match("Person", name__contains='shall'))
+        for actor in found:
+            assert "shall" in actor["name"]
+
     def test_order_by(self):
         found = list(self.matcher.match("Person").where("_.name =~ 'K.*'").order_by("_.name"))
         found_names = [actor["name"] for actor in found]
