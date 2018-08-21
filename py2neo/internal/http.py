@@ -31,7 +31,7 @@ from neo4j.v1 import Driver, Session, StatementResult, TransactionError, Session
 from py2neo.data import Record
 from py2neo.database import GraphError
 from py2neo.internal.addressing import get_connection_data
-from py2neo.internal.compat import urlparse, urlsplit, ustr
+from py2neo.internal.compat import urlsplit, ustr
 from py2neo.internal.json import JSONDehydrator
 
 

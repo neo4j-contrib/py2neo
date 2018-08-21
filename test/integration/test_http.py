@@ -200,3 +200,11 @@ class HTTPSchemeTestCase(HTTPGraphTestCase):
                     session.sync()
         finally:
             driver.close()
+
+
+class BasicHTTPTestCase(HTTPGraphTestCase):
+
+    def test_simple_create(self):
+        a = Node("Person", name="Alice")
+        self.http_graph.create(a)
+        self.assertIsInstance(a.identity, int)
