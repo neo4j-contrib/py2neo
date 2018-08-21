@@ -679,3 +679,24 @@ class SimpleThingTestCase(IntegrationTestCase):
         self.graph.push(thing)
         self.assertEqual(thing.__node__.graph, self.graph)
         self.assertIsNotNone(thing.__node__.identity)
+
+
+class A(GraphObject):
+
+    b = RelatedTo("B")
+
+
+class B(GraphObject):
+
+    a = RelatedFrom("A")
+
+
+class MutualReferenceTestCase(IntegrationTestCase):
+
+    def test_crossover(self):
+        a = A()
+        b = B()
+        a.b.add(b)
+        b.a.add(a)
+        self.graph.create(a)
+        self.graph.create(b)

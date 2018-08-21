@@ -283,7 +283,7 @@ class GraphObjectType(type):
             elif isinstance(attr, Label):
                 if attr.name is None:
                     attr.name = label_case(attr_name)
-            elif isinstance(attr, RelatedTo):
+            elif isinstance(attr, Related):
                 if attr.relationship_type is None:
                     attr.relationship_type = relationship_case(attr_name)
 
