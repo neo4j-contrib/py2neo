@@ -19,7 +19,7 @@
 from __future__ import absolute_import
 
 from py2neo.internal.collections import is_collection
-from py2neo.internal.compat import integer_types, string_types, ustr, bytes_types
+from py2neo.internal.compat import bytes_types, integer_types, list_types, string_types, ustr
 from py2neo.internal.hydration import hydrate_node, hydrate_relationship, hydrate_path
 
 
@@ -112,7 +112,7 @@ class JSONDehydrator(object):
                 return ustr(obj)
             elif isinstance(obj, bytes_types):  # order is important here - bytes must be checked after string
                 raise TypeError("Parameters passed over JSON do not support BYTES")
-            elif isinstance(obj, (list, map)):
+            elif isinstance(obj, list_types):
                 return list(map(dehydrate_, obj))
             elif isinstance(obj, dict):
                 return {key: dehydrate_(value) for key, value in obj.items()}

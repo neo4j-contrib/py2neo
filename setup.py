@@ -58,7 +58,7 @@ package_metadata = {
         "ipykernel",
         "jupyter_client",
         "jupyter_console",
-        "neo4j-driver>=1.6.0",
+        "neo4j-driver>=1.6,<1.7",
         "neotime",
         "prompt_toolkit==1.0.15",
         "pygments>=2.0",

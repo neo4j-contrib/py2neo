@@ -208,3 +208,7 @@ class BasicHTTPTestCase(HTTPGraphTestCase):
         a = Node("Person", name="Alice")
         self.http_graph.create(a)
         self.assertIsInstance(a.identity, int)
+
+    def test_simple_query(self):
+        x = self.http_graph.evaluate("RETURN $x", x=1)
+        self.assertEqual(1, x)
