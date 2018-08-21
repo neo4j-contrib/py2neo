@@ -137,7 +137,7 @@ class TestRunner(object):
                 status = test_main()
                 if status != 0:
                     raise RuntimeError("Tests failed with status %d" % status)
-            except InterruptedError:
+            except KeyboardInterrupt:
                 break
             finally:
                 self._after_tests()
