@@ -56,7 +56,7 @@ class DatabaseSquareOneTestCase(TestCase):
 
     def test_can_generate_graph_with_extra_kwargs(self):
         Database.forget_all()
-        db = Database(max_connection_pool_size=1, encrypyed=True)
+        db = Database(max_connection_pool_size=1, encrypted=True)
         graph = db["data"]
         self.assertIsInstance(graph, Graph)
 
