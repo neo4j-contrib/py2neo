@@ -91,10 +91,20 @@ class Database(object):
             inst._connection_data = connection_data
             from py2neo.internal.http import HTTPDriver, HTTPSDriver
             from neo4j.v1 import Driver
+
+            extra_kwargs = {}
+            for k, v in settings.items():
+                if k in connection_data.keys():
+                    continue
+                if k in ['auth', 'encrypted', 'user_agent']:
+                    continue
+                extra_kwargs[k] = v
+
             inst._driver = Driver(connection_data["uri"],
                                   auth=connection_data["auth"],
                                   encrypted=connection_data["secure"],
-                                  user_agent=connection_data["user_agent"])
+                                  user_agent=connection_data["user_agent"],
+                                  **extra_kwargs)
             inst._graphs = {}
             cls._instances[key] = inst
         return inst
@@ -276,6 +286,7 @@ class Graph(object):
     ``secure``      Use a secure connection (TLS)                  bool            ``False``
     ``user``        User to authenticate as                        str             ``'neo4j'``
     ``user_agent``  User agent to send for all connections         str             `(depends on URI scheme)`
+    ``**kwargs``    Configuration passthrough to the Driver        kwargs          ``None``
     ==============  =============================================  ==============  =============
 
     Each setting can be provided as a keyword argument or as part of
