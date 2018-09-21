@@ -164,6 +164,7 @@ class CypherEncoder(object):
     def encode_value(self, value):
         from py2neo.data import Node, Relationship, Path
         from neotime import Date, Time, DateTime, Duration
+        from neo4j.v1.types.spatial import CartesianPoint, WGS84Point
         if value is None:
             return u"null"
         if value is True:
@@ -192,6 +193,10 @@ class CypherEncoder(object):
             return u"datetime({})".format(self.encode_string(value.iso_format()))
         if isinstance(value, Duration):
             return u"duration({})".format(self.encode_string(value.iso_format()))
+        if isinstance(value, CartesianPoint):
+            return self.encode_point(value, ["x", "y", "z"])
+        if isinstance(value, WGS84Point):
+            return self.encode_point(value, ["longitude", "latitude", "height"])
         raise TypeError("Cypher literal values of type %s.%s are not supported" %
                         (type(value).__module__, type(value).__name__))
 
@@ -224,6 +229,9 @@ class CypherEncoder(object):
 
     def encode_list(self, values):
         return u"[" + self.sequence_separator.join(map(self.encode_value, values)) + u"]"
+
+    def encode_point(self, values, field_names):
+        return u"point({" + self.sequence_separator.join(self.encode_key(fname) + self.key_value_separator + self.encode_value(val) for val, fname in zip(values, field_names[:len(values)]))  + u"}})"
 
     def encode_map(self, values):
         return u"{" + self.sequence_separator.join(self.encode_key(key) + self.key_value_separator +
