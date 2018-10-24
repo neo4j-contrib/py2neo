@@ -541,6 +541,7 @@ class Schema(object):
         self.graph.run("CREATE CONSTRAINT ON (a:%s) "
                        "ASSERT a.%s IS UNIQUE" %
                        (cypher_escape(label), ",".join(map(cypher_escape, property_keys)))).close()
+
         while property_keys not in self.get_uniqueness_constraints(label):
             sleep(0.1)
 
@@ -560,14 +561,18 @@ class Schema(object):
     def _get_indexes(self, label, t=None):
         indexes = []
         for record in self.graph.run("CALL db.indexes"):
-            lbl = None
-            properties = []
-            if len(record) == 6:
-                description, lbl, properties, state, typ, provider = record
-            elif len(record) == 3:
-                description, state, typ = record
-            else:
-                raise RuntimeError("Unexpected response from procedure db.indexes (%d fields)" % len(record))
+            description = record['description'] if 'description' in record.keys() else None
+            lbl = record['label'] if 'label' in record.keys() else None
+            properties = record['properties'] if 'properties' in record.keys() else []
+            state = record['state'] if 'state' in record.keys() else None
+            typ = record['type'] if 'type' in record.keys() else None
+            provider = record['provider'] if 'provider' in record.keys() else None
+
+            # minimum requirements are values for description, state, and type
+            if description is None or state is None or typ is None:
+                raise RuntimeError("Unexpected response from procedure "
+                                   "db.indexes (%d fields)" % len(record))
+
             if state not in (u"ONLINE", u"online"):
                 continue
             if t and typ != t:
