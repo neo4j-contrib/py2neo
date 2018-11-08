@@ -564,6 +564,8 @@ class Schema(object):
             properties = []
             if len(record) == 6:
                 description, lbl, properties, state, typ, provider = record
+            elif len(record) == 7:
+                description, lbl, properties, state, typ, provider, failure_message = record
             elif len(record) == 3:
                 description, state, typ = record
             else:
