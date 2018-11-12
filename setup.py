@@ -55,9 +55,6 @@ package_metadata = {
     "install_requires": [
         "click>=2.0",
         "colorama",
-        "ipykernel",
-        "jupyter_client",
-        "jupyter_console",
         "neo4j-driver>=1.6,<1.7",
         "neotime",
         "prompt_toolkit==1.0.15",
