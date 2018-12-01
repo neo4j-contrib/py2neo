@@ -678,6 +678,25 @@ class MergeRelationshipTestCase(IntegrationTestCase):
         assert new_order == old_order
         assert new_size == old_size
 
+    def test_can_merge_relationship_with_space_in_name(self):
+        alice = Node("Person", name="Alice")
+        bob = Node("Person", name="Bob")
+        ab = Relationship(alice, "MARRIED TO", bob)
+        old_order = len(self.graph.nodes)
+        old_size = len(self.graph.relationships)
+        self.graph.merge(ab, "Person", "name")
+        self.assertEqual(alice.graph, self.graph)
+        self.assertIsNotNone(alice.identity)
+        self.assertEqual(bob.graph, self.graph)
+        self.assertIsNotNone(bob.identity)
+        self.assertEqual(ab.graph, self.graph)
+        self.assertIsNotNone(ab.identity)
+        assert self.graph.exists(alice | bob | ab)
+        new_order = len(self.graph.nodes)
+        new_size = len(self.graph.relationships)
+        assert new_order == old_order + 2
+        assert new_size == old_size + 1
+
 
 class MergeSubgraphTestCase(IntegrationTestCase):
 

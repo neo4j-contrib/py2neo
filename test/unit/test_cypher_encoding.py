@@ -21,7 +21,7 @@ from unittest import TestCase
 from neotime import Date, Time, DateTime, Duration
 
 from py2neo.data import Node
-from py2neo.cypher import cypher_repr
+from py2neo.cypher import cypher_escape, cypher_repr
 from py2neo.cypher.encoding import LabelSetView, PropertyDictView, PropertySelector
 
 
@@ -166,3 +166,26 @@ class NodeReprTestCase(TestCase):
         a = Node(dur=Duration(days=3))
         r = cypher_repr(a)
         self.assertEqual("({dur: duration('P3D')})", r)
+
+
+class CypherEscapeTestCase(TestCase):
+
+    def test_empty_string(self):
+        value = ""
+        with self.assertRaises(ValueError):
+            _ = cypher_escape(value)
+
+    def test_simple_string(self):
+        value = "foo"
+        escaped = "foo"
+        self.assertEqual(escaped, cypher_escape(value))
+
+    def test_string_with_space(self):
+        value = "foo bar"
+        escaped = "`foo bar`"
+        self.assertEqual(escaped, cypher_escape(value))
+
+    def test_string_with_backtick(self):
+        value = "foo `bar`"
+        escaped = "`foo ``bar```"
+        self.assertEqual(escaped, cypher_escape(value))

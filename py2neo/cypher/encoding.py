@@ -159,7 +159,7 @@ class CypherEncoder(object):
         if key[0] in ID_START and all(key[i] in ID_CONTINUE for i in range(1, len(key))):
             return key
         else:
-            return self.encode_string(key)
+            return u"`" + key.replace(u"`", u"``") + u"`"
 
     def encode_value(self, value):
         from py2neo.data import Node, Relationship, Path
