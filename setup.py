@@ -51,7 +51,7 @@ package_metadata = {
     "install_requires": [
         "click>=2.0",
         "colorama",
-        "neo4j-driver>=1.6.0,<1.7",
+        "neo4j-driver>=1.6.2,<1.7",
         "neotime==1.0.0",
         "prompt_toolkit==1.0.15",
         "pygments>=2.0",
