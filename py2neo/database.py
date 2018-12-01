@@ -969,8 +969,7 @@ class Transaction(object):
         property to use for comparison are determined by `primary_label` and
         `primary_key` but may be overridden for individual nodes by the
         presence of `__primarylabel__` and `__primarykey__` attributes on
-        the node itself. Note that multiple property keys may be specified by
-        using a tuple.
+        the node itself.
 
         For each relationship, the merge is carried out by comparing that
         relationship with a potential remote equivalent on the basis of matching
