@@ -38,12 +38,6 @@ try:
 except ImportError:
     from urllib import urlretrieve
 
-try:
-    from subprocess import DEVNULL
-except ImportError:
-    from os import devnull
-    DEVNULL = open(devnull, "rw")
-
 from io import StringIO
 import os
 from sys import version_info
