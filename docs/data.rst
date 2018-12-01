@@ -270,23 +270,23 @@ For example::
         Return a new subgraph containing all nodes and relationships that exist in *subgraph* or *other*, but not in both,
         as well as all nodes that are connected by those relationships regardless of whether or not they are common to *subgraph* and *other*.
 
-    .. method:: subgraph.keys()
+    .. method:: subgraph.keys
 
         Return the set of all property keys used by the nodes and relationships in this subgraph.
 
-    .. method:: subgraph.labels()
+    .. attribute:: subgraph.labels
 
         Return the set of all node labels in this subgraph.
 
-    .. method:: subgraph.nodes
+    .. attribute:: subgraph.nodes
 
         Return the set of all nodes in this subgraph.
 
-    .. method:: subgraph.relationships
+    .. attribute:: subgraph.relationships
 
         Return the set of all relationships in this subgraph.
 
-    .. method:: subgraph.types()
+    .. method:: subgraph.types
 
         Return the set of all relationship types in this subgraph.
 
