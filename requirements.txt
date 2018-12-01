@@ -1,11 +1,8 @@
 click>=2.0
 colorama
-ipykernel
-jupyter_client
-neo4j-driver>=1.6,<1.7
-neotime
+neo4j-driver>=1.6.0,<1.7
+neotime==1.0.0
 prompt_toolkit==1.0.15
 pygments>=2.0
 pytest
-traitlets>=4.1.0
 urllib3[secure]<1.23,>=1.21.1
