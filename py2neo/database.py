@@ -560,30 +560,40 @@ class Schema(object):
     def _get_indexes(self, label, t=None):
         indexes = []
         for record in self.graph.run("CALL db.indexes"):
-            lbl = None
             properties = []
-            if len(record) == 6:
-                description, lbl, properties, state, typ, provider = record
+            if len(record) == 10:
+                # 3.5.0
+                description, index_name, token_names, properties, state, type_, progress, provider, id_, failure_message = record
+            elif len(record) == 7:
+                # 3.4.10
+                description, lbl, properties, state, type_, provider, failure_message = record
+                token_names = [lbl]
+            elif len(record) == 6:
+                # 3.4.7
+                description, lbl, properties, state, type_, provider = record
+                token_names = [lbl]
             elif len(record) == 3:
-                description, state, typ = record
+                # 3.0.10
+                description, state, type_ = record
+                token_names = []
             else:
                 raise RuntimeError("Unexpected response from procedure db.indexes (%d fields)" % len(record))
             if state not in (u"ONLINE", u"online"):
                 continue
-            if t and typ != t:
+            if t and type_ != t:
                 continue
-            if not lbl or not properties:
+            if not token_names or not properties:
                 from py2neo.cypher.lexer import CypherLexer
                 from pygments.token import Token
                 tokens = list(CypherLexer().get_tokens(description))
                 for token_type, token_value in tokens:
                     if token_type is Token.Name.Label:
-                        lbl = token_value.strip("`")
+                        token_names.append(token_value.strip("`"))
                     elif token_type is Token.Name.Variable:
                         properties.append(token_value.strip("`"))
-            if not lbl or not properties:
+            if not token_names or not properties:
                 continue
-            if lbl == label:
+            if label in token_names:
                 indexes.append(tuple(properties))
         return indexes
 
