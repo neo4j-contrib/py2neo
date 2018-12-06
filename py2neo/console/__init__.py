@@ -34,9 +34,7 @@ from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.styles import merge_styles, style_from_pygments_cls, style_from_pygments_dict
-from pygments.styles.monokai import MonokaiStyle
 from pygments.styles.native import NativeStyle
-from pygments.styles.vim import VimStyle
 from pygments.token import Token
 
 from py2neo.console.meta import HISTORY_FILE_DIR, HISTORY_FILE, TITLE, QUICK_HELP, EDITOR, DESCRIPTION, FULL_HELP
