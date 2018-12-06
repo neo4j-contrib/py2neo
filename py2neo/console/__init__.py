@@ -32,9 +32,9 @@ from neo4j.exceptions import ServiceUnavailable, CypherError
 from neo4j.v1 import TransactionError
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
-from prompt_toolkit.layout.lexers import PygmentsLexer
-from prompt_toolkit.styles import style_from_pygments
-from pygments.styles.vim import VimStyle
+from prompt_toolkit.lexers import PygmentsLexer
+from prompt_toolkit.styles import merge_styles, style_from_pygments_cls, style_from_pygments_dict
+from pygments.styles.native import NativeStyle
 from pygments.token import Token
 
 from py2neo.console.meta import HISTORY_FILE_DIR, HISTORY_FILE, TITLE, QUICK_HELP, EDITOR, DESCRIPTION, FULL_HELP
@@ -86,10 +86,13 @@ class Console(object):
         self.prompt_args = {
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
-            "style": style_from_pygments(VimStyle, {
-                Token.Prompt: "#ansi{}".format(self.prompt_colour.replace("cyan", "teal")),
-                Token.TxCounter: "#ansi{} bold".format(self.tx_colour.replace("cyan", "teal")),
-            })
+            "style": merge_styles([
+                style_from_pygments_cls(NativeStyle),
+                style_from_pygments_dict({
+                    Token.Prompt: "#ansi{}".format(self.prompt_colour.replace("cyan", "teal")),
+                    Token.TxCounter: "#ansi{} bold".format(self.tx_colour.replace("cyan", "teal")),
+                })
+            ])
         }
         self.lexer = CypherLexer()
         self.result_writer = Table.write
@@ -213,17 +216,17 @@ class Console(object):
             self.multi_line = False
             return self.prompt(u"", multiline=True, **self.prompt_args)
 
-        def get_prompt_tokens(_):
+        def get_prompt_tokens():
             tokens = []
             if self.tx is None:
-                tokens.append((Token.Prompt, "\n-> "))
+                tokens.append(("class:pygments.prompt", "\n-> "))
             else:
-                tokens.append((Token.Prompt, "\n-("))
-                tokens.append((Token.TxCounter, "{}".format(self.tx_counter)))
-                tokens.append((Token.Prompt, ")-> "))
+                tokens.append(("class:pygments.prompt", "\n-("))
+                tokens.append(("class:pygments.txcounter", "{}".format(self.tx_counter)))
+                tokens.append(("class:pygments.prompt", ")-> "))
             return tokens
 
-        return self.prompt(get_prompt_tokens=get_prompt_tokens, **self.prompt_args)
+        return self.prompt(get_prompt_tokens, **self.prompt_args)
 
     def run_source(self, source):
         for i, statement in enumerate(self.lexer.get_statements(source)):
