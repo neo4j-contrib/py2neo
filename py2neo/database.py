@@ -69,6 +69,7 @@ class Database(object):
 
     _instances = {}
 
+    _cx_pool = None
     _driver = None
     _graphs = None
 
@@ -90,7 +91,7 @@ class Database(object):
             inst = super(Database, cls).__new__(cls)
             inst._connection_data = connection_data
             from py2neo.internal.http import HTTPDriver, HTTPSDriver
-            from neo4j.v1 import Driver
+            from neo4j import Driver
             inst._driver = Driver(connection_data["uri"],
                                   auth=connection_data["auth"],
                                   encrypted=connection_data["secure"],
@@ -613,7 +614,7 @@ class Result(object):
     """
 
     def __init__(self, graph, entities, result):
-        from neo4j.v1 import BoltStatementResult
+        from neo4j import BoltStatementResult
         from py2neo.internal.http import HTTPStatementResult
         from py2neo.internal.packstream import PackStreamHydrator
         self.result = result
@@ -844,7 +845,7 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
-        from neo4j.v1 import CypherError
+        from neo4j import CypherError
 
         self._assert_unfinished()
         try:

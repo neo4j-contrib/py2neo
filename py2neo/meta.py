@@ -29,9 +29,9 @@ __version__ = "4.1.3"
 
 def bolt_user_agent():
     from sys import platform, version_info
-    import neo4j
-    return "{}/{} neo4j-python/{} Python/{}.{}.{}-{}-{} ({})".format(
-        *((__package__, __version__, neo4j.__version__,) + tuple(version_info) + (platform,)))
+    from neobolt.meta import version as neobolt_version
+    return "{}/{} neobolt/{} Python/{}.{}.{}-{}-{} ({})".format(
+        *((__package__, __version__, neobolt_version,) + tuple(version_info) + (platform,)))
 
 
 def http_user_agent():

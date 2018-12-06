@@ -28,8 +28,8 @@ from textwrap import dedent
 from timeit import default_timer as timer
 
 import click
+from neo4j import TransactionError
 from neo4j.exceptions import ServiceUnavailable, CypherError
-from neo4j.v1 import TransactionError
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
@@ -97,7 +97,7 @@ class Console(object):
         self.lexer = CypherLexer()
         self.result_writer = Table.write
         if verbose:
-            from neo4j.util import watch
+            from neobolt.diagnostics import watch
             self.watcher = watch("neo4j.%s" % connection_data["scheme"])
 
         self.commands = {

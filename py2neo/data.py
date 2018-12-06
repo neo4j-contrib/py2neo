@@ -25,7 +25,7 @@ from uuid import uuid4
 
 from py2neo.cypher import cypher_repr, cypher_str
 from py2neo.cypher.encoding import LabelSetView
-from py2neo.internal.collections import is_collection, SetView
+from py2neo.internal.collections import is_collection, iter_items, SetView
 from py2neo.internal.compat import integer_types, numeric_types, string_types, ustr, xstr
 from py2neo.internal.html import html_escape
 from py2neo.internal.operations import create_subgraph, merge_subgraph, delete_subgraph, separate_subgraph, \
@@ -76,7 +76,7 @@ class Record(tuple, Mapping):
     __keys = None
 
     def __new__(cls, iterable=()):
-        from neo4j.v1.types import iter_items, Record as _Record
+        from neo4j.types import Record as _Record
         if isinstance(iterable, _Record):
             inst = tuple.__new__(cls, iterable.values())
             inst.__keys = tuple(iterable.keys())

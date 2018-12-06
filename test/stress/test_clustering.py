@@ -19,7 +19,7 @@
 from unittest import TestCase, skip
 from uuid import uuid4
 
-from neo4j.util import watch
+from neobolt.diagnostics import watch
 
 from py2neo.admin.install import Warehouse
 from py2neo import Graph

@@ -20,7 +20,7 @@ import logging
 from os import getenv
 from unittest import SkipTest
 
-from neo4j.v1 import GraphDatabase
+from neo4j import GraphDatabase
 from neo4j.exceptions import CypherSyntaxError
 
 from py2neo.data import Node
