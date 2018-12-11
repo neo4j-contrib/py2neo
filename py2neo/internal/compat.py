@@ -24,9 +24,9 @@ except ImportError:
     from ConfigParser import SafeConfigParser
 
 try:
-    from collections.abc import Mapping
+    from collections.abc import Sequence, Set, Mapping
 except ImportError:
-    from collections import Mapping
+    from collections import Sequence, Set, Mapping
 
 try:
     from urllib.parse import urlparse, urlsplit

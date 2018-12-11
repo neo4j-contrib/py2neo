@@ -21,6 +21,7 @@ from unittest import TestCase
 from uuid import uuid4
 
 from _pytest.assertion.rewrite import AssertionRewritingHook
+from neobolt.exceptions import ServiceUnavailable
 from pytest import main as test_main
 
 from py2neo import Graph
@@ -28,6 +29,7 @@ from py2neo.admin.dist import minor_versions
 from py2neo.admin.install import Warehouse
 from py2neo.data import Node
 from py2neo.database import Database
+from py2neo.internal.connectors import Connector
 from py2neo.matching import NodeMatcher
 
 
@@ -96,6 +98,49 @@ class IntegrationTestCase(TestCase):
 
     def get_attached_node_id(self):
         return self.graph.evaluate("CREATE (a)-[:TO]->(b) RETURN id(a)")
+
+
+class ClusterIntegrationTestCase(TestCase):
+
+    cluster = None
+
+    server_version = "3.4.10"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.bolt_uri = getenv("PY2NEO_BOLT_URI", "bolt+routing://:17100")
+        cls.bolt_routing_uri = getenv("PY2NEO_BOLT_ROUTING_URI", "bolt+routing://:17100")
+        cx = Connector(cls.bolt_routing_uri, auth=("neo4j", "password"))
+        try:
+            cls.server_agent = cx.server_agent
+        except ServiceUnavailable:
+            from py2neo.admin.install import Warehouse
+            from py2neo.experimental.clustering import LocalCluster
+            cls.cluster = LocalCluster.install(Warehouse(), "test", cls.server_version, alpha=3)
+            cls.cluster.update_auth("neo4j", "password")
+            cls.cluster.start()
+            cls.server_agent = cx.server_agent
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.cluster:
+            cls.cluster.stop()
+            cls.cluster.uninstall()
+            cls.cluster = None
+
+
+def for_each_connector(f):
+
+    def f_(self):
+        for uri in ["bolt://:17100", "bolt+routing://:17100", "http://:17200", "https://:17300"]:
+            with self.subTest(uri=uri):
+                connector = Connector(uri, auth=("neo4j", "password"))
+                try:
+                    f(self, connector=connector)
+                finally:
+                    connector.close()
+
+    return f_
 
 
 class TestRunner(object):

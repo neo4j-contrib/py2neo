@@ -18,11 +18,10 @@
 
 import re
 
-from collections import Sequence, Set
-
 from py2neo.cypher import cypher_escape
 from py2neo.data import Node
 from py2neo.internal.collections import is_collection
+from py2neo.internal.compat import Sequence, Set
 
 
 _operators = {

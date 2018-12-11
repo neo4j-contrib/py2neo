@@ -18,10 +18,9 @@
 
 from __future__ import absolute_import
 
-from collections import Set
 from itertools import cycle, islice
 
-from py2neo.internal.compat import bytes_types, string_types
+from py2neo.internal.compat import Set, bytes_types, string_types
 
 
 def is_collection(obj):

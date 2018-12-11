@@ -18,7 +18,7 @@
 
 from __future__ import absolute_import
 
-from collections import deque
+from collections import deque, OrderedDict
 from datetime import datetime
 from time import sleep
 from warnings import warn
@@ -27,7 +27,8 @@ from py2neo.cypher import cypher_escape
 from py2neo.data import Table, Record
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
-from py2neo.internal.compat import string_types, xstr
+from py2neo.internal.casing import Case
+from py2neo.internal.compat import Mapping, string_types, xstr
 from py2neo.internal.util import version_tuple, title_case, snake_case
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 
@@ -1148,10 +1149,11 @@ class Cursor(object):
     def stats(self):
         """ Return the query statistics.
         """
-        s = dict.fromkeys(update_stats_keys, 0)
-        s.update(self._result.stats())
-        s["contains_updates"] = bool(sum(s.get(k, 0) for k in update_stats_keys))
-        return s
+        return self._result.stats()
+        # s = dict.fromkeys(update_stats_keys, 0)
+        # s.update(self._result.stats())
+        # s["contains_updates"] = bool(sum(s.get(k, 0) for k in update_stats_keys))
+        # return s
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
@@ -1348,3 +1350,88 @@ class Cursor(object):
                 return MutableMatrix(list(map(list, self)))
             else:
                 return ImmutableMatrix(list(map(list, self)))
+
+
+class CypherStats(Mapping):
+
+    contains_updates = False
+    nodes_created = 0
+    nodes_deleted = 0
+    properties_set = 0
+    relationships_created = 0
+    relationships_deleted = 0
+    labels_added = 0
+    labels_removed = 0
+    indexes_added = 0
+    indexes_removed = 0
+    constraints_added = 0
+    constraints_removed = 0
+
+    def __init__(self, **stats):
+        for key, value in stats.items():
+            key = key.replace("-", "_")
+            if key.startswith("relationship_"):
+                # hack for server bug
+                key = "relationships_" + key[13:]
+            if hasattr(self.__class__, key):
+                setattr(self, key, value)
+            self.contains_updates = bool(sum(getattr(self, k, 0) for k in self.keys()))
+
+    def __repr__(self):
+        lines = []
+        for key in sorted(self.keys()):
+            lines.append("{}: {}".format(key, getattr(self, key)))
+        return "\n".join(lines)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __len__(self):
+        return len(self.keys())
+
+    def __iter__(self):
+        return iter(self.keys())
+
+    def keys(self):
+        return [key for key in vars(self.__class__).keys() if not key.startswith("_") and key != "keys"]
+
+
+class CypherPlan(Mapping):
+
+    @classmethod
+    def _clean_key(cls, key):
+        return Case(key).snake()
+
+    @classmethod
+    def _clean_keys(cls, data):
+        return OrderedDict(sorted((cls._clean_key(key), value) for key, value in dict(data).items()))
+
+    def __init__(self, **kwargs):
+        data = self._clean_keys(kwargs)
+        if "root" in data:
+            data = self._clean_keys(data["root"])
+        self.operator_type = data.pop("operator_type", None)
+        self.identifiers = data.pop("identifiers", [])
+        self.children = [CypherPlan(**self._clean_keys(child)) for child in data.pop("children", [])]
+        try:
+            args = data.pop("args")
+        except KeyError:
+            self.args = data
+        else:
+            self.args = self._clean_keys(args)
+
+    def __repr__(self):
+        return ("%s(operator_type=%r, identifiers=%r, children=%r, args=%r)" %
+                (self.__class__.__name__, self.operator_type, self.identifiers, self.children, self.args))
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __len__(self):
+        return len(self.keys())
+
+    def __iter__(self):
+        return iter(self.keys())
+
+    def keys(self):
+        return ["operator_type", "identifiers", "children", "args"]
