@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from neo4j.exceptions import ConstraintError
+from neobolt.exceptions import ConstraintError
 
 from py2neo import Node, GraphError
 from py2neo.testing import IntegrationTestCase

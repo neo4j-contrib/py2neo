@@ -1,34 +1,38 @@
 #!/usr/bin/env bash
 
 ARGS=$*
-NEO4J_URI=""
+VERSIONS="3.5.0 3.4.10 3.3.6 3.2.12"
 
-function run
-{
-    NEO4J_URI="$1"
-    NEO4J_SECURE="$2"
-    coverage run --append --module py2neo.testing -v ${ARGS}
-    if [ "$?" != "0" ]
-    then
-        echo "Tests failed (NEO4J_URI=${NEO4J_URI} NEO4J_SECURE=${NEO4J_SECURE})"
-        exit 1
-    fi
-    if [ "${PY2NEO_QUICK_TEST}" != "" ]
-    then
-        coverage report
-        exit 0
-    fi
-}
-
-rm -r *.egg-info 2> /dev/null
-if [ "${PY2NEO_QUICK_TEST}" == "" ]
-then
-    pip install --upgrade -r requirements.txt -r test_requirements.txt
-fi
 coverage erase
-run "" ""
-run "bolt://localhost:7687" 0
-run "bolt://localhost:7687" 1
-run "http://localhost:7474" 0
-run "https://localhost:7473" 1
+
+echo "Running unit tests"
+coverage run -a -m pytest -v ${ARGS} test/unit
+STATUS="$?"
+if [ ${STATUS} -ne 0 ]
+then
+    exit ${STATUS}
+fi
+
+if [ -z "${NEO4J_SERVER_PACKAGE}" ]
+then
+    for VERSION in ${VERSIONS}
+    do
+        echo "Running standalone integration tests against Neo4j CE ${VERSION}"
+        NEO4J_SERVER_PACKAGE="http://dist.neo4j.org/neo4j-community-${VERSION}-unix.tar.gz" coverage run -a -m pytest -v ${ARGS} test/integration-1
+        STATUS="$?"
+        if [ ${STATUS} -ne 0 ]
+        then
+            exit ${STATUS}
+        fi
+    done
+else
+    echo "Running standalone integration tests against Neo4j at ${NEO4J_SERVER_PACKAGE}"
+    coverage run -a -m pytest -v ${ARGS} test/integration-1
+    STATUS="$?"
+    if [ ${STATUS} -ne 0 ]
+    then
+        exit ${STATUS}
+    fi
+fi
+
 coverage report

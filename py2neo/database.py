@@ -71,7 +71,8 @@ class Database(object):
     _instances = {}
 
     _cx_pool = None
-    _driver = None
+    # _driver = None
+    _connector = None
     _graphs = None
 
     @classmethod
@@ -79,8 +80,10 @@ class Database(object):
         """ Forget all cached :class:`.Database` details.
         """
         for _, db in cls._instances.items():
-            db._driver.close()
-            db._driver = None
+            # db._driver.close()
+            # db._driver = None
+            db._connector.close()
+            db._connector = None
         cls._instances.clear()
 
     def __new__(cls, uri=None, **settings):
@@ -91,12 +94,17 @@ class Database(object):
         except KeyError:
             inst = super(Database, cls).__new__(cls)
             inst._connection_data = connection_data
-            from py2neo.internal.http import HTTPDriver, HTTPSDriver
-            from neo4j import Driver
-            inst._driver = Driver(connection_data["uri"],
-                                  auth=connection_data["auth"],
-                                  encrypted=connection_data["secure"],
-                                  user_agent=connection_data["user_agent"])
+            # from py2neo.internal.http import HTTPDriver, HTTPSDriver
+            # from neo4j.v1 import Driver
+            # inst._driver = Driver(connection_data["uri"],
+            #                       auth=connection_data["auth"],
+            #                       encrypted=connection_data["secure"],
+            #                       user_agent=connection_data["user_agent"])
+            from py2neo.internal.connectors import Connector
+            inst._connector = Connector(connection_data["uri"],
+                                        auth=connection_data["auth"],
+                                        secure=connection_data["secure"],
+                                        user_agent=connection_data["user_agent"])
             inst._graphs = {}
             cls._instances[key] = inst
         return inst
@@ -133,9 +141,13 @@ class Database(object):
     def __iter__(self):
         yield "data"
 
+    # @property
+    # def driver(self):
+    #     return self._driver
+
     @property
-    def driver(self):
-        return self._driver
+    def connector(self):
+        return self._connector
 
     @property
     def uri(self):
@@ -417,7 +429,8 @@ class Graph(object):
                 a Set implies a match in any direction
         :param r_type: type of relationships to match (:const:`None` means any type)
         """
-        rels = list(self.match(nodes=nodes, r_type=r_type, limit=1))
+        matches = self.match(nodes=nodes, r_type=r_type, limit=1)
+        rels = list(matches)
         if rels:
             return rels[0]
         else:
@@ -615,7 +628,7 @@ class Result(object):
     """
 
     def __init__(self, graph, entities, result):
-        from neo4j import BoltStatementResult
+        from neo4j.v1 import BoltStatementResult
         from py2neo.internal.http import HTTPStatementResult
         from py2neo.internal.packstream import PackStreamHydrator
         self.result = result
@@ -799,25 +812,28 @@ class Transaction(object):
     """ A transaction is a logical container for multiple Cypher statements.
     """
 
-    session = None
+    # session = None
 
     _finished = False
+
+    success = None
 
     def __init__(self, graph, autocommit=False):
         self.graph = graph
         self.autocommit = autocommit
         self.entities = deque()
-        self.driver = driver = self.graph.database.driver
-        self.session = driver.session()
+        # self.driver = driver = self.graph.database.driver
+        # self.session = driver.session()
+        self.connector = self.graph.database.connector
         self.results = []
         if autocommit:
             self.transaction = None
         else:
-            self.transaction = self.session.begin_transaction()
+            self.transaction = self.connector.begin()
 
-    def __del__(self):
-        if self.session:
-            self.session.close()
+    # def __del__(self):
+    #     if self.session:
+    #         self.session.close()
 
     def __enter__(self):
         return self
@@ -846,7 +862,7 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
-        from neo4j import CypherError
+        from neobolt.exceptions import CypherError
 
         self._assert_unfinished()
         try:
@@ -855,16 +871,21 @@ class Transaction(object):
             entities = {}
 
         try:
-            if self.transaction:
-                result = self.transaction.run(cypher, parameters, **kwparameters)
-            else:
-                result = self.session.run(cypher, parameters, **kwparameters)
+            # TODO: inject entities for hydration
+            from py2neo.internal.packstream import PackStreamHydrator
+            hydrator = PackStreamHydrator(self.graph, [], entities)
+            return self.connector.run(cypher, dict(parameters or {}, **kwparameters),
+                                      self.transaction, hydrator=hydrator)
+            # if self.transaction:
+            #     result = self.transaction.run(cypher, parameters, **kwparameters)
+            # else:
+            #     result = self.session.run(cypher, parameters, **kwparameters)
         except CypherError as error:
             raise GraphError.hydrate({"code": error.code, "message": error.message})
-        else:
-            r = Result(self.graph, entities, result)
-            self.results.append(r)
-            return Cursor(r)
+        # else:
+        #     r = Result(self.graph, entities, result)
+        #     self.results.append(r)
+        #     return Cursor(r)
         finally:
             if not self.transaction:
                 self.finish()
@@ -873,22 +894,28 @@ class Transaction(object):
         """ Send all pending statements to the server for processing.
         """
         self._assert_unfinished()
-        self.session.sync()
+        # self.session.sync()
+        if self.transaction:
+            self.connector.sync(self.transaction)
 
     def finish(self):
         self.process()
         if self.transaction:
-            self.transaction.close()
+            if self.success:
+                self.connector.commit(self.transaction)
+            else:
+                self.connector.rollback(self.transaction)
+            self.transaction = None
         self._assert_unfinished()
         self._finished = True
-        self.session.close()
-        self.session = None
+        # self.session.close()
+        # self.session = None
 
     def commit(self):
         """ Commit the transaction.
         """
         if self.transaction:
-            self.transaction.success = True
+            self.success = True
         self.finish()
 
     def rollback(self):
@@ -896,7 +923,7 @@ class Transaction(object):
         """
         self._assert_unfinished()
         if self.transaction:
-            self.transaction.success = False
+            self.success = False
         self.finish()
 
     def evaluate(self, cypher, parameters=None, **kwparameters):

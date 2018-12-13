@@ -20,7 +20,7 @@ from __future__ import absolute_import
 
 from unittest import TestCase
 
-from neo4j.exceptions import ConstraintError, CypherSyntaxError
+from neobolt.exceptions import ConstraintError, CypherSyntaxError
 
 from py2neo.data import Node, Relationship, Path, Record
 from py2neo.database import Database, Graph, TransactionFinished

@@ -28,8 +28,7 @@ from textwrap import dedent
 from timeit import default_timer as timer
 
 import click
-from neo4j import TransactionError
-from neo4j.exceptions import ServiceUnavailable, CypherError
+from neobolt.exceptions import ServiceUnavailable, CypherError
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
@@ -171,8 +170,8 @@ class Console(object):
             else:
                 pass
             self.echo("{}: {}".format(error.title, error.message), err=True)
-        except TransactionError:
-            self.echo("Transaction error", err=True, fg=self.err_colour)
+        # except TransactionError:
+        #     self.echo("Transaction error", err=True, fg=self.err_colour)
         except ServiceUnavailable:
             raise
         except Exception as error:

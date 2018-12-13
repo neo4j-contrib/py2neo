@@ -23,9 +23,11 @@ from json import dumps as json_dumps, loads as json_loads
 
 from certifi import where
 from neobolt.direct import connect, ConnectionPool
+from neobolt.packstream import Structure
 from neobolt.routing import RoutingConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
+from py2neo.internal.compat import urlsplit
 from py2neo.database import Cursor
 from py2neo.internal.addressing import get_connection_data
 
@@ -63,7 +65,19 @@ class Connector(object):
     def close(self):
         raise NotImplementedError()
 
-    def run(self, statement, parameters=None):
+    def run(self, statement, parameters=None, tx=None, hydrator=None):
+        raise NotImplementedError()
+
+    def begin(self):
+        raise NotImplementedError()
+
+    def commit(self, tx):
+        raise NotImplementedError()
+
+    def rollback(self, tx):
+        raise NotImplementedError()
+
+    def sync(self, tx):
         raise NotImplementedError()
 
 
@@ -87,13 +101,55 @@ class BoltConnector(Connector):
     def close(self):
         self.pool.close()
 
-    def run(self, statement, parameters=None):
+    def _assert_valid_tx(self, cx):
+        if cx is None:
+            raise ValueError("No connection")
+        if cx.pool is not self.pool:
+            raise ValueError("Connection does not belong to pool")
+
+    def _run_1(self, statement, parameters, hydrator):
         cx = self.pool.acquire()
-        result = RecordBuffer(on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
+        result = RecordBuffer(hydrator=hydrator, on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
         cx.run(statement, parameters or {}, on_success=result.update_header)
         cx.pull_all(on_records=result.append_records, on_success=result.update_footer, on_summary=result.done)
         cx.send()
         return Cursor(result)
+
+    def _run_in_tx(self, statement, parameters, cx, hydrator):
+        self._assert_valid_tx(cx)
+
+        def fetch():
+            cx.send()
+            cx.fetch()
+
+        result = RecordBuffer(hydrator=hydrator, on_more=fetch)
+        cx.run(statement, parameters or {}, on_success=result.update_header)
+        cx.pull_all(on_records=result.append_records, on_success=result.update_footer, on_summary=result.done)
+        return Cursor(result)
+
+    def run(self, statement, parameters=None, tx=None, hydrator=None):
+        if tx is None:
+            return self._run_1(statement, parameters, hydrator)
+        else:
+            return self._run_in_tx(statement, parameters, tx, hydrator)
+
+    def begin(self):
+        cx = self.pool.acquire()
+        cx.begin()
+        return cx
+
+    def commit(self, cx):
+        self._assert_valid_tx(cx)
+        cx.commit()
+        self.pool.release(cx)
+
+    def rollback(self, cx):
+        self._assert_valid_tx(cx)
+        cx.rollback()
+        self.pool.release(cx)
+
+    def sync(self, cx):
+        cx.sync()
 
 
 class BoltRoutingConnector(BoltConnector):
@@ -129,21 +185,66 @@ class HTTPConnector(Connector):
     def close(self):
         self.pool.close()
 
-    def run(self, statement, parameters=None):
-        r = self.pool.request(method="POST",
-                              url="/db/data/transaction/commit",
-                              headers=dict(self.headers, **{"Content-Type": "application/json"}),
-                              body=json_dumps({
-                                  "statements": [
-                                      OrderedDict([
-                                          ("statement", statement),
-                                          ("parameters", parameters or {}),
-                                          ("resultDataContents", ["REST"]),
-                                          ("includeStats", True),
-                                      ])
-                                  ]
-                              }))
-        return Cursor(RecordBuffer.from_json(r.data.decode("utf-8")))
+    def _assert_valid_tx(self, tx):
+        if tx is None:
+            raise ValueError("No transaction")
+
+    def _post(self, url, statement=None, parameters=None):
+        if statement:
+            statements = [
+                OrderedDict([
+                    ("statement", statement),
+                    ("parameters", parameters or {}),
+                    ("resultDataContents", ["REST"]),
+                    ("includeStats", True),
+                ])
+            ]
+        else:
+            statements = []
+        return self.pool.request(method="POST",
+                                 url=url,
+                                 headers=dict(self.headers, **{"Content-Type": "application/json"}),
+                                 body=json_dumps({"statements": statements}))
+
+    def _delete(self, url):
+        return self.pool.request(method="DELETE",
+                                 url=url,
+                                 headers=dict(self.headers))
+
+    def _run_1(self, statement, parameters, hydrator):
+        r = self._post("/db/data/transaction/commit", statement, parameters)
+        return Cursor(RecordBuffer.from_json(r.data.decode("utf-8"), hydrator=hydrator))
+
+    def _run_in_tx(self, statement, parameters, tx, hydrator):
+        r = self._post("/db/data/transaction/%s" % tx, statement, parameters)
+        assert r.status == 200
+        return Cursor(RecordBuffer.from_json(r.data.decode("utf-8"), hydrator=hydrator))
+
+    def run(self, statement, parameters=None, tx=None, hydrator=None):
+        if tx is None:
+            return self._run_1(statement, parameters, hydrator)
+        else:
+            return self._run_in_tx(statement, parameters, tx, hydrator)
+
+    def begin(self):
+        r = self._post("/db/data/transaction")
+        if r.status == 201:
+            location_path = urlsplit(r.headers["Location"]).path
+            tx = location_path.rpartition("/")[-1]
+            return tx
+        else:
+            raise RuntimeError("Can't begin a new transaction")
+
+    def commit(self, tx):
+        self._assert_valid_tx(tx)
+        self._post("/db/data/transaction/%s/commit" % tx)
+
+    def rollback(self, tx):
+        self._assert_valid_tx(tx)
+        self._delete("/db/data/transaction/%s" % tx)
+
+    def sync(self, tx):
+        pass
 
 
 class SecureHTTPConnector(HTTPConnector):
@@ -161,10 +262,52 @@ class RecordBuffer(object):
     """
 
     @classmethod
-    def from_json(cls, s):
-        data = json_loads(s)
+    def uri_to_id(cls, uri):
+        _, _, identity = uri.rpartition("/")
+        return int(identity)
+
+    @classmethod
+    def _partially_hydrate_object(cls, data):
+        if "self" in data:
+            if "type" in data:
+                return Structure(b"R",
+                                 cls.uri_to_id(data["self"]),
+                                 cls.uri_to_id(data["start"]),
+                                 cls.uri_to_id(data["end"]),
+                                 data["type"],
+                                 data["data"])
+            else:
+                return Structure(b"N",
+                                 cls.uri_to_id(data["self"]),
+                                 data["metadata"]["labels"],
+                                 data["data"])
+        elif "nodes" in data and "relationships" in data:
+            # TODO
+            data["nodes"] = list(map(uri_to_id, data["nodes"]))
+            data["relationships"] = list(map(uri_to_id, data["relationships"]))
+            if "directions" not in data:
+                directions = []
+                relationships = graph.evaluate(
+                    "MATCH ()-[r]->() WHERE id(r) IN {x} RETURN collect(r)",
+                    x=data["relationships"])
+                for i, relationship in enumerate(relationships):
+                    if relationship.start_node.identity == data["nodes"][i]:
+                        directions.append("->")
+                    else:
+                        directions.append("<-")
+                data["directions"] = directions
+            return hydrate_path(graph, data)
+        else:
+            # from warnings import warn
+            # warn("Map literals returned over the Neo4j REST interface are ambiguous "
+            #      "and may be hydrated as graph objects")
+            return data
+
+    @classmethod
+    def from_json(cls, s, hydrator=None):
+        data = json_loads(s, object_hook=cls._partially_hydrate_object)     # TODO: other partial hydration
         result = data["results"][0]
-        buffer = cls()
+        buffer = cls(hydrator=hydrator)
         buffer.update_header({"fields": result["columns"]})
         buffer.append_records(record["rest"] for record in result["data"])
         footer = {"stats": result["stats"]}
@@ -174,19 +317,27 @@ class RecordBuffer(object):
         buffer.done()
         return buffer
 
-    def __init__(self, on_more=None, on_done=None):
+    def __init__(self, hydrator=None, on_more=None, on_done=None):
+        self._hydrator = hydrator
         self._on_more = on_more
         self._on_done = on_done
         self._header = {}
+        self._keys = None
         self._records = deque()
         self._footer = {}
         self._done = False
 
     def append_records(self, records):
-        self._records.extend(records)
+        if self._hydrator:
+            self._records.extend(tuple(self._hydrator.hydrate(record)) for record in records)
+        else:
+            self._records.extend(tuple(record) for record in records)
 
     def update_header(self, metadata):
         self._header.update(metadata)
+        self._keys = self._header.get("fields")
+        if self._hydrator is not None:
+            self._hydrator.keys = self._keys    # TODO: unscrew this
 
     def update_footer(self, metadata):
         self._footer.update(metadata)
@@ -197,9 +348,9 @@ class RecordBuffer(object):
         self._done = True
 
     def keys(self):
-        if not self._header and not self._done and callable(self._on_more):
+        if not self._keys and not self._done and callable(self._on_more):
             self._on_more()
-        return self._header.get("fields")
+        return self._keys
 
     def summary(self):
         # TODO
@@ -233,7 +384,10 @@ class RecordBuffer(object):
         elif self._done:
             return None
         else:
-            while not self._records:
+            while not self._records and not self._done:
                 if callable(self._on_more):
                     self._on_more()
-            return self._records.popleft()
+            try:
+                return self._records.popleft()
+            except IndexError:
+                return None

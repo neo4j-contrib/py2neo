@@ -75,11 +75,6 @@ class Record(tuple, Mapping):
     __keys = None
 
     def __new__(cls, iterable=()):
-        from neo4j.types import Record as _Record
-        if isinstance(iterable, _Record):
-            inst = tuple.__new__(cls, iterable.values())
-            inst.__keys = tuple(iterable.keys())
-            return inst
         keys = []
         values = []
         for key, value in iter_items(iterable):
@@ -630,6 +625,11 @@ class Subgraph(object):
 
     def __db_separate__(self, tx):
         separate_subgraph(tx, self)
+
+    @property
+    def graph(self):
+        assert self.__nodes     # assume there is at least one node
+        return set(self.__nodes).pop().graph
 
     @property
     def nodes(self):

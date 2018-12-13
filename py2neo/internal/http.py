@@ -23,7 +23,7 @@ from collections import OrderedDict
 from json import dumps as json_dumps, loads as json_loads
 from warnings import catch_warnings, simplefilter
 
-from neo4j import Driver, Session, StatementResult, TransactionError, SessionError
+from neo4j.v1 import Driver, Session, StatementResult, TransactionError, SessionError
 from neo4j.exceptions import AuthError, Forbidden
 from neobolt.addressing import SocketAddress
 from neobolt.direct import ServerInfo
@@ -123,7 +123,7 @@ class HTTP(object):
         return not self.__eq__(other)
 
     def request(self, method, url, fields=None, headers=None, **urlopen_kw):
-        from neo4j import ServiceUnavailable
+        from neo4j.v1 import ServiceUnavailable
         from urllib3.exceptions import MaxRetryError
         try:
             if self.verified:
@@ -377,7 +377,7 @@ class HTTPStatementResult(StatementResult):
         super(HTTPStatementResult, self).__init__(session, JSONHydrator(session.graph, ()))
 
         def load(result):
-            from neo4j import BoltStatementResultSummary
+            from neo4j.v1 import BoltStatementResultSummary
 
             keys = self._keys = self._hydrant.keys = tuple(result["columns"])
             hydrate = self._hydrant.hydrate
@@ -400,7 +400,7 @@ class HTTPStatementResult(StatementResult):
             metadata["statement"] = None
             metadata["parameters"] = None
 
-            metadata["server"] = ServerInfo(SocketAddress.from_uri(session.graph.database.uri))
+            metadata["server"] = ServerInfo(SocketAddress.from_uri(session.graph.database.uri), 3)
 
             self._summary = BoltStatementResultSummary(**metadata)
             self._session = None

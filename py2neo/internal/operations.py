@@ -132,7 +132,7 @@ def create_subgraph(tx, subgraph):
     """
     graph = tx.graph
     for labels, nodes in _node_create_dict(n for n in subgraph.nodes if n.graph is None).items():
-        identities = _create_nodes(tx, labels, map(dict, nodes))
+        identities = _create_nodes(tx, labels, list(map(dict, nodes)))
         for i, identity in enumerate(identities):
             node = nodes[i]
             node.graph = graph
@@ -140,8 +140,8 @@ def create_subgraph(tx, subgraph):
             node._remote_labels = labels
             graph.node_cache.update(identity, node)
     for r_type, relationships in _rel_create_dict(r for r in subgraph.relationships if r.graph is None).items():
-        identities = _merge_relationships(tx, r_type, map(
-            lambda r: [r.start_node.identity, r.end_node.identity, dict(r)], relationships))
+        identities = _merge_relationships(tx, r_type, list(map(
+            lambda r: [r.start_node.identity, r.end_node.identity, dict(r)], relationships)))
         for i, identity in enumerate(identities):
             relationship = relationships[i]
             relationship.graph = graph
@@ -163,7 +163,7 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
     for (pl, pk, labels), nodes in _node_merge_dict(p_label, p_key, (n for n in subgraph.nodes if n.graph is None)).items():
         if pl is None or pk is None:
             raise ValueError("Primary label and primary key are required for MERGE operation")
-        identities = _merge_nodes(tx, pl, pk, labels, map(lambda n: [n.get(pk), dict(n)], nodes))
+        identities = _merge_nodes(tx, pl, pk, labels, list(map(lambda n: [n.get(pk), dict(n)], nodes)))
         for i, identity in enumerate(identities):
             node = nodes[i]
             node.graph = graph
@@ -171,8 +171,8 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
             node._remote_labels = labels
             graph.node_cache.update(identity, node)
     for r_type, relationships in _rel_create_dict(r for r in subgraph.relationships if r.graph is None).items():
-        identities = _merge_relationships(tx, r_type, map(
-            lambda r: [r.start_node.identity, r.end_node.identity, dict(r)], relationships))
+        identities = _merge_relationships(tx, r_type, list(map(
+            lambda r: [r.start_node.identity, r.end_node.identity, dict(r)], relationships)))
         for i, identity in enumerate(identities):
             relationship = relationships[i]
             relationship.graph = graph

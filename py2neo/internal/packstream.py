@@ -20,9 +20,6 @@ from __future__ import absolute_import
 
 from collections import namedtuple
 
-from neo4j.types import PackStreamHydrator as _PackStreamHydrator
-from neobolt.packstream import Structure
-
 from py2neo.data import Record
 from py2neo.internal.hydration import hydrate_node, hydrate_relationship
 
@@ -30,13 +27,18 @@ from py2neo.internal.hydration import hydrate_node, hydrate_relationship
 _unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
 
-class PackStreamHydrator(_PackStreamHydrator):
+class PackStreamHydrator(object):
 
     def __init__(self, graph, keys, entities=None):
-        super(PackStreamHydrator, self).__init__(2)  # maximum known protocol version
+        # TODO: protocol version
+        # super(PackStreamHydrator, self).__init__(2)  # maximum known protocol version
         self.graph = graph
         self.keys = keys
         self.entities = entities or {}
+
+    def hydrate_records(self, keys, record_values):
+        for values in record_values:
+            yield Record(zip(keys, self.hydrate(values)))
 
     def hydrate(self, values):
         """ Convert PackStream values into native values.
@@ -98,13 +100,11 @@ class PackStreamHydrator(_PackStreamHydrator):
 
         return tuple(hydrate_(value, entities.get(keys[i])) for i, value in enumerate(values))
 
-    def hydrate_records(self, keys, record_values):
-        for values in record_values:
-            yield Record(zip(keys, self.hydrate(values)))
-
     # def hydrate(self, values):
     #     """ Hydrate values from raw PackStream representations into client objects.
     #     """
+    #     from neo4j.packstream import Structure
+    #
     #     graph = self.graph
     #     entities = self.entities
     #     keys = self.keys

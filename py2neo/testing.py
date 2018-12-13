@@ -17,12 +17,13 @@
 
 
 from os import getenv
+from socket import create_connection
 from unittest import TestCase
 from uuid import uuid4
 
 from _pytest.assertion.rewrite import AssertionRewritingHook
 from neobolt.exceptions import ServiceUnavailable
-from pytest import main as test_main
+from pytest import main as test_main, fixture
 
 from py2neo import Graph
 from py2neo.admin.dist import minor_versions
@@ -49,6 +50,64 @@ class TemporaryTransaction(object):
 
 
 class IntegrationTestCase(TestCase):
+
+    NEO4J_EDITION = "community"
+    NEO4J_VERSION = getenv("NEO4J_VERSION", minor_versions[-1])
+    NEO4J_HOST = "localhost"
+    NEO4J_PORTS = {
+        "bolt": 7687,
+        "http": 7474,
+        "https": 7473,
+    }
+    NEO4J_USER = "neo4j"
+    NEO4J_PASSWORD = "password"
+
+    warehouse = None
+    name = None
+    installation = None
+
+    @classmethod
+    def is_server_running(cls):
+        host = cls.NEO4J_HOST
+        port = cls.NEO4J_PORTS["bolt"]
+        try:
+            s = create_connection((host, port))
+        except OSError:
+            return False
+        else:
+            # TODO: ensure version is correct
+            s.close()
+            return True
+
+    @classmethod
+    def ensure_server_running(cls):
+        if cls.is_server_running():
+            return
+        cls.warehouse = Warehouse()
+        cls.name = uuid4().hex
+        cls.installation = cls.warehouse.install(cls.name, cls.NEO4J_EDITION, cls.NEO4J_VERSION)
+        print("Installed Neo4j community %s to %s" % (cls.NEO4J_VERSION, cls.installation.home))
+        cls.installation.auth.update(cls.NEO4J_USER, cls.NEO4J_PASSWORD)
+        pid = cls.installation.server.start()
+        print("Started Neo4j server with PID %d" % pid)
+
+    @classmethod
+    def stop_server_if_started(cls):
+        if cls.installation:
+            cls.installation.server.stop()
+            cls.installation = None
+            cls.warehouse.uninstall(cls.name)
+            cls.name = None
+            cls.warehouse = None
+            Database.forget_all()
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ensure_server_running()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.stop_server_if_started()
 
     @staticmethod
     def unique_string_generator():
