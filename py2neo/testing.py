@@ -188,20 +188,6 @@ class ClusterIntegrationTestCase(TestCase):
             cls.cluster = None
 
 
-def for_each_connector(f):
-
-    def f_(self):
-        for uri in ["bolt://:17100", "bolt+routing://:17100", "http://:17200", "https://:17300"]:
-            with self.subTest(uri=uri):
-                connector = Connector(uri, auth=("neo4j", "password"))
-                try:
-                    f(self, connector=connector)
-                finally:
-                    connector.close()
-
-    return f_
-
-
 class TestRunner(object):
 
     user = "neo4j"

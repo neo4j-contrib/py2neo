@@ -37,6 +37,7 @@ class Connector(object):
     scheme = NotImplemented
 
     pool = None
+    transactions = set()
 
     @classmethod
     def walk_subclasses(cls):
@@ -52,6 +53,7 @@ class Connector(object):
             if subclass.scheme == cx_data["scheme"]:
                 inst = object.__new__(subclass)
                 inst.open(cx_data)
+                inst.connection_data = cx_data
                 return inst
         raise ValueError("Unsupported scheme %r" % cx_data["scheme"])
 
@@ -67,6 +69,16 @@ class Connector(object):
 
     def run(self, statement, parameters=None, tx=None, hydrator=None):
         raise NotImplementedError()
+
+    def is_valid_transaction(self, tx):
+        return tx is not None and tx in self.transactions
+
+    def _assert_valid_tx(self, tx):
+        from py2neo import TransactionError
+        if tx is None:
+            raise TransactionError("No transaction")
+        if tx not in self.transactions:
+            raise TransactionError("Invalid transaction")
 
     def begin(self):
         raise NotImplementedError()
@@ -87,8 +99,11 @@ class BoltConnector(Connector):
 
     @property
     def server_agent(self):
-        with self.pool.acquire() as cx:
+        cx = self.pool.acquire()
+        try:
             return cx.server.agent
+        finally:
+            self.pool.release(cx)
 
     def open(self, cx_data):
 
@@ -101,31 +116,37 @@ class BoltConnector(Connector):
     def close(self):
         self.pool.close()
 
-    def _assert_valid_tx(self, cx):
-        if cx is None:
-            raise ValueError("No connection")
-        if cx.pool is not self.pool:
-            raise ValueError("Connection does not belong to pool")
-
     def _run_1(self, statement, parameters, hydrator):
         cx = self.pool.acquire()
-        result = RecordBuffer(hydrator=hydrator, on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
-        cx.run(statement, parameters or {}, on_success=result.update_header)
-        cx.pull_all(on_records=result.append_records, on_success=result.update_footer, on_summary=result.done)
+        result = RecordDeque(hydrator=hydrator, on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
+        cx.run(statement, parameters or {}, on_success=result.update_header, on_failure=self._fail)
+        cx.pull_all(on_records=result.append_records, on_success=result.update_footer, on_failure=self._fail, on_summary=result.done)
         cx.send()
+        cx.fetch()
         return Cursor(result)
 
-    def _run_in_tx(self, statement, parameters, cx, hydrator):
-        self._assert_valid_tx(cx)
+    def _run_in_tx(self, statement, parameters, tx, hydrator):
+        self._assert_valid_tx(tx)
 
         def fetch():
-            cx.send()
-            cx.fetch()
+            tx.fetch()
 
-        result = RecordBuffer(hydrator=hydrator, on_more=fetch)
-        cx.run(statement, parameters or {}, on_success=result.update_header)
-        cx.pull_all(on_records=result.append_records, on_success=result.update_footer, on_summary=result.done)
+        def fail(metadata):
+            self.transactions.remove(tx)
+            self.pool.release(tx)
+            self._fail(metadata)
+
+        result = RecordDeque(hydrator=hydrator, on_more=fetch)
+        tx.run(statement, parameters or {}, on_success=result.update_header, on_failure=fail)
+        tx.pull_all(on_records=result.append_records, on_success=result.update_footer, on_failure=fail, on_summary=result.done)
+        tx.send()
+        result.keys()   # force receipt of RUN summary, to detect any errors
         return Cursor(result)
+
+    @classmethod
+    def _fail(cls, metadata):
+        from py2neo import GraphError
+        raise GraphError.hydrate(metadata)
 
     def run(self, statement, parameters=None, tx=None, hydrator=None):
         if tx is None:
@@ -134,19 +155,24 @@ class BoltConnector(Connector):
             return self._run_in_tx(statement, parameters, tx, hydrator)
 
     def begin(self):
-        cx = self.pool.acquire()
-        cx.begin()
-        return cx
+        tx = self.pool.acquire()
+        tx.begin()
+        self.transactions.add(tx)
+        return tx
 
-    def commit(self, cx):
-        self._assert_valid_tx(cx)
-        cx.commit()
-        self.pool.release(cx)
+    def commit(self, tx):
+        self._assert_valid_tx(tx)
+        self.transactions.remove(tx)
+        tx.commit()
+        tx.sync()
+        self.pool.release(tx)
 
-    def rollback(self, cx):
-        self._assert_valid_tx(cx)
-        cx.rollback()
-        self.pool.release(cx)
+    def rollback(self, tx):
+        self._assert_valid_tx(tx)
+        self.transactions.remove(tx)
+        tx.rollback()
+        tx.sync()
+        self.pool.release(tx)
 
     def sync(self, cx):
         cx.sync()
@@ -185,10 +211,6 @@ class HTTPConnector(Connector):
     def close(self):
         self.pool.close()
 
-    def _assert_valid_tx(self, tx):
-        if tx is None:
-            raise ValueError("No transaction")
-
     def _post(self, url, statement=None, parameters=None):
         if statement:
             statements = [
@@ -213,12 +235,17 @@ class HTTPConnector(Connector):
 
     def _run_1(self, statement, parameters, hydrator):
         r = self._post("/db/data/transaction/commit", statement, parameters)
-        return Cursor(RecordBuffer.from_json(r.data.decode("utf-8"), hydrator=hydrator))
+        return Cursor(RecordDeque.from_json(r.data.decode("utf-8"), hydrator=hydrator))
 
     def _run_in_tx(self, statement, parameters, tx, hydrator):
+        from py2neo import GraphError
         r = self._post("/db/data/transaction/%s" % tx, statement, parameters)
-        assert r.status == 200
-        return Cursor(RecordBuffer.from_json(r.data.decode("utf-8"), hydrator=hydrator))
+        assert r.status == 200  # TODO: other codes
+        try:
+            return Cursor(RecordDeque.from_json(r.data.decode("utf-8"), hydrator=hydrator))
+        except GraphError:
+            self.transactions.remove(tx)
+            raise
 
     def run(self, statement, parameters=None, tx=None, hydrator=None):
         if tx is None:
@@ -231,16 +258,19 @@ class HTTPConnector(Connector):
         if r.status == 201:
             location_path = urlsplit(r.headers["Location"]).path
             tx = location_path.rpartition("/")[-1]
+            self.transactions.add(tx)
             return tx
         else:
             raise RuntimeError("Can't begin a new transaction")
 
     def commit(self, tx):
         self._assert_valid_tx(tx)
+        self.transactions.remove(tx)
         self._post("/db/data/transaction/%s/commit" % tx)
 
     def rollback(self, tx):
         self._assert_valid_tx(tx)
+        self.transactions.remove(tx)
         self._delete("/db/data/transaction/%s" % tx)
 
     def sync(self, tx):
@@ -257,7 +287,7 @@ class SecureHTTPConnector(HTTPConnector):
         self.headers = make_headers(basic_auth=":".join(cx_data["auth"]))
 
 
-class RecordBuffer(object):
+class RecordDeque(object):
     """ Intermediary buffer for a result from a Cypher query.
     """
 
@@ -306,6 +336,9 @@ class RecordBuffer(object):
     @classmethod
     def from_json(cls, s, hydrator=None):
         data = json_loads(s, object_hook=cls._partially_hydrate_object)     # TODO: other partial hydration
+        if data.get("errors"):
+            from py2neo.database import GraphError
+            raise GraphError.hydrate(data["errors"][0])
         result = data["results"][0]
         buffer = cls(hydrator=hydrator)
         buffer.update_header({"fields": result["columns"]})
@@ -348,22 +381,23 @@ class RecordBuffer(object):
         self._done = True
 
     def keys(self):
-        if not self._keys and not self._done and callable(self._on_more):
+        while not self._keys and not self._done and callable(self._on_more):
             self._on_more()
         return self._keys
 
-    def summary(self):
-        # TODO
+    def buffer(self):
         while not self._done:
             if callable(self._on_more):
                 self._on_more()
+
+    def summary(self):
+        # TODO
+        self.buffer()
         return self._footer
 
     def plan(self):
         from py2neo.database import CypherPlan
-        while not self._done:
-            if callable(self._on_more):
-                self._on_more()
+        self.buffer()
         if "plan" in self._footer:
             return CypherPlan(**self._footer["plan"])
         elif "profile" in self._footer:
@@ -373,14 +407,13 @@ class RecordBuffer(object):
 
     def stats(self):
         from py2neo.database import CypherStats
-        while not self._done:
-            if callable(self._on_more):
-                self._on_more()
+        self.buffer()
         return CypherStats(**self._footer.get("stats", {}))
 
     def fetch(self):
+        from py2neo.database import Record
         if self._records:
-            return self._records.popleft()
+            return Record(zip(self.keys(), self._records.popleft()))
         elif self._done:
             return None
         else:
@@ -388,6 +421,6 @@ class RecordBuffer(object):
                 if callable(self._on_more):
                     self._on_more()
             try:
-                return self._records.popleft()
+                return Record(zip(self.keys(), self._records.popleft()))
             except IndexError:
                 return None

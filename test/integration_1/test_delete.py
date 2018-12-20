@@ -16,21 +16,17 @@
 # limitations under the License.
 
 
-def test_simple_evaluation(graph):
-    value = graph.evaluate("RETURN 1")
-    assert value == 1
+from py2neo import Node, Relationship
 
 
-def test_simple_evaluation_with_parameters(graph):
-    value = graph.evaluate("RETURN $x", x=1)
-    assert value == 1
-
-
-def test_run_and_consume_multiple_records(graph):
-    cursor = graph.run("UNWIND range(1, 3) AS n RETURN n")
-    record = next(cursor)
-    assert record[0] == 1
-    record = next(cursor)
-    assert record[0] == 2
-    record = next(cursor)
-    assert record[0] == 3
+def test_can_delete_relationship(graph):
+    a = Node()
+    b = Node()
+    r = Relationship(a, "TO", b)
+    graph.create(r)
+    assert graph.exists(r)
+    with graph.begin() as tx:
+        tx.delete(r)
+    assert not graph.exists(r)
+    assert not graph.exists(a)
+    assert not graph.exists(b)

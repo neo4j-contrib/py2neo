@@ -94,12 +94,6 @@ class Database(object):
         except KeyError:
             inst = super(Database, cls).__new__(cls)
             inst._connection_data = connection_data
-            # from py2neo.internal.http import HTTPDriver, HTTPSDriver
-            # from neo4j.v1 import Driver
-            # inst._driver = Driver(connection_data["uri"],
-            #                       auth=connection_data["auth"],
-            #                       encrypted=connection_data["secure"],
-            #                       user_agent=connection_data["user_agent"])
             from py2neo.internal.connectors import Connector
             inst._connector = Connector(connection_data["uri"],
                                         auth=connection_data["auth"],
@@ -140,10 +134,6 @@ class Database(object):
 
     def __iter__(self):
         yield "data"
-
-    # @property
-    # def driver(self):
-    #     return self._driver
 
     @property
     def connector(self):
@@ -759,7 +749,8 @@ class ClientError(GraphError):
 
     @classmethod
     def get_mapped_class(cls, status):
-        from neo4j.exceptions import ConstraintError, CypherSyntaxError, CypherTypeError, Forbidden, AuthError
+        raise KeyError(status)
+        from neobolt.exceptions import ConstraintError, CypherSyntaxError, CypherTypeError, Forbidden, AuthError
         return {
 
             # ConstraintError
@@ -802,9 +793,9 @@ class TransientError(GraphError):
     """
 
 
-class TransactionFinished(GraphError):
+class TransactionError(GraphError):
     """ Raised when actions are attempted against a :class:`.Transaction`
-    that is no longer available for use.
+    that is no longer available for use, or a transaction is otherwise invalid.
     """
 
 
@@ -816,14 +807,10 @@ class Transaction(object):
 
     _finished = False
 
-    success = None
-
     def __init__(self, graph, autocommit=False):
         self.graph = graph
         self.autocommit = autocommit
         self.entities = deque()
-        # self.driver = driver = self.graph.database.driver
-        # self.session = driver.session()
         self.connector = self.graph.database.connector
         self.results = []
         if autocommit:
@@ -842,11 +829,11 @@ class Transaction(object):
         if exc_type is None:
             self.commit()
         else:
-            self.rollback()
+            self._rollback()
 
     def _assert_unfinished(self):
         if self._finished:
-            raise TransactionFinished(self)
+            raise TransactionError(self)
 
     def finished(self):
         """ Indicates whether or not this transaction has been completed
@@ -871,21 +858,13 @@ class Transaction(object):
             entities = {}
 
         try:
-            # TODO: inject entities for hydration
             from py2neo.internal.packstream import PackStreamHydrator
-            hydrator = PackStreamHydrator(self.graph, [], entities)
-            return self.connector.run(cypher, dict(parameters or {}, **kwparameters),
-                                      self.transaction, hydrator=hydrator)
-            # if self.transaction:
-            #     result = self.transaction.run(cypher, parameters, **kwparameters)
-            # else:
-            #     result = self.session.run(cypher, parameters, **kwparameters)
+            return self.connector.run(cypher,
+                                      dict(parameters or {}, **kwparameters),
+                                      self.transaction,
+                                      hydrator=(PackStreamHydrator(self.graph, [], entities)))
         except CypherError as error:
             raise GraphError.hydrate({"code": error.code, "message": error.message})
-        # else:
-        #     r = Result(self.graph, entities, result)
-        #     self.results.append(r)
-        #     return Cursor(r)
         finally:
             if not self.transaction:
                 self.finish()
@@ -894,37 +873,34 @@ class Transaction(object):
         """ Send all pending statements to the server for processing.
         """
         self._assert_unfinished()
-        # self.session.sync()
         if self.transaction:
             self.connector.sync(self.transaction)
 
     def finish(self):
         self.process()
-        if self.transaction:
-            if self.success:
-                self.connector.commit(self.transaction)
-            else:
-                self.connector.rollback(self.transaction)
-            self.transaction = None
         self._assert_unfinished()
         self._finished = True
-        # self.session.close()
-        # self.session = None
 
     def commit(self):
         """ Commit the transaction.
         """
-        if self.transaction:
-            self.success = True
-        self.finish()
+        self._assert_unfinished()
+        self.connector.commit(self.transaction)
+        self._finished = True
+
+    def _rollback(self):
+        """ Implicit rollback.
+        """
+        if self.connector.is_valid_transaction(self.transaction):
+            self.connector.rollback(self.transaction)
+        self._finished = True
 
     def rollback(self):
         """ Roll back the current transaction, undoing all actions previously taken.
         """
         self._assert_unfinished()
-        if self.transaction:
-            self.success = False
-        self.finish()
+        self.connector.rollback(self.transaction)
+        self._finished = True
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -1129,6 +1105,12 @@ class Cursor(object):
         self._result = result
         self._current = None
 
+    def __del__(self):
+        try:
+            self.close()
+        except:
+            pass
+
     def __next__(self):
         if self.forward():
             return self._current
@@ -1155,7 +1137,9 @@ class Cursor(object):
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        self._result = None
+        if self._result is not None:
+            self._result.buffer()   # force consumption of remaining data
+            self._result = None
         self._current = None
 
     def keys(self):

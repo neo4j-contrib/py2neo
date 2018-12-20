@@ -16,17 +16,8 @@
 # limitations under the License.
 
 
-from unittest import SkipTest
-
-from py2neo.testing import IntegrationTestCase
-
-
-class TemporalTypeOutputTestCase(IntegrationTestCase):
-
-    def test_date(self):
-        if self.graph.database.kernel_version < (3, 4):
-            raise SkipTest()
-        date = self.graph.evaluate("RETURN date('1976-06-13')")
-        self.assertEqual(date.year, 1976)
-        self.assertEqual(date.month, 6)
-        self.assertEqual(date.day, 13)
+def test_can_autocommit(graph):
+    tx = graph.begin(autocommit=True)
+    assert not tx.finished()
+    tx.run("RETURN 1")
+    assert tx.finished()

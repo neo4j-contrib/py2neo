@@ -16,21 +16,24 @@
 # limitations under the License.
 
 
-def test_simple_evaluation(graph):
-    value = graph.evaluate("RETURN 1")
-    assert value == 1
+from pytest import raises
+
+from py2neo import Node, Relationship
 
 
-def test_simple_evaluation_with_parameters(graph):
-    value = graph.evaluate("RETURN $x", x=1)
-    assert value == 1
+def test_can_delete_relationship_by_separating(graph):
+    a = Node()
+    b = Node()
+    r = Relationship(a, "TO", b)
+    graph.create(r)
+    assert graph.exists(r)
+    with graph.begin() as tx:
+        tx.separate(r)
+    assert not graph.exists(r)
+    assert graph.exists(a)
+    assert graph.exists(b)
 
 
-def test_run_and_consume_multiple_records(graph):
-    cursor = graph.run("UNWIND range(1, 3) AS n RETURN n")
-    record = next(cursor)
-    assert record[0] == 1
-    record = next(cursor)
-    assert record[0] == 2
-    record = next(cursor)
-    assert record[0] == 3
+def test_cannot_separate_non_graphy_thing(graph):
+    with raises(TypeError):
+        graph.separate("this string is definitely not graphy")

@@ -16,21 +16,10 @@
 # limitations under the License.
 
 
-def test_simple_evaluation(graph):
-    value = graph.evaluate("RETURN 1")
-    assert value == 1
+from pytest import raises
 
 
-def test_simple_evaluation_with_parameters(graph):
-    value = graph.evaluate("RETURN $x", x=1)
-    assert value == 1
-
-
-def test_run_and_consume_multiple_records(graph):
-    cursor = graph.run("UNWIND range(1, 3) AS n RETURN n")
-    record = next(cursor)
-    assert record[0] == 1
-    record = next(cursor)
-    assert record[0] == 2
-    record = next(cursor)
-    assert record[0] == 3
+def test_cannot_check_existence_of_non_graphy_thing(graph):
+    with raises(TypeError):
+        with graph.begin() as tx:
+            tx.exists("this string is definitely not graphy")
