@@ -27,6 +27,7 @@ from py2neo.cypher.encoding import LabelSetView
 from py2neo.internal.collections import is_collection, iter_items, SetView
 from py2neo.internal.compat import Mapping, integer_types, numeric_types, string_types, ustr, xstr
 from py2neo.internal.html import html_escape
+from py2neo.internal.hydration import Unknown
 from py2neo.internal.operations import create_subgraph, merge_subgraph, delete_subgraph, separate_subgraph, \
     pull_subgraph, push_subgraph, subgraph_exists
 
@@ -971,7 +972,9 @@ class Relationship(Entity):
     def __init__(self, *nodes, **properties):
         n = []
         for value in nodes:
-            if isinstance(value, string_types):
+            if value is None or value is Unknown:
+                n.append(None)
+            elif isinstance(value, string_types):
                 n.append(value)
             else:
                 n.append(Node.cast(value))

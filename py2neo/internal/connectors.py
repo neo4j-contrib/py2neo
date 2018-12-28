@@ -27,9 +27,10 @@ from neobolt.packstream import Structure
 from neobolt.routing import RoutingConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
-from py2neo.internal.compat import urlsplit
 from py2neo.database import Cursor
+from py2neo.internal.compat import urlsplit
 from py2neo.internal.addressing import get_connection_data
+from py2neo.internal.hydration import Unknown
 
 
 class Connector(object):
@@ -292,7 +293,7 @@ class RecordDeque(object):
     """
 
     @classmethod
-    def uri_to_id(cls, uri):
+    def _uri_to_id(cls, uri):
         _, _, identity = uri.rpartition("/")
         return int(identity)
 
@@ -301,36 +302,28 @@ class RecordDeque(object):
         if "self" in data:
             if "type" in data:
                 return Structure(b"R",
-                                 cls.uri_to_id(data["self"]),
-                                 cls.uri_to_id(data["start"]),
-                                 cls.uri_to_id(data["end"]),
+                                 cls._uri_to_id(data["self"]),
+                                 cls._uri_to_id(data["start"]),
+                                 cls._uri_to_id(data["end"]),
                                  data["type"],
                                  data["data"])
             else:
                 return Structure(b"N",
-                                 cls.uri_to_id(data["self"]),
+                                 cls._uri_to_id(data["self"]),
                                  data["metadata"]["labels"],
                                  data["data"])
         elif "nodes" in data and "relationships" in data:
-            # TODO
-            data["nodes"] = list(map(uri_to_id, data["nodes"]))
-            data["relationships"] = list(map(uri_to_id, data["relationships"]))
-            if "directions" not in data:
-                directions = []
-                relationships = graph.evaluate(
-                    "MATCH ()-[r]->() WHERE id(r) IN {x} RETURN collect(r)",
-                    x=data["relationships"])
-                for i, relationship in enumerate(relationships):
-                    if relationship.start_node.identity == data["nodes"][i]:
-                        directions.append("->")
-                    else:
-                        directions.append("<-")
-                data["directions"] = directions
-            return hydrate_path(graph, data)
+            nodes = [Structure(b"N", i, Unknown, Unknown) for i in map(cls._uri_to_id, data["nodes"])]
+            relps = [Structure(b"r", i, Unknown, Unknown) for i in map(cls._uri_to_id, data["relationships"])]
+            seq = [i // 2 + 1 for i in range(2 * len(data["relationships"]))]
+            for i, direction in enumerate(data["directions"]):
+                if direction == "<-":
+                    seq[2 * i] *= -1
+            return Structure(b"P", nodes, relps, seq)
         else:
             # from warnings import warn
-            # warn("Map literals returned over the Neo4j REST interface are ambiguous "
-            #      "and may be hydrated as graph objects")
+            # warn("Map literals returned over the Neo4j HTTP interface are ambiguous "
+            #      "and may be unintentionally hydrated as graph objects")
             return data
 
     @classmethod

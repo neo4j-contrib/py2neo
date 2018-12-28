@@ -21,7 +21,7 @@ from __future__ import absolute_import
 from collections import namedtuple
 
 from py2neo.data import Record
-from py2neo.internal.hydration import hydrate_node, hydrate_relationship
+from py2neo.internal.hydration import hydrate_node, hydrate_relationship, Unknown
 
 
 _unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
@@ -55,13 +55,14 @@ class PackStreamHydrator(object):
                 fields = obj.fields
                 if tag == b"N":
                     return hydrate_node(graph, fields[0], inst=inst,
-                                        metadata={"labels": list(fields[1])}, data=hydrate_(fields[2]))
+                                        metadata={"labels": fields[1]}, data=hydrate_(fields[2]))
                 elif tag == b"R":
                     return hydrate_relationship(graph, fields[0], inst=inst,
                                                 start=fields[1], end=fields[2],
                                                 type=fields[3], data=hydrate_(fields[4]))
                 elif tag == b"P":
                     from py2neo.data import Path
+                    print(fields)
                     nodes = [hydrate_(node) for node in fields[0]]
                     u_rels = [_unbound_relationship(*map(hydrate_, r)) for r in fields[1]]
                     sequence = fields[2]

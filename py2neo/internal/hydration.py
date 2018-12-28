@@ -19,6 +19,16 @@
 from py2neo.internal.collections import round_robin
 
 
+# TODO: replace with None
+class UnknownType(object):
+
+    def __repr__(self):
+        return "Unknown"
+
+
+Unknown = UnknownType()
+
+
 def hydrate_node(graph, identity, inst=None, **rest):
     if inst is None:
 
@@ -36,16 +46,19 @@ def hydrate_node(graph, identity, inst=None, **rest):
         inst.identity = identity
         graph.node_cache.update(identity, inst)
 
-    if "data" in rest:
+    properties = rest.get("data", Unknown)
+    if properties is not Unknown:
         inst._stale.discard("properties")
         inst.clear()
-        inst.update(rest["data"])
-    if "metadata" in rest:
+        inst.update(properties)
+
+    labels = rest.get("metadata", {}).get("labels", Unknown)
+    if labels is not Unknown:
         inst._stale.discard("labels")
-        metadata = rest["metadata"]
-        inst._remote_labels = frozenset(metadata["labels"])
+        inst._remote_labels = frozenset(labels)
         inst.clear_labels()
-        inst.update_labels(metadata["labels"])
+        inst.update_labels(labels)
+
     return inst
 
 
@@ -57,8 +70,14 @@ def hydrate_relationship(graph, identity, inst=None, **rest):
 
         def inst_constructor():
             from py2neo.data import Relationship
-            new_inst = Relationship(hydrate_node(graph, start), rest.get("type"),
-                                    hydrate_node(graph, end), **rest.get("data", {}))
+            properties = rest.get("data", Unknown)
+            if properties is Unknown:
+                new_inst = Relationship(hydrate_node(graph, start), rest.get("type"),
+                                        hydrate_node(graph, end))
+                new_inst._stale.add("properties")
+            else:
+                new_inst = Relationship(hydrate_node(graph, start), rest.get("type"),
+                                        hydrate_node(graph, end), **properties)
             new_inst.graph = graph
             new_inst.identity = identity
             return new_inst
