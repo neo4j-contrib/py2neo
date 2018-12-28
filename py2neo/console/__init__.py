@@ -40,7 +40,7 @@ from py2neo.console.meta import HISTORY_FILE_DIR, HISTORY_FILE, TITLE, QUICK_HEL
 from py2neo.cypher.lexer import CypherLexer
 from py2neo.data import Table
 from py2neo.database import Graph
-from py2neo.internal.addressing import get_connection_data, address_str
+from py2neo.internal.addressing import get_connection_data
 
 
 def is_command(source):
@@ -247,10 +247,11 @@ class Console(object):
         t0 = timer()
         result = runner(statement, parameters)
         record_count = self.write_result(result)
+        summary = result.summary()
         status = u"{} record{} from {} in {:.3f}s".format(
             record_count,
             "" if record_count == 1 else "s",
-            address_str(result.summary().server.address),
+            summary.connection["uri"],
             timer() - t0,
         )
         if line_no:

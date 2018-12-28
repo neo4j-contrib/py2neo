@@ -1363,6 +1363,16 @@ class Cursor(object):
                 return ImmutableMatrix(list(map(list, self)))
 
 
+class CypherSummary(object):
+
+    def __init__(self, **data):
+        self._data = data
+
+    @property
+    def connection(self):
+        return self._data.get("connection")
+
+
 class CypherStats(Mapping):
 
     contains_updates = False

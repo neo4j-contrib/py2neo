@@ -119,9 +119,11 @@ class BoltConnector(Connector):
 
     def _run_1(self, statement, parameters, hydrator):
         cx = self.pool.acquire()
-        result = RecordDeque(hydrator=hydrator, on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
-        cx.run(statement, parameters or {}, on_success=result.update_header, on_failure=self._fail)
-        cx.pull_all(on_records=result.append_records, on_success=result.update_footer, on_failure=self._fail, on_summary=result.done)
+        result = CypherResult(hydrator=hydrator, on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
+        result.update_metadata({"connection": self.connection_data})
+        cx.run(statement, parameters or {}, on_success=result.update_metadata, on_failure=self._fail)
+        cx.pull_all(on_records=result.append_records,
+                    on_success=result.update_metadata, on_failure=self._fail, on_summary=result.done)
         cx.send()
         cx.fetch()
         return Cursor(result)
@@ -137,9 +139,11 @@ class BoltConnector(Connector):
             self.pool.release(tx)
             self._fail(metadata)
 
-        result = RecordDeque(hydrator=hydrator, on_more=fetch)
-        tx.run(statement, parameters or {}, on_success=result.update_header, on_failure=fail)
-        tx.pull_all(on_records=result.append_records, on_success=result.update_footer, on_failure=fail, on_summary=result.done)
+        result = CypherResult(hydrator=hydrator, on_more=fetch)
+        result.update_metadata({"connection": self.connection_data})
+        tx.run(statement, parameters or {}, on_success=result.update_metadata, on_failure=fail)
+        tx.pull_all(on_records=result.append_records,
+                    on_success=result.update_metadata, on_failure=fail, on_summary=result.done)
         tx.send()
         result.keys()   # force receipt of RUN summary, to detect any errors
         return Cursor(result)
@@ -236,14 +240,18 @@ class HTTPConnector(Connector):
 
     def _run_1(self, statement, parameters, hydrator):
         r = self._post("/db/data/transaction/commit", statement, parameters)
-        return Cursor(RecordDeque.from_json(r.data.decode("utf-8"), hydrator=hydrator))
+        result = CypherResult.from_json(r.data.decode("utf-8"), hydrator=hydrator)
+        result.update_metadata({"connection": self.connection_data})
+        return Cursor(result)
 
     def _run_in_tx(self, statement, parameters, tx, hydrator):
         from py2neo import GraphError
         r = self._post("/db/data/transaction/%s" % tx, statement, parameters)
         assert r.status == 200  # TODO: other codes
         try:
-            return Cursor(RecordDeque.from_json(r.data.decode("utf-8"), hydrator=hydrator))
+            result = CypherResult.from_json(r.data.decode("utf-8"), hydrator=hydrator)
+            result.update_metadata({"connection": self.connection_data})
+            return Cursor(result)
         except GraphError:
             self.transactions.remove(tx)
             raise
@@ -288,8 +296,8 @@ class SecureHTTPConnector(HTTPConnector):
         self.headers = make_headers(basic_auth=":".join(cx_data["auth"]))
 
 
-class RecordDeque(object):
-    """ Intermediary buffer for a result from a Cypher query.
+class CypherResult(object):
+    """ Buffer for a result from a Cypher query.
     """
 
     @classmethod
@@ -332,22 +340,21 @@ class RecordDeque(object):
         if data.get("errors"):
             from py2neo.database import GraphError
             raise GraphError.hydrate(data["errors"][0])
-        result = data["results"][0]
-        buffer = cls(hydrator=hydrator)
-        buffer.update_header({"fields": result["columns"]})
-        buffer.append_records(record["rest"] for record in result["data"])
-        footer = {"stats": result["stats"]}
-        if "plan" in result:
-            footer["plan"] = result["plan"]
-        buffer.update_footer(footer)
-        buffer.done()
-        return buffer
+        raw_result = data["results"][0]
+        result = cls(hydrator=hydrator)
+        result.update_metadata({"fields": raw_result["columns"]})
+        result.append_records(record["rest"] for record in raw_result["data"])
+        metadata = {"stats": raw_result["stats"]}
+        if "plan" in raw_result:
+            metadata["plan"] = raw_result["plan"]
+        result.update_metadata(metadata)
+        result.done()
+        return result
 
     def __init__(self, hydrator=None, on_more=None, on_done=None):
         self._hydrator = hydrator
         self._on_more = on_more
         self._on_done = on_done
-        self._header = {}
         self._keys = None
         self._records = deque()
         self._footer = {}
@@ -359,14 +366,12 @@ class RecordDeque(object):
         else:
             self._records.extend(tuple(record) for record in records)
 
-    def update_header(self, metadata):
-        self._header.update(metadata)
-        self._keys = self._header.get("fields")
-        if self._hydrator is not None:
-            self._hydrator.keys = self._keys    # TODO: unscrew this
-
-    def update_footer(self, metadata):
+    def update_metadata(self, metadata):
         self._footer.update(metadata)
+        if "fields" in metadata:
+            self._keys = metadata["fields"]
+            if self._hydrator is not None:
+                self._hydrator.keys = self._keys    # TODO: unscrew this
 
     def done(self):
         if callable(self._on_done):
@@ -384,9 +389,9 @@ class RecordDeque(object):
                 self._on_more()
 
     def summary(self):
-        # TODO
+        from py2neo.database import CypherSummary
         self.buffer()
-        return self._footer
+        return CypherSummary(**self._footer)
 
     def plan(self):
         from py2neo.database import CypherPlan

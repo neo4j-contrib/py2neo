@@ -47,13 +47,6 @@ DEFAULT_HTTP_PORT = 7474
 DEFAULT_HTTPS_PORT = 7473
 
 
-def address_str(address):
-    if len(address) == 4:  # IPv6
-        return "[{}]:{}".format(*address)
-    else:  # IPv4
-        return "{}:{}".format(*address)
-
-
 def get_connection_data(uri=None, **settings):
     """ Generate a dictionary of connection data for an optional URI plus
     additional connection settings.

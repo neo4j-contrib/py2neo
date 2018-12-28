@@ -62,7 +62,6 @@ class PackStreamHydrator(object):
                                                 type=fields[3], data=hydrate_(fields[4]))
                 elif tag == b"P":
                     from py2neo.data import Path
-                    print(fields)
                     nodes = [hydrate_(node) for node in fields[0]]
                     u_rels = [_unbound_relationship(*map(hydrate_, r)) for r in fields[1]]
                     sequence = fields[2]
