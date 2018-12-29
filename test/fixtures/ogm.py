@@ -16,10 +16,7 @@
 # limitations under the License.
 
 
-from os.path import join as path_join, dirname
-
 from py2neo.ogm import GraphObject, Label, Property, RelatedTo, RelatedFrom
-from py2neo.testing import IntegrationTestCase
 
 
 class MovieGraphObject(GraphObject):
@@ -60,18 +57,6 @@ class Person(MovieGraphObject):
 
 class MacGuffin(MovieGraphObject):
     pass
-
-
-class MovieGraphTestCase(IntegrationTestCase):
-
-    def setUp(self):
-        self.graph.delete_all()
-        with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
-            cypher = f.read()
-        self.graph.run(cypher)
-
-    def tearDown(self):
-        self.graph.delete_all()
 
 
 class BaseThing(GraphObject):

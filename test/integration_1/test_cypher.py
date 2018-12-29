@@ -34,3 +34,15 @@ def test_run_and_consume_multiple_records(graph):
     assert record[0] == 2
     record = next(cursor)
     assert record[0] == 3
+
+
+def test_can_run_cypher_while_in_transaction(graph):
+    tx = graph.begin()
+    outer_result = tx.run("UNWIND range(1, 10) AS n RETURN n")
+    inner_result = graph.run("CREATE (a) RETURN a")
+    outer_result_list = list(map(tuple, outer_result))
+    tx.rollback()
+    record = next(inner_result)
+    created = record[0]
+    assert outer_result_list == [(1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,)]
+    assert graph.exists(created)

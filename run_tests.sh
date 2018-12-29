@@ -31,10 +31,26 @@ function run_integration_1_tests
 }
 
 
+function run_integration_cc_tests
+{
+    for NEO4J_VERSION in ${NEO4J_VERSIONS}
+    do
+        echo "Running cluster integration tests against Neo4j EE ${NEO4J_VERSION}"
+        NEO4J_VERSION=${NEO4J_VERSION} coverage run --append --module pytest -v ${ARGS} test/integration_cc
+        STATUS="$?"
+        if [[ ${STATUS} -ne 0 ]]
+        then
+            exit ${STATUS}
+        fi
+    done
+}
+
+
 function run_all_tests
 {
     run_unit_tests
     run_integration_1_tests
+#    run_integration_cc_tests
 }
 
 
