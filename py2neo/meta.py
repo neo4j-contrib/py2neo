@@ -20,7 +20,7 @@ __all__ = ["__author__", "__copyright__", "__email__", "__license__", "__package
            "bolt_user_agent", "http_user_agent"]
 
 __author__ = "Nigel Small <technige@nige.tech>"
-__copyright__ = "2011-2018, Nigel Small"
+__copyright__ = "2011-2019, Nigel Small"
 __email__ = "py2neo@nige.tech"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
