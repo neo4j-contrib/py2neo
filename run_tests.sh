@@ -54,6 +54,7 @@ function run_all_tests
 }
 
 
+pip install --upgrade --quiet coverage
 coverage erase
 run_all_tests
 coverage report
