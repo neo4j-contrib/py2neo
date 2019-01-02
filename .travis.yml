@@ -17,4 +17,3 @@ script:
   - ./check_legal.sh
   - ./run_tests.sh
   - ./check_install.sh
-  - coveralls
