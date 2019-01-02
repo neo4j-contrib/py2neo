@@ -26,6 +26,7 @@ from py2neo import Graph
 from py2neo.admin.dist import Distribution, minor_versions
 from py2neo.admin.install import Warehouse
 from py2neo.database import Database
+from py2neo.internal.compat import SocketError
 from py2neo.internal.connectors import Connector
 
 
@@ -49,7 +50,7 @@ def is_server_running():
     port = NEO4J_PORTS["bolt"]
     try:
         s = create_connection((host, port))
-    except OSError:
+    except SocketError:
         return False
     else:
         # TODO: ensure version is correct

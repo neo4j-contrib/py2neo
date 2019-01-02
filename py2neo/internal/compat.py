@@ -40,6 +40,7 @@ except ImportError:
 
 from io import StringIO
 import os
+from socket import error as SocketError
 from sys import version_info
 
 
