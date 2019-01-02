@@ -48,7 +48,7 @@ class Case(object):
         self.words = tuple(word for word in words if word)
 
     def upper(self, separator=" "):
-        return separator.join(word.lower() for word in self.words)
+        return separator.join(word.upper() for word in self.words)
 
     def lower(self, separator=" "):
         return separator.join(word.lower() for word in self.words)

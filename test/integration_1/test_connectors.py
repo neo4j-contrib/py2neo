@@ -22,7 +22,8 @@ from collections import deque
 
 from pytest import skip
 
-from py2neo.database import CypherStats, CypherPlan, Record
+from py2neo.data import Record
+from py2neo.database import CypherStats, CypherPlan
 
 
 def test_bolt_connection_pool_usage_for_autocommit(connector):

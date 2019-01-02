@@ -409,7 +409,7 @@ class CypherResult(object):
         return CypherStats(**self._footer.get("stats", {}))
 
     def fetch(self):
-        from py2neo.database import Record
+        from py2neo.data import Record
         if self._records:
             return Record(zip(self.keys(), self._records.popleft()))
         elif self._done:
