@@ -19,7 +19,7 @@
 from re import compile as re_compile
 
 
-version_string_pattern = re_compile("(\d+)\.(\d+)\.(\d+)-?(.*)")
+version_string_pattern = re_compile(r"(\d+)\.(\d+)\.(\d+)-?(.*)")
 
 
 class Version(tuple):

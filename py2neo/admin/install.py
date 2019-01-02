@@ -354,7 +354,7 @@ class Server(object):
                 if verbose:
                     print(line)
                 if line.startswith("process"):
-                    number_in_brackets = re_compile("\[(\d+)\]")
+                    number_in_brackets = re_compile(r"\[(\d+)\]")
                     numbers = number_in_brackets.search(line).groups()
                     if numbers:
                         pid = int(numbers[0])
