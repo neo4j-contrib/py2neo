@@ -54,7 +54,8 @@ function run_all_tests
 }
 
 
-pip install --upgrade --quiet coverage
+pip install --upgrade --quiet coverage pytest
+pip install --upgrade -r requirements.txt -r test_requirements.txt
 coverage erase
 run_all_tests
 coverage report
