@@ -50,7 +50,7 @@ function run_all_tests
 {
     run_unit_tests
     run_integration_1_tests
-#    run_integration_cc_tests
+    run_integration_cc_tests
 }
 
 

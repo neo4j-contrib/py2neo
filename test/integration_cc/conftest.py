@@ -17,7 +17,6 @@
 
 
 from os import getenv
-from socket import create_connection
 from uuid import uuid4
 
 from pytest import fixture
@@ -60,9 +59,9 @@ def uri(request):
     warehouse = Warehouse()
     name = uuid4().hex
     cluster = LocalCluster.install(warehouse, name, NEO4J_VERSION, alpha=(3, 1))
-    print("Installed Neo4j %s %s cluster" % (NEO4J_EDITION, NEO4J_VERSION))
-    for role, member in cluster.iter_members("alpha"):
-        print("  %s (%s)" % (member, role))
+    print("Installed Neo4j %s %s cluster (%s)" % (NEO4J_EDITION.title(), NEO4J_VERSION, ", ".join(
+        "%s/%s" % (role, member) for role, member in sorted(cluster.iter_members("alpha"))
+    )))
     cluster.update_auth(NEO4J_USER, NEO4J_PASSWORD)
     cluster.start()
     print("Started Neo4j cluster")
