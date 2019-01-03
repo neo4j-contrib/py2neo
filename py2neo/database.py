@@ -774,7 +774,7 @@ class Transaction(object):
             entities = {}
 
         try:
-            from py2neo.internal.packstream import PackStreamHydrator
+            from py2neo.internal.connectors import PackStreamHydrator
             return self.connector.run(cypher,
                                       dict(parameters or {}, **kwparameters),
                                       self.transaction,

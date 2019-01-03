@@ -27,7 +27,6 @@ from py2neo.cypher.encoding import LabelSetView
 from py2neo.internal.collections import is_collection, iter_items, SetView
 from py2neo.internal.compat import Mapping, integer_types, numeric_types, string_types, ustr, xstr
 from py2neo.internal.html import html_escape
-from py2neo.internal.hydration import Unknown
 from py2neo.internal.operations import create_subgraph, merge_subgraph, delete_subgraph, separate_subgraph, \
     pull_subgraph, push_subgraph, subgraph_exists
 
@@ -970,6 +969,7 @@ class Relationship(Entity):
         return Relationship(start_node, get_type(t), end_node, **properties)
 
     def __init__(self, *nodes, **properties):
+        from py2neo.internal.connectors import Unknown
         n = []
         for value in nodes:
             if value is None or value is Unknown:
@@ -984,21 +984,17 @@ class Relationship(Entity):
             raise TypeError("Relationships must specify at least one endpoint")
         elif num_args == 1:
             # Relationship(a)
-            # self._type = self.default_type()
             n = (n[0], n[0])
         elif num_args == 2:
             if n[1] is None or isinstance(n[1], string_types):
                 # Relationship(a, "TO")
-                # self._type = n[1]
                 self.__class__ = Relationship.type(n[1])
                 n = (n[0], n[0])
             else:
                 # Relationship(a, b)
-                # self._type = self.default_type()
                 n = (n[0], n[1])
         elif num_args == 3:
             # Relationship(a, "TO", b)
-            # self._type = n[1]
             self.__class__ = Relationship.type(n[1])
             n = (n[0], n[2])
         else:

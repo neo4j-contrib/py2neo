@@ -18,8 +18,9 @@
 
 from __future__ import absolute_import
 
-from collections import deque, OrderedDict
+from collections import deque, namedtuple, OrderedDict
 from json import dumps as json_dumps, loads as json_loads
+
 
 from certifi import where
 from neobolt.direct import connect, ConnectionPool
@@ -27,10 +28,201 @@ from neobolt.packstream import Structure
 from neobolt.routing import RoutingConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
-from py2neo.database import Cursor
-from py2neo.internal.compat import urlsplit
+from py2neo.data import Record
+from py2neo.database import Cursor, GraphError
+from py2neo.internal.collections import round_robin
+from py2neo.internal.compat import Sequence, Mapping, urlsplit, string_types, integer_types
 from py2neo.internal.addressing import get_connection_data
-from py2neo.internal.hydration import Unknown
+
+
+INT64_LO = -(2 ** 63)
+INT64_HI = 2 ** 63 - 1
+
+
+# TODO: replace with None
+class UnknownType(object):
+
+    def __repr__(self):
+        return "Unknown"
+
+
+Unknown = UnknownType()
+
+
+_unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
+
+
+def hydrate_node(graph, identity, inst=None, **rest):
+    if inst is None:
+
+        def inst_constructor():
+            from py2neo.data import Node
+            new_inst = Node()
+            new_inst.graph = graph
+            new_inst.identity = identity
+            new_inst._stale.update({"labels", "properties"})
+            return new_inst
+
+        inst = graph.node_cache.update(identity, inst_constructor)
+    else:
+        inst.graph = graph
+        inst.identity = identity
+        graph.node_cache.update(identity, inst)
+
+    properties = rest.get("data", Unknown)
+    if properties is not Unknown:
+        inst._stale.discard("properties")
+        inst.clear()
+        inst.update(properties)
+
+    labels = rest.get("metadata", {}).get("labels", Unknown)
+    if labels is not Unknown:
+        inst._stale.discard("labels")
+        inst._remote_labels = frozenset(labels)
+        inst.clear_labels()
+        inst.update_labels(labels)
+
+    return inst
+
+
+def hydrate_relationship(graph, identity, inst=None, **rest):
+    start = rest["start"]
+    end = rest["end"]
+
+    if inst is None:
+
+        def inst_constructor():
+            from py2neo.data import Relationship
+            properties = rest.get("data", Unknown)
+            if properties is Unknown:
+                new_inst = Relationship(hydrate_node(graph, start), rest.get("type"),
+                                        hydrate_node(graph, end))
+                new_inst._stale.add("properties")
+            else:
+                new_inst = Relationship(hydrate_node(graph, start), rest.get("type"),
+                                        hydrate_node(graph, end), **properties)
+            new_inst.graph = graph
+            new_inst.identity = identity
+            return new_inst
+
+        inst = graph.relationship_cache.update(identity, inst_constructor)
+    else:
+        inst.graph = graph
+        inst.identity = identity
+        hydrate_node(graph, start, inst=inst.start_node)
+        hydrate_node(graph, end, inst=inst.end_node)
+        inst._type = rest.get("type")
+        if "data" in rest:
+            inst.clear()
+            inst.update(rest["data"])
+        else:
+            inst._stale.add("properties")
+        graph.relationship_cache.update(identity, inst)
+    return inst
+
+
+def hydrate_path(graph, data):
+    # TODO: unused?
+    from py2neo.data import Path
+    node_ids = data["nodes"]
+    relationship_ids = data["relationships"]
+    offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]
+    nodes = [hydrate_node(graph, identity) for identity in node_ids]
+    relationships = [hydrate_relationship(graph, identity,
+                                          start=node_ids[i + offsets[i][0]],
+                                          end=node_ids[i + offsets[i][1]])
+                     for i, identity in enumerate(relationship_ids)]
+    inst = Path(*round_robin(nodes, relationships))
+    inst.__metadata = data
+    return inst
+
+
+class PackStreamHydrator(object):
+
+    def __init__(self, graph, keys, entities=None):
+        # TODO: protocol version
+        # super(PackStreamHydrator, self).__init__(2)  # maximum known protocol version
+        self.graph = graph
+        self.keys = keys
+        self.entities = entities or {}
+
+    def hydrate_records(self, keys, record_values):
+        for values in record_values:
+            yield Record(zip(keys, self.hydrate(values)))
+
+    def hydrate(self, values):
+        """ Convert PackStream values into native values.
+        """
+        from neobolt.packstream import Structure
+
+        graph = self.graph
+        entities = self.entities
+        keys = self.keys
+
+        def hydrate_(obj, inst=None):
+            if isinstance(obj, Structure):
+                tag = obj.tag
+                fields = obj.fields
+                if tag == b"N":
+                    return hydrate_node(graph, fields[0], inst=inst,
+                                        metadata={"labels": fields[1]}, data=hydrate_(fields[2]))
+                elif tag == b"R":
+                    return hydrate_relationship(graph, fields[0], inst=inst,
+                                                start=fields[1], end=fields[2],
+                                                type=fields[3], data=hydrate_(fields[4]))
+                elif tag == b"P":
+                    # Herein lies a dirty hack to retrieve missing relationship
+                    # detail for paths received over HTTP.
+                    from py2neo.data import Path
+                    nodes = [hydrate_(node) for node in fields[0]]
+                    u_rels = []
+                    typeless_u_rel_ids = []
+                    for r in fields[1]:
+                        u_rel = _unbound_relationship(*map(hydrate_, r))
+                        u_rels.append(u_rel)
+                        if u_rel.type is None or u_rel.type is Unknown:
+                            typeless_u_rel_ids.append(u_rel.id)
+                    if typeless_u_rel_ids:
+                        from py2neo.matching import RelationshipMatcher
+                        r_dict = {r.identity: r for r in RelationshipMatcher(graph).get(typeless_u_rel_ids)}
+                        for u_rel in u_rels:
+                            if u_rel.type is None:
+                                u_rel.type = type(r_dict[u_rel.id]).__name__
+                    sequence = fields[2]
+                    last_node = nodes[0]
+                    steps = [last_node]
+                    for i, rel_index in enumerate(sequence[::2]):
+                        next_node = nodes[sequence[2 * i + 1]]
+                        if rel_index > 0:
+                            u_rel = u_rels[rel_index - 1]
+                            rel = hydrate_relationship(graph, u_rel.id,
+                                                       start=last_node.identity, end=next_node.identity,
+                                                       type=u_rel.type, data=u_rel.properties)
+                        else:
+                            u_rel = u_rels[-rel_index - 1]
+                            rel = hydrate_relationship(graph, u_rel.id,
+                                                       start=next_node.identity, end=last_node.identity,
+                                                       type=u_rel.type, data=u_rel.properties)
+                        steps.append(rel)
+                        steps.append(next_node)
+                        last_node = next_node
+                    return Path(*steps)
+                else:
+                    try:
+                        f = self.hydration_functions[obj.tag]
+                    except KeyError:
+                        # If we don't recognise the structure type, just return it as-is
+                        return obj
+                    else:
+                        return f(*map(hydrate_, obj.fields))
+            elif isinstance(obj, list):
+                return list(map(hydrate_, obj))
+            elif isinstance(obj, dict):
+                return {key: hydrate_(value) for key, value in obj.items()}
+            else:
+                return obj
+
+        return tuple(hydrate_(value, entities.get(keys[i])) for i, value in enumerate(values))
 
 
 class Connector(object):
@@ -216,6 +408,25 @@ class HTTPConnector(Connector):
     def close(self):
         self.pool.close()
 
+    def _check_parameters(self, data):
+        if data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):
+            return data
+        elif isinstance(data, integer_types):
+            if data < INT64_LO or data > INT64_HI:
+                raise ValueError("Integers must be within the signed 64-bit range")
+            return data
+        elif isinstance(data, Mapping):
+            d = {}
+            for key in data:
+                if not isinstance(key, string_types):
+                    raise TypeError("Dictionary keys must be strings")
+                d[key] = self._check_parameters(data[key])
+            return d
+        elif isinstance(data, Sequence):
+            return list(map(self._check_parameters, data))
+        else:
+            raise TypeError("Neo4j does not support parameters of type %s" % type(data).__name__)
+
     def _post(self, url, statement=None, parameters=None):
         if statement:
             statements = [
@@ -239,14 +450,13 @@ class HTTPConnector(Connector):
                                  headers=dict(self.headers))
 
     def _run_1(self, statement, parameters, hydrator):
-        r = self._post("/db/data/transaction/commit", statement, parameters)
+        r = self._post("/db/data/transaction/commit", statement, self._check_parameters(parameters))
         result = CypherResult.from_json(r.data.decode("utf-8"), hydrator=hydrator)
         result.update_metadata({"connection": self.connection_data})
         return Cursor(result)
 
     def _run_in_tx(self, statement, parameters, tx, hydrator):
-        from py2neo import GraphError
-        r = self._post("/db/data/transaction/%s" % tx, statement, parameters)
+        r = self._post("/db/data/transaction/%s" % tx, statement, self._check_parameters(parameters))
         assert r.status == 200  # TODO: other codes
         try:
             result = CypherResult.from_json(r.data.decode("utf-8"), hydrator=hydrator)

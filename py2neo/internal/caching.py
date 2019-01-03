@@ -32,6 +32,9 @@ class ThreadLocalEntityCache(local):
     def __getitem__(self, key):
         return self._dict[key]
 
+    def get(self, key, default=None):
+        return self._dict.get(key, default)
+
     def clear(self):
         self._dict.clear()
 
