@@ -18,7 +18,7 @@
 
 from functools import reduce
 from operator import add
-from re import split
+from re import findall
 
 
 def iter_words(s):
@@ -34,8 +34,9 @@ def iter_words(s):
     elif s.isupper():
         yield s
     else:
-        for word in split(r"(?=[A-Z])", s):
-            yield word
+        for word in findall(r"[A-Z]?[^A-Z]*", s):
+            if word:
+                yield word
 
 
 class Case(object):
