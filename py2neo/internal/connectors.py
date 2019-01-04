@@ -28,10 +28,11 @@ from neobolt.packstream import Structure
 from neobolt.routing import RoutingConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
-from py2neo.data import Record
-from py2neo.database import Cursor, GraphError
+from py2neo.data import Node, Relationship, Path, Record
+from py2neo.database import Cursor, GraphError, TransactionError, CypherSummary, CypherPlan, CypherStats
 from py2neo.internal.compat import Sequence, Mapping, urlsplit, string_types, integer_types
 from py2neo.internal.addressing import get_connection_data
+from py2neo.matching import RelationshipMatcher
 
 
 INT64_LO = -(2 ** 63)
@@ -51,75 +52,6 @@ Unknown = UnknownType()
 _unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
 
-def hydrate_node(graph, identity, inst=None, **rest):
-    if inst is None:
-
-        def inst_constructor():
-            from py2neo.data import Node
-            new_inst = Node()
-            new_inst.graph = graph
-            new_inst.identity = identity
-            new_inst._stale.update({"labels", "properties"})
-            return new_inst
-
-        inst = graph.node_cache.update(identity, inst_constructor)
-    else:
-        inst.graph = graph
-        inst.identity = identity
-        graph.node_cache.update(identity, inst)
-
-    properties = rest.get("data", Unknown)
-    if properties is not Unknown:
-        inst._stale.discard("properties")
-        inst.clear()
-        inst.update(properties)
-
-    labels = rest.get("metadata", {}).get("labels", Unknown)
-    if labels is not Unknown:
-        inst._stale.discard("labels")
-        inst._remote_labels = frozenset(labels)
-        inst.clear_labels()
-        inst.update_labels(labels)
-
-    return inst
-
-
-def hydrate_relationship(graph, identity, inst=None, **rest):
-    start = rest["start"]
-    end = rest["end"]
-
-    if inst is None:
-
-        def inst_constructor():
-            from py2neo.data import Relationship
-            properties = rest.get("data", Unknown)
-            if properties is Unknown:
-                new_inst = Relationship(hydrate_node(graph, start), rest.get("type"),
-                                        hydrate_node(graph, end))
-                new_inst._stale.add("properties")
-            else:
-                new_inst = Relationship(hydrate_node(graph, start), rest.get("type"),
-                                        hydrate_node(graph, end), **properties)
-            new_inst.graph = graph
-            new_inst.identity = identity
-            return new_inst
-
-        inst = graph.relationship_cache.update(identity, inst_constructor)
-    else:
-        inst.graph = graph
-        inst.identity = identity
-        hydrate_node(graph, start, inst=inst.start_node)
-        hydrate_node(graph, end, inst=inst.end_node)
-        inst._type = rest.get("type")
-        if "data" in rest:
-            inst.clear()
-            inst.update(rest["data"])
-        else:
-            inst._stale.add("properties")
-        graph.relationship_cache.update(identity, inst)
-    return inst
-
-
 class PackStreamHydrator(object):
 
     def __init__(self, graph, keys, entities=None):
@@ -136,37 +68,33 @@ class PackStreamHydrator(object):
     def hydrate(self, values):
         """ Convert PackStream values into native values.
         """
-        from neobolt.packstream import Structure
-
         graph = self.graph
         entities = self.entities
         keys = self.keys
 
-        def hydrate_(obj, inst=None):
+        def hydrate_object(obj, inst=None):
             if isinstance(obj, Structure):
                 tag = obj.tag
                 fields = obj.fields
                 if tag == b"N":
-                    return hydrate_node(graph, fields[0], inst=inst,
-                                        metadata={"labels": fields[1]}, data=hydrate_(fields[2]))
+                    return hydrate_node(fields[0], inst=inst,
+                                        metadata={"labels": fields[1]}, data=hydrate_object(fields[2]))
                 elif tag == b"R":
-                    return hydrate_relationship(graph, fields[0], inst=inst,
+                    return hydrate_relationship(fields[0], inst=inst,
                                                 start=fields[1], end=fields[2],
-                                                type=fields[3], data=hydrate_(fields[4]))
+                                                type=fields[3], data=hydrate_object(fields[4]))
                 elif tag == b"P":
                     # Herein lies a dirty hack to retrieve missing relationship
                     # detail for paths received over HTTP.
-                    from py2neo.data import Path
-                    nodes = [hydrate_(node) for node in fields[0]]
+                    nodes = [hydrate_object(node) for node in fields[0]]
                     u_rels = []
                     typeless_u_rel_ids = []
                     for r in fields[1]:
-                        u_rel = _unbound_relationship(*map(hydrate_, r))
+                        u_rel = _unbound_relationship(*map(hydrate_object, r))
                         u_rels.append(u_rel)
                         if u_rel.type is None or u_rel.type is Unknown:
                             typeless_u_rel_ids.append(u_rel.id)
                     if typeless_u_rel_ids:
-                        from py2neo.matching import RelationshipMatcher
                         r_dict = {r.identity: r for r in RelationshipMatcher(graph).get(typeless_u_rel_ids)}
                         for u_rel in u_rels:
                             if u_rel.type is None:
@@ -178,12 +106,12 @@ class PackStreamHydrator(object):
                         next_node = nodes[sequence[2 * i + 1]]
                         if rel_index > 0:
                             u_rel = u_rels[rel_index - 1]
-                            rel = hydrate_relationship(graph, u_rel.id,
+                            rel = hydrate_relationship(u_rel.id,
                                                        start=last_node.identity, end=next_node.identity,
                                                        type=u_rel.type, data=u_rel.properties)
                         else:
                             u_rel = u_rels[-rel_index - 1]
-                            rel = hydrate_relationship(graph, u_rel.id,
+                            rel = hydrate_relationship(u_rel.id,
                                                        start=next_node.identity, end=last_node.identity,
                                                        type=u_rel.type, data=u_rel.properties)
                         steps.append(rel)
@@ -197,15 +125,80 @@ class PackStreamHydrator(object):
                         # If we don't recognise the structure type, just return it as-is
                         return obj
                     else:
-                        return f(*map(hydrate_, obj.fields))
+                        return f(*map(hydrate_object, obj.fields))
             elif isinstance(obj, list):
-                return list(map(hydrate_, obj))
+                return list(map(hydrate_object, obj))
             elif isinstance(obj, dict):
-                return {key: hydrate_(value) for key, value in obj.items()}
+                return {key: hydrate_object(value) for key, value in obj.items()}
             else:
                 return obj
 
-        return tuple(hydrate_(value, entities.get(keys[i])) for i, value in enumerate(values))
+        def hydrate_node(identity, inst=None, **rest):
+            if inst is None:
+
+                def inst_constructor():
+                    new_inst = Node()
+                    new_inst.graph = graph
+                    new_inst.identity = identity
+                    new_inst._stale.update({"labels", "properties"})
+                    return new_inst
+
+                inst = graph.node_cache.update(identity, inst_constructor)
+            else:
+                inst.graph = graph
+                inst.identity = identity
+                graph.node_cache.update(identity, inst)
+
+            properties = rest.get("data", Unknown)
+            if properties is not Unknown:
+                inst._stale.discard("properties")
+                inst.clear()
+                inst.update(properties)
+
+            labels = rest.get("metadata", {}).get("labels", Unknown)
+            if labels is not Unknown:
+                inst._stale.discard("labels")
+                inst._remote_labels = frozenset(labels)
+                inst.clear_labels()
+                inst.update_labels(labels)
+
+            return inst
+
+        def hydrate_relationship(identity, inst=None, **rest):
+            start = rest["start"]
+            end = rest["end"]
+
+            if inst is None:
+
+                def inst_constructor():
+                    properties = rest.get("data", Unknown)
+                    if properties is Unknown:
+                        new_inst = Relationship(hydrate_node(start), rest.get("type"),
+                                                hydrate_node(end))
+                        new_inst._stale.add("properties")
+                    else:
+                        new_inst = Relationship(hydrate_node(start), rest.get("type"),
+                                                hydrate_node(end), **properties)
+                    new_inst.graph = graph
+                    new_inst.identity = identity
+                    return new_inst
+
+                inst = graph.relationship_cache.update(identity, inst_constructor)
+            else:
+                inst.graph = graph
+                inst.identity = identity
+                hydrate_node(start, inst=inst.start_node)
+                hydrate_node(end, inst=inst.end_node)
+                inst._type = rest.get("type")
+                if "data" in rest:
+                    inst.clear()
+                    inst.update(rest["data"])
+                else:
+                    inst._stale.add("properties")
+                graph.relationship_cache.update(identity, inst)
+            return inst
+
+        return tuple(hydrate_object(value, entities.get(keys[i])) for i, value in enumerate(values))
 
 
 class Connector(object):
@@ -250,7 +243,6 @@ class Connector(object):
         return tx is not None and tx in self.transactions
 
     def _assert_valid_tx(self, tx):
-        from py2neo import TransactionError
         if tx is None:
             raise TransactionError("No transaction")
         if tx not in self.transactions:
@@ -325,7 +317,6 @@ class BoltConnector(Connector):
 
     @classmethod
     def _fail(cls, metadata):
-        from py2neo import GraphError
         raise GraphError.hydrate(metadata)
 
     def run(self, statement, parameters=None, tx=None, hydrator=None):
@@ -533,7 +524,6 @@ class CypherResult(object):
     def from_json(cls, s, hydrator=None):
         data = json_loads(s, object_hook=cls._partially_hydrate_object)     # TODO: other partial hydration
         if data.get("errors"):
-            from py2neo.database import GraphError
             raise GraphError.hydrate(data["errors"][0])
         raw_result = data["results"][0]
         result = cls(hydrator=hydrator)
@@ -584,12 +574,10 @@ class CypherResult(object):
                 self._on_more()
 
     def summary(self):
-        from py2neo.database import CypherSummary
         self.buffer()
         return CypherSummary(**self._footer)
 
     def plan(self):
-        from py2neo.database import CypherPlan
         self.buffer()
         if "plan" in self._footer:
             return CypherPlan(**self._footer["plan"])
@@ -599,12 +587,10 @@ class CypherResult(object):
             return None
 
     def stats(self):
-        from py2neo.database import CypherStats
         self.buffer()
         return CypherStats(**self._footer.get("stats", {}))
 
     def fetch(self):
-        from py2neo.data import Record
         if self._records:
             return Record(zip(self.keys(), self._records.popleft()))
         elif self._done:
