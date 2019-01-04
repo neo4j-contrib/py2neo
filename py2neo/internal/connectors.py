@@ -30,7 +30,6 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo.data import Record
 from py2neo.database import Cursor, GraphError
-from py2neo.internal.collections import round_robin
 from py2neo.internal.compat import Sequence, Mapping, urlsplit, string_types, integer_types
 from py2neo.internal.addressing import get_connection_data
 
@@ -118,22 +117,6 @@ def hydrate_relationship(graph, identity, inst=None, **rest):
         else:
             inst._stale.add("properties")
         graph.relationship_cache.update(identity, inst)
-    return inst
-
-
-def hydrate_path(graph, data):
-    # TODO: unused?
-    from py2neo.data import Path
-    node_ids = data["nodes"]
-    relationship_ids = data["relationships"]
-    offsets = [(0, 1) if direction == "->" else (1, 0) for direction in data["directions"]]
-    nodes = [hydrate_node(graph, identity) for identity in node_ids]
-    relationships = [hydrate_relationship(graph, identity,
-                                          start=node_ids[i + offsets[i][0]],
-                                          end=node_ids[i + offsets[i][1]])
-                     for i, identity in enumerate(relationship_ids)]
-    inst = Path(*round_robin(nodes, relationships))
-    inst.__metadata = data
     return inst
 
 
@@ -415,6 +398,8 @@ class HTTPConnector(Connector):
             if data < INT64_LO or data > INT64_HI:
                 raise ValueError("Integers must be within the signed 64-bit range")
             return data
+        elif isinstance(data, bytearray):
+            return list(data)
         elif isinstance(data, Mapping):
             d = {}
             for key in data:

@@ -59,10 +59,10 @@ def test_string(graph):
 def test_bytes(graph):
     i = bytearray([65, 66, 67])
     o = graph.evaluate("RETURN $x", x=i)
-    # The values are coerced to lists before comparison
+    # The values are coerced to bytearray before comparison
     # as HTTP does not support byte parameters, instead
     # coercing such values to lists of integers.
-    assert list(o) == list(i)
+    assert bytearray(o) == bytearray(i)
 
 
 def test_list(graph):

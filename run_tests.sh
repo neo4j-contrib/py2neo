@@ -16,7 +16,7 @@ function run_unit_tests
 }
 
 
-function run_integration_1_tests
+function run_integration_tests
 {
     for NEO4J_VERSION in ${NEO4J_VERSIONS}
     do
@@ -27,7 +27,12 @@ function run_integration_1_tests
         then
             exit ${STATUS}
         fi
+        if [[ "${PY2NEO_QUICK_TEST}" != "" ]]
+        then
+            exit 0
+        fi
     done
+    run_integration_cc_tests
 }
 
 
@@ -46,16 +51,9 @@ function run_integration_cc_tests
 }
 
 
-function run_all_tests
-{
-    run_unit_tests
-    run_integration_1_tests
-    run_integration_cc_tests
-}
-
-
 pip install --upgrade --quiet coverage pytest
 pip install --upgrade -r requirements.txt -r test_requirements.txt
 coverage erase
-run_all_tests
+run_unit_tests
+run_integration_tests
 coverage report

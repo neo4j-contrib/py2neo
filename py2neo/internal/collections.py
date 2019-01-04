@@ -51,26 +51,6 @@ def iter_items(iterable):
             yield key, value
 
 
-def round_robin(*iterables):
-    """ Cycle through a number of iterables, returning
-        the next item from each in turn.
-
-        round_robin('ABC', 'D', 'EF') --> A D E B F C
-
-        Original recipe credited to George Sakkis
-        Python 2/3 cross-compatibility tweak by Nigel Small
-    """
-    pending = len(iterables)
-    nexts = cycle(iter(it) for it in iterables)
-    while pending:
-        try:
-            for n in nexts:
-                yield next(n)
-        except StopIteration:
-            pending -= 1
-            nexts = cycle(islice(nexts, pending))
-
-
 class SetView(Set):
 
     def __init__(self, collection):

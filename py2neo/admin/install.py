@@ -29,7 +29,7 @@ from time import sleep, time
 from warnings import warn
 
 from py2neo.admin.dist import Distribution, archive_format
-from py2neo.internal.compat import bstr
+from py2neo.internal.compat import bstr, SocketError
 from py2neo.internal.util import hex_bytes, unhex_bytes
 
 
@@ -320,13 +320,14 @@ class Server(object):
         while not listening and (time() - t0) < wait:
             try:
                 s = create_connection(address)
-            except IOError:
+            except (OSError, SocketError):
                 sleep(0.5)
             else:
                 s.close()
                 listening = True
         if not listening:
-            warn("Timed out waiting for server to start")
+            warn("Timed out waiting for server to start at address %r" % (address,))
+        return listening
 
     def __init__(self, installation):
         self.installation = installation
@@ -335,7 +336,7 @@ class Server(object):
     def control_script(self):
         return path_join(self.installation.home, "bin", "neo4j")
 
-    def start(self, wait=120.0, verbose=False):
+    def start(self, wait=300, verbose=False):
         """ Start the server.
         """
         try:
