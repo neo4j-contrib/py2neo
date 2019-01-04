@@ -18,7 +18,7 @@
 
 import click
 
-from py2neo.internal.addressing import NEO4J_URI, NEO4J_AUTH
+from py2neo.internal.addressing import default_connection_data
 
 
 @click.group(help="""\
@@ -39,8 +39,8 @@ def py2neo_version():
 @py2neo.command("console", help="""\
 Interactive Cypher console
 """)
-@click.option("-u", "--uri", default=NEO4J_URI, help="Set the connection URI.")
-@click.option("-a", "--auth", default=NEO4J_AUTH, help="Set the user and password.")
+@click.option("-u", "--uri", default=default_connection_data["uri"], help="Set the connection URI.")
+@click.option("-a", "--auth", default=default_connection_data["auth"], help="Set the user and password.")
 @click.option("-s", "--secure", is_flag=True, default=False, help="Use encrypted communication (TLS).")
 @click.option("-v", "--verbose", is_flag=True, default=False, help="Show low level communication detail.")
 def py2neo_console(uri, auth=None, secure=None, verbose=None):

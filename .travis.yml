@@ -2,7 +2,7 @@ dist: trusty
 sudo: false
 
 matrix:
-    fast_finish: true
+  fast_finish: true
 
 language: python
 # For a list of available versions, run
@@ -31,8 +31,13 @@ jobs:
     - <<: *xenial-mixin
       python: "nightly"
 
+env:
+  - JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+
 install:
-  - sudo apt-get update && sudo apt-get install oracle-java8-set-default
+  - sudo add-apt-repository -y ppa:openjdk-r/ppa
+  - sudo apt-get -qq update
+  - sudo apt-get install -y openjdk-8-jdk --no-install-recommends
 
 script:
   - ./check_legal.sh

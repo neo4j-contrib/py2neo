@@ -137,3 +137,6 @@ def get_connection_data(uri=None, **settings):
         h.update(bstr(data[key]))
     data["hash"] = h.hexdigest()
     return data
+
+
+default_connection_data = get_connection_data()
