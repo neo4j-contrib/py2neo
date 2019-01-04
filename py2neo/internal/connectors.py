@@ -39,16 +39,6 @@ INT64_LO = -(2 ** 63)
 INT64_HI = 2 ** 63 - 1
 
 
-# TODO: replace with None
-class UnknownType(object):
-
-    def __repr__(self):
-        return "Unknown"
-
-
-Unknown = UnknownType()
-
-
 _unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
 
@@ -92,13 +82,17 @@ class PackStreamHydrator(object):
                     for r in fields[1]:
                         u_rel = _unbound_relationship(*map(hydrate_object, r))
                         u_rels.append(u_rel)
-                        if u_rel.type is None or u_rel.type is Unknown:
+                        if u_rel.type is None:
                             typeless_u_rel_ids.append(u_rel.id)
                     if typeless_u_rel_ids:
                         r_dict = {r.identity: r for r in RelationshipMatcher(graph).get(typeless_u_rel_ids)}
-                        for u_rel in u_rels:
+                        for i, u_rel in enumerate(u_rels):
                             if u_rel.type is None:
-                                u_rel.type = type(r_dict[u_rel.id]).__name__
+                                u_rels[i] = _unbound_relationship(
+                                    u_rel.id,
+                                    type(r_dict[u_rel.id]).__name__,
+                                    u_rel.properties
+                                )
                     sequence = fields[2]
                     last_node = nodes[0]
                     steps = [last_node]
@@ -149,14 +143,14 @@ class PackStreamHydrator(object):
                 inst.identity = identity
                 graph.node_cache.update(identity, inst)
 
-            properties = rest.get("data", Unknown)
-            if properties is not Unknown:
+            properties = rest.get("data")
+            if properties is not None:
                 inst._stale.discard("properties")
                 inst.clear()
                 inst.update(properties)
 
-            labels = rest.get("metadata", {}).get("labels", Unknown)
-            if labels is not Unknown:
+            labels = rest.get("metadata", {}).get("labels")
+            if labels is not None:
                 inst._stale.discard("labels")
                 inst._remote_labels = frozenset(labels)
                 inst.clear_labels()
@@ -171,8 +165,8 @@ class PackStreamHydrator(object):
             if inst is None:
 
                 def inst_constructor():
-                    properties = rest.get("data", Unknown)
-                    if properties is Unknown:
+                    properties = rest.get("data")
+                    if properties is None:
                         new_inst = Relationship(hydrate_node(start), rest.get("type"),
                                                 hydrate_node(end))
                         new_inst._stale.add("properties")
@@ -507,8 +501,8 @@ class CypherResult(object):
                                  data["metadata"]["labels"],
                                  data["data"])
         elif "nodes" in data and "relationships" in data:
-            nodes = [Structure(b"N", i, Unknown, Unknown) for i in map(cls._uri_to_id, data["nodes"])]
-            relps = [Structure(b"r", i, Unknown, Unknown) for i in map(cls._uri_to_id, data["relationships"])]
+            nodes = [Structure(b"N", i, None, None) for i in map(cls._uri_to_id, data["nodes"])]
+            relps = [Structure(b"r", i, None, None) for i in map(cls._uri_to_id, data["relationships"])]
             seq = [i // 2 + 1 for i in range(2 * len(data["relationships"]))]
             for i, direction in enumerate(data["directions"]):
                 if direction == "<-":

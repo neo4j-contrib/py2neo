@@ -969,10 +969,9 @@ class Relationship(Entity):
         return Relationship(start_node, get_type(t), end_node, **properties)
 
     def __init__(self, *nodes, **properties):
-        from py2neo.internal.connectors import Unknown
         n = []
         for value in nodes:
-            if value is None or value is Unknown:
+            if value is None:
                 n.append(None)
             elif isinstance(value, string_types):
                 n.append(value)
