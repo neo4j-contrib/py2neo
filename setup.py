@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -51,8 +51,8 @@ package_metadata = {
     "install_requires": [
         "click>=2.0",
         "colorama",
-        "neo4j-driver>=1.6.2,<1.7",
-        "neotime==1.0.0",
+        "neobolt<1.8,>=1.7.3",
+        "neotime<1.8,>=1.7.4",
         "prompt_toolkit<2.1,>=2.0.7",
         "pygments<2.4,>=2.3.0",
         "pytest",

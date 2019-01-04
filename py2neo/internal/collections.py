@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,10 +18,9 @@
 
 from __future__ import absolute_import
 
-from collections import Set
 from itertools import cycle, islice
 
-from py2neo.internal.compat import bytes_types, string_types
+from py2neo.internal.compat import Set, bytes_types, string_types
 
 
 def is_collection(obj):
@@ -50,26 +49,6 @@ def iter_items(iterable):
     else:
         for key, value in iterable:
             yield key, value
-
-
-def round_robin(*iterables):
-    """ Cycle through a number of iterables, returning
-        the next item from each in turn.
-
-        round_robin('ABC', 'D', 'EF') --> A D E B F C
-
-        Original recipe credited to George Sakkis
-        Python 2/3 cross-compatibility tweak by Nigel Small
-    """
-    pending = len(iterables)
-    nexts = cycle(iter(it) for it in iterables)
-    while pending:
-        try:
-            for n in nexts:
-                yield next(n)
-        except StopIteration:
-            pending -= 1
-            nexts = cycle(islice(nexts, pending))
 
 
 class SetView(Set):

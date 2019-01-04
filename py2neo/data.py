@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 # limitations under the License.
 
 
-from collections import Mapping
 from functools import reduce
 from io import StringIO
 from itertools import chain
@@ -25,8 +24,8 @@ from uuid import uuid4
 
 from py2neo.cypher import cypher_repr, cypher_str
 from py2neo.cypher.encoding import LabelSetView
-from py2neo.internal.collections import is_collection, SetView
-from py2neo.internal.compat import integer_types, numeric_types, string_types, ustr, xstr
+from py2neo.internal.collections import is_collection, iter_items, SetView
+from py2neo.internal.compat import Mapping, integer_types, numeric_types, string_types, ustr, xstr
 from py2neo.internal.html import html_escape
 from py2neo.internal.operations import create_subgraph, merge_subgraph, delete_subgraph, separate_subgraph, \
     pull_subgraph, push_subgraph, subgraph_exists
@@ -76,11 +75,6 @@ class Record(tuple, Mapping):
     __keys = None
 
     def __new__(cls, iterable=()):
-        from neo4j.v1.types import iter_items, Record as _Record
-        if isinstance(iterable, _Record):
-            inst = tuple.__new__(cls, iterable.values())
-            inst.__keys = tuple(iterable.keys())
-            return inst
         keys = []
         values = []
         for key, value in iter_items(iterable):
@@ -633,6 +627,11 @@ class Subgraph(object):
         separate_subgraph(tx, self)
 
     @property
+    def graph(self):
+        assert self.__nodes     # assume there is at least one node
+        return set(self.__nodes).pop().graph
+
+    @property
     def nodes(self):
         """ Set of all nodes.
         """
@@ -972,7 +971,9 @@ class Relationship(Entity):
     def __init__(self, *nodes, **properties):
         n = []
         for value in nodes:
-            if isinstance(value, string_types):
+            if value is None:
+                n.append(None)
+            elif isinstance(value, string_types):
                 n.append(value)
             else:
                 n.append(Node.cast(value))
@@ -982,21 +983,17 @@ class Relationship(Entity):
             raise TypeError("Relationships must specify at least one endpoint")
         elif num_args == 1:
             # Relationship(a)
-            # self._type = self.default_type()
             n = (n[0], n[0])
         elif num_args == 2:
             if n[1] is None or isinstance(n[1], string_types):
                 # Relationship(a, "TO")
-                # self._type = n[1]
                 self.__class__ = Relationship.type(n[1])
                 n = (n[0], n[0])
             else:
                 # Relationship(a, b)
-                # self._type = self.default_type()
                 n = (n[0], n[1])
         elif num_args == 3:
             # Relationship(a, "TO", b)
-            # self._type = n[1]
             self.__class__ = Relationship.type(n[1])
             n = (n[0], n[2])
         else:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -447,7 +447,7 @@ class RelationshipCastTestCase(TestCase):
         self.assertIsNone(casted.graph)
         self.assertIsNone(casted.identity)
         assert casted.start_node == a
-        self.assertIs(type(casted).__name__, "TO")
+        assert type(casted).__name__ == "TO"
         assert casted.end_node == b
 
     def test_can_cast_relationship_with_integer_nodes(self):

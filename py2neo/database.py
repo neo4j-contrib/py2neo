@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,17 +18,18 @@
 
 from __future__ import absolute_import
 
-from collections import deque
+from collections import deque, OrderedDict
 from datetime import datetime
 from time import sleep
 from warnings import warn
 
 from py2neo.cypher import cypher_escape
-from py2neo.data import Table, Record
+from py2neo.data import Table
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
-from py2neo.internal.compat import string_types, xstr
-from py2neo.internal.util import version_tuple, title_case, snake_case
+from py2neo.internal.casing import Case
+from py2neo.internal.compat import Mapping, string_types, xstr
+from py2neo.internal.util import version_tuple, title_case
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 
 
@@ -69,7 +70,9 @@ class Database(object):
 
     _instances = {}
 
-    _driver = None
+    _cx_pool = None
+    # _driver = None
+    _connector = None
     _graphs = None
 
     @classmethod
@@ -77,8 +80,10 @@ class Database(object):
         """ Forget all cached :class:`.Database` details.
         """
         for _, db in cls._instances.items():
-            db._driver.close()
-            db._driver = None
+            # db._driver.close()
+            # db._driver = None
+            db._connector.close()
+            db._connector = None
         cls._instances.clear()
 
     def __new__(cls, uri=None, **settings):
@@ -89,12 +94,11 @@ class Database(object):
         except KeyError:
             inst = super(Database, cls).__new__(cls)
             inst._connection_data = connection_data
-            from py2neo.internal.http import HTTPDriver, HTTPSDriver
-            from neo4j.v1 import Driver
-            inst._driver = Driver(connection_data["uri"],
-                                  auth=connection_data["auth"],
-                                  encrypted=connection_data["secure"],
-                                  user_agent=connection_data["user_agent"])
+            from py2neo.internal.connectors import Connector
+            inst._connector = Connector(connection_data["uri"],
+                                        auth=connection_data["auth"],
+                                        secure=connection_data["secure"],
+                                        user_agent=connection_data["user_agent"])
             inst._graphs = {}
             cls._instances[key] = inst
         return inst
@@ -132,8 +136,8 @@ class Database(object):
         yield "data"
 
     @property
-    def driver(self):
-        return self._driver
+    def connector(self):
+        return self._connector
 
     @property
     def uri(self):
@@ -415,7 +419,8 @@ class Graph(object):
                 a Set implies a match in any direction
         :param r_type: type of relationships to match (:const:`None` means any type)
         """
-        rels = list(self.match(nodes=nodes, r_type=r_type, limit=1))
+        matches = self.match(nodes=nodes, r_type=r_type, limit=1)
+        rels = list(matches)
         if rels:
             return rels[0]
         else:
@@ -608,90 +613,6 @@ class Schema(object):
         return self._get_indexes(label, "node_unique_property")
 
 
-class Result(object):
-    """ Wraps a BoltStatementResult
-    """
-
-    def __init__(self, graph, entities, result):
-        from neo4j.v1 import BoltStatementResult
-        from py2neo.internal.http import HTTPStatementResult
-        from py2neo.internal.packstream import PackStreamHydrator
-        self.result = result
-        self.result.error_class = GraphError.hydrate
-        # TODO: un-yuk this
-        if isinstance(result, HTTPStatementResult):
-            self.result._hydrant.entities = entities
-            self.result_iterator = iter(self.result)
-        elif isinstance(result, BoltStatementResult):
-            self.result._hydrant = PackStreamHydrator(graph, result.keys(), entities)
-            self.result_iterator = iter(map(Record, self.result))
-        else:
-            raise RuntimeError("Unexpected statement result class %r" % result.__class__.__name__)
-
-    def keys(self):
-        """ Return the keys for the whole data set.
-        """
-        return self.result.keys()
-
-    def summary(self):
-        """ Return the summary.
-        """
-        return self.result.summary()
-
-    def plan(self):
-        """ Return the query plan, if available.
-        """
-        metadata = self.result.summary().metadata
-        plan = {}
-        if "plan" in metadata:
-            plan.update(metadata["plan"])
-        if "profile" in metadata:
-            plan.update(metadata["profile"])
-        if "http_plan" in metadata:
-            plan.update(metadata["http_plan"]["root"])
-
-        def collapse_args(data):
-            if "args" in data:
-                for key in data["args"]:
-                    data[key] = data["args"][key]
-                del data["args"]
-            if "children" in data:
-                for child in data["children"]:
-                    collapse_args(child)
-
-        def snake_keys(data):
-            if isinstance(data, list):
-                for item in data:
-                    snake_keys(item)
-                return
-            if not isinstance(data, dict):
-                return
-            for key, value in list(data.items()):
-                new_key = snake_case(key)
-                if new_key != key:
-                    data[new_key] = value
-                    del data[key]
-                if isinstance(value, (list, dict)):
-                    snake_keys(value)
-
-        collapse_args(plan)
-        snake_keys(plan)
-        return plan
-
-    def stats(self):
-        """ Return the query statistics.
-        """
-        return vars(self.result.summary().counters)
-
-    def fetch(self):
-        """ Fetch and return the next item.
-        """
-        try:
-            return next(self.result_iterator)
-        except StopIteration:
-            return None
-
-
 class GraphError(Exception):
     """
     """
@@ -744,7 +665,8 @@ class ClientError(GraphError):
 
     @classmethod
     def get_mapped_class(cls, status):
-        from neo4j.exceptions import ConstraintError, CypherSyntaxError, CypherTypeError, Forbidden, AuthError
+        raise KeyError(status)
+        from neobolt.exceptions import ConstraintError, CypherSyntaxError, CypherTypeError, Forbidden, AuthError
         return {
 
             # ConstraintError
@@ -787,9 +709,9 @@ class TransientError(GraphError):
     """
 
 
-class TransactionFinished(GraphError):
+class TransactionError(GraphError):
     """ Raised when actions are attempted against a :class:`.Transaction`
-    that is no longer available for use.
+    that is no longer available for use, or a transaction is otherwise invalid.
     """
 
 
@@ -797,7 +719,7 @@ class Transaction(object):
     """ A transaction is a logical container for multiple Cypher statements.
     """
 
-    session = None
+    # session = None
 
     _finished = False
 
@@ -805,17 +727,16 @@ class Transaction(object):
         self.graph = graph
         self.autocommit = autocommit
         self.entities = deque()
-        self.driver = driver = self.graph.database.driver
-        self.session = driver.session()
+        self.connector = self.graph.database.connector
         self.results = []
         if autocommit:
             self.transaction = None
         else:
-            self.transaction = self.session.begin_transaction()
+            self.transaction = self.connector.begin()
 
-    def __del__(self):
-        if self.session:
-            self.session.close()
+    # def __del__(self):
+    #     if self.session:
+    #         self.session.close()
 
     def __enter__(self):
         return self
@@ -824,11 +745,11 @@ class Transaction(object):
         if exc_type is None:
             self.commit()
         else:
-            self.rollback()
+            self._rollback()
 
     def _assert_unfinished(self):
         if self._finished:
-            raise TransactionFinished(self)
+            raise TransactionError(self)
 
     def finished(self):
         """ Indicates whether or not this transaction has been completed
@@ -844,7 +765,7 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
-        from neo4j.v1 import CypherError
+        from neobolt.exceptions import CypherError
 
         self._assert_unfinished()
         try:
@@ -853,16 +774,13 @@ class Transaction(object):
             entities = {}
 
         try:
-            if self.transaction:
-                result = self.transaction.run(cypher, parameters, **kwparameters)
-            else:
-                result = self.session.run(cypher, parameters, **kwparameters)
+            from py2neo.internal.connectors import PackStreamHydrator
+            return self.connector.run(cypher,
+                                      dict(parameters or {}, **kwparameters),
+                                      self.transaction,
+                                      hydrator=(PackStreamHydrator(self.graph, [], entities)))
         except CypherError as error:
             raise GraphError.hydrate({"code": error.code, "message": error.message})
-        else:
-            r = Result(self.graph, entities, result)
-            self.results.append(r)
-            return Cursor(r)
         finally:
             if not self.transaction:
                 self.finish()
@@ -871,31 +789,34 @@ class Transaction(object):
         """ Send all pending statements to the server for processing.
         """
         self._assert_unfinished()
-        self.session.sync()
+        if self.transaction:
+            self.connector.sync(self.transaction)
 
     def finish(self):
         self.process()
-        if self.transaction:
-            self.transaction.close()
         self._assert_unfinished()
         self._finished = True
-        self.session.close()
-        self.session = None
 
     def commit(self):
         """ Commit the transaction.
         """
-        if self.transaction:
-            self.transaction.success = True
-        self.finish()
+        self._assert_unfinished()
+        self.connector.commit(self.transaction)
+        self._finished = True
+
+    def _rollback(self):
+        """ Implicit rollback.
+        """
+        if self.connector.is_valid_transaction(self.transaction):
+            self.connector.rollback(self.transaction)
+        self._finished = True
 
     def rollback(self):
         """ Roll back the current transaction, undoing all actions previously taken.
         """
         self._assert_unfinished()
-        if self.transaction:
-            self.transaction.success = False
-        self.finish()
+        self.connector.rollback(self.transaction)
+        self._finished = True
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -1100,6 +1021,12 @@ class Cursor(object):
         self._result = result
         self._current = None
 
+    def __del__(self):
+        try:
+            self.close()
+        except:
+            pass
+
     def __next__(self):
         if self.forward():
             return self._current
@@ -1126,7 +1053,9 @@ class Cursor(object):
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        self._result = None
+        if self._result is not None:
+            self._result.buffer()   # force consumption of remaining data
+            self._result = None
         self._current = None
 
     def keys(self):
@@ -1147,10 +1076,11 @@ class Cursor(object):
     def stats(self):
         """ Return the query statistics.
         """
-        s = dict.fromkeys(update_stats_keys, 0)
-        s.update(self._result.stats())
-        s["contains_updates"] = bool(sum(s.get(k, 0) for k in update_stats_keys))
-        return s
+        return self._result.stats()
+        # s = dict.fromkeys(update_stats_keys, 0)
+        # s.update(self._result.stats())
+        # s["contains_updates"] = bool(sum(s.get(k, 0) for k in update_stats_keys))
+        # return s
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
@@ -1347,3 +1277,98 @@ class Cursor(object):
                 return MutableMatrix(list(map(list, self)))
             else:
                 return ImmutableMatrix(list(map(list, self)))
+
+
+class CypherSummary(object):
+
+    def __init__(self, **data):
+        self._data = data
+
+    @property
+    def connection(self):
+        return self._data.get("connection")
+
+
+class CypherStats(Mapping):
+
+    contains_updates = False
+    nodes_created = 0
+    nodes_deleted = 0
+    properties_set = 0
+    relationships_created = 0
+    relationships_deleted = 0
+    labels_added = 0
+    labels_removed = 0
+    indexes_added = 0
+    indexes_removed = 0
+    constraints_added = 0
+    constraints_removed = 0
+
+    def __init__(self, **stats):
+        for key, value in stats.items():
+            key = key.replace("-", "_")
+            if key.startswith("relationship_"):
+                # hack for server bug
+                key = "relationships_" + key[13:]
+            if hasattr(self.__class__, key):
+                setattr(self, key, value)
+            self.contains_updates = bool(sum(getattr(self, k, 0) for k in self.keys()))
+
+    def __repr__(self):
+        lines = []
+        for key in sorted(self.keys()):
+            lines.append("{}: {}".format(key, getattr(self, key)))
+        return "\n".join(lines)
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __len__(self):
+        return len(self.keys())
+
+    def __iter__(self):
+        return iter(self.keys())
+
+    def keys(self):
+        return [key for key in vars(self.__class__).keys() if not key.startswith("_") and key != "keys"]
+
+
+class CypherPlan(Mapping):
+
+    @classmethod
+    def _clean_key(cls, key):
+        return Case(key).snake()
+
+    @classmethod
+    def _clean_keys(cls, data):
+        return OrderedDict(sorted((cls._clean_key(key), value) for key, value in dict(data).items()))
+
+    def __init__(self, **kwargs):
+        data = self._clean_keys(kwargs)
+        if "root" in data:
+            data = self._clean_keys(data["root"])
+        self.operator_type = data.pop("operator_type", None)
+        self.identifiers = data.pop("identifiers", [])
+        self.children = [CypherPlan(**self._clean_keys(child)) for child in data.pop("children", [])]
+        try:
+            args = data.pop("args")
+        except KeyError:
+            self.args = data
+        else:
+            self.args = self._clean_keys(args)
+
+    def __repr__(self):
+        return ("%s(operator_type=%r, identifiers=%r, children=%r, args=%r)" %
+                (self.__class__.__name__, self.operator_type, self.identifiers, self.children, self.args))
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __len__(self):
+        return len(self.keys())
+
+    def __iter__(self):
+        return iter(self.keys())
+
+    def keys(self):
+        return ["operator_type", "identifiers", "children", "args"]

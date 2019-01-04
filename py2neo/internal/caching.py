@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,9 @@ class ThreadLocalEntityCache(local):
 
     def __getitem__(self, key):
         return self._dict[key]
+
+    def get(self, key, default=None):
+        return self._dict.get(key, default)
 
     def clear(self):
         self._dict.clear()

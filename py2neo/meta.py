@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,18 +20,18 @@ __all__ = ["__author__", "__copyright__", "__email__", "__license__", "__package
            "bolt_user_agent", "http_user_agent"]
 
 __author__ = "Nigel Small <technige@nige.tech>"
-__copyright__ = "2011-2018, Nigel Small"
+__copyright__ = "2011-2019, Nigel Small"
 __email__ = "py2neo@nige.tech"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
-__version__ = "4.1.3"
+__version__ = "4.2.0"
 
 
 def bolt_user_agent():
     from sys import platform, version_info
-    import neo4j
-    return "{}/{} neo4j-python/{} Python/{}.{}.{}-{}-{} ({})".format(
-        *((__package__, __version__, neo4j.__version__,) + tuple(version_info) + (platform,)))
+    from neobolt.meta import version as neobolt_version
+    return "{}/{} neobolt/{} Python/{}.{}.{}-{}-{} ({})".format(
+        *((__package__, __version__, neobolt_version,) + tuple(version_info) + (platform,)))
 
 
 def http_user_agent():

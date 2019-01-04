@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 from re import compile as re_compile
 
 
-version_string_pattern = re_compile("(\d+)\.(\d+)\.(\d+)-?(.*)")
+version_string_pattern = re_compile(r"(\d+)\.(\d+)\.(\d+)-?(.*)")
 
 
 class Version(tuple):

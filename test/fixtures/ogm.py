@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,10 +16,7 @@
 # limitations under the License.
 
 
-from os.path import join as path_join, dirname
-
 from py2neo.ogm import GraphObject, Label, Property, RelatedTo, RelatedFrom
-from py2neo.testing import IntegrationTestCase
 
 
 class MovieGraphObject(GraphObject):
@@ -60,18 +57,6 @@ class Person(MovieGraphObject):
 
 class MacGuffin(MovieGraphObject):
     pass
-
-
-class MovieGraphTestCase(IntegrationTestCase):
-
-    def setUp(self):
-        self.graph.delete_all()
-        with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
-            cypher = f.read()
-        self.graph.run(cypher)
-
-    def tearDown(self):
-        self.graph.delete_all()
 
 
 class BaseThing(GraphObject):

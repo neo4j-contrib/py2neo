@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ import warnings
 
 
 # Word separation patterns for re-casing strings.
-WORD_FIRST = re.compile("(.)([A-Z][a-z]+)")
-WORD_ALL = re.compile("([a-z0-9])([A-Z])")
+WORD_FIRST = re.compile(r"(.)([A-Z][a-z]+)")
+WORD_ALL = re.compile(r"([a-z0-9])([A-Z])")
 
 
 def deprecated(message):
@@ -51,7 +51,7 @@ def deprecated(message):
     return f__
 
 
-VERSION = re.compile("(\d+\.\d+(\.\d+)?)")
+VERSION = re.compile(r"(\d+\.\d+(\.\d+)?)")
 
 
 def version_tuple(string):

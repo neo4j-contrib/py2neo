@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 # limitations under the License.
 
 
-from unittest import SkipTest
-
-from py2neo.testing import IntegrationTestCase
+from py2neo import Node, Relationship
 
 
-class TemporalTypeOutputTestCase(IntegrationTestCase):
-
-    def test_date(self):
-        if self.graph.database.kernel_version < (3, 4):
-            raise SkipTest()
-        date = self.graph.evaluate("RETURN date('1976-06-13')")
-        self.assertEqual(date.year, 1976)
-        self.assertEqual(date.month, 6)
-        self.assertEqual(date.day, 13)
+def test_can_delete_relationship(graph):
+    a = Node()
+    b = Node()
+    r = Relationship(a, "TO", b)
+    graph.create(r)
+    assert graph.exists(r)
+    with graph.begin() as tx:
+        tx.delete(r)
+    assert not graph.exists(r)
+    assert not graph.exists(a)
+    assert not graph.exists(b)

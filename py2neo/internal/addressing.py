@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,13 +45,6 @@ DEFAULT_HOST = "localhost"
 DEFAULT_BOLT_PORT = 7687
 DEFAULT_HTTP_PORT = 7474
 DEFAULT_HTTPS_PORT = 7473
-
-
-def address_str(address):
-    if len(address) == 4:  # IPv6
-        return "[{}]:{}".format(*address)
-    else:  # IPv4
-        return "{}:{}".format(*address)
 
 
 def get_connection_data(uri=None, **settings):

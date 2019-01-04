@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ Low-level graph data storage classes.
 """
 
 
-from collections import namedtuple, Sequence, Set
+from collections import namedtuple
 from functools import reduce
 from operator import and_ as and_operator
 from threading import RLock
@@ -29,6 +29,7 @@ from uuid import uuid4
 
 from py2neo.data import PropertyDict, Record
 from py2neo.internal.collections import ReactiveSet, iter_items
+from py2neo.internal.compat import Sequence, Set
 
 
 NodeEntry = namedtuple("NodeEntry", ["labels", "properties"])

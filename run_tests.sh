@@ -1,34 +1,59 @@
 #!/usr/bin/env bash
 
 ARGS=$*
-NEO4J_URI=""
+NEO4J_VERSIONS="3.5 3.4 3.3 3.2"
 
-function run
+
+function run_unit_tests
 {
-    NEO4J_URI="$1"
-    NEO4J_SECURE="$2"
-    coverage run --append --module py2neo.testing -v ${ARGS}
-    if [ "$?" != "0" ]
+    echo "Running unit tests"
+    coverage run --append --module pytest -v ${ARGS} test/unit
+    STATUS="$?"
+    if [[ ${STATUS} -ne 0 ]]
     then
-        echo "Tests failed (NEO4J_URI=${NEO4J_URI} NEO4J_SECURE=${NEO4J_SECURE})"
-        exit 1
-    fi
-    if [ "${PY2NEO_QUICK_TEST}" != "" ]
-    then
-        coverage report
-        exit 0
+        exit ${STATUS}
     fi
 }
 
-rm -r *.egg-info 2> /dev/null
-if [ "${PY2NEO_QUICK_TEST}" == "" ]
-then
-    pip install --upgrade -r requirements.txt -r test_requirements.txt
-fi
+
+function run_integration_tests
+{
+    for NEO4J_VERSION in ${NEO4J_VERSIONS}
+    do
+        echo "Running standalone integration tests against Neo4j CE ${NEO4J_VERSION}"
+        NEO4J_VERSION=${NEO4J_VERSION} coverage run --append --module pytest -v ${ARGS} test/integration_1
+        STATUS="$?"
+        if [[ ${STATUS} -ne 0 ]]
+        then
+            exit ${STATUS}
+        fi
+        if [[ "${PY2NEO_QUICK_TEST}" != "" ]]
+        then
+            exit 0
+        fi
+    done
+    run_integration_cc_tests
+}
+
+
+function run_integration_cc_tests
+{
+    for NEO4J_VERSION in ${NEO4J_VERSIONS}
+    do
+        echo "Running cluster integration tests against Neo4j EE ${NEO4J_VERSION}"
+        NEO4J_VERSION=${NEO4J_VERSION} coverage run --append --module pytest -v ${ARGS} test/integration_cc
+        STATUS="$?"
+        if [[ ${STATUS} -ne 0 ]]
+        then
+            exit ${STATUS}
+        fi
+    done
+}
+
+
+pip install --upgrade --quiet coverage pytest
+pip install --upgrade -r requirements.txt -r test_requirements.txt
 coverage erase
-run "" ""
-run "bolt://localhost:7687" 0
-run "bolt://localhost:7687" 1
-run "http://localhost:7474" 0
-run "https://localhost:7473" 1
+run_unit_tests
+run_integration_tests
 coverage report

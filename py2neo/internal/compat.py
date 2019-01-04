@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@ except ImportError:
     from ConfigParser import SafeConfigParser
 
 try:
-    from collections.abc import Mapping
+    from collections.abc import Sequence, Set, Mapping
 except ImportError:
-    from collections import Mapping
+    from collections import Sequence, Set, Mapping
 
 try:
     from urllib.parse import urlparse, urlsplit
@@ -40,6 +40,7 @@ except ImportError:
 
 from io import StringIO
 import os
+from socket import error as SocketError
 from sys import version_info
 
 

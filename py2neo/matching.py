@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,11 +18,10 @@
 
 import re
 
-from collections import Sequence, Set
-
-from py2neo.cypher import cypher_escape
+from py2neo.cypher import cypher_escape, cypher_repr
 from py2neo.data import Node
 from py2neo.internal.collections import is_collection
+from py2neo.internal.compat import Sequence, Set
 
 
 _operators = {
@@ -215,10 +214,17 @@ class NodeMatcher(object):
         instead. Contrast with `matcher[1234]` which raises a `KeyError`
         if no entity is found.
         """
-        try:
-            return self.graph.node_cache[identity]
-        except KeyError:
-            return self.match().where("id(_) = %d" % identity).first()
+        t = type(identity)
+        if issubclass(t, (list, tuple, set, frozenset)):
+            missing = [i for i in identity if i not in self.graph.node_cache]
+            if missing:
+                list(self.match().where("id(_) in %s" % cypher_repr(missing)))
+            return t(self.graph.node_cache.get(i) for i in identity)
+        else:
+            try:
+                return self.graph.node_cache[identity]
+            except KeyError:
+                return self.match().where("id(_) = %d" % identity).first()
 
     def match(self, *labels, **properties):
         """ Describe a basic node match using labels and property equality.
@@ -465,10 +471,17 @@ class RelationshipMatcher(object):
         instead. Contrast with `matcher[1234]` which raises a `KeyError`
         if no entity is found.
         """
-        try:
-            return self.graph.relationship_cache[identity]
-        except KeyError:
-            return self.match().where("id(_) = %d" % identity).first()
+        t = type(identity)
+        if issubclass(t, (list, tuple, set, frozenset)):
+            missing = [i for i in identity if i not in self.graph.relationship_cache]
+            if missing:
+                list(self.match().where("id(_) in %s" % cypher_repr(missing)))
+            return t(self.graph.relationship_cache.get(i) for i in identity)
+        else:
+            try:
+                return self.graph.relationship_cache[identity]
+            except KeyError:
+                return self.match().where("id(_) = %d" % identity).first()
 
     def match(self, nodes=None, r_type=None, **properties):
         """ Describe a basic relationship match...

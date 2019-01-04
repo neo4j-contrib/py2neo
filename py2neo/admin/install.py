@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ from time import sleep, time
 from warnings import warn
 
 from py2neo.admin.dist import Distribution, archive_format
-from py2neo.internal.compat import bstr
+from py2neo.internal.compat import bstr, SocketError
 from py2neo.internal.util import hex_bytes, unhex_bytes
 
 
@@ -313,6 +313,22 @@ class Server(object):
     """ Represents a Neo4j server process that can be started and stopped.
     """
 
+    @classmethod
+    def wait_until_listening(cls, address, wait):
+        listening = False
+        t0 = time()
+        while not listening and (time() - t0) < wait:
+            try:
+                s = create_connection(address)
+            except (OSError, SocketError):
+                sleep(0.5)
+            else:
+                s.close()
+                listening = True
+        if not listening:
+            warn("Timed out waiting for server to start at address %r" % (address,))
+        return listening
+
     def __init__(self, installation):
         self.installation = installation
 
@@ -320,7 +336,7 @@ class Server(object):
     def control_script(self):
         return path_join(self.installation.home, "bin", "neo4j")
 
-    def start(self, wait=120.0, verbose=False):
+    def start(self, wait=300, verbose=False):
         """ Start the server.
         """
         try:
@@ -339,25 +355,15 @@ class Server(object):
                 if verbose:
                     print(line)
                 if line.startswith("process"):
-                    number_in_brackets = re_compile("\[(\d+)\]")
+                    number_in_brackets = re_compile(r"\[(\d+)\]")
                     numbers = number_in_brackets.search(line).groups()
                     if numbers:
                         pid = int(numbers[0])
                 elif "(pid " in line:
                     pid = int(line.partition("(pid ")[-1].partition(")")[0])
-            running = False
-            address = self.installation.bolt_address or self.installation.http_address
-            t0 = time()
-            while not running and (time() - t0) < wait:
-                try:
-                    s = create_connection(address)
-                except IOError:
-                    sleep(0.5)
-                else:
-                    s.close()
-                    running = True
-            if not running:
-                warn("Timed out waiting for server to start")
+            self.wait_until_listening(self.installation.bolt_address, wait)
+            self.wait_until_listening(self.installation.http_address, wait)
+            self.wait_until_listening(self.installation.https_address, wait)
             return pid
 
     def stop(self):

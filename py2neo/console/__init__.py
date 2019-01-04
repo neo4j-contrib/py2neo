@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# Copyright 2011-2018, Nigel Small
+# Copyright 2011-2019, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,8 +28,7 @@ from textwrap import dedent
 from timeit import default_timer as timer
 
 import click
-from neo4j.exceptions import ServiceUnavailable, CypherError
-from neo4j.v1 import TransactionError
+from neobolt.exceptions import ServiceUnavailable, CypherError
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
@@ -41,7 +40,7 @@ from py2neo.console.meta import HISTORY_FILE_DIR, HISTORY_FILE, TITLE, QUICK_HEL
 from py2neo.cypher.lexer import CypherLexer
 from py2neo.data import Table
 from py2neo.database import Graph
-from py2neo.internal.addressing import get_connection_data, address_str
+from py2neo.internal.addressing import get_connection_data
 
 
 def is_command(source):
@@ -97,7 +96,7 @@ class Console(object):
         self.lexer = CypherLexer()
         self.result_writer = Table.write
         if verbose:
-            from neo4j.util import watch
+            from neobolt.diagnostics import watch
             self.watcher = watch("neo4j.%s" % connection_data["scheme"])
 
         self.commands = {
@@ -171,8 +170,8 @@ class Console(object):
             else:
                 pass
             self.echo("{}: {}".format(error.title, error.message), err=True)
-        except TransactionError:
-            self.echo("Transaction error", err=True, fg=self.err_colour)
+        # except TransactionError:
+        #     self.echo("Transaction error", err=True, fg=self.err_colour)
         except ServiceUnavailable:
             raise
         except Exception as error:
@@ -248,10 +247,11 @@ class Console(object):
         t0 = timer()
         result = runner(statement, parameters)
         record_count = self.write_result(result)
+        summary = result.summary()
         status = u"{} record{} from {} in {:.3f}s".format(
             record_count,
             "" if record_count == 1 else "s",
-            address_str(result.summary().server.address),
+            summary.connection["uri"],
             timer() - t0,
         )
         if line_no:
