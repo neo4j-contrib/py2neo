@@ -49,14 +49,13 @@ package_metadata = {
     "packages": packages,
     "py_modules": [],
     "install_requires": [
-        "click>=2.0",
+        "click>=7.0",
         "colorama",
         "neobolt<1.8,>=1.7.3",
         "neotime<1.8,>=1.7.4",
         "prompt_toolkit<2.1,>=2.0.7",
         "pygments<2.4,>=2.3.0",
-        "pytest",
-        "urllib3[secure]<1.23,>=1.21.1",
+        "urllib3[secure]<1.25,>=1.23",
     ],
     "extras_require": {
     },
