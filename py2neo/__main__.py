@@ -117,8 +117,8 @@ def py2neo_get():
 @py2neo.command("run", help="""\
 Run a Cypher query
 """)
-@click.option("-u", "--uri", default=NEO4J_URI, help="Set the connection URI.")
-@click.option("-a", "--auth", default=NEO4J_AUTH, help="Set the user and password.")
+@click.option("-u", "--uri", default=default_connection_data["uri"], help="Set the connection URI.")
+@click.option("-a", "--auth", default=default_connection_data["auth"], help="Set the user and password.")
 @click.option("-s", "--secure", is_flag=True, default=False, help="Use encrypted communication (TLS).")
 @click.option("-v", "--verbose", is_flag=True, default=False, help="Show low level communication detail.")
 @click.argument("cypher", nargs=-1)
