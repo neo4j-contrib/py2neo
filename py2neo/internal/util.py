@@ -25,11 +25,6 @@ import re
 import warnings
 
 
-# Word separation patterns for re-casing strings.
-WORD_FIRST = re.compile(r"(.)([A-Z][a-z]+)")
-WORD_ALL = re.compile(r"([a-z0-9])([A-Z])")
-
-
 def deprecated(message):
     """ Decorator for deprecating functions and methods.
 
@@ -78,31 +73,3 @@ def metaclass(mcs):
         attributes.pop("__weakref__", None)
         return mcs(cls.__name__, cls.__bases__, attributes)
     return _metaclass
-
-
-def snake_case(s):
-    s1 = WORD_FIRST.sub(r"\1_\2", s)
-    return WORD_ALL.sub(r"\1_\2", s1).lower()
-
-
-def title_case(s):
-    s1 = WORD_FIRST.sub(r"\1 \2", s)
-    return WORD_ALL.sub(r"\1 \2", s1).title()
-
-
-def relationship_case(s):
-    s1 = WORD_FIRST.sub(r"\1_\2", s)
-    return WORD_ALL.sub(r"\1_\2", s1).upper()
-
-
-def label_case(s):
-    return "".join(word.title() for word in s.split("_"))
-
-
-def hex_bytes(data):
-    return "".join("%02X" % b for b in bytearray(data)).encode("utf-8")
-
-
-def unhex_bytes(h):
-    h = bytes(h)
-    return bytearray(int(h[i:(i + 2)], 0x10) for i in range(0, len(h), 2))

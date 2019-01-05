@@ -27,9 +27,9 @@ from py2neo.cypher import cypher_escape
 from py2neo.data import Table
 from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
-from py2neo.internal.casing import Case
+from py2neo.internal.text import Words
 from py2neo.internal.compat import Mapping, string_types, xstr
-from py2neo.internal.util import version_tuple, title_case
+from py2neo.internal.util import version_tuple
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 
 
@@ -633,7 +633,7 @@ class GraphError(Exception):
                 error_cls = ClientError.get_mapped_class(code)
             except KeyError:
                 error_cls = ClientError
-                message = "%s: %s" % (title_case(title), message)
+                message = "%s: %s" % (Words(title).camel(upper_first=True), message)
         elif classification == "DatabaseError":
             error_cls = DatabaseError
         elif classification == "TransientError":
@@ -1337,7 +1337,7 @@ class CypherPlan(Mapping):
 
     @classmethod
     def _clean_key(cls, key):
-        return Case(key).snake()
+        return Words(key).snake()
 
     @classmethod
     def _clean_keys(cls, data):

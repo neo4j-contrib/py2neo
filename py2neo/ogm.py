@@ -18,7 +18,8 @@
 
 from py2neo.cypher import cypher_escape
 from py2neo.data import Node, PropertyDict
-from py2neo.internal.util import metaclass, label_case, relationship_case
+from py2neo.internal.text import Words
+from py2neo.internal.util import metaclass
 from py2neo.matching import NodeMatch, NodeMatcher
 
 
@@ -282,10 +283,10 @@ class GraphObjectType(type):
                     attr.key = attr_name
             elif isinstance(attr, Label):
                 if attr.name is None:
-                    attr.name = label_case(attr_name)
+                    attr.name = Words(attr_name).camel(upper_first=True)
             elif isinstance(attr, Related):
                 if attr.relationship_type is None:
-                    attr.relationship_type = relationship_case(attr_name)
+                    attr.relationship_type = Words(attr_name).upper("_")
 
         attributes.setdefault("__primarylabel__", name)
 

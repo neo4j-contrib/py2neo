@@ -30,7 +30,15 @@ from warnings import warn
 
 from py2neo.admin.dist import Distribution, archive_format
 from py2neo.internal.compat import bstr, SocketError
-from py2neo.internal.util import hex_bytes, unhex_bytes
+
+
+def hex_bytes(data):
+    return "".join("%02X" % b for b in bytearray(data)).encode("utf-8")
+
+
+def unhex_bytes(h):
+    h = bytes(h)
+    return bytearray(int(h[i:(i + 2)], 0x10) for i in range(0, len(h), 2))
 
 
 class Warehouse(object):

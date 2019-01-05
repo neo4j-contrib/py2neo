@@ -16,59 +16,59 @@
 # limitations under the License.
 
 
-from py2neo.internal.casing import Case
+from py2neo.internal.text import Words
 
 
 def test_breakdown_of_string_with_spaces():
-    x = Case("hello world")
+    x = Words("hello world")
     assert x.words == ("hello", "world")
 
 
 def test_breakdown_of_string_with_underscores():
-    x = Case("hello_world")
+    x = Words("hello_world")
     assert x.words == ("hello", "world")
 
 
 def test_breakdown_of_string_with_hyphens():
-    x = Case("hello-world")
+    x = Words("hello-world")
     assert x.words == ("hello", "world")
 
 
 def test_breakdown_of_single_word_upper_case_string():
-    x = Case("HELLO")
+    x = Words("HELLO")
     assert x.words == ("HELLO",)
 
 
 def test_breakdown_tuple():
-    x = Case(("hello", "world"))
+    x = Words(("hello", "world"))
     assert x.words == ("hello", "world")
 
 
 def test_upper():
-    x = Case("Hello world")
+    x = Words("Hello world")
     assert x.upper() == "HELLO WORLD"
 
 
 def test_lower():
-    x = Case("Hello world")
+    x = Words("Hello world")
     assert x.lower() == "hello world"
 
 
 def test_title():
-    x = Case("Hello WORLD")
+    x = Words("Hello WORLD")
     assert x.title() == "Hello WORLD"
 
 
 def test_snake():
-    x = Case("Hello world")
+    x = Words("Hello world")
     assert x.snake() == "hello_world"
 
 
 def test_camel():
-    x = Case("Hello world")
+    x = Words("Hello world")
     assert x.camel() == "helloWorld"
 
 
 def test_camel_with_upper_first():
-    x = Case("Hello world")
+    x = Words("Hello world")
     assert x.camel(upper_first=True) == "HelloWorld"

@@ -39,7 +39,7 @@ def iter_words(s):
                 yield word
 
 
-class Case(object):
+class Words(object):
 
     def __init__(self, words):
         if isinstance(words, tuple):
