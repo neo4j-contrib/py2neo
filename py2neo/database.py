@@ -29,7 +29,7 @@ from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.text import Words
 from py2neo.internal.compat import Mapping, string_types, xstr
-from py2neo.internal.util import version_tuple
+from py2neo.internal.versioning import Version
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 
 
@@ -209,7 +209,7 @@ class Database(object):
         """
         info = self.query_jmx("org.neo4j", name="Kernel")
         version_string = info["KernelVersion"].partition("version:")[-1].partition(",")[0].strip()
-        return version_tuple(version_string)
+        return Version.parse(version_string).major_minor_patch
 
     @property
     def product(self):

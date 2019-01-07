@@ -24,13 +24,13 @@ from py2neo.internal.versioning import Version
 class VersioningTestCase(TestCase):
 
     def test_equality(self):
-        self.assertEqual(Version("3.4.0"), Version("3.4.0"))
+        assert Version.parse("3.4.0") == Version.parse("3.4.0")
 
     def test_inequality(self):
-        self.assertNotEqual(Version("3.4.0"), Version("3.4.1"))
+        assert Version.parse("3.4.0") != Version.parse("3.4.1")
 
     def test_component_parts(self):
-        version = Version("3.4.1")
-        self.assertEqual(version.major, 3)
-        self.assertEqual(version.minor, 4)
-        self.assertEqual(version.patch, 1)
+        version = Version.parse("3.4.1")
+        assert version.major == 3
+        assert version.minor == 4
+        assert version.patch == 1

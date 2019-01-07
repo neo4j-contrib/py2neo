@@ -16,37 +16,84 @@
 # limitations under the License.
 
 
-from re import compile as re_compile
-
-
-version_string_pattern = re_compile(r"(\d+)\.(\d+)\.(\d+)-?(.*)")
+from unicodedata import category
 
 
 class Version(tuple):
 
-    def __new__(cls, string):
-        return tuple.__new__(cls, version_string_pattern.match(string).groups())
+    @classmethod
+    def parse(cls, string):
+        parts = []
+        last_ch = None
+        for ch in string:
+            if last_ch is None:
+                parts.append([ch])
+            elif ch == ".":
+                if last_ch in ".-":
+                    parts[-1][-1] += "0"
+                parts[-1].append("")
+            elif ch == "-":
+                if last_ch in ".-":
+                    parts[-1][-1] += "0"
+                parts.append([""])
+            else:
+                if last_ch not in ".-" and category(ch)[0] != category(last_ch)[0]:
+                    parts.append([ch])
+                else:
+                    parts[-1][-1] += ch
+            last_ch = ch
+        for part in parts:
+            for i, x in enumerate(part):
+                try:
+                    part[i] = int(x)
+                except (ValueError, TypeError):
+                    pass
+            while len(part) > 1 and not part[-1]:
+                part[:] = part[:-1]
+        return cls(*map(tuple, parts))
 
-    def __str__(self):
-        return ".".join(self[:3]) + "".join("-%s" % part for part in self[3:] if part)
+    def __new__(cls, *parts):
+        parts = list(parts)
+        for i, part in enumerate(parts):
+            if not isinstance(part, tuple):
+                parts[i] = (part,)
+        return super(Version, cls).__new__(cls, parts)
 
-    def __eq__(self, other):
-        return (int(self[0]), int(self[1]), int(self[2]), self[3]) == (int(other[0]), int(other[1]), int(other[2]), other[3])
+    def __repr__(self):
+        return "%s%r" % (type(self).__name__, tuple(self))
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __lt__(self, other):
-        return (int(self[0]), int(self[1]), int(self[2]), self[3]) < (int(other[0]), int(other[1]), int(other[2]), other[3])
+    @property
+    def primary(self):
+        try:
+            return self[0]
+        except IndexError:
+            return ()
 
     @property
     def major(self):
-        return int(self[0])
+        try:
+            return self.primary[0]
+        except IndexError:
+            return 0
 
     @property
     def minor(self):
-        return int(self[1])
+        try:
+            return self.primary[1]
+        except IndexError:
+            return 0
 
     @property
     def patch(self):
-        return int(self[2])
+        try:
+            return self.primary[2]
+        except IndexError:
+            return 0
+
+    @property
+    def major_minor(self):
+        return self.major, self.minor
+
+    @property
+    def major_minor_patch(self):
+        return self.major, self.minor, self.patch

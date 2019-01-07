@@ -54,11 +54,12 @@ versions = [
 ]
 
 # TODO: make this a bit easier to read
-version_tuples = [Version(v) for v in versions]
-minor_version_tuples = sorted({(str(v.major), str(v.minor)) for v in version_tuples})
+version_tuples = [Version.parse(v) for v in versions]
+minor_version_tuples = sorted({v.major_minor for v in version_tuples})
 minor_versions = [".".join(map(str, v)) for v in minor_version_tuples]
-latest_version_tuples = {w: sorted(v for v in version_tuples if v[:2] == w)[-1] for w in minor_version_tuples}
-latest_versions = {".".join(map(str, k)): str(v) for k, v in latest_version_tuples.items()}
+latest_version_tuples = {w: sorted(v.major_minor_patch for v in version_tuples if v.major_minor == w)[-1]
+                         for w in minor_version_tuples}
+latest_versions = {".".join(map(str, k)): ".".join(map(str, v)) for k, v in latest_version_tuples.items()}
 version_aliases = dict(latest_versions, **{k + "-LATEST": v for k, v in latest_versions.items()})
 version_aliases["LATEST"] = versions[-1]
 

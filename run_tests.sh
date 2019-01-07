@@ -29,7 +29,7 @@ function run_integration_tests
         fi
         if [[ "${PY2NEO_QUICK_TEST}" != "" ]]
         then
-            exit 0
+            return
         fi
     done
     run_integration_cc_tests

@@ -42,6 +42,7 @@ from io import StringIO
 import os
 from socket import error as SocketError
 from sys import version_info
+from warnings import warn
 
 
 if version_info >= (3,):
@@ -176,3 +177,39 @@ else:
                 data.write(f.read())
             data.seek(0, os.SEEK_SET)
             self.readfp(data)
+
+
+def deprecated(message):
+    """ Decorator for deprecating functions and methods.
+
+    ::
+
+        @deprecated("'foo' has been deprecated in favour of 'bar'")
+        def foo(x):
+            pass
+
+    """
+    def f__(f):
+        def f_(*args, **kwargs):
+            warn(message, category=DeprecationWarning, stacklevel=2)
+            return f(*args, **kwargs)
+        f_.__name__ = f.__name__
+        f_.__doc__ = f.__doc__
+        f_.__dict__.update(f.__dict__)
+        return f_
+    return f__
+
+
+def metaclass(mcs):
+    def _metaclass(cls):
+        attributes = cls.__dict__.copy()
+        slots = attributes.get("__slots__")
+        if slots is not None:
+            if isinstance(slots, str):
+                slots = [slots]
+            for slot in slots:
+                attributes.pop(slot)
+        attributes.pop("__dict__", None)
+        attributes.pop("__weakref__", None)
+        return mcs(cls.__name__, cls.__bases__, attributes)
+    return _metaclass

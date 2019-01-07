@@ -18,8 +18,8 @@
 
 from py2neo.cypher import cypher_escape
 from py2neo.data import Node, PropertyDict
+from py2neo.internal.compat import metaclass
 from py2neo.internal.text import Words
-from py2neo.internal.util import metaclass
 from py2neo.matching import NodeMatch, NodeMatcher
 
 
