@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from __future__ import unicode_literals
+
 from os import getenv, makedirs
 from os.path import exists as path_exists, isfile, join as path_join
 
