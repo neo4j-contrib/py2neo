@@ -18,7 +18,7 @@
 
 from pytest import raises
 
-from py2neo import Record
+from py2neo import Record, Subgraph
 
 
 def test_cannot_move_beyond_end(graph):
@@ -172,3 +172,10 @@ def test_evaluate_on_non_existent_column_is_none(graph):
     cursor = graph.run("RETURN 1")
     value = cursor.evaluate(1)
     assert value is None
+
+
+def test_to_subgraph(graph):
+    s = graph.run("CREATE p=(:Person {name:'Alice'})-[:KNOWS]->(:Person {name:'Bob'}) RETURN p").to_subgraph()
+    assert isinstance(s, Subgraph)
+    assert len(s.nodes) == 2
+    assert len(s.relationships) == 1
