@@ -28,7 +28,7 @@ from threading import RLock
 from uuid import uuid4
 
 from py2neo.data import PropertyDict, Record
-from py2neo.internal.collections import ReactiveSet, iter_items
+from py2neo.internal.collections import iter_items
 from py2neo.internal.compat import Sequence, Set
 
 
@@ -41,6 +41,100 @@ def property_record(iterable=()):
     by sorting keys and dropping all values that are :const:`.None`.
     """
     return Record(sorted((key, value) for key, value in iter_items(iterable) if value is not None))
+
+
+class ReactiveSet(set):
+    """ A :class:`set` that can trigger callbacks for each element added
+    or removed.
+    """
+
+    def __init__(self, iterable=(), on_add=None, on_remove=None):
+        self._on_add = on_add
+        self._on_remove = on_remove
+        elements = set(iterable)
+        set.__init__(self, elements)
+        if callable(self._on_add):
+            self._on_add(*elements)
+
+    def __ior__(self, other):
+        elements = other - self
+        set.__ior__(self, other)
+        if callable(self._on_add):
+            self._on_add(*elements)
+        return self
+
+    def __iand__(self, other):
+        elements = self ^ other
+        set.__iand__(self, other)
+        if callable(self._on_remove):
+            self._on_remove(*elements)
+        return self
+
+    def __isub__(self, other):
+        elements = self & other
+        set.__isub__(self, other)
+        if callable(self._on_remove):
+            self._on_remove(*elements)
+        return self
+
+    def __ixor__(self, other):
+        added = other - self
+        removed = self & other
+        set.__ixor__(self, other)
+        if callable(self._on_add):
+            self._on_add(*added)
+        if callable(self._on_remove):
+            self._on_remove(*removed)
+        return self
+
+    def add(self, element):
+        """ Add an element to the set.
+
+        :triggers: `on_add`
+        """
+        if element not in self:
+            set.add(self, element)
+            if callable(self._on_add):
+                self._on_add(element)
+
+    def remove(self, element):
+        """ Remove an element from the set.
+
+        :triggers: `on_remove`
+        """
+        set.remove(self, element)
+        if callable(self._on_remove):
+            self._on_remove(element)
+
+    def discard(self, element):
+        """ Discard an element from the set.
+
+        :triggers: `on_remove`
+        """
+        if element in self:
+            set.discard(self, element)
+            if callable(self._on_remove):
+                self._on_remove(element)
+
+    def pop(self):
+        """ Remove an arbitrary element from the set.
+
+        :triggers: `on_remove`
+        """
+        element = set.pop(self)
+        if callable(self._on_remove):
+            self._on_remove(element)
+        return element
+
+    def clear(self):
+        """ Remove all elements from the set.
+
+        :triggers: `on_remove`
+        """
+        elements = set(self)
+        set.clear(self)
+        if callable(self._on_remove):
+            self._on_remove(*elements)
 
 
 class GraphStore(object):

@@ -18,7 +18,7 @@
 
 from unittest import TestCase
 
-from py2neo.storage import FrozenGraphStore, MutableGraphStore
+from py2neo.experimental.storage import FrozenGraphStore, MutableGraphStore
 
 
 class GraphStoreTestCase(TestCase):
