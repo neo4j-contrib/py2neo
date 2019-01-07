@@ -18,7 +18,7 @@
 
 from unittest import TestCase
 
-from py2neo.internal.addressing import get_connection_data
+from py2neo.internal.connectors import get_connection_data
 from py2neo.meta import bolt_user_agent, http_user_agent
 
 

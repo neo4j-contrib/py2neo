@@ -17,6 +17,7 @@
 
 
 __all__ = ["__author__", "__copyright__", "__email__", "__license__", "__package__", "__version__",
+           "NEO4J_URI", "NEO4J_AUTH", "NEO4J_USER_AGENT", "NEO4J_SECURE", "NEO4J_VERIFIED",
            "bolt_user_agent", "http_user_agent"]
 
 __author__ = "Nigel Small <technige@nige.tech>"
@@ -27,15 +28,25 @@ __package__ = "py2neo"
 __version__ = "4.2.0"
 
 
+from os import getenv
+
+
+NEO4J_URI = getenv("NEO4J_URI")
+NEO4J_AUTH = getenv("NEO4J_AUTH")
+NEO4J_USER_AGENT = getenv("NEO4J_USER_AGENT")
+NEO4J_SECURE = True if getenv("NEO4J_SECURE") == "1" else False if getenv("NEO4J_SECURE") == "0" else None
+NEO4J_VERIFIED = True if getenv("NEO4J_VERIFIED") == "1" else False if getenv("NEO4J_VERIFIED") == "0" else None
+
+
 def bolt_user_agent():
     from sys import platform, version_info
     from neobolt.meta import version as neobolt_version
-    return "{}/{} neobolt/{} Python/{}.{}.{}-{}-{} ({})".format(
-        *((__package__, __version__, neobolt_version,) + tuple(version_info) + (platform,)))
+    fields = (__package__, __version__, neobolt_version,) + tuple(version_info) + (platform,)
+    return "{}/{} neobolt/{} Python/{}.{}.{}-{}-{} ({})".format(*fields)
 
 
 def http_user_agent():
     from sys import platform, version_info
     import urllib3
-    return "{}/{} urllib3/{} Python/{}.{}.{}-{}-{} ({})".format(
-        *((__package__, __version__, urllib3.__version__,) + tuple(version_info) + (platform,)))
+    fields = (__package__, __version__, urllib3.__version__,) + tuple(version_info) + (platform,)
+    return "{}/{} urllib3/{} Python/{}.{}.{}-{}-{} ({})".format(*fields)

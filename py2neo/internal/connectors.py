@@ -19,8 +19,8 @@
 from __future__ import absolute_import
 
 from collections import deque, namedtuple, OrderedDict
+from hashlib import new as hashlib_new
 from json import dumps as json_dumps, loads as json_loads
-
 
 from certifi import where
 from neobolt.direct import connect, ConnectionPool
@@ -28,21 +28,128 @@ from neobolt.packstream import Structure
 from neobolt.routing import RoutingConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
-from py2neo.data import Node, Relationship, Path, Record
-from py2neo.database import Cursor, GraphError, TransactionError, CypherSummary, CypherPlan, CypherStats
-from py2neo.internal.compat import Sequence, Mapping, urlsplit, string_types, integer_types
-from py2neo.internal.addressing import get_connection_data
-from py2neo.matching import RelationshipMatcher
+from py2neo.internal.compat import Sequence, Mapping, bstr, integer_types, string_types, urlsplit
+from py2neo.meta import NEO4J_URI, NEO4J_AUTH, NEO4J_USER_AGENT, NEO4J_SECURE, NEO4J_VERIFIED, \
+    bolt_user_agent, http_user_agent
+
+
+DEFAULT_SCHEME = "bolt"
+DEFAULT_SECURE = False
+DEFAULT_VERIFIED = False
+DEFAULT_USER = "neo4j"
+DEFAULT_PASSWORD = "password"
+DEFAULT_HOST = "localhost"
+DEFAULT_BOLT_PORT = 7687
+DEFAULT_HTTP_PORT = 7474
+DEFAULT_HTTPS_PORT = 7473
 
 
 INT64_LO = -(2 ** 63)
 INT64_HI = 2 ** 63 - 1
 
 
-_unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
+def coalesce(*values):
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def get_connection_data(uri=None, **settings):
+    """ Generate a dictionary of connection data for an optional URI plus
+    additional connection settings.
+
+    :param uri:
+    :param settings:
+    :return:
+    """
+    data = {
+        "host": None,
+        "password": None,
+        "port": None,
+        "scheme": None,
+        "secure": None,
+        "verified": None,
+        "user": None,
+        "user_agent": None,
+    }
+    # apply uri
+    uri = coalesce(uri, NEO4J_URI)
+    if uri is not None:
+        parsed = urlsplit(uri)
+        if parsed.scheme is not None:
+            data["scheme"] = parsed.scheme
+            if data["scheme"] in ["https"]:
+                data["secure"] = True
+            elif data["scheme"] in ["http"]:
+                data["secure"] = False
+        data["user"] = coalesce(parsed.username, data["user"])
+        data["password"] = coalesce(parsed.password, data["password"])
+        data["host"] = coalesce(parsed.hostname, data["host"])
+        data["port"] = coalesce(parsed.port, data["port"])
+    # apply auth (this can override `uri`)
+    if "auth" in settings and settings["auth"] is not None:
+        data["user"], data["password"] = settings["auth"]
+    elif NEO4J_AUTH is not None:
+        data["user"], _, data["password"] = NEO4J_AUTH.partition(":")
+    # apply components (these can override `uri` and `auth`)
+    data["user_agent"] = coalesce(settings.get("user_agent"), NEO4J_USER_AGENT, data["user_agent"])
+    data["secure"] = coalesce(settings.get("secure"), data["secure"], NEO4J_SECURE)
+    data["verified"] = coalesce(settings.get("verified"), data["verified"], NEO4J_VERIFIED)
+    data["scheme"] = coalesce(settings.get("scheme"), data["scheme"])
+    data["user"] = coalesce(settings.get("user"), data["user"])
+    data["password"] = coalesce(settings.get("password"), data["password"])
+    data["host"] = coalesce(settings.get("host"), data["host"])
+    data["port"] = coalesce(settings.get("port"), data["port"])
+    # apply correct scheme for security
+    if data["secure"] is True and data["scheme"] == "http":
+        data["scheme"] = "https"
+    if data["secure"] is False and data["scheme"] == "https":
+        data["scheme"] = "http"
+    # apply default port for scheme
+    if data["scheme"] and not data["port"]:
+        if data["scheme"] == "http":
+            data["port"] = DEFAULT_HTTP_PORT
+        elif data["scheme"] == "https":
+            data["port"] = DEFAULT_HTTPS_PORT
+        elif data["scheme"] in ["bolt", "bolt+routing"]:
+            data["port"] = DEFAULT_BOLT_PORT
+    # apply other defaults
+    if not data["user_agent"]:
+        data["user_agent"] = http_user_agent() if data["scheme"] in ["http", "https"] else bolt_user_agent()
+    if data["secure"] is None:
+        data["secure"] = DEFAULT_SECURE
+    if data["verified"] is None:
+        data["verified"] = DEFAULT_VERIFIED
+    if not data["scheme"]:
+        data["scheme"] = DEFAULT_SCHEME
+        if data["scheme"] == "http":
+            data["secure"] = False
+            data["verified"] = False
+        if data["scheme"] == "https":
+            data["secure"] = True
+            data["verified"] = True
+    if not data["user"]:
+        data["user"] = DEFAULT_USER
+    if not data["password"]:
+        data["password"] = DEFAULT_PASSWORD
+    if not data["host"]:
+        data["host"] = DEFAULT_HOST
+    if not data["port"]:
+        data["port"] = DEFAULT_BOLT_PORT
+    # apply composites
+    data["auth"] = (data["user"], data["password"])
+    data["uri"] = "%s://%s:%s" % (data["scheme"], data["host"], data["port"])
+    h = hashlib_new("md5")
+    for key in sorted(data):
+        h.update(bstr(data[key]))
+    data["hash"] = h.hexdigest()
+    return data
 
 
 class PackStreamHydrator(object):
+
+    unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
     def __init__(self, graph, keys, entities=None):
         # TODO: protocol version
@@ -52,12 +159,16 @@ class PackStreamHydrator(object):
         self.entities = entities or {}
 
     def hydrate_records(self, keys, record_values):
+        from py2neo.data import Record
         for values in record_values:
             yield Record(zip(keys, self.hydrate(values)))
 
     def hydrate(self, values):
         """ Convert PackStream values into native values.
         """
+        from py2neo.data import Node, Relationship, Path
+        from py2neo.matching import RelationshipMatcher
+
         graph = self.graph
         entities = self.entities
         keys = self.keys
@@ -80,7 +191,7 @@ class PackStreamHydrator(object):
                     u_rels = []
                     typeless_u_rel_ids = []
                     for r in fields[1]:
-                        u_rel = _unbound_relationship(*map(hydrate_object, r))
+                        u_rel = self.unbound_relationship(*map(hydrate_object, r))
                         u_rels.append(u_rel)
                         if u_rel.type is None:
                             typeless_u_rel_ids.append(u_rel.id)
@@ -88,7 +199,7 @@ class PackStreamHydrator(object):
                         r_dict = {r.identity: r for r in RelationshipMatcher(graph).get(typeless_u_rel_ids)}
                         for i, u_rel in enumerate(u_rels):
                             if u_rel.type is None:
-                                u_rels[i] = _unbound_relationship(
+                                u_rels[i] = self.unbound_relationship(
                                     u_rel.id,
                                     type(r_dict[u_rel.id]).__name__,
                                     u_rel.properties
@@ -237,6 +348,7 @@ class Connector(object):
         return tx is not None and tx in self.transactions
 
     def _assert_valid_tx(self, tx):
+        from py2neo.database import TransactionError
         if tx is None:
             raise TransactionError("No transaction")
         if tx not in self.transactions:
@@ -279,6 +391,7 @@ class BoltConnector(Connector):
         self.pool.close()
 
     def _run_1(self, statement, parameters, hydrator):
+        from py2neo.database import Cursor
         cx = self.pool.acquire()
         result = CypherResult(hydrator=hydrator, on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
         result.update_metadata({"connection": self.connection_data})
@@ -290,6 +403,7 @@ class BoltConnector(Connector):
         return Cursor(result)
 
     def _run_in_tx(self, statement, parameters, tx, hydrator):
+        from py2neo.database import Cursor
         self._assert_valid_tx(tx)
 
         def fetch():
@@ -311,6 +425,7 @@ class BoltConnector(Connector):
 
     @classmethod
     def _fail(cls, metadata):
+        from py2neo.database import GraphError
         raise GraphError.hydrate(metadata)
 
     def run(self, statement, parameters=None, tx=None, hydrator=None):
@@ -420,12 +535,14 @@ class HTTPConnector(Connector):
                                  headers=dict(self.headers))
 
     def _run_1(self, statement, parameters, hydrator):
+        from py2neo.database import Cursor
         r = self._post("/db/data/transaction/commit", statement, self._check_parameters(parameters))
         result = CypherResult.from_json(r.data.decode("utf-8"), hydrator=hydrator)
         result.update_metadata({"connection": self.connection_data})
         return Cursor(result)
 
     def _run_in_tx(self, statement, parameters, tx, hydrator):
+        from py2neo.database import Cursor, GraphError
         r = self._post("/db/data/transaction/%s" % tx, statement, self._check_parameters(parameters))
         assert r.status == 200  # TODO: other codes
         try:
@@ -516,6 +633,7 @@ class CypherResult(object):
 
     @classmethod
     def from_json(cls, s, hydrator=None):
+        from py2neo.database import GraphError
         data = json_loads(s, object_hook=cls._partially_hydrate_object)     # TODO: other partial hydration
         if data.get("errors"):
             raise GraphError.hydrate(data["errors"][0])
@@ -568,10 +686,12 @@ class CypherResult(object):
                 self._on_more()
 
     def summary(self):
+        from py2neo.database import CypherSummary
         self.buffer()
         return CypherSummary(**self._footer)
 
     def plan(self):
+        from py2neo.database import CypherPlan
         self.buffer()
         if "plan" in self._footer:
             return CypherPlan(**self._footer["plan"])
@@ -581,10 +701,12 @@ class CypherResult(object):
             return None
 
     def stats(self):
+        from py2neo.database import CypherStats
         self.buffer()
         return CypherStats(**self._footer.get("stats", {}))
 
     def fetch(self):
+        from py2neo.data import Record
         if self._records:
             return Record(zip(self.keys(), self._records.popleft()))
         elif self._done:

@@ -18,7 +18,7 @@
 
 import click
 
-from py2neo.internal.addressing import NEO4J_URI, NEO4J_AUTH
+from py2neo.meta import NEO4J_URI, NEO4J_AUTH
 
 
 @click.group(help="""\

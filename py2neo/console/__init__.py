@@ -40,7 +40,7 @@ from py2neo.console.meta import HISTORY_FILE_DIR, HISTORY_FILE, TITLE, QUICK_HEL
 from py2neo.cypher.lexer import CypherLexer
 from py2neo.data import Table
 from py2neo.database import Graph
-from py2neo.internal.addressing import get_connection_data
+from py2neo.internal.connectors import get_connection_data
 
 
 def is_command(source):

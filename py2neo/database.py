@@ -25,7 +25,6 @@ from warnings import warn
 
 from py2neo.cypher import cypher_escape
 from py2neo.data import Table
-from py2neo.internal.addressing import get_connection_data
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.text import Words
 from py2neo.internal.compat import Mapping, string_types, xstr
@@ -87,6 +86,7 @@ class Database(object):
         cls._instances.clear()
 
     def __new__(cls, uri=None, **settings):
+        from py2neo.internal.connectors import get_connection_data
         connection_data = get_connection_data(uri, **settings)
         key = connection_data["hash"]
         try:
