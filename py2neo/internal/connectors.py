@@ -29,6 +29,7 @@ from neobolt.routing import RoutingConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo.internal.compat import Sequence, Mapping, bstr, integer_types, string_types, urlsplit
+from py2neo.internal.hydration import PackStreamHydrator
 from py2neo.meta import NEO4J_URI, NEO4J_AUTH, NEO4J_USER_AGENT, NEO4J_SECURE, NEO4J_VERIFIED, \
     bolt_user_agent, http_user_agent
 
@@ -147,171 +148,16 @@ def get_connection_data(uri=None, **settings):
     return data
 
 
-class PackStreamHydrator(object):
-
-    unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
-
-    def __init__(self, graph, keys, entities=None):
-        # TODO: protocol version
-        # super(PackStreamHydrator, self).__init__(2)  # maximum known protocol version
-        self.graph = graph
-        self.keys = keys
-        self.entities = entities or {}
-
-    def hydrate_records(self, keys, record_values):
-        from py2neo.data import Record
-        for values in record_values:
-            yield Record(zip(keys, self.hydrate(values)))
-
-    def hydrate(self, values):
-        """ Convert PackStream values into native values.
-        """
-        from py2neo.data import Node, Relationship, Path
-        from py2neo.matching import RelationshipMatcher
-
-        graph = self.graph
-        entities = self.entities
-        keys = self.keys
-
-        def hydrate_object(obj, inst=None):
-            if isinstance(obj, Structure):
-                tag = obj.tag
-                fields = obj.fields
-                if tag == b"N":
-                    return hydrate_node(fields[0], inst=inst,
-                                        metadata={"labels": fields[1]}, data=hydrate_object(fields[2]))
-                elif tag == b"R":
-                    return hydrate_relationship(fields[0], inst=inst,
-                                                start=fields[1], end=fields[2],
-                                                type=fields[3], data=hydrate_object(fields[4]))
-                elif tag == b"P":
-                    # Herein lies a dirty hack to retrieve missing relationship
-                    # detail for paths received over HTTP.
-                    nodes = [hydrate_object(node) for node in fields[0]]
-                    u_rels = []
-                    typeless_u_rel_ids = []
-                    for r in fields[1]:
-                        u_rel = self.unbound_relationship(*map(hydrate_object, r))
-                        u_rels.append(u_rel)
-                        if u_rel.type is None:
-                            typeless_u_rel_ids.append(u_rel.id)
-                    if typeless_u_rel_ids:
-                        r_dict = {r.identity: r for r in RelationshipMatcher(graph).get(typeless_u_rel_ids)}
-                        for i, u_rel in enumerate(u_rels):
-                            if u_rel.type is None:
-                                u_rels[i] = self.unbound_relationship(
-                                    u_rel.id,
-                                    type(r_dict[u_rel.id]).__name__,
-                                    u_rel.properties
-                                )
-                    sequence = fields[2]
-                    last_node = nodes[0]
-                    steps = [last_node]
-                    for i, rel_index in enumerate(sequence[::2]):
-                        next_node = nodes[sequence[2 * i + 1]]
-                        if rel_index > 0:
-                            u_rel = u_rels[rel_index - 1]
-                            rel = hydrate_relationship(u_rel.id,
-                                                       start=last_node.identity, end=next_node.identity,
-                                                       type=u_rel.type, data=u_rel.properties)
-                        else:
-                            u_rel = u_rels[-rel_index - 1]
-                            rel = hydrate_relationship(u_rel.id,
-                                                       start=next_node.identity, end=last_node.identity,
-                                                       type=u_rel.type, data=u_rel.properties)
-                        steps.append(rel)
-                        steps.append(next_node)
-                        last_node = next_node
-                    return Path(*steps)
-                else:
-                    try:
-                        f = self.hydration_functions[obj.tag]
-                    except KeyError:
-                        # If we don't recognise the structure type, just return it as-is
-                        return obj
-                    else:
-                        return f(*map(hydrate_object, obj.fields))
-            elif isinstance(obj, list):
-                return list(map(hydrate_object, obj))
-            elif isinstance(obj, dict):
-                return {key: hydrate_object(value) for key, value in obj.items()}
-            else:
-                return obj
-
-        def hydrate_node(identity, inst=None, **rest):
-            if inst is None:
-
-                def inst_constructor():
-                    new_inst = Node()
-                    new_inst.graph = graph
-                    new_inst.identity = identity
-                    new_inst._stale.update({"labels", "properties"})
-                    return new_inst
-
-                inst = graph.node_cache.update(identity, inst_constructor)
-            else:
-                inst.graph = graph
-                inst.identity = identity
-                graph.node_cache.update(identity, inst)
-
-            properties = rest.get("data")
-            if properties is not None:
-                inst._stale.discard("properties")
-                inst.clear()
-                inst.update(properties)
-
-            labels = rest.get("metadata", {}).get("labels")
-            if labels is not None:
-                inst._stale.discard("labels")
-                inst._remote_labels = frozenset(labels)
-                inst.clear_labels()
-                inst.update_labels(labels)
-
-            return inst
-
-        def hydrate_relationship(identity, inst=None, **rest):
-            start = rest["start"]
-            end = rest["end"]
-
-            if inst is None:
-
-                def inst_constructor():
-                    properties = rest.get("data")
-                    if properties is None:
-                        new_inst = Relationship(hydrate_node(start), rest.get("type"),
-                                                hydrate_node(end))
-                        new_inst._stale.add("properties")
-                    else:
-                        new_inst = Relationship(hydrate_node(start), rest.get("type"),
-                                                hydrate_node(end), **properties)
-                    new_inst.graph = graph
-                    new_inst.identity = identity
-                    return new_inst
-
-                inst = graph.relationship_cache.update(identity, inst_constructor)
-            else:
-                inst.graph = graph
-                inst.identity = identity
-                hydrate_node(start, inst=inst.start_node)
-                hydrate_node(end, inst=inst.end_node)
-                inst._type = rest.get("type")
-                if "data" in rest:
-                    inst.clear()
-                    inst.update(rest["data"])
-                else:
-                    inst._stale.add("properties")
-                graph.relationship_cache.update(identity, inst)
-            return inst
-
-        return tuple(hydrate_object(value, entities.get(keys[i])) for i, value in enumerate(values))
-
-
 class Connector(object):
 
     scheme = NotImplemented
 
     pool = None
     transactions = set()
+
+    @classmethod
+    def dehydrate(cls, data):
+        raise NotImplementedError()
 
     @classmethod
     def walk_subclasses(cls):
@@ -341,7 +187,7 @@ class Connector(object):
     def close(self):
         raise NotImplementedError()
 
-    def run(self, statement, parameters=None, tx=None, hydrator=None):
+    def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
         raise NotImplementedError()
 
     def is_valid_transaction(self, tx):
@@ -390,19 +236,49 @@ class BoltConnector(Connector):
     def close(self):
         self.pool.close()
 
-    def _run_1(self, statement, parameters, hydrator):
+    @classmethod
+    def dehydrate(cls, data):
+        """ Dehydrate to PackStream.
+        """
+        from neotime import Date
+        if data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):
+            return data
+        elif isinstance(data, integer_types):
+            if data < INT64_LO or data > INT64_HI:
+                raise ValueError("Integers must be within the signed 64-bit range")
+            return data
+        elif isinstance(data, bytearray):
+            return data
+        elif isinstance(data, Date):
+            epoch = Date(1970, 1, 1)
+            return Structure(b"D", data.toordinal() - epoch.toordinal())
+        elif isinstance(data, Mapping):
+            d = {}
+            for key in data:
+                if not isinstance(key, string_types):
+                    raise TypeError("Dictionary keys must be strings")
+                d[key] = cls.dehydrate(data[key])
+            return d
+        elif isinstance(data, Sequence):
+            return list(map(cls.dehydrate, data))
+        else:
+            raise TypeError("Neo4j does not support PackStream parameters of type %s" % type(data).__name__)
+
+    def _run_1(self, statement, parameters, graph, keys, entities):
         from py2neo.database import Cursor
         cx = self.pool.acquire()
+        hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys, entities=entities)
+        dehydrated_parameters = self.dehydrate(parameters)
         result = CypherResult(hydrator=hydrator, on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
         result.update_metadata({"connection": self.connection_data})
-        cx.run(statement, parameters or {}, on_success=result.update_metadata, on_failure=self._fail)
+        cx.run(statement, dehydrated_parameters or {}, on_success=result.update_metadata, on_failure=self._fail)
         cx.pull_all(on_records=result.append_records,
                     on_success=result.update_metadata, on_failure=self._fail, on_summary=result.done)
         cx.send()
         cx.fetch()
         return Cursor(result)
 
-    def _run_in_tx(self, statement, parameters, tx, hydrator):
+    def _run_in_tx(self, statement, parameters, tx, graph, keys, entities):
         from py2neo.database import Cursor
         self._assert_valid_tx(tx)
 
@@ -414,9 +290,11 @@ class BoltConnector(Connector):
             self.pool.release(tx)
             self._fail(metadata)
 
+        hydrator = PackStreamHydrator(version=tx.protocol_version, graph=graph, keys=keys, entities=entities)
+        dehydrated_parameters = self.dehydrate(parameters)
         result = CypherResult(hydrator=hydrator, on_more=fetch)
         result.update_metadata({"connection": self.connection_data})
-        tx.run(statement, parameters or {}, on_success=result.update_metadata, on_failure=fail)
+        tx.run(statement, dehydrated_parameters or {}, on_success=result.update_metadata, on_failure=fail)
         tx.pull_all(on_records=result.append_records,
                     on_success=result.update_metadata, on_failure=fail, on_summary=result.done)
         tx.send()
@@ -428,11 +306,11 @@ class BoltConnector(Connector):
         from py2neo.database import GraphError
         raise GraphError.hydrate(metadata)
 
-    def run(self, statement, parameters=None, tx=None, hydrator=None):
+    def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
         if tx is None:
-            return self._run_1(statement, parameters, hydrator)
+            return self._run_1(statement, parameters, graph, keys, entities)
         else:
-            return self._run_in_tx(statement, parameters, tx, hydrator)
+            return self._run_in_tx(statement, parameters, tx, graph, keys, entities)
 
     def begin(self):
         tx = self.pool.acquire()
@@ -491,7 +369,10 @@ class HTTPConnector(Connector):
     def close(self):
         self.pool.close()
 
-    def _check_parameters(self, data):
+    @classmethod
+    def dehydrate(cls, data):
+        """ Dehydrate to JSON.
+        """
         if data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):
             return data
         elif isinstance(data, integer_types):
@@ -505,12 +386,12 @@ class HTTPConnector(Connector):
             for key in data:
                 if not isinstance(key, string_types):
                     raise TypeError("Dictionary keys must be strings")
-                d[key] = self._check_parameters(data[key])
+                d[key] = cls.dehydrate(data[key])
             return d
         elif isinstance(data, Sequence):
-            return list(map(self._check_parameters, data))
+            return list(map(cls.dehydrate, data))
         else:
-            raise TypeError("Neo4j does not support parameters of type %s" % type(data).__name__)
+            raise TypeError("Neo4j does not support JSON parameters of type %s" % type(data).__name__)
 
     def _post(self, url, statement=None, parameters=None):
         if statement:
@@ -536,14 +417,14 @@ class HTTPConnector(Connector):
 
     def _run_1(self, statement, parameters, hydrator):
         from py2neo.database import Cursor
-        r = self._post("/db/data/transaction/commit", statement, self._check_parameters(parameters))
+        r = self._post("/db/data/transaction/commit", statement, self.dehydrate(parameters))
         result = CypherResult.from_json(r.data.decode("utf-8"), hydrator=hydrator)
         result.update_metadata({"connection": self.connection_data})
         return Cursor(result)
 
     def _run_in_tx(self, statement, parameters, tx, hydrator):
         from py2neo.database import Cursor, GraphError
-        r = self._post("/db/data/transaction/%s" % tx, statement, self._check_parameters(parameters))
+        r = self._post("/db/data/transaction/%s" % tx, statement, self.dehydrate(parameters))
         assert r.status == 200  # TODO: other codes
         try:
             result = CypherResult.from_json(r.data.decode("utf-8"), hydrator=hydrator)
@@ -553,7 +434,8 @@ class HTTPConnector(Connector):
             self.transactions.remove(tx)
             raise
 
-    def run(self, statement, parameters=None, tx=None, hydrator=None):
+    def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
+        hydrator = PackStreamHydrator(version=1, graph=graph, keys=keys, entities=entities)
         if tx is None:
             return self._run_1(statement, parameters, hydrator)
         else:
@@ -603,7 +485,7 @@ class CypherResult(object):
         return int(identity)
 
     @classmethod
-    def _partially_hydrate_object(cls, data):
+    def _json_to_packstream(cls, data):
         if "self" in data:
             if "type" in data:
                 return Structure(b"R",
@@ -634,7 +516,7 @@ class CypherResult(object):
     @classmethod
     def from_json(cls, s, hydrator=None):
         from py2neo.database import GraphError
-        data = json_loads(s, object_hook=cls._partially_hydrate_object)     # TODO: other partial hydration
+        data = json_loads(s, object_hook=cls._json_to_packstream)     # TODO: other partial hydration
         if data.get("errors"):
             raise GraphError.hydrate(data["errors"][0])
         raw_result = data["results"][0]

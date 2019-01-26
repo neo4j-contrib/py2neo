@@ -52,7 +52,7 @@ function run_integration_cc_tests
 
 
 pip install --upgrade --quiet coverage pytest
-pip install --upgrade -r requirements.txt -r test_requirements.txt
+pip install --upgrade --quiet -r requirements.txt -r test_requirements.txt
 coverage erase
 run_unit_tests
 run_integration_tests

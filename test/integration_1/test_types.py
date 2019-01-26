@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from neotime import Date
+
 from py2neo.data import Node
 
 
@@ -98,3 +100,9 @@ def test_path(graph):
     assert type(o.relationships[0]).__name__ == "KNOWS"
     assert o.end_node.labels == {"Person"}
     assert dict(o.end_node) == {"name": "Bob"}
+
+
+def test_date(graph):
+    i = Date(2014, 8, 6)
+    o = graph.evaluate("RETURN $x", x=i)
+    assert o == i

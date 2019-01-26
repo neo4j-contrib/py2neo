@@ -774,11 +774,12 @@ class Transaction(object):
             entities = {}
 
         try:
-            from py2neo.internal.connectors import PackStreamHydrator
-            return self.connector.run(cypher,
-                                      dict(parameters or {}, **kwparameters),
-                                      self.transaction,
-                                      hydrator=(PackStreamHydrator(self.graph, [], entities)))
+            return self.connector.run(statement=cypher,
+                                      parameters=dict(parameters or {}, **kwparameters),
+                                      tx=self.transaction,
+                                      graph=self.graph,
+                                      keys=[],
+                                      entities=entities)
         except CypherError as error:
             raise GraphError.hydrate({"code": error.code, "message": error.message})
         finally:
