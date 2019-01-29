@@ -18,7 +18,7 @@
 
 from __future__ import absolute_import
 
-from collections import deque, OrderedDict
+from collections import OrderedDict
 from hashlib import new as hashlib_new
 from json import dumps as json_dumps, loads as json_loads
 
@@ -28,7 +28,7 @@ from neobolt.routing import RoutingConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo.internal.compat import bstr, urlsplit
-from py2neo.internal.hydration import JSONHydrator, PackStreamHydrator
+from py2neo.internal.hydration import CypherResult, JSONHydrator, PackStreamHydrator, HydrationError
 from py2neo.meta import NEO4J_URI, NEO4J_AUTH, NEO4J_USER_AGENT, NEO4J_SECURE, NEO4J_VERIFIED, \
     bolt_user_agent, http_user_agent
 
@@ -366,26 +366,27 @@ class HTTPConnector(Connector):
                                  headers=dict(self.headers))
 
     def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
-        from py2neo.database import GraphError  # TODO: breaks abstraction layers :(
         hydrator = JSONHydrator(version="rest", graph=graph, keys=keys, entities=entities)
         r = self._post("/db/data/transaction/%s" % (tx or "commit"), statement, hydrator.dehydrate(parameters))
         assert r.status == 200  # TODO: other codes
-        data = json_loads(r.data.decode("utf-8"), object_hook=hydrator.json_to_packstream)
-        if data.get("errors"):
+        try:
+            raw_result = hydrator.hydrate_result(r.data.decode("utf-8"))
+        except HydrationError as e:
+            from py2neo.database import GraphError  # TODO: breaks abstraction layers :(
             if tx is not None:
                 self.transactions.remove(tx)
-            raise GraphError.hydrate(data["errors"][0])
-        raw_result = data["results"][0]
-        result = CypherResult({
-            "connection": self.connection_data,
-            "fields": raw_result.get("columns"),
-            "plan": raw_result.get("plan"),
-            "stats": raw_result.get("stats"),
-        })
-        hydrator.keys = result.keys()
-        result.append_records(hydrator.hydrate(record[hydrator.version]) for record in raw_result["data"])
-        result.done()
-        return result
+            raise GraphError.hydrate(e.args[0])
+        else:
+            result = CypherResult({
+                "connection": self.connection_data,
+                "fields": raw_result.get("columns"),
+                "plan": raw_result.get("plan"),
+                "stats": raw_result.get("stats"),
+            })
+            hydrator.keys = result.keys()
+            result.append_records(hydrator.hydrate(record[hydrator.version]) for record in raw_result["data"])
+            result.done()
+            return result
 
     def begin(self):
         r = self._post("/db/data/transaction")
@@ -419,75 +420,3 @@ class SecureHTTPConnector(HTTPConnector):
         self.pool = HTTPSConnectionPool(host=cx_data["host"], port=cx_data["port"],
                                         cert_reqs="CERT_NONE", ca_certs=where())
         self.headers = make_headers(basic_auth=":".join(cx_data["auth"]))
-
-
-class CypherResult(object):
-    """ Buffer for a result from a Cypher query.
-    """
-
-    def __init__(self, metadata=None, on_more=None, on_done=None):
-        self._on_more = on_more
-        self._on_done = on_done
-        self._records = deque()
-        self._footer = metadata or {}
-        self._done = False
-
-    def append_records(self, records):
-        self._records.extend(tuple(record) for record in records)
-
-    def update_metadata(self, metadata):
-        self._footer.update(metadata)
-
-    def done(self):
-        if callable(self._on_done):
-            self._on_done()
-        self._done = True
-
-    @property
-    def _keys(self):
-        return self._footer.get("fields")
-
-    def keys(self):
-        while not self._keys and not self._done and callable(self._on_more):
-            self._on_more()
-        return self._keys
-
-    def buffer(self):
-        while not self._done:
-            if callable(self._on_more):
-                self._on_more()
-
-    def summary(self):
-        from py2neo.database import CypherSummary
-        self.buffer()
-        return CypherSummary(**self._footer)
-
-    def plan(self):
-        from py2neo.database import CypherPlan
-        self.buffer()
-        if "plan" in self._footer:
-            return CypherPlan(**self._footer["plan"])
-        elif "profile" in self._footer:
-            return CypherPlan(**self._footer["profile"])
-        else:
-            return None
-
-    def stats(self):
-        from py2neo.database import CypherStats
-        self.buffer()
-        return CypherStats(**self._footer.get("stats", {}))
-
-    def fetch(self):
-        from py2neo.data import Record
-        if self._records:
-            return Record(zip(self.keys(), self._records.popleft()))
-        elif self._done:
-            return None
-        else:
-            while not self._records and not self._done:
-                if callable(self._on_more):
-                    self._on_more()
-            try:
-                return Record(zip(self.keys(), self._records.popleft()))
-            except IndexError:
-                return None
