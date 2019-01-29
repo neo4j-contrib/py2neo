@@ -23,7 +23,12 @@ from collections import namedtuple
 from neobolt.packstream import Structure
 
 from py2neo.data import Node, Relationship, Path
+from py2neo.internal.compat import Sequence, Mapping, integer_types, string_types
 from py2neo.matching import RelationshipMatcher
+
+
+INT64_LO = -(2 ** 63)
+INT64_HI = 2 ** 63 - 1
 
 
 def uri_to_id(uri):
@@ -36,6 +41,9 @@ def uri_to_id(uri):
 class Hydrator(object):
 
     def hydrate(self, values):
+        raise NotImplementedError()
+
+    def dehydrate(self, values):
         raise NotImplementedError()
 
 
@@ -123,6 +131,33 @@ class PackStreamHydrator(Hydrator):
                 return obj
 
         return tuple(hydrate_object(value, entities.get(keys[i])) for i, value in enumerate(values))
+
+    def dehydrate(self, data):
+        """ Dehydrate to PackStream.
+        """
+        from neotime import Date
+        if data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):
+            return data
+        elif isinstance(data, integer_types):
+            if data < INT64_LO or data > INT64_HI:
+                raise ValueError("Integers must be within the signed 64-bit range")
+            return data
+        elif isinstance(data, bytearray):
+            return data
+        elif isinstance(data, Date):
+            epoch = Date(1970, 1, 1)
+            return Structure(b"D", data.toordinal() - epoch.toordinal())
+        elif isinstance(data, Mapping):
+            d = {}
+            for key in data:
+                if not isinstance(key, string_types):
+                    raise TypeError("Dictionary keys must be strings")
+                d[key] = self.dehydrate(data[key])
+            return d
+        elif isinstance(data, Sequence):
+            return list(map(self.dehydrate, data))
+        else:
+            raise TypeError("Neo4j does not support PackStream parameters of type %s" % type(data).__name__)
 
 
 class JSONHydrator(Hydrator):
@@ -249,6 +284,29 @@ class JSONHydrator(Hydrator):
                 return obj
 
         return tuple(hydrate_object(value, entities.get(keys[i])) for i, value in enumerate(values))
+
+    def dehydrate(self, data):
+        """ Dehydrate to JSON.
+        """
+        if data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):
+            return data
+        elif isinstance(data, integer_types):
+            if data < INT64_LO or data > INT64_HI:
+                raise ValueError("Integers must be within the signed 64-bit range")
+            return data
+        elif isinstance(data, bytearray):
+            return list(data)
+        elif isinstance(data, Mapping):
+            d = {}
+            for key in data:
+                if not isinstance(key, string_types):
+                    raise TypeError("Dictionary keys must be strings")
+                d[key] = self.dehydrate(data[key])
+            return d
+        elif isinstance(data, Sequence):
+            return list(map(self.dehydrate, data))
+        else:
+            raise TypeError("Neo4j does not support JSON parameters of type %s" % type(data).__name__)
 
 
 def node_instance(instance, graph, identity, labels=None, properties=None):

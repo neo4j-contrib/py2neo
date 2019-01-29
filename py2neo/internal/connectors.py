@@ -24,11 +24,10 @@ from json import dumps as json_dumps, loads as json_loads
 
 from certifi import where
 from neobolt.direct import connect, ConnectionPool
-from neobolt.packstream import Structure
 from neobolt.routing import RoutingConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
-from py2neo.internal.compat import Sequence, Mapping, bstr, integer_types, string_types, urlsplit
+from py2neo.internal.compat import bstr, urlsplit
 from py2neo.internal.hydration import JSONHydrator, PackStreamHydrator
 from py2neo.meta import NEO4J_URI, NEO4J_AUTH, NEO4J_USER_AGENT, NEO4J_SECURE, NEO4J_VERIFIED, \
     bolt_user_agent, http_user_agent
@@ -43,10 +42,6 @@ DEFAULT_HOST = "localhost"
 DEFAULT_BOLT_PORT = 7687
 DEFAULT_HTTP_PORT = 7474
 DEFAULT_HTTPS_PORT = 7473
-
-
-INT64_LO = -(2 ** 63)
-INT64_HI = 2 ** 63 - 1
 
 
 def coalesce(*values):
@@ -159,10 +154,6 @@ class Connector(object):
     transactions = set()
 
     @classmethod
-    def dehydrate(cls, data):
-        raise NotImplementedError()
-
-    @classmethod
     def walk_subclasses(cls):
         subclasses = cls.__subclasses__()
         for subclass in subclasses:
@@ -239,38 +230,10 @@ class BoltConnector(Connector):
     def close(self):
         self.pool.close()
 
-    @classmethod
-    def dehydrate(cls, data):
-        """ Dehydrate to PackStream.
-        """
-        from neotime import Date
-        if data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):
-            return data
-        elif isinstance(data, integer_types):
-            if data < INT64_LO or data > INT64_HI:
-                raise ValueError("Integers must be within the signed 64-bit range")
-            return data
-        elif isinstance(data, bytearray):
-            return data
-        elif isinstance(data, Date):
-            epoch = Date(1970, 1, 1)
-            return Structure(b"D", data.toordinal() - epoch.toordinal())
-        elif isinstance(data, Mapping):
-            d = {}
-            for key in data:
-                if not isinstance(key, string_types):
-                    raise TypeError("Dictionary keys must be strings")
-                d[key] = cls.dehydrate(data[key])
-            return d
-        elif isinstance(data, Sequence):
-            return list(map(cls.dehydrate, data))
-        else:
-            raise TypeError("Neo4j does not support PackStream parameters of type %s" % type(data).__name__)
-
     def _run_1(self, statement, parameters, graph, keys, entities):
         cx = self.pool.acquire()
         hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys, entities=entities)
-        dehydrated_parameters = self.dehydrate(parameters)
+        dehydrated_parameters = hydrator.dehydrate(parameters)
         result = CypherResult(on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
         result.update_metadata({"connection": self.connection_data})
 
@@ -297,7 +260,7 @@ class BoltConnector(Connector):
             self._fail(metadata)
 
         hydrator = PackStreamHydrator(version=tx.protocol_version, graph=graph, keys=keys, entities=entities)
-        dehydrated_parameters = self.dehydrate(parameters)
+        dehydrated_parameters = hydrator.dehydrate(parameters)
         result = CypherResult(on_more=fetch)
         result.update_metadata({"connection": self.connection_data})
 
@@ -380,30 +343,6 @@ class HTTPConnector(Connector):
     def close(self):
         self.pool.close()
 
-    @classmethod
-    def dehydrate(cls, data):
-        """ Dehydrate to JSON.
-        """
-        if data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):
-            return data
-        elif isinstance(data, integer_types):
-            if data < INT64_LO or data > INT64_HI:
-                raise ValueError("Integers must be within the signed 64-bit range")
-            return data
-        elif isinstance(data, bytearray):
-            return list(data)
-        elif isinstance(data, Mapping):
-            d = {}
-            for key in data:
-                if not isinstance(key, string_types):
-                    raise TypeError("Dictionary keys must be strings")
-                d[key] = cls.dehydrate(data[key])
-            return d
-        elif isinstance(data, Sequence):
-            return list(map(cls.dehydrate, data))
-        else:
-            raise TypeError("Neo4j does not support JSON parameters of type %s" % type(data).__name__)
-
     def _post(self, url, statement=None, parameters=None):
         if statement:
             statements = [
@@ -428,9 +367,9 @@ class HTTPConnector(Connector):
 
     def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
         from py2neo.database import GraphError  # TODO: breaks abstraction layers :(
-        r = self._post("/db/data/transaction/%s" % (tx or "commit"), statement, self.dehydrate(parameters))
-        assert r.status == 200  # TODO: other codes
         hydrator = JSONHydrator(version="rest", graph=graph, keys=keys, entities=entities)
+        r = self._post("/db/data/transaction/%s" % (tx or "commit"), statement, hydrator.dehydrate(parameters))
+        assert r.status == 200  # TODO: other codes
         data = json_loads(r.data.decode("utf-8"), object_hook=hydrator.json_to_packstream)
         if data.get("errors"):
             if tx is not None:
