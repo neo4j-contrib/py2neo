@@ -57,3 +57,4 @@ venv
 .mozilla
 .nv
 .ipynb_checkpoints
+.vscode
