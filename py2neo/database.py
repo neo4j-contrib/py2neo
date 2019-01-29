@@ -774,12 +774,12 @@ class Transaction(object):
             entities = {}
 
         try:
-            return self.connector.run(statement=cypher,
-                                      parameters=dict(parameters or {}, **kwparameters),
-                                      tx=self.transaction,
-                                      graph=self.graph,
-                                      keys=[],
-                                      entities=entities)
+            return Cursor(self.connector.run(statement=cypher,
+                                             parameters=dict(parameters or {}, **kwparameters),
+                                             tx=self.transaction,
+                                             graph=self.graph,
+                                             keys=[],
+                                             entities=entities))
         except CypherError as error:
             raise GraphError.hydrate({"code": error.code, "message": error.message})
         finally:

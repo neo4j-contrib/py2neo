@@ -18,7 +18,7 @@
 
 from __future__ import absolute_import
 
-from collections import deque, namedtuple, OrderedDict
+from collections import deque, OrderedDict
 from hashlib import new as hashlib_new
 from json import dumps as json_dumps, loads as json_loads
 
@@ -29,7 +29,7 @@ from neobolt.routing import RoutingConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo.internal.compat import Sequence, Mapping, bstr, integer_types, string_types, urlsplit
-from py2neo.internal.hydration import PackStreamHydrator
+from py2neo.internal.hydration import JSONHydrator, PackStreamHydrator
 from py2neo.meta import NEO4J_URI, NEO4J_AUTH, NEO4J_USER_AGENT, NEO4J_SECURE, NEO4J_VERIFIED, \
     bolt_user_agent, http_user_agent
 
@@ -50,6 +50,9 @@ INT64_HI = 2 ** 63 - 1
 
 
 def coalesce(*values):
+    """ Utility function to return the first non-null value from a
+    sequence of values.
+    """
     for value in values:
         if value is not None:
             return value
@@ -265,21 +268,24 @@ class BoltConnector(Connector):
             raise TypeError("Neo4j does not support PackStream parameters of type %s" % type(data).__name__)
 
     def _run_1(self, statement, parameters, graph, keys, entities):
-        from py2neo.database import Cursor
         cx = self.pool.acquire()
         hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys, entities=entities)
         dehydrated_parameters = self.dehydrate(parameters)
-        result = CypherResult(hydrator=hydrator, on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
+        result = CypherResult(on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
         result.update_metadata({"connection": self.connection_data})
-        cx.run(statement, dehydrated_parameters or {}, on_success=result.update_metadata, on_failure=self._fail)
-        cx.pull_all(on_records=result.append_records,
+
+        def update_metadata_with_keys(metadata):
+            result.update_metadata(metadata)
+            hydrator.keys = result.keys()
+
+        cx.run(statement, dehydrated_parameters or {}, on_success=update_metadata_with_keys, on_failure=self._fail)
+        cx.pull_all(on_records=lambda records: result.append_records(map(hydrator.hydrate, records)),
                     on_success=result.update_metadata, on_failure=self._fail, on_summary=result.done)
         cx.send()
         cx.fetch()
-        return Cursor(result)
+        return result
 
     def _run_in_tx(self, statement, parameters, tx, graph, keys, entities):
-        from py2neo.database import Cursor
         self._assert_valid_tx(tx)
 
         def fetch():
@@ -292,14 +298,19 @@ class BoltConnector(Connector):
 
         hydrator = PackStreamHydrator(version=tx.protocol_version, graph=graph, keys=keys, entities=entities)
         dehydrated_parameters = self.dehydrate(parameters)
-        result = CypherResult(hydrator=hydrator, on_more=fetch)
+        result = CypherResult(on_more=fetch)
         result.update_metadata({"connection": self.connection_data})
-        tx.run(statement, dehydrated_parameters or {}, on_success=result.update_metadata, on_failure=fail)
-        tx.pull_all(on_records=result.append_records,
+
+        def update_metadata_with_keys(metadata):
+            result.update_metadata(metadata)
+            hydrator.keys = result.keys()
+
+        tx.run(statement, dehydrated_parameters or {}, on_success=update_metadata_with_keys, on_failure=fail)
+        tx.pull_all(on_records=lambda records: result.append_records(map(hydrator.hydrate, records)),
                     on_success=result.update_metadata, on_failure=fail, on_summary=result.done)
         tx.send()
         result.keys()   # force receipt of RUN summary, to detect any errors
-        return Cursor(result)
+        return result
 
     @classmethod
     def _fail(cls, metadata):
@@ -415,31 +426,27 @@ class HTTPConnector(Connector):
                                  url=url,
                                  headers=dict(self.headers))
 
-    def _run_1(self, statement, parameters, hydrator):
-        from py2neo.database import Cursor
-        r = self._post("/db/data/transaction/commit", statement, self.dehydrate(parameters))
-        result = CypherResult.from_json(r.data.decode("utf-8"), hydrator=hydrator)
-        result.update_metadata({"connection": self.connection_data})
-        return Cursor(result)
-
-    def _run_in_tx(self, statement, parameters, tx, hydrator):
-        from py2neo.database import Cursor, GraphError
-        r = self._post("/db/data/transaction/%s" % tx, statement, self.dehydrate(parameters))
-        assert r.status == 200  # TODO: other codes
-        try:
-            result = CypherResult.from_json(r.data.decode("utf-8"), hydrator=hydrator)
-            result.update_metadata({"connection": self.connection_data})
-            return Cursor(result)
-        except GraphError:
-            self.transactions.remove(tx)
-            raise
-
     def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
-        hydrator = PackStreamHydrator(version=1, graph=graph, keys=keys, entities=entities)
-        if tx is None:
-            return self._run_1(statement, parameters, hydrator)
-        else:
-            return self._run_in_tx(statement, parameters, tx, hydrator)
+        from py2neo.database import GraphError  # TODO: breaks abstraction layers :(
+        r = self._post("/db/data/transaction/%s" % (tx or "commit"), statement, self.dehydrate(parameters))
+        assert r.status == 200  # TODO: other codes
+        hydrator = JSONHydrator(version="rest", graph=graph, keys=keys, entities=entities)
+        data = json_loads(r.data.decode("utf-8"), object_hook=hydrator.json_to_packstream)
+        if data.get("errors"):
+            if tx is not None:
+                self.transactions.remove(tx)
+            raise GraphError.hydrate(data["errors"][0])
+        raw_result = data["results"][0]
+        result = CypherResult({
+            "connection": self.connection_data,
+            "fields": raw_result.get("columns"),
+            "plan": raw_result.get("plan"),
+            "stats": raw_result.get("stats"),
+        })
+        hydrator.keys = result.keys()
+        result.append_records(hydrator.hydrate(record[hydrator.version]) for record in raw_result["data"])
+        result.done()
+        return result
 
     def begin(self):
         r = self._post("/db/data/transaction")
@@ -479,83 +486,27 @@ class CypherResult(object):
     """ Buffer for a result from a Cypher query.
     """
 
-    @classmethod
-    def _uri_to_id(cls, uri):
-        _, _, identity = uri.rpartition("/")
-        return int(identity)
-
-    @classmethod
-    def _json_to_packstream(cls, data):
-        if "self" in data:
-            if "type" in data:
-                return Structure(b"R",
-                                 cls._uri_to_id(data["self"]),
-                                 cls._uri_to_id(data["start"]),
-                                 cls._uri_to_id(data["end"]),
-                                 data["type"],
-                                 data["data"])
-            else:
-                return Structure(b"N",
-                                 cls._uri_to_id(data["self"]),
-                                 data["metadata"]["labels"],
-                                 data["data"])
-        elif "nodes" in data and "relationships" in data:
-            nodes = [Structure(b"N", i, None, None) for i in map(cls._uri_to_id, data["nodes"])]
-            relps = [Structure(b"r", i, None, None) for i in map(cls._uri_to_id, data["relationships"])]
-            seq = [i // 2 + 1 for i in range(2 * len(data["relationships"]))]
-            for i, direction in enumerate(data["directions"]):
-                if direction == "<-":
-                    seq[2 * i] *= -1
-            return Structure(b"P", nodes, relps, seq)
-        else:
-            # from warnings import warn
-            # warn("Map literals returned over the Neo4j HTTP interface are ambiguous "
-            #      "and may be unintentionally hydrated as graph objects")
-            return data
-
-    @classmethod
-    def from_json(cls, s, hydrator=None):
-        from py2neo.database import GraphError
-        data = json_loads(s, object_hook=cls._json_to_packstream)     # TODO: other partial hydration
-        if data.get("errors"):
-            raise GraphError.hydrate(data["errors"][0])
-        raw_result = data["results"][0]
-        result = cls(hydrator=hydrator)
-        result.update_metadata({"fields": raw_result["columns"]})
-        result.append_records(record["rest"] for record in raw_result["data"])
-        metadata = {"stats": raw_result["stats"]}
-        if "plan" in raw_result:
-            metadata["plan"] = raw_result["plan"]
-        result.update_metadata(metadata)
-        result.done()
-        return result
-
-    def __init__(self, hydrator=None, on_more=None, on_done=None):
-        self._hydrator = hydrator
+    def __init__(self, metadata=None, on_more=None, on_done=None):
         self._on_more = on_more
         self._on_done = on_done
-        self._keys = None
         self._records = deque()
-        self._footer = {}
+        self._footer = metadata or {}
         self._done = False
 
     def append_records(self, records):
-        if self._hydrator:
-            self._records.extend(tuple(self._hydrator.hydrate(record)) for record in records)
-        else:
-            self._records.extend(tuple(record) for record in records)
+        self._records.extend(tuple(record) for record in records)
 
     def update_metadata(self, metadata):
         self._footer.update(metadata)
-        if "fields" in metadata:
-            self._keys = metadata["fields"]
-            if self._hydrator is not None:
-                self._hydrator.keys = self._keys    # TODO: unscrew this
 
     def done(self):
         if callable(self._on_done):
             self._on_done()
         self._done = True
+
+    @property
+    def _keys(self):
+        return self._footer.get("fields")
 
     def keys(self):
         while not self._keys and not self._done and callable(self._on_more):

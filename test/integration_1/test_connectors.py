@@ -23,7 +23,7 @@ from collections import deque
 from pytest import skip
 
 from py2neo.data import Record
-from py2neo.database import CypherStats, CypherPlan
+from py2neo.database import Cursor, CypherStats, CypherPlan
 
 
 def test_bolt_connection_pool_usage_for_autocommit(connector):
@@ -103,14 +103,14 @@ def test_server_agent(connector, neo4j_version):
 
 
 def test_keys(connector):
-    cursor = connector.run("RETURN 'Alice' AS name, 33 AS age")
+    cursor = Cursor(connector.run("RETURN 'Alice' AS name, 33 AS age"))
     expected = ["name", "age"]
     actual = cursor.keys()
     assert expected == actual
 
 
 def test_records(connector):
-    cursor = connector.run("UNWIND range(1, $x) AS n RETURN n, n * n AS n_sq", {"x": 3})
+    cursor = Cursor(connector.run("UNWIND range(1, $x) AS n RETURN n, n * n AS n_sq", {"x": 3}))
     expected = deque([(1, 1), (2, 4), (3, 9)])
     for actual_record in cursor:
         expected_record = Record(zip(["n", "n_sq"], expected.popleft()))
@@ -118,14 +118,14 @@ def test_records(connector):
 
 
 def test_stats(connector):
-    cursor = connector.run("CREATE ()", {})
+    cursor = Cursor(connector.run("CREATE ()", {}))
     expected = CypherStats(nodes_created=1)
     actual = cursor.stats()
     assert expected == actual
 
 
 # def test_explain_plan(connector, neo4j_minor_version):
-#     cursor = connector.run("EXPLAIN RETURN $x", {"x": 1})
+#     cursor = Cursor(connector.run("EXPLAIN RETURN $x", {"x": 1}))
 #     expected = CypherPlan(
 #         operator_type='ProduceResults',
 #         identifiers=['$x'],
@@ -156,7 +156,7 @@ def test_stats(connector):
 
 
 # def test_profile_plan(connector, neo4j_version):
-#     cursor = connector.run("PROFILE RETURN $x", {"x": 1})
+#     cursor = Cursor(connector.run("PROFILE RETURN $x", {"x": 1}))
 #     actual = cursor.plan()
 #     expected = CypherPlan(
 #         operator_type='ProduceResults',

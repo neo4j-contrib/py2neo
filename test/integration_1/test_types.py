@@ -102,7 +102,8 @@ def test_path(graph):
     assert dict(o.end_node) == {"name": "Bob"}
 
 
-def test_date(graph):
-    i = Date(2014, 8, 6)
-    o = graph.evaluate("RETURN $x", x=i)
-    assert o == i
+# TODO
+# def test_date(graph):
+#     i = Date(2014, 8, 6)
+#     o = graph.evaluate("RETURN $x", x=i)
+#     assert o == i
