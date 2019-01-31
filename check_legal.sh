@@ -8,7 +8,7 @@ function check_license {
 
 function check_copyright {
     YEAR=$(date +%Y)
-    find py2neo -name '*.py' | xargs grep -L "Copyright 2011-${YEAR}"
+    find py2neo -name '*.py' | xargs grep -L -e "Copyright.* 20[0-9][0-9]-${YEAR}"
 }
 
 
