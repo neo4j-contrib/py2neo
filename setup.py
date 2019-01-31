@@ -22,6 +22,7 @@ try:
 except ImportError:
     from distutils.core import setup, find_packages
 
+__SETUP = True
 from py2neo.meta import __author__, __email__, __license__, __package__, __version__
 
 
@@ -55,6 +56,7 @@ package_metadata = {
         "neotime<1.8,>=1.7.4",
         "prompt_toolkit<2.1,>=2.0.7",
         "pygments<2.4,>=2.3.0",
+        "pytz",
         "urllib3[secure]<1.25,>=1.23",
     ],
     "extras_require": {

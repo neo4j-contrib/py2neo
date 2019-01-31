@@ -16,7 +16,8 @@
 # limitations under the License.
 
 
-from neotime import Date
+from neotime import Date, Time, DateTime, Duration
+from pytest import skip
 
 from py2neo.data import Node
 
@@ -102,8 +103,37 @@ def test_path(graph):
     assert dict(o.end_node) == {"name": "Bob"}
 
 
-# TODO
-# def test_date(graph):
-#     i = Date(2014, 8, 6)
-#     o = graph.evaluate("RETURN $x", x=i)
-#     assert o == i
+def skip_if_no_temporal_support(graph):
+    connector = graph.database.connector
+    if graph.database.kernel_version < (3, 4):
+        skip("Temporal type tests are only valid for Neo4j 3.4+")
+    if "bolt" not in connector.scheme:
+        skip("Temporal type tests are only valid for Bolt connectors")
+
+
+def test_date(graph):
+    skip_if_no_temporal_support(graph)
+    i = Date(2014, 8, 6)
+    o = graph.evaluate("RETURN $x", x=i)
+    assert o == i
+
+
+def test_time(graph):
+    skip_if_no_temporal_support(graph)
+    i = Time(12, 34, 56.789)
+    o = graph.evaluate("RETURN $x", x=i)
+    assert o == i
+
+
+def test_date_time(graph):
+    skip_if_no_temporal_support(graph)
+    i = DateTime(2014, 8, 6, 12, 34, 56.789)
+    o = graph.evaluate("RETURN $x", x=i)
+    assert o == i
+
+
+def test_duration(graph):
+    skip_if_no_temporal_support(graph)
+    i = Duration(months=1, days=2, seconds=3)
+    o = graph.evaluate("RETURN $x", x=i)
+    assert o == i

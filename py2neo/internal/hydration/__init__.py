@@ -23,8 +23,15 @@ from json import loads as json_loads
 
 from neobolt.packstream import Structure
 
-from py2neo.data import Node, Relationship, Path
 from py2neo.internal.compat import Sequence, Mapping, integer_types, string_types
+from py2neo.internal.hydration.spatial import (
+    hydration_functions as spatial_hydration_functions,
+    dehydration_functions as spatial_dehydration_functions,
+)
+from py2neo.internal.hydration.temporal import (
+    hydration_functions as temporal_hydration_functions,
+    dehydration_functions as temporal_dehydration_functions,
+)
 from py2neo.matching import RelationshipMatcher
 
 
@@ -113,11 +120,76 @@ class CypherResult(object):
 
 class Hydrator(object):
 
+    def __init__(self, graph):
+        self.graph = graph
+
     def hydrate(self, values):
         raise NotImplementedError()
 
     def dehydrate(self, values):
         raise NotImplementedError()
+
+    def hydrate_node(self, instance, identity, labels=None, properties=None):
+        if instance is None:
+
+            def instance_constructor():
+                from py2neo.data import Node
+                new_instance = Node()
+                new_instance.graph = self.graph
+                new_instance.identity = identity
+                new_instance._stale.update({"labels", "properties"})
+                return new_instance
+
+            instance = self.graph.node_cache.update(identity, instance_constructor)
+        else:
+            instance.graph = self.graph
+            instance.identity = identity
+            self.graph.node_cache.update(identity, instance)
+
+        if properties is not None:
+            instance._stale.discard("properties")
+            instance.clear()
+            instance.update(properties)
+
+        if labels is not None:
+            instance._stale.discard("labels")
+            instance._remote_labels = frozenset(labels)
+            instance.clear_labels()
+            instance.update_labels(labels)
+
+        return instance
+
+    def hydrate_relationship(self, instance, identity, start, end, type=None, properties=None):
+
+        if instance is None:
+
+            def instance_constructor():
+                from py2neo.data import Relationship
+                if properties is None:
+                    new_instance = Relationship(self.hydrate_node(None, start), type,
+                                                self.hydrate_node(None, end))
+                    new_instance._stale.add("properties")
+                else:
+                    new_instance = Relationship(self.hydrate_node(None, start), type,
+                                                self.hydrate_node(None, end), **properties)
+                new_instance.graph = self.graph
+                new_instance.identity = identity
+                return new_instance
+
+            instance = self.graph.relationship_cache.update(identity, instance_constructor)
+        else:
+            instance.graph = self.graph
+            instance.identity = identity
+            self.hydrate_node(instance.start_node, start)
+            self.hydrate_node(instance.end_node, end)
+            instance._type = type
+            if properties is None:
+                instance._stale.add("properties")
+            else:
+                instance.clear()
+                instance.update(properties)
+            self.graph.relationship_cache.update(identity, instance)
+        return instance
 
 
 class HydrationError(Exception):
@@ -130,77 +202,85 @@ class PackStreamHydrator(Hydrator):
     unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
     def __init__(self, version, graph, keys, entities=None):
+        super(PackStreamHydrator, self).__init__(graph)
         self.version = version
-        self.graph = graph
         self.keys = keys
         self.entities = entities or {}
         self.hydration_functions = {}
+        self.dehydration_functions = {}
+        if self.version >= 2:
+            self.hydration_functions.update(temporal_hydration_functions())
+            self.hydration_functions.update(spatial_hydration_functions())
+            self.dehydration_functions.update(temporal_dehydration_functions())
+            self.dehydration_functions.update(spatial_dehydration_functions())
 
     def hydrate(self, values):
         """ Convert PackStream values into native values.
         """
+        return tuple(self.hydrate_object(value, self.entities.get(self.keys[i]))
+                     for i, value in enumerate(values))
 
-        graph = self.graph
-        entities = self.entities
-        keys = self.keys
-
-        def hydrate_object(obj, inst=None):
-            if isinstance(obj, Structure):
-                tag = obj.tag
-                fields = obj.fields
-                if tag == b"N":
-                    return node_instance(inst, graph, fields[0], fields[1], hydrate_object(fields[2]))
-                elif tag == b"R":
-                    return relationship_instance(inst, graph, fields[0],
-                                                 fields[1], fields[2],
-                                                 fields[3], hydrate_object(fields[4]))
-                elif tag == b"P":
-                    nodes = [hydrate_object(node) for node in fields[0]]
-                    u_rels = []
-                    for r in fields[1]:
-                        u_rel = self.unbound_relationship(*map(hydrate_object, r))
-                        u_rels.append(u_rel)
-                    sequence = fields[2]
-                    last_node = nodes[0]
-                    steps = [last_node]
-                    for i, rel_index in enumerate(sequence[::2]):
-                        next_node = nodes[sequence[2 * i + 1]]
-                        if rel_index > 0:
-                            u_rel = u_rels[rel_index - 1]
-                            rel = relationship_instance(None, graph, u_rel.id,
-                                                        last_node.identity, next_node.identity,
-                                                        u_rel.type, u_rel.properties)
-                        else:
-                            u_rel = u_rels[-rel_index - 1]
-                            rel = relationship_instance(None, graph, u_rel.id,
-                                                        next_node.identity, last_node.identity,
-                                                        u_rel.type, u_rel.properties)
-                        steps.append(rel)
-                        steps.append(next_node)
-                        last_node = next_node
-                    return Path(*steps)
-                else:
-                    try:
-                        f = self.hydration_functions[obj.tag]
-                    except KeyError:
-                        # If we don't recognise the structure type, just return it as-is
-                        return obj
-                    else:
-                        return f(*map(hydrate_object, obj.fields))
-            elif isinstance(obj, list):
-                return list(map(hydrate_object, obj))
-            elif isinstance(obj, dict):
-                return {key: hydrate_object(value) for key, value in obj.items()}
+    def hydrate_object(self, obj, inst=None):
+        if isinstance(obj, Structure):
+            tag = obj.tag
+            fields = obj.fields
+            if tag == b"N":
+                return self.hydrate_node(inst, fields[0], fields[1], self.hydrate_object(fields[2]))
+            elif tag == b"R":
+                return self.hydrate_relationship(inst, fields[0], fields[1], fields[2], fields[3],
+                                                 self.hydrate_object(fields[4]))
+            elif tag == b"P":
+                return self.hydrate_path(*fields)
             else:
-                return obj
+                try:
+                    f = self.hydration_functions[obj.tag]
+                except KeyError:
+                    # If we don't recognise the structure type, just return it as-is
+                    return obj
+                else:
+                    return f(*map(self.hydrate_object, obj.fields))
+        elif isinstance(obj, list):
+            return list(map(self.hydrate_object, obj))
+        elif isinstance(obj, dict):
+            return {key: self.hydrate_object(value) for key, value in obj.items()}
+        else:
+            return obj
 
-        return tuple(hydrate_object(value, entities.get(keys[i])) for i, value in enumerate(values))
+    def hydrate_path(self, nodes, relationships, sequence):
+        from py2neo.data import Path
+        nodes = [self.hydrate_node(None, n_id, n_label, self.hydrate_object(n_properties))
+                 for n_id, n_label, n_properties in nodes]
+        u_rels = []
+        for r_id, r_type, r_properties in relationships:
+            u_rel = self.unbound_relationship(r_id, r_type, self.hydrate_object(r_properties))
+            u_rels.append(u_rel)
+        last_node = nodes[0]
+        steps = [last_node]
+        for i, rel_index in enumerate(sequence[::2]):
+            next_node = nodes[sequence[2 * i + 1]]
+            if rel_index > 0:
+                u_rel = u_rels[rel_index - 1]
+                rel = self.hydrate_relationship(None, u_rel.id,
+                                                last_node.identity, next_node.identity,
+                                                u_rel.type, u_rel.properties)
+            else:
+                u_rel = u_rels[-rel_index - 1]
+                rel = self.hydrate_relationship(None, u_rel.id,
+                                                next_node.identity, last_node.identity,
+                                                u_rel.type, u_rel.properties)
+            steps.append(rel)
+            # steps.append(next_node)
+            last_node = next_node
+        return Path(*steps)
 
     def dehydrate(self, data):
         """ Dehydrate to PackStream.
         """
-        from neotime import Date
-        if data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):
+        t = type(data)
+        if t in self.dehydration_functions:
+            f = self.dehydration_functions[t]
+            return f(data)
+        elif data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):
             return data
         elif isinstance(data, integer_types):
             if data < INT64_LO or data > INT64_HI:
@@ -208,9 +288,6 @@ class PackStreamHydrator(Hydrator):
             return data
         elif isinstance(data, bytearray):
             return data
-        elif isinstance(data, Date):
-            epoch = Date(1970, 1, 1)
-            return Structure(b"D", data.toordinal() - epoch.toordinal())
         elif isinstance(data, Mapping):
             d = {}
             for key in data:
@@ -229,10 +306,10 @@ class JSONHydrator(Hydrator):
     unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
     def __init__(self, version, graph, keys, entities=None):
+        super(JSONHydrator, self).__init__(graph)
         self.version = version
         if self.version != "rest":
             raise ValueError("Unsupported JSON version %r" % self.version)
-        self.graph = graph
         self.keys = keys
         self.entities = entities or {}
         self.hydration_functions = {}
@@ -284,15 +361,16 @@ class JSONHydrator(Hydrator):
         keys = self.keys
 
         def hydrate_object(obj, inst=None):
+            from py2neo.data import Path
             if isinstance(obj, Structure):
                 tag = obj.tag
                 fields = obj.fields
                 if tag == b"N":
-                    return node_instance(inst, graph, fields[0], fields[1], hydrate_object(fields[2]))
+                    return self.hydrate_node(inst, fields[0], fields[1], hydrate_object(fields[2]))
                 elif tag == b"R":
-                    return relationship_instance(inst, graph, fields[0],
-                                                 fields[1], fields[2],
-                                                 fields[3], hydrate_object(fields[4]))
+                    return self.hydrate_relationship(inst, fields[0],
+                                                     fields[1], fields[2],
+                                                     fields[3], hydrate_object(fields[4]))
                 elif tag == b"P":
                     # Herein lies a dirty hack to retrieve missing relationship
                     # detail for paths received over HTTP.
@@ -320,16 +398,16 @@ class JSONHydrator(Hydrator):
                         next_node = nodes[sequence[2 * i + 1]]
                         if rel_index > 0:
                             u_rel = u_rels[rel_index - 1]
-                            rel = relationship_instance(None, graph, u_rel.id,
-                                                        last_node.identity, next_node.identity,
-                                                        u_rel.type, u_rel.properties)
+                            rel = self.hydrate_relationship(None, u_rel.id,
+                                                            last_node.identity, next_node.identity,
+                                                            u_rel.type, u_rel.properties)
                         else:
                             u_rel = u_rels[-rel_index - 1]
-                            rel = relationship_instance(None, graph, u_rel.id,
-                                                        next_node.identity, last_node.identity,
-                                                        u_rel.type, u_rel.properties)
+                            rel = self.hydrate_relationship(None, u_rel.id,
+                                                            next_node.identity, last_node.identity,
+                                                            u_rel.type, u_rel.properties)
                         steps.append(rel)
-                        steps.append(next_node)
+                        # steps.append(next_node)
                         last_node = next_node
                     return Path(*steps)
                 else:
@@ -377,65 +455,3 @@ class JSONHydrator(Hydrator):
             return list(map(self.dehydrate, data))
         else:
             raise TypeError("Neo4j does not support JSON parameters of type %s" % type(data).__name__)
-
-
-def node_instance(instance, graph, identity, labels=None, properties=None):
-    if instance is None:
-
-        def instance_constructor():
-            new_instance = Node()
-            new_instance.graph = graph
-            new_instance.identity = identity
-            new_instance._stale.update({"labels", "properties"})
-            return new_instance
-
-        instance = graph.node_cache.update(identity, instance_constructor)
-    else:
-        instance.graph = graph
-        instance.identity = identity
-        graph.node_cache.update(identity, instance)
-
-    if properties is not None:
-        instance._stale.discard("properties")
-        instance.clear()
-        instance.update(properties)
-
-    if labels is not None:
-        instance._stale.discard("labels")
-        instance._remote_labels = frozenset(labels)
-        instance.clear_labels()
-        instance.update_labels(labels)
-
-    return instance
-
-
-def relationship_instance(instance, graph, identity, start, end, type=None, properties=None):
-
-    if instance is None:
-
-        def instance_constructor():
-            if properties is None:
-                new_instance = Relationship(node_instance(None, graph, start), type,
-                                            node_instance(None, graph, end))
-                new_instance._stale.add("properties")
-            else:
-                new_instance = Relationship(node_instance(None, graph, start), type,
-                                            node_instance(None, graph, end), **properties)
-            new_instance.graph = graph
-            new_instance.identity = identity
-            return new_instance
-
-        instance = graph.relationship_cache.update(identity, instance_constructor)
-    else:
-        instance.graph = graph
-        instance.identity = identity
-        node_instance(instance.start_node, graph, start)
-        node_instance(instance.end_node, graph, end)
-        instance._type = type
-        if properties is None:
-            instance._stale.add("properties")
-        else:
-            instance.clear()
-            instance.update(properties)
-        graph.relationship_cache.update(identity, instance)
-    return instance
