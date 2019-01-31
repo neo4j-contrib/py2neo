@@ -430,6 +430,29 @@ class Graph(object):
         """ Run a :meth:`.Transaction.merge` operation within an
         `autocommit` :class:`.Transaction`.
 
+        The example code below shows a simple merge for a new relationship
+        between two new nodes:
+
+            >>> from py2neo import Graph, Node, Relationship
+            >>> g = Graph()
+            >>> a = Node("Person", name="Alice", age=33)
+            >>> b = Node("Person", name="Bob", age=44)
+            >>> KNOWS = Relationship.type("KNOWS")
+            >>> g.merge(KNOWS(a, b), "Person", "name")
+
+        Following on, we then create a third node (of a different type) to
+        which both the original nodes connect:
+
+            >>> c = Node("Company", name="ACME")
+            >>> c.__primarylabel__ = "Company"
+            >>> c.__primarykey__ = "name"
+            >>> WORKS_FOR = Relationship.type("WORKS_FOR")
+            >>> g.merge(WORKS_FOR(a, c) | WORKS_FOR(b, c))
+
+        For details of how the merge algorithm works, see the
+        :meth:`.Transaction.merge` method. Note that this is different
+        to a Cypher MERGE.
+
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
         :param label: label on which to match any existing nodes
@@ -891,22 +914,29 @@ class Transaction(object):
             return exists(self)
 
     def merge(self, subgraph, primary_label=None, primary_key=None):
-        """ Merge nodes and relationships from a local subgraph into the
-        database. Each node and relationship is merged independently, with
-        nodes merged first and relationships merged second.
+        """ Create or update the nodes and relationships of a local
+        subgraph in the remote database. Note that the functionality of
+        this operation is not strictly identical to the Cypher MERGE
+        clause, although there is some overlap.
 
-        For each node, the merge is carried out by comparing that node with a
-        potential remote equivalent on the basis of a label and property value.
-        If no remote match is found, a new node is created. The label and
-        property to use for comparison are determined by `primary_label` and
-        `primary_key` but may be overridden for individual nodes by the
-        presence of `__primarylabel__` and `__primarykey__` attributes on
-        the node itself.
+        Each node and relationship in the local subgraph is merged
+        independently, with nodes merged first and relationships merged
+        second.
+
+        For each node, the merge is carried out by comparing that node with
+        a potential remote equivalent on the basis of a single label and
+        property value. If no remote match is found, a new node is created;
+        if a match is found, the labels and properties of the remote node
+        are updated. The label and property used for comparison are determined
+        by the `primary_label` and `primary_key` arguments but may be
+        overridden for individual nodes by the of `__primarylabel__` and
+        `__primarykey__` attributes on the node itself.
 
         For each relationship, the merge is carried out by comparing that
         relationship with a potential remote equivalent on the basis of matching
         start and end nodes plus relationship type. If no remote match is found,
-        a new relationship is created.
+        a new relationship is created; if a match is found, the properties of
+        the remote relationship are updated.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object

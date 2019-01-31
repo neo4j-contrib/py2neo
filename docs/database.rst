@@ -65,5 +65,5 @@ Errors & Warnings
 .. autoclass:: TransientError
    :members:
 
-.. autoclass:: TransactionFinished
+.. autoclass:: TransactionError
    :members:
