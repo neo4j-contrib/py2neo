@@ -40,22 +40,6 @@ class AddressingTestCase(TestCase):
             'user_agent': bolt_user_agent(),
         })
 
-    def test_bolt_routing_uri_only(self):
-        data = get_connection_data("bolt+routing://host:9999")
-        del data["hash"]
-        self.assertEqual(data, {
-            'auth': ('neo4j', 'password'),
-            'host': 'host',
-            'password': 'password',
-            'port': 9999,
-            'scheme': 'bolt+routing',
-            'secure': False,
-            'verified': False,
-            'uri': 'bolt+routing://host:9999',
-            'user': 'neo4j',
-            'user_agent': bolt_user_agent(),
-        })
-
     def test_http_uri_only(self):
         data = get_connection_data("http://host:9999")
         del data["hash"]

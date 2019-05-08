@@ -21,7 +21,7 @@ function run_integration_tests
     for NEO4J_VERSION in ${NEO4J_VERSIONS}
     do
         echo "Running standalone integration tests against Neo4j CE ${NEO4J_VERSION}"
-        NEO4J_VERSION=${NEO4J_VERSION} coverage run --append --module pytest -v ${ARGS} test/integration_1
+        NEO4J_VERSION=${NEO4J_VERSION} coverage run --append --module pytest -v ${ARGS} test/integration
         STATUS="$?"
         if [[ ${STATUS} -ne 0 ]]
         then
@@ -30,22 +30,6 @@ function run_integration_tests
         if [[ "${PY2NEO_QUICK_TEST}" != "" ]]
         then
             return
-        fi
-    done
-    run_integration_cc_tests
-}
-
-
-function run_integration_cc_tests
-{
-    for NEO4J_VERSION in ${NEO4J_VERSIONS}
-    do
-        echo "Running cluster integration tests against Neo4j EE ${NEO4J_VERSION}"
-        NEO4J_VERSION=${NEO4J_VERSION} coverage run --append --module pytest -v ${ARGS} test/integration_cc
-        STATUS="$?"
-        if [[ ${STATUS} -ne 0 ]]
-        then
-            exit ${STATUS}
         fi
     done
 }

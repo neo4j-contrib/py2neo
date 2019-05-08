@@ -296,13 +296,6 @@ class Installation(object):
         host, port = self.bolt_address
         return "bolt://%s:%s" % (host, port)
 
-    @property
-    def bolt_routing_uri(self):
-        """ The full Bolt URI for this server.
-        """
-        host, port = self.bolt_address
-        return "bolt+routing://%s:%s" % (host, port)
-
     def delete_store(self, force=False):
         """ Delete the store directory for this server.
 

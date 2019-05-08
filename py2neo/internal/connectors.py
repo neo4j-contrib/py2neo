@@ -24,7 +24,6 @@ from json import dumps as json_dumps, loads as json_loads
 
 from certifi import where
 from neobolt.direct import connect, ConnectionPool
-from neobolt.routing import RoutingConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo.internal.compat import bstr, urlsplit
@@ -111,7 +110,7 @@ def get_connection_data(uri=None, **settings):
             data["port"] = DEFAULT_HTTP_PORT
         elif data["scheme"] == "https":
             data["port"] = DEFAULT_HTTPS_PORT
-        elif data["scheme"] in ["bolt", "bolt+routing"]:
+        elif data["scheme"] in ["bolt"]:
             data["port"] = DEFAULT_BOLT_PORT
     # apply other defaults
     if not data["user_agent"]:
@@ -309,20 +308,6 @@ class BoltConnector(Connector):
 
     def sync(self, cx):
         cx.sync()
-
-
-class BoltRoutingConnector(BoltConnector):
-
-    scheme = "bolt+routing"
-
-    def open(self, cx_data):
-
-        def connector(address_, **kwargs):
-            return connect(address_, auth=cx_data["auth"],
-                           encrypted=cx_data["secure"], **kwargs)
-
-        address = (cx_data["host"], cx_data["port"])
-        self.pool = RoutingConnectionPool(connector, address, {})
 
 
 class HTTPConnector(Connector):

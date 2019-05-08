@@ -265,7 +265,6 @@ class Graph(object):
     - ``http``
     - ``https``
     - ``bolt``
-    - ``bolt+routing``
 
     The full set of supported `settings` are:
 
@@ -283,7 +282,7 @@ class Graph(object):
     ==============  =============================================  ==============  =============
 
     Each setting can be provided as a keyword argument or as part of
-    an ``http:``, ``https:``, ``bolt:`` or ``bolt+routing:`` URI. Therefore, the examples
+    an ``http:``, ``https:`` or ``bolt:`` URI. Therefore, the examples
     below are equivalent::
 
         >>> from py2neo import Graph
@@ -293,6 +292,10 @@ class Graph(object):
 
     Once obtained, the `Graph` instance provides direct or indirect
     access to most of the functionality available within py2neo.
+
+    Note that py2neo does not support routing with a Neo4j causal cluster
+    (bolt+routing). For this functionality, please use the official Neo4j
+    Driver for Python.
     """
 
     #: The :class:`.Database` to which this :class:`.Graph` belongs.
