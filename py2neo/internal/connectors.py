@@ -222,7 +222,8 @@ class BoltConnector(Connector):
     def open(self, cx_data):
 
         def connector(address_, **kwargs):
-            return connect(address_, auth=cx_data["auth"], **kwargs)
+            return connect(address_, auth=cx_data["auth"],
+                           encrypted=cx_data["secure"], **kwargs)
 
         address = (cx_data["host"], cx_data["port"])
         self.pool = ConnectionPool(connector, address)
@@ -317,7 +318,8 @@ class BoltRoutingConnector(BoltConnector):
     def open(self, cx_data):
 
         def connector(address_, **kwargs):
-            return connect(address_, auth=cx_data["auth"], **kwargs)
+            return connect(address_, auth=cx_data["auth"],
+                           encrypted=cx_data["secure"], **kwargs)
 
         address = (cx_data["host"], cx_data["port"])
         self.pool = RoutingConnectionPool(connector, address, {})
