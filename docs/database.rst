@@ -36,17 +36,20 @@ The :class:`.Graph`
    :members:
 
 
-:class:`.Transaction` objects
-=============================
+Transactions
+============
 
 .. autoclass:: Transaction(autocommit=False)
    :members:
 
 
-:class:`.Cursor` objects
-========================
+Cypher Results
+==============
 
 .. autoclass:: Cursor
+   :members:
+
+.. autoclass:: CypherStats
    :members:
 
 

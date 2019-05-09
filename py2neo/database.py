@@ -1125,12 +1125,29 @@ class Cursor(object):
 
     def stats(self):
         """ Return the query statistics.
+
+        This contains details of the activity undertaken by the database
+        kernel for the query, such as the number of entities created or
+        deleted. Specifically, this returns a :class:`.CypherStats` object.
+
+        >>> from py2neo import Graph
+        >>> g = Graph()
+        >>> g.run("CREATE (a:Person) SET a.name = 'Alice'").stats()
+        constraints_added: 0
+        constraints_removed: 0
+        contains_updates: True
+        indexes_added: 0
+        indexes_removed: 0
+        labels_added: 1
+        labels_removed: 0
+        nodes_created: 1
+        nodes_deleted: 0
+        properties_set: 1
+        relationships_created: 0
+        relationships_deleted: 0
+
         """
         return self._result.stats()
-        # s = dict.fromkeys(update_stats_keys, 0)
-        # s.update(self._result.stats())
-        # s["contains_updates"] = bool(sum(s.get(k, 0) for k in update_stats_keys))
-        # return s
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
@@ -1340,18 +1357,36 @@ class CypherSummary(object):
 
 
 class CypherStats(Mapping):
+    """ Container for a set of statistics drawn from Cypher query execution.
 
-    contains_updates = False
+    Each value can be accessed as either an attribute or via a string index.
+    This class implements :py:class:`.Mapping` to allow it to be used as a
+    dictionary.
+    """
+
+    #: Boolean flag to indicate whether or not the query contained an update.
+    contained_updates = False
+    #: Number of nodes created.
     nodes_created = 0
+    #: Number of nodes deleted.
     nodes_deleted = 0
+    #: Number of property values set.
     properties_set = 0
+    #: Number of relationships created.
     relationships_created = 0
+    #: Number of relationships deleted.
     relationships_deleted = 0
+    #: Number of node labels added.
     labels_added = 0
+    #: Number of node labels removed.
     labels_removed = 0
+    #: Number of indexes added.
     indexes_added = 0
+    #: Number of indexes removed.
     indexes_removed = 0
+    #: Number of constraints added.
     constraints_added = 0
+    #: Number of constraints removed.
     constraints_removed = 0
 
     def __init__(self, **stats):
@@ -1362,7 +1397,8 @@ class CypherStats(Mapping):
                 key = "relationships_" + key[13:]
             if hasattr(self.__class__, key):
                 setattr(self, key, value)
-            self.contains_updates = bool(sum(getattr(self, k, 0) for k in self.keys()))
+            self.contained_updates = bool(sum(getattr(self, k, 0)
+                                              for k in self.keys()))
 
     def __repr__(self):
         lines = []
@@ -1380,7 +1416,11 @@ class CypherStats(Mapping):
         return iter(self.keys())
 
     def keys(self):
-        return [key for key in vars(self.__class__).keys() if not key.startswith("_") and key != "keys"]
+        """ Full list of the key or attribute names of the statistics
+        available.
+        """
+        return [key for key in vars(self.__class__).keys()
+                if not key.startswith("_") and key != "keys"]
 
 
 class CypherPlan(Mapping):
