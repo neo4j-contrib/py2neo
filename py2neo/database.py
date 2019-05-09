@@ -549,55 +549,69 @@ class Schema(object):
     def node_labels(self):
         """ The set of node labels currently defined within the graph.
         """
-        return frozenset(record[0] for record in self.graph.run("CALL db.labels"))
+        return frozenset(record[0] for record in
+                         self.graph.run("CALL db.labels"))
 
     @property
     def relationship_types(self):
         """ The set of relationship types currently defined within the graph.
         """
-        return frozenset(record[0] for record in self.graph.run("CALL db.relationshipTypes"))
+        return frozenset(record[0] for record in
+                         self.graph.run("CALL db.relationshipTypes"))
 
     def create_index(self, label, *property_keys):
         """ Create a schema index for a label and property
         key combination.
         """
-        self.graph.run("CREATE INDEX ON :%s(%s)" %
-                       (cypher_escape(label), ",".join(map(cypher_escape, property_keys)))).close()
+        cypher = "CREATE INDEX ON :{}({})".format(
+            cypher_escape(label), ", ".join(map(cypher_escape, property_keys)))
+        self.graph.run(cypher).close()
         while property_keys not in self.get_indexes(label):
             sleep(0.1)
 
-    def create_uniqueness_constraint(self, label, *property_keys):
-        """ Create a uniqueness constraint for a label.
+    def create_uniqueness_constraint(self, label, property_key):
+        """ Create a node uniqueness constraint for a given label and property
+        key.
+
+        While indexes support the use of composite keys, unique constraints may
+        only be tied to a single property key.
         """
-        self.graph.run("CREATE CONSTRAINT ON (a:%s) "
-                       "ASSERT a.%s IS UNIQUE" %
-                       (cypher_escape(label), ",".join(map(cypher_escape, property_keys)))).close()
-        while property_keys not in self.get_uniqueness_constraints(label):
+        cypher = "CREATE CONSTRAINT ON (_:{}) ASSERT _.{} IS UNIQUE".format(
+            cypher_escape(label), cypher_escape(property_key))
+        self.graph.run(cypher).close()
+        while property_key not in self.get_uniqueness_constraints(label):
             sleep(0.1)
 
     def drop_index(self, label, *property_keys):
         """ Remove label index for a given property key.
         """
-        self.graph.run("DROP INDEX ON :%s(%s)" %
-                       (cypher_escape(label), ",".join(map(cypher_escape, property_keys)))).close()
+        cypher = "DROP INDEX ON :{}({})".format(
+            cypher_escape(label), ", ".join(map(cypher_escape, property_keys)))
+        self.graph.run(cypher).close()
 
-    def drop_uniqueness_constraint(self, label, *property_keys):
-        """ Remove the uniqueness constraint for a given property key.
+    def drop_uniqueness_constraint(self, label, property_key):
+        """ Remove the node uniqueness constraint for a given label and
+        property key.
         """
-        self.graph.run("DROP CONSTRAINT ON (a:%s) "
-                       "ASSERT a.%s IS UNIQUE" %
-                       (cypher_escape(label), ",".join(map(cypher_escape, property_keys)))).close()
+        cypher = "DROP CONSTRAINT ON (_:{}) ASSERT _.{} IS UNIQUE".format(
+            cypher_escape(label), cypher_escape(property_key))
+        self.graph.run(cypher).close()
 
     def _get_indexes(self, label, t=None):
         indexes = []
         for record in self.graph.run("CALL db.indexes"):
             properties = []
+            # The code branches here depending on the format of the response
+            # from the `db.indexes` procedure, which has varied enormously
+            # over the entire 3.x series.
             if len(record) == 10:
                 # 3.5.0
-                description, index_name, token_names, properties, state, type_, progress, provider, id_, failure_message = record
+                (description, index_name, token_names, properties, state,
+                 type_, progress, provider, id_, failure_message) = record
             elif len(record) == 7:
                 # 3.4.10
-                description, lbl, properties, state, type_, provider, failure_message = record
+                (description, lbl, properties, state,
+                 type_, provider, failure_message) = record
                 token_names = [lbl]
             elif len(record) == 6:
                 # 3.4.7
@@ -608,7 +622,8 @@ class Schema(object):
                 description, state, type_ = record
                 token_names = []
             else:
-                raise RuntimeError("Unexpected response from procedure db.indexes (%d fields)" % len(record))
+                raise RuntimeError("Unexpected response from procedure "
+                                   "db.indexes (%d fields)" % len(record))
             if state not in (u"ONLINE", u"online"):
                 continue
             if t and type_ != t:
@@ -634,9 +649,10 @@ class Schema(object):
         return self._get_indexes(label)
 
     def get_uniqueness_constraints(self, label):
-        """ Fetch a list of unique constraints for a label.
+        """ Fetch a list of unique constraints for a label. Each constraint is
+        the name of a single property key.
         """
-        return self._get_indexes(label, "node_unique_property")
+        return [k[0] for k in self._get_indexes(label, "node_unique_property")]
 
 
 class GraphError(Exception):

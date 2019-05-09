@@ -31,7 +31,16 @@ def test_can_get_all_relationship_types(graph):
     assert isinstance(types, frozenset)
 
 
-def test_unique_constraint_creation_fails(graph, make_unique_id):
+def test_simple_uniqueness_constraint(graph, make_unique_id):
+    label = make_unique_id()
+    a1 = Node(label, name="Alice")
+    graph.create(a1)
+    graph.schema.create_uniqueness_constraint(label, "name")
+    constraints = graph.schema.get_uniqueness_constraints(label)
+    assert constraints == ["name"]
+
+
+def test_unique_constraint_creation_failure(graph, make_unique_id):
     label = make_unique_id()
     a1 = Node(label, name="Alice")
     a2 = Node(label, name="Alice")
@@ -79,7 +88,7 @@ def test_unique_constraint_works(graph, make_unique_id):
     graph.create(borough)
     graph.schema.create_uniqueness_constraint(label_1, "name")
     constraints = graph.schema.get_uniqueness_constraints(label_1)
-    assert (u"name",) in constraints
+    assert u"name" in constraints
     with raises(ClientError) as e:
         graph.create(Node(label_1, name="Taufkirchen"))
     assert e.value.code == "Neo.ClientError.Schema.ConstraintValidationFailed"
