@@ -1135,7 +1135,7 @@ class Cursor(object):
         >>> g.run("CREATE (a:Person) SET a.name = 'Alice'").stats()
         constraints_added: 0
         constraints_removed: 0
-        contains_updates: True
+        contained_updates: True
         indexes_added: 0
         indexes_removed: 0
         labels_added: 1
