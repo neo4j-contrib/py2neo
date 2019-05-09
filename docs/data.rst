@@ -87,28 +87,25 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
     .. attribute:: node.labels
 
         Return the full set of labels associated with *node*.
+        This set is immutable and cannot be used to add or remove labels.
 
-    .. describe:: label in node.labels
+    .. method:: node.has_label(label)
 
         Return :const:`True` if *node* has the label *label*.
 
-    .. method:: node.labels.add(label)
+    .. method:: node.add_label(label)
 
         Add the label *label* to *node*.
 
-    .. method:: node.labels.discard(label)
-
-        Remove the label *label* from *node*, if it exists.
-
-    .. method:: node.labels.remove(label)
+    .. method:: node.remove_label(label)
 
         Remove the label *label* from *node*, raising a :exc:`ValueError` if it does not exist.
 
-    .. method:: node.labels.clear()
+    .. method:: node.clear_labels()
 
         Remove all labels from *node*.
 
-    .. method:: node.labels.update(labels)
+    .. method:: node.update_labels(labels)
 
         Add multiple labels to *node* from the iterable *labels*.
 
