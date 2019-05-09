@@ -39,21 +39,41 @@ def resolve_class(cls, instance):
 
 
 class Property(object):
-    """ A property definition for a :class:`.GraphObject`.
+    """ Property definition for a :class:`.GraphObject`.
+
+    Attributes:
+        key: The name of the node property within the database.
+        default: The default value for the property, if it would
+                 otherwise be :const:`None`.
     """
 
-    def __init__(self, key=None):
+    def __init__(self, key=None, default=None):
+        """ Initialise a property definition.
+
+        Args:
+            key: The name of the node property within the database. If
+                 omitted, the name of the class attribute is used.
+            default: The default value for the property, if it would
+                     otherwise be :const:`None`.
+        """
         self.key = key
+        self.default = default
 
     def __get__(self, instance, owner):
-        return instance.__node__[self.key]
+        value = instance.__node__[self.key]
+        if value is None:
+            value = self.default
+        return value
 
     def __set__(self, instance, value):
         instance.__node__[self.key] = value
 
 
 class Label(object):
-    """ Describe a node label for a :class:`.GraphObject`.
+    """ Label definition for a :class:`.GraphObject`.
+
+    Labels are toggleable tags applied to an object that can be used as type
+    information or other forms of classification.
     """
 
     def __init__(self, name=None):
@@ -70,15 +90,20 @@ class Label(object):
 
 
 class Related(object):
-    """ Describe a set of related objects for a :class:`.GraphObject`.
-
-    :param related_class: class of object to which these relationships connect
-    :param relationship_type: underlying relationship type for these relationships
+    """ Descriptor for a set of related objects in a :class:`.GraphObject`.
     """
 
     direction = UNDIRECTED
 
     def __init__(self, related_class, relationship_type=None):
+        """ Initialise a property definition.
+
+        Args:
+            related_class: The class of object to which these relationships
+                           connect.
+            relationship_type: The underlying relationship type for these
+                               relationships.
+        """
         self.related_class = related_class
         self.relationship_type = relationship_type
 
@@ -88,22 +113,16 @@ class Related(object):
 
 
 class RelatedTo(Related):
-    """ Describe a set of related objects for a :class:`.GraphObject`
+    """ Descriptor for a set of related objects for a :class:`.GraphObject`
     that are connected by outgoing relationships.
-
-    :param related_class: class of object to which these relationships connect
-    :param relationship_type: underlying relationship type for these relationships
     """
 
     direction = OUTGOING
 
 
 class RelatedFrom(Related):
-    """ Describe a set of related objects  for a :class:`.GraphObject`
+    """ Descriptor for a set of related objects for a :class:`.GraphObject`
     that are connected by incoming relationships.
-
-    :param related_class: class of object to which these relationships connect
-    :param relationship_type: underlying relationship type for these relationships
     """
 
     direction = INCOMING

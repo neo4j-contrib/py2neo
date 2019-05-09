@@ -32,7 +32,7 @@ class Film(MovieGraphObject):
     science_fiction = Label(name="SciFi")
 
     title = Property()
-    tag_line = Property(key="tagline")
+    tag_line = Property(key="tagline", default="Bit boring")
     year_of_release = Property(key="released")
 
     actors = RelatedFrom("Person", "ACTED_IN")

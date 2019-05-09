@@ -16,12 +16,7 @@
 # limitations under the License.
 
 
-from os.path import dirname, join as path_join
-
-from pytest import fixture
-
-from py2neo.ogm import RelatedObjects, Property, RelatedTo, RelatedFrom, OUTGOING, GraphObject, Label
-from py2neo.matching import NodeMatcher
+from py2neo.ogm import RelatedTo, RelatedFrom, GraphObject
 
 
 class SimpleThing(GraphObject):
