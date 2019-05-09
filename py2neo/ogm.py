@@ -91,6 +91,17 @@ class Label(object):
 
 class Related(object):
     """ Descriptor for a set of related objects in a :class:`.GraphObject`.
+
+    Attributes:
+        related_class: The class of object to which these relationships
+                       connect. This class is used to coerce nodes to and
+                       from :class:`GraphObject` instances.
+        relationship_type: The underlying relationship type for these
+                           relationships. Note that the relationship
+                           type should be unique for each class of related
+                           object as the `related_class` is only used for
+                           object coercion and not as part of the underlying
+                           database query.
     """
 
     direction = UNDIRECTED
