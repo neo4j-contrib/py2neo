@@ -42,6 +42,8 @@ DEFAULT_BOLT_PORT = 7687
 DEFAULT_HTTP_PORT = 7474
 DEFAULT_HTTPS_PORT = 7473
 
+DEFAULT_MAX_CONNECTIONS = 40
+
 
 def coalesce(*values):
     """ Utility function to return the first non-null value from a
@@ -165,7 +167,7 @@ class Connector(object):
         for subclass in cls.walk_subclasses():
             if subclass.scheme == cx_data["scheme"]:
                 inst = object.__new__(subclass)
-                inst.open(cx_data)
+                inst.open(cx_data, **settings)
                 inst.connection_data = cx_data
                 return inst
         raise ValueError("Unsupported scheme %r" % cx_data["scheme"])
@@ -174,7 +176,7 @@ class Connector(object):
     def server_agent(self):
         raise NotImplementedError()
 
-    def open(self, cx_data):
+    def open(self, cx_data, **_):
         raise NotImplementedError()
 
     def close(self):
@@ -218,14 +220,19 @@ class BoltConnector(Connector):
         finally:
             self.pool.release(cx)
 
-    def open(self, cx_data):
+    def open(self, cx_data, max_connections=None, **_):
 
         def connector(address_, **kwargs):
             return connect(address_, auth=cx_data["auth"],
                            encrypted=cx_data["secure"], **kwargs)
 
         address = (cx_data["host"], cx_data["port"])
-        self.pool = ConnectionPool(connector, address)
+        max_connections = max_connections or DEFAULT_MAX_CONNECTIONS
+        self.pool = ConnectionPool(
+            connector=connector,
+            address=address,
+            max_connection_pool_size=max_connections,
+        )
 
     def close(self):
         self.pool.close()
@@ -323,8 +330,13 @@ class HTTPConnector(Connector):
                               headers=dict(self.headers))
         return "Neo4j/{neo4j_version}".format(**json_loads(r.data.decode("utf-8")))
 
-    def open(self, cx_data):
-        self.pool = HTTPConnectionPool(host=cx_data["host"], port=cx_data["port"])
+    def open(self, cx_data, max_connections=None, **_):
+        self.pool = HTTPConnectionPool(
+            host=cx_data["host"],
+            port=cx_data["port"],
+            maxsize=max_connections or DEFAULT_MAX_CONNECTIONS,
+            block=True,
+        )
         self.headers = make_headers(basic_auth=":".join(cx_data["auth"]))
 
     def close(self):

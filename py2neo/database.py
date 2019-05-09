@@ -95,10 +95,13 @@ class Database(object):
             inst = super(Database, cls).__new__(cls)
             inst._connection_data = connection_data
             from py2neo.internal.connectors import Connector
-            inst._connector = Connector(connection_data["uri"],
-                                        auth=connection_data["auth"],
-                                        secure=connection_data["secure"],
-                                        user_agent=connection_data["user_agent"])
+            inst._connector = Connector(
+                connection_data["uri"],
+                auth=connection_data["auth"],
+                secure=connection_data["secure"],
+                user_agent=connection_data["user_agent"],
+                max_connections=settings.get("max_connections"),
+            )
             inst._graphs = {}
             cls._instances[key] = inst
         return inst
@@ -268,18 +271,19 @@ class Graph(object):
 
     The full set of supported `settings` are:
 
-    ==============  =============================================  ==============  =============
-    Keyword         Description                                    Type            Default
-    ==============  =============================================  ==============  =============
-    ``auth``        A 2-tuple of (user, password)                  tuple           ``('neo4j', 'password')``
-    ``host``        Database server host name                      str             ``'localhost'``
-    ``password``    Password to use for authentication             str             ``'password'``
-    ``port``        Database server port                           int             ``7687``
-    ``scheme``      Use a specific URI scheme                      str             ``'bolt'``
-    ``secure``      Use a secure connection (TLS)                  bool            ``False``
-    ``user``        User to authenticate as                        str             ``'neo4j'``
-    ``user_agent``  User agent to send for all connections         str             `(depends on URI scheme)`
-    ==============  =============================================  ==============  =============
+    ===================  ========================================================  ==============  =========================
+    Keyword              Description                                               Type            Default
+    ===================  ========================================================  ==============  =========================
+    ``auth``             A 2-tuple of (user, password)                             tuple           ``('neo4j', 'password')``
+    ``host``             Database server host name                                 str             ``'localhost'``
+    ``password``         Password to use for authentication                        str             ``'password'``
+    ``port``             Database server port                                      int             ``7687``
+    ``scheme``           Use a specific URI scheme                                 str             ``'bolt'``
+    ``secure``           Use a secure connection (TLS)                             bool            ``False``
+    ``user``             User to authenticate as                                   str             ``'neo4j'``
+    ``user_agent``       User agent to send for all connections                    str             `(depends on URI scheme)`
+    ``max_connections``  The maximum number of simultaneous connections permitted  int             40
+    ===================  ========================================================  ==============  =========================
 
     Each setting can be provided as a keyword argument or as part of
     an ``http:``, ``https:`` or ``bolt:`` URI. Therefore, the examples
