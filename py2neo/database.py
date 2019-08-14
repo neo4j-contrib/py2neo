@@ -367,6 +367,11 @@ class Graph(object):
         `autocommit` :class:`.Transaction`. To delete only the
         relationships, use the :meth:`.separate` method.
 
+        You must use delete on matched nodes. For example, to delete all of Alice's friends::
+
+            for friend_of_alice in graph.match((alice, ), r_type="FRIEND"):
+                graph.delete(friend_of_alice)
+
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
         """
@@ -535,6 +540,16 @@ class Graph(object):
     def separate(self, subgraph):
         """ Run a :meth:`.Transaction.separate` operation within an
         `autocommit` :class:`.Transaction`.
+
+        You must call separate on a matched relationship.
+
+        For example, the following would delete the relationship between Lennon and The Beatles::
+            lennon = graph.nodes.match(Artist, name='Lennon')
+            beatles = graph.nodes.match(Band, name='The Beatles')
+            relation_finder = graph.relationships
+            bad_relationship = relation_finder.match(nodes={lennon, beatles},
+                                                     r_type="GUITARIST OF")
+            graph.separate(bad_relationship)
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
