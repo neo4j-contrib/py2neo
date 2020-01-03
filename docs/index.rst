@@ -4,9 +4,12 @@ The Py2neo v4 Handbook
 
 **Py2neo** is a client library and toolkit for working with Neo4j_ from within Python_ applications and from the command line.
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
-Unlike previous releases, Py2neo v4 no longer requires an HTTP-enabled server and can work entirely through Bolt.
+Unlike previous releases, Py2neo does not require an HTTP-enabled server and can work entirely through Bolt.
 
-.. note:: Documentation for Py2neo v3 is available `here <http://py2neo.org/v3>`_.
+When considering whether to use py2neo or the `official Python Driver for Neo4j <https://github.com/neo4j/neo4j-python-driver>`_, there is a trade-off to be made.
+Py2neo offers a higher level API and an OGM, but the official driver provides mechanisms to work with clusters, such as automatic retries.
+If you are new to Neo4j, need an OGM, do not want to learn Cypher immediately, or require data science integrations, py2neo may be the better choice.
+If you are building a high-availability Enterprise application, or are using a cluster, you likely need the official driver.
 
 
 Installation
