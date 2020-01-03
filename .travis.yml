@@ -39,7 +39,9 @@ install:
   - sudo apt-get -qq update
   - sudo apt-get install -y openjdk-8-jdk --no-install-recommends
   - wget https://raw.githubusercontent.com/travis-ci/jdk_switcher/master/jdk_switcher.sh
+  - chmod +x jdk_switcher.sh
   - wget https://raw.githubusercontent.com/sormuras/bach/master/install-jdk.sh
+  - chmod +x install-jdk.sh
   - source jdk_switcher.sh
 
 script:
