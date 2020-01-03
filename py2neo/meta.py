@@ -25,7 +25,7 @@ __copyright__ = "2011-2019, Nigel Small"
 __email__ = "py2neo@nige.tech"
 __license__ = "Apache License, Version 2.0"
 __package__ = "py2neo"
-__version__ = "4.3.0"
+__version__ = "4.4.0"
 
 
 from os import getenv
