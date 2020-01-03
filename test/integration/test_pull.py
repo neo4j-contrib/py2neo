@@ -49,9 +49,9 @@ def test_can_pull_path(graph):
     assert path[0]["amount"] is None
     assert path[1]["amount"] is None
     assert path[2]["since"] is None
-    statement = ("MATCH ()-[ab]->() WHERE id(ab)={ab} "
-                 "MATCH ()-[bc]->() WHERE id(bc)={bc} "
-                 "MATCH ()-[cd]->() WHERE id(cd)={cd} "
+    statement = ("MATCH ()-[ab]->() WHERE id(ab)=$ab "
+                 "MATCH ()-[bc]->() WHERE id(bc)=$bc "
+                 "MATCH ()-[cd]->() WHERE id(cd)=$cd "
                  "SET ab.amount = 'lots', bc.amount = 'some', cd.since = 1999")
     id_0 = path[0].identity
     id_1 = path[1].identity
@@ -81,7 +81,7 @@ def test_node_label_pull_scenarios(graph):
             else:
                 set_clause = ""
             if remove_clause or set_clause:
-                graph.run("MATCH (a) WHERE id(a)={x} %s %s" %
+                graph.run("MATCH (a) WHERE id(a)=$x %s %s" %
                           (remove_clause, set_clause), x=node_id)
                 graph.pull(node)
                 assert set(node.labels) == new_labels, \
@@ -97,7 +97,7 @@ def test_node_property_pull_scenarios(graph):
             graph.create(node)
             node_id = node.identity
             assert dict(node) == old_props
-            graph.run("MATCH (a) WHERE id(a)={x} SET a={y}", x=node_id, y=new_props)
+            graph.run("MATCH (a) WHERE id(a)=$x SET a=$y", x=node_id, y=new_props)
             graph.pull(node)
             assert dict(node) == new_props,\
                 "Failed to pull new properties %r over old properties %r" % \
@@ -114,7 +114,7 @@ def test_relationship_property_pull_scenarios(graph):
             graph.create(relationship)
             relationship_id = relationship.identity
             assert dict(relationship) == old_props
-            graph.run("MATCH ()-[r]->() WHERE id(r)={x} SET r={y}",
+            graph.run("MATCH ()-[r]->() WHERE id(r)=$x SET r=$y",
                       x=relationship_id, y=new_props)
             graph.pull(relationship)
             assert dict(relationship) == new_props, \

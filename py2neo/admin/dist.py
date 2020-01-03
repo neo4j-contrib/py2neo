@@ -51,7 +51,11 @@ versions = [
     "3.4.10",
 
     # 3.5 series
-    "3.5.0",
+    "3.5.0", "3.5.1", "3.5.2", "3.5.3", "3.5.4", "3.5.5", "3.5.6", "3.5.7", "3.5.8", "3.5.9",
+    "3.5.10", "3.5.11", "3.5.12",
+
+    # 4.0 series
+    "4.0.0",
 
 ]
 
@@ -83,7 +87,7 @@ class Distribution(object):
             self.edition = edition
         else:
             raise ValueError("Unknown edition %r" % edition)
-        version = version.upper() if version else "LATEST"
+        version = version if version else "LATEST"
         self.snapshot = "SNAPSHOT" in version
         if version in version_aliases:
             version = version_aliases[version]

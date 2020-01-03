@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from pytest import skip
+
 from py2neo import Database, Graph
 
 
@@ -48,26 +50,36 @@ def test_dbms_is_not_equal_to_non_dbms(database):
 
 
 def test_dbms_metadata(database):
-    assert database.kernel_start_time
-    assert database.kernel_version
-    assert database.store_creation_time
-    assert database.store_id
-    assert database.primitive_counts
-    assert database.store_file_sizes
-    assert database.config
+    try:
+        assert database.kernel_start_time
+        assert database.kernel_version
+        assert database.store_creation_time
+        assert database.store_id
+        assert database.primitive_counts
+        assert database.store_file_sizes
+        assert database.config
+    except NotImplementedError:
+        skip("JMX data not available in this version of Neo4j")
 
 
 def test_database_name(database):
-    assert database.name == "graph.db"
+    if database.name is None:
+        skip("Database name not available in this version of Neo4j")
+    else:
+        assert database.name == "graph.db"
 
 
 def test_kernel_version(database):
-    version = database.kernel_version
-    assert isinstance(version, tuple)
-    assert 3 <= len(version) <= 4
-    assert isinstance(version[0], int)
-    assert isinstance(version[1], int)
-    assert isinstance(version[2], int)
+    try:
+        version = database.kernel_version
+    except NotImplementedError:
+        skip("Kernel version not available in this version of Neo4j")
+    else:
+        assert isinstance(version, tuple)
+        assert 3 <= len(version) <= 4
+        assert isinstance(version[0], int)
+        assert isinstance(version[1], int)
+        assert isinstance(version[2], int)
 
 
 def test_can_get_set_of_graphs_in_database(database):

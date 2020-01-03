@@ -45,12 +45,12 @@ def test_can_push_relationship(graph):
     b = Node()
     ab = Relationship(a, "KNOWS", b)
     graph.create(ab)
-    value = graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
+    value = graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)=$i "
                            "RETURN ab.since", i=ab.identity)
     assert value is None
     ab["since"] = 1999
     graph.push(ab)
-    value = graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)={i} "
+    value = graph.evaluate("MATCH ()-[ab:KNOWS]->() WHERE id(ab)=$i "
                            "RETURN ab.since", i=ab.identity)
     assert value == 1999
 
@@ -62,9 +62,9 @@ def test_can_push_path(graph):
     dave = Node(name="Dave")
     path = Path(alice, "LOVES", bob, Relationship(carol, "HATES", bob), carol, "KNOWS", dave)
     graph.create(path)
-    statement = ("MATCH ()-[ab]->() WHERE id(ab)={ab} "
-                 "MATCH ()-[bc]->() WHERE id(bc)={bc} "
-                 "MATCH ()-[cd]->() WHERE id(cd)={cd} "
+    statement = ("MATCH ()-[ab]->() WHERE id(ab)=$ab "
+                 "MATCH ()-[bc]->() WHERE id(bc)=$bc "
+                 "MATCH ()-[cd]->() WHERE id(cd)=$cd "
                  "RETURN ab.amount, bc.amount, cd.since")
     parameters = {"ab": path[0].identity, "bc": path[1].identity, "cd": path[2].identity}
     path[0]["amount"] = "lots"
@@ -82,7 +82,7 @@ def test_can_push_path(graph):
 
 
 def assert_has_labels(graph, node_id, expected):
-    actual = graph.evaluate("MATCH (_) WHERE id(_) = {x} return labels(_)", x=node_id)
+    actual = graph.evaluate("MATCH (_) WHERE id(_) = $x return labels(_)", x=node_id)
     assert set(actual) == set(expected)
 
 

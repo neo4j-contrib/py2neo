@@ -17,7 +17,7 @@
 
 
 from hashlib import sha256
-from os import curdir, getenv, kill, listdir, makedirs, rename
+from os import curdir, getenv, kill, listdir, makedirs, rename, environ
 from os.path import abspath, dirname, expanduser, isdir, isfile, join as path_join
 from random import randint
 from re import compile as re_compile
@@ -341,7 +341,7 @@ class Server(object):
         """ Start the server.
         """
         try:
-            out = check_output("%s start" % self.control_script, shell=True)
+            out = check_output("%s start" % self.control_script, shell=True, env=environ.copy())
         except CalledProcessError as error:
             if error.returncode == 2:
                 raise OSError("Another process is listening on the server port")
@@ -364,7 +364,6 @@ class Server(object):
                     pid = int(line.partition("(pid ")[-1].partition(")")[0])
             self.wait_until_listening(self.installation.bolt_address, wait)
             self.wait_until_listening(self.installation.http_address, wait)
-            self.wait_until_listening(self.installation.https_address, wait)
             return pid
 
     def stop(self):

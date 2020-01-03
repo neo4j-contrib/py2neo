@@ -48,16 +48,16 @@ def _property_conditions(properties, offset=1):
             condition += " IS NULL"
             parameters = {}
         elif isinstance(value, (tuple, set, frozenset)):
-            condition += " IN {%d}" % i
+            condition += " IN $%d" % i
             parameters = {"%d" % i: list(value)}
         elif re.match(_operators_search, key):
             parts = re.search(_operators_search, key)
             prop = parts.group(1)
             operator = parts.group(2)
-            condition = "_.%s %s {%d}" % (prop, _operators[operator], i)
+            condition = "_.%s %s $%d" % (prop, _operators[operator], i)
             parameters = {"%d" % i: value}
         else:
-            condition += " = {%d}" % i
+            condition += " = $%d" % i
             parameters = {"%d" % i: value}
         yield condition, parameters
 
@@ -311,12 +311,12 @@ class RelationshipMatch(object):
             if len(self._nodes) >= 1 and self._nodes[0] is not None:
                 start_node = Node.cast(self._nodes[0])
                 verify_node(start_node)
-                clauses.append("MATCH (a) WHERE id(a) = {x}")
+                clauses.append("MATCH (a) WHERE id(a) = $x")
                 parameters["x"] = start_node.identity
             if len(self._nodes) >= 2 and self._nodes[1] is not None:
                 end_node = Node.cast(self._nodes[1])
                 verify_node(end_node)
-                clauses.append("MATCH (b) WHERE id(b) = {y}")
+                clauses.append("MATCH (b) WHERE id(b) = $y")
                 parameters["y"] = end_node.identity
             if len(self._nodes) >= 3:
                 raise ValueError("Node sequence cannot be longer than two")
@@ -326,12 +326,12 @@ class RelationshipMatch(object):
             if len(nodes) >= 1:
                 start_node = Node.cast(nodes.pop())
                 verify_node(start_node)
-                clauses.append("MATCH (a) WHERE id(a) = {x}")
+                clauses.append("MATCH (a) WHERE id(a) = $x")
                 parameters["x"] = start_node.identity
             if len(nodes) >= 1:
                 end_node = Node.cast(nodes.pop())
                 verify_node(end_node)
-                clauses.append("MATCH (b) WHERE id(b) = {y}")
+                clauses.append("MATCH (b) WHERE id(b) = $y")
                 parameters["y"] = end_node.identity
             if len(nodes) >= 1:
                 raise ValueError("Node set cannot be larger than two")

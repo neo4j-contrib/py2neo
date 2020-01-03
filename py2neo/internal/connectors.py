@@ -326,9 +326,46 @@ class HTTPConnector(Connector):
     @property
     def server_agent(self):
         r = self.pool.request(method="GET",
-                              url="/db/data/",
+                              url="/",
                               headers=dict(self.headers))
-        return "Neo4j/{neo4j_version}".format(**json_loads(r.data.decode("utf-8")))
+        metadata = json_loads(r.data.decode("utf-8"))
+        if "neo4j_version" in metadata:     # Neo4j 4.x
+            # {
+            #   "bolt_routing" : "neo4j://localhost:7687",
+            #   "transaction" : "http://localhost:7474/db/{databaseName}/tx",
+            #   "bolt_direct" : "bolt://localhost:7687",
+            #   "neo4j_version" : "4.0.0",
+            #   "neo4j_edition" : "community"
+            # }
+            neo4j_version = metadata["neo4j_version"]
+        else:                               # Neo4j 3.x
+            # {
+            #   "data" : "http://localhost:7474/db/data/",
+            #   "management" : "http://localhost:7474/db/manage/",
+            #   "bolt" : "bolt://localhost:7687"
+            # }
+            r = self.pool.request(method="GET",
+                                  url="/db/data/",
+                                  headers=dict(self.headers))
+            metadata = json_loads(r.data.decode("utf-8"))
+            # {
+            #   "extensions" : { },
+            #   "node" : "http://localhost:7474/db/data/node",
+            #   "relationship" : "http://localhost:7474/db/data/relationship",
+            #   "node_index" : "http://localhost:7474/db/data/index/node",
+            #   "relationship_index" : "http://localhost:7474/db/data/index/relationship",
+            #   "extensions_info" : "http://localhost:7474/db/data/ext",
+            #   "relationship_types" : "http://localhost:7474/db/data/relationship/types",
+            #   "batch" : "http://localhost:7474/db/data/batch",
+            #   "cypher" : "http://localhost:7474/db/data/cypher",
+            #   "indexes" : "http://localhost:7474/db/data/schema/index",
+            #   "constraints" : "http://localhost:7474/db/data/schema/constraint",
+            #   "transaction" : "http://localhost:7474/db/data/transaction",
+            #   "node_labels" : "http://localhost:7474/db/data/labels",
+            #   "neo4j_version" : "3.5.12"
+            # }
+            neo4j_version = metadata["neo4j_version"]
+        return "Neo4j/{}".format(neo4j_version)
 
     def open(self, cx_data, max_connections=None, **_):
         self.pool = HTTPConnectionPool(

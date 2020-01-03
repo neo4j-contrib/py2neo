@@ -79,7 +79,7 @@ def test_custom_conditions(movie_matcher):
 
 
 def test_custom_conditions_with_parameters(movie_matcher):
-    found = list(movie_matcher.match("Person").where(("_.name = {1}", {"1": "Keanu Reeves"})))
+    found = list(movie_matcher.match("Person").where(("_.name = $1", {"1": "Keanu Reeves"})))
     assert len(found) == 1
     first = found[0]
     assert isinstance(first, Node)

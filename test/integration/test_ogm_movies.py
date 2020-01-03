@@ -63,7 +63,7 @@ def test_can_add_related_object_and_push(movie_graph):
     movie_graph.push(keanu)
     node_id = keanu.__node__.identity
     film_titles = set(title for title, in movie_graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
-                                                          "WHERE id(a) = {x} "
+                                                          "WHERE id(a) = $x "
                                                           "RETURN b.title", x=node_id))
     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
                            'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic',
@@ -77,7 +77,7 @@ def test_can_add_related_object_with_properties_and_push(movie_graph):
     movie_graph.push(keanu)
     node_id = keanu.__node__.identity
     films = {title: roles for title, roles in movie_graph.run("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
-                                                              "WHERE id(a) = {x} "
+                                                              "WHERE id(a) = $x "
                                                               "RETURN b.title, ab.roles", x=node_id)}
     bill_and_ted_roles = films["Bill & Ted's Excellent Adventure"]
     assert bill_and_ted_roles == ['Ted "Theodore" Logan']
@@ -90,7 +90,7 @@ def test_can_remove_related_object_and_push(movie_graph):
     movie_graph.push(keanu)
     node_id = keanu.__node__.identity
     film_titles = set(title for title, in movie_graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
-                                                          "WHERE id(a) = {x} "
+                                                          "WHERE id(a) = $x "
                                                           "RETURN b.title", x=node_id))
     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
                            'The Matrix', 'The Replacements', 'The Matrix Revolutions'}
@@ -103,7 +103,7 @@ def test_can_add_property_to_existing_relationship(movie_graph):
     movie_graph.push(keanu)
     node_id = keanu.__node__.identity
     johnny_foo = movie_graph.evaluate("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
-                                      "WHERE id(a) = {x} AND b.title = 'Johnny Mnemonic' "
+                                      "WHERE id(a) = $x AND b.title = 'Johnny Mnemonic' "
                                       "RETURN ab.foo", x=node_id)
     assert johnny_foo == "bar"
 
@@ -207,7 +207,7 @@ def test_create_has_no_effect_on_existing(movie_graph):
 
     # then
     node_id = keanu.__node__.identity
-    remote_name = movie_graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
+    remote_name = movie_graph.evaluate("MATCH (a:Person) WHERE id(a) = $x "
                                        "RETURN a.name", x=node_id)
     assert remote_name == "Keanu Reeves"
 
@@ -257,7 +257,7 @@ def test_can_push_changes_to_existing(movie_graph):
 
     # then
     node_id = keanu.__node__.identity
-    remote_name = movie_graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
+    remote_name = movie_graph.evaluate("MATCH (a:Person) WHERE id(a) = $x "
                                        "RETURN a.name", x=node_id)
     assert remote_name == "Keanu Charles Reeves"
 
@@ -273,7 +273,7 @@ def test_can_push_new(movie_graph):
 
     # then
     node_id = alice.__node__.identity
-    remote_name = movie_graph.evaluate("MATCH (a:Person) WHERE id(a) = {x} "
+    remote_name = movie_graph.evaluate("MATCH (a:Person) WHERE id(a) = $x "
                                        "RETURN a.name", x=node_id)
     assert remote_name == "Alice Smith"
 
@@ -290,7 +290,7 @@ def test_can_push_new_that_points_to_existing(movie_graph):
 
     # then
     node_id = alice.__node__.identity
-    film_node = movie_graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) WHERE id(a) = {x} RETURN b",
+    film_node = movie_graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) WHERE id(a) = $x RETURN b",
                                      x=node_id)
     assert film_node["title"] == "The Matrix"
     assert film_node["tagline"] == "Welcome to the Real World"
@@ -309,7 +309,7 @@ def test_can_push_new_that_points_to_new(movie_graph):
 
     # then
     node_id = alice.__node__.identity
-    film_node = movie_graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) WHERE id(a) = {x} RETURN b",
+    film_node = movie_graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) WHERE id(a) = $x RETURN b",
                                      x=node_id)
     assert film_node["title"] == "The Dominatrix"
 
@@ -325,7 +325,7 @@ def test_can_push_with_incoming_relationships(movie_graph):
     # then
     node_id = matrix.__node__.identity
     names = set()
-    for name, in movie_graph.run("MATCH (a:Movie)<-[:ACTED_IN]-(b) WHERE id(a) = {x} "
+    for name, in movie_graph.run("MATCH (a:Movie)<-[:ACTED_IN]-(b) WHERE id(a) = $x "
                                  "RETURN b.name", x=node_id):
         names.add(name)
     assert names, {'Keanu Reeves', 'Carrie-Anne Moss', 'Hugo Weaving' == 'Laurence Fishburne'}
@@ -335,7 +335,7 @@ def test_can_load_and_pull(movie_graph):
     keanu = Person.match(movie_graph, "Keanu Reeves").first()
     assert keanu.name == "Keanu Reeves"
     node_id = keanu.__node__.identity
-    movie_graph.run("MATCH (a:Person) WHERE id(a) = {x} SET a.name = {y}",
+    movie_graph.run("MATCH (a:Person) WHERE id(a) = $x SET a.name = $y",
                     x=node_id, y="Keanu Charles Reeves")
     movie_graph.pull(keanu)
     assert keanu.name == "Keanu Charles Reeves"
@@ -352,7 +352,7 @@ def test_can_pull_with_incoming_relationships(movie_graph):
     # given
     matrix = Film.match(movie_graph, "The Matrix").first()
     node_id = matrix.__node__.identity
-    movie_graph.run("MATCH (a:Movie)<-[r:ACTED_IN]-(b) WHERE id(a) = {x} AND b.name = 'Emil Eifrem' DELETE r",
+    movie_graph.run("MATCH (a:Movie)<-[r:ACTED_IN]-(b) WHERE id(a) = $x AND b.name = 'Emil Eifrem' DELETE r",
                     x=node_id)
 
     # when

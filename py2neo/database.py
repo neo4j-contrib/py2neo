@@ -204,14 +204,21 @@ class Database(object):
         """ Return the time from which this Neo4j instance was in operational mode.
         """
         info = self.query_jmx("org.neo4j", name="Kernel")
-        return datetime.fromtimestamp(info["KernelStartTime"] / 1000.0)
+        try:
+            kernel_start_time = info["KernelStartTime"]
+        except KeyError:
+            raise NotImplementedError
+        else:
+            return datetime.fromtimestamp(kernel_start_time / 1000.0)
 
     @property
     def kernel_version(self):
         """ Return the version of Neo4j.
         """
-        info = self.query_jmx("org.neo4j", name="Kernel")
-        version_string = info["KernelVersion"].partition("version:")[-1].partition(",")[0].strip()
+        components = self.default_graph.run("CALL dbms.components").data()
+        kernel_component = [component for component in components
+                            if component["name"] == "Neo4j Kernel"][0]
+        version_string = kernel_component["versions"][0]
         return Version.parse(version_string).major_minor_patch
 
     @property
@@ -601,46 +608,69 @@ class Schema(object):
             cypher_escape(label), cypher_escape(property_key))
         self.graph.run(cypher).close()
 
-    def _get_indexes(self, label, t=None):
+    def _get_indexes(self, label, unique_only=False):
         indexes = []
-        for record in self.graph.run("CALL db.indexes"):
+        result = self.graph.run("CALL db.indexes")
+        for record in result:
             properties = []
             # The code branches here depending on the format of the response
             # from the `db.indexes` procedure, which has varied enormously
-            # over the entire 3.x series.
+            # since 3.0.
             if len(record) == 10:
-                # 3.5.0
-                (description, index_name, token_names, properties, state,
-                 type_, progress, provider, id_, failure_message) = record
+                if "labelsOrTypes" in result.keys():
+                    # 4.0.0
+                    # ['id', 'name', 'state', 'populationPercent',
+                    # 'uniqueness', 'type', 'entityType', 'labelsOrTypes',
+                    #  'properties', 'provider']
+                    (id_, name, state, population_percent, uniqueness, type_,
+                     entity_type, token_names, properties, provider) = record
+                    description = None
+                    # The 'type' field has randomly changed its meaning in 4.0,
+                    # holding for example 'BTREE' instead of for example
+                    # 'node_unique_property'. To check for uniqueness, we now
+                    # need to look at the new 'uniqueness' field.
+                    is_unique = uniqueness == "UNIQUE"
+                else:
+                    # 3.5.3
+                    # ['description', 'indexName', 'tokenNames', 'properties',
+                    #  'state', 'type', 'progress', 'provider', 'id',
+                    #  'failureMessage']
+                    (description, index_name, token_names, properties, state,
+                     type_, progress, provider, id_, failure_message) = record
+                    is_unique = type_ == "node_unique_property"
             elif len(record) == 7:
                 # 3.4.10
                 (description, lbl, properties, state,
                  type_, provider, failure_message) = record
+                is_unique = type_ == "node_unique_property"
                 token_names = [lbl]
             elif len(record) == 6:
                 # 3.4.7
                 description, lbl, properties, state, type_, provider = record
+                is_unique = type_ == "node_unique_property"
                 token_names = [lbl]
             elif len(record) == 3:
                 # 3.0.10
                 description, state, type_ = record
+                is_unique = type_ == "node_unique_property"
                 token_names = []
             else:
                 raise RuntimeError("Unexpected response from procedure "
                                    "db.indexes (%d fields)" % len(record))
             if state not in (u"ONLINE", u"online"):
                 continue
-            if t and type_ != t:
+            if unique_only and not is_unique:
                 continue
             if not token_names or not properties:
-                from py2neo.cypher.lexer import CypherLexer
-                from pygments.token import Token
-                tokens = list(CypherLexer().get_tokens(description))
-                for token_type, token_value in tokens:
-                    if token_type is Token.Name.Label:
-                        token_names.append(token_value.strip("`"))
-                    elif token_type is Token.Name.Variable:
-                        properties.append(token_value.strip("`"))
+                if description:
+                    from py2neo.cypher.lexer import CypherLexer
+                    from pygments.token import Token
+                    tokens = list(CypherLexer().get_tokens(description))
+                    for token_type, token_value in tokens:
+                        if token_type is Token.Name.Label:
+                            token_names.append(token_value.strip("`"))
+                        elif token_type is Token.Name.Variable:
+                            properties.append(token_value.strip("`"))
             if not token_names or not properties:
                 continue
             if label in token_names:
@@ -656,7 +686,7 @@ class Schema(object):
         """ Fetch a list of unique constraints for a label. Each constraint is
         the name of a single property key.
         """
-        return [k[0] for k in self._get_indexes(label, "node_unique_property")]
+        return [k[0] for k in self._get_indexes(label, unique_only=True)]
 
 
 class GraphError(Exception):
@@ -1201,7 +1231,7 @@ class Cursor(object):
         Example:
             >>> from py2neo import Graph
             >>> g = Graph()
-            >>> g.run("MATCH (a) WHERE a.email={x} RETURN a.name", x="bob@acme.com").evaluate()
+            >>> g.run("MATCH (a) WHERE a.email=$x RETURN a.name", x="bob@acme.com").evaluate()
             'Bob Robertson'
         """
         if self.forward():

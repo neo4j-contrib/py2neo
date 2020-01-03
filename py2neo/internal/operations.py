@@ -237,12 +237,12 @@ def pull_subgraph(tx, subgraph):
     for node in nodes:
         if node.graph is graph:
             tx.entities.append({"_": node})
-            cursor = tx.run("MATCH (_) WHERE id(_) = {x} RETURN _, labels(_)", x=node.identity)
+            cursor = tx.run("MATCH (_) WHERE id(_) = $x RETURN _, labels(_)", x=node.identity)
             nodes[node] = cursor
     for relationship in relationships:
         if relationship.graph is graph:
             tx.entities.append({"_": relationship})
-            list(tx.run("MATCH ()-[_]->() WHERE id(_) = {x} RETURN _", x=relationship.identity))
+            list(tx.run("MATCH ()-[_]->() WHERE id(_) = $x RETURN _", x=relationship.identity))
     for node, cursor in nodes.items():
         new_labels = cursor.evaluate(1)
         if new_labels:
@@ -263,7 +263,7 @@ def push_subgraph(tx, subgraph):
     graph = tx.graph
     for node in subgraph.nodes:
         if node.graph is graph:
-            clauses = ["MATCH (_) WHERE id(_) = {x}", "SET _ = {y}"]
+            clauses = ["MATCH (_) WHERE id(_) = $x", "SET _ = $y"]
             parameters = {"x": node.identity, "y": dict(node)}
             old_labels = node._remote_labels - node._labels
             if old_labels:
@@ -274,7 +274,7 @@ def push_subgraph(tx, subgraph):
             tx.run("\n".join(clauses), parameters)
     for relationship in subgraph.relationships:
         if relationship.graph is graph:
-            clauses = ["MATCH ()-[_]->() WHERE id(_) = {x}", "SET _ = {y}"]
+            clauses = ["MATCH ()-[_]->() WHERE id(_) = $x", "SET _ = $y"]
             parameters = {"x": relationship.identity, "y": dict(relationship)}
             tx.run("\n".join(clauses), parameters)
 
@@ -302,8 +302,8 @@ def subgraph_exists(tx, subgraph):
             relationship_ids.add(relationship.identity)
         else:
             return False
-    statement = ("OPTIONAL MATCH (a) WHERE id(a) IN {x} "
-                 "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN {y} "
+    statement = ("OPTIONAL MATCH (a) WHERE id(a) IN $x "
+                 "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN $y "
                  "RETURN count(DISTINCT a) + count(DISTINCT r)")
     parameters = {"x": list(node_ids), "y": list(relationship_ids)}
     return tx.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)

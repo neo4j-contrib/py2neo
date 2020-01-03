@@ -275,12 +275,12 @@ class RelatedObjects(object):
             tx.merge(related_object)
         # 2a. remove any relationships not in list of nodes
         subject_id = self.node.identity
-        tx.run("MATCH %s WHERE id(a) = {x} AND NOT id(b) IN {y} DELETE _" % self.__relationship_pattern,
+        tx.run("MATCH %s WHERE id(a) = $x AND NOT id(b) IN $y DELETE _" % self.__relationship_pattern,
                x=subject_id, y=[obj.__node__.identity for obj, _ in related_objects])
         # 2b. merge all relationships
         for related_object, properties in related_objects:
-            tx.run("MATCH (a) WHERE id(a) = {x} MATCH (b) WHERE id(b) = {y} "
-                   "MERGE %s SET _ = {z}" % self.__relationship_pattern,
+            tx.run("MATCH (a) WHERE id(a) = $x MATCH (b) WHERE id(b) = $y "
+                   "MERGE %s SET _ = $z" % self.__relationship_pattern,
                    x=subject_id, y=related_object.__node__.identity, z=properties)
 
 

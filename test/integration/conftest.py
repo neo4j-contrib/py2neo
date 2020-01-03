@@ -30,7 +30,7 @@ from py2neo.internal.compat import SocketError
 from py2neo.internal.connectors import Connector
 
 
-NEO4J_EDITION = "community"
+NEO4J_EDITION = "enterprise"
 NEO4J_VERSION = getenv("NEO4J_VERSION", minor_versions[-1])
 NEO4J_PROTOCOLS = ["bolt", "http"]  # TODO: https/cert
 NEO4J_HOST = "localhost"
