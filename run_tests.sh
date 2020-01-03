@@ -47,7 +47,12 @@ run_unit_tests
 export JAVA_HOME="${HOME}/openjdk11"
 if [ ! -d "${JAVA_HOME}" ]
 then
-    install-jdk.sh --feature 11 --target "${JAVA_HOME}"
+    if [ -z "${TRAVIS_BUILD_DIR}" ]
+    then
+        install-jdk.sh --feature 11 --target "${JAVA_HOME}"
+    else
+        "${TRAVIS_BUILD_DIR}/install-jdk.sh" --feature 11 --target "${JAVA_HOME}"
+    fi
     STATUS="$?"
     if [[ ${STATUS} -ne 0 ]]
     then
