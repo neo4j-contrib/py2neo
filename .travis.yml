@@ -42,9 +42,9 @@ install:
   - chmod +x jdk_switcher.sh
   - wget https://raw.githubusercontent.com/sormuras/bach/master/install-jdk.sh
   - chmod +x install-jdk.sh
-  - source jdk_switcher.sh
 
 script:
+  - source jdk_switcher.sh
   - ./check_legal.sh
   - ./run_tests.sh
   - ./check_install.sh
