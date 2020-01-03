@@ -53,8 +53,8 @@ Requirements
 
 The following versions of Python and Neo4j are supported:
 
-- Python 2.7 / 3.4 / 3.5 / 3.6 / 3.7
-- Neo4j 3.2 / 3.3 / 3.4 / 3.5 (the latest point release of each version is recommended)
+- Python 2.7 / 3.5 / 3.6 / 3.7 / 3.8
+- Neo4j 3.2 / 3.3 / 3.4 / 3.5 / 4.0 (the latest point release of each version is recommended)
 
 While either Neo4j Community or Enterprise edition may be used, py2neo offers no direct support for Enterprise-only features, such as `Causal Clustering <https://neo4j.com/docs/operations-manual/current/clustering/>`_.
 
