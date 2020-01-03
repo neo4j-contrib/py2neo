@@ -44,31 +44,12 @@ coverage erase
 
 run_unit_tests
 
-export JAVA_HOME="${HOME}/openjdk11"
-if [ ! -d "${JAVA_HOME}" ]
-then
-    if [ -z "${TRAVIS_BUILD_DIR}" ]
-    then
-        install-jdk.sh --feature 11 --target "${JAVA_HOME}"
-    else
-        "${TRAVIS_BUILD_DIR}/install-jdk.sh" --feature 11 --target "${JAVA_HOME}"
-    fi
-    STATUS="$?"
-    if [[ ${STATUS} -ne 0 ]]
-    then
-        echo "Failed to invoke install-jdk.sh"
-        exit ${STATUS}
-    fi
-fi
+JAVA_HOME="$(./where-is-java.sh 11)"
+export JAVA_HOME
 run_integration_tests "${NEO4J_VERSIONS_FOR_JDK11}"
 
-jdk_switcher use openjdk8
-STATUS="$?"
-if [[ ${STATUS} -ne 0 ]]
-then
-    echo "Failed to invoke jdk_switcher"
-    exit ${STATUS}
-fi
+JAVA_HOME="$(./where-is-java.sh 8)"
+export JAVA_HOME
 run_integration_tests "${NEO4J_VERSIONS_FOR_JDK8}"
 
 coverage report
