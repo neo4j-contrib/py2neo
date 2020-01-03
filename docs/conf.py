@@ -51,7 +51,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Py2neo'
-copyright = '2011-2019, Nigel Small'
+copyright = '2011-2020, Nigel Small'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
