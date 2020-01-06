@@ -163,7 +163,12 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
     for (pl, pk, labels), nodes in _node_merge_dict(p_label, p_key, (n for n in subgraph.nodes if n.graph is None)).items():
         if pl is None or pk is None:
             raise ValueError("Primary label and primary key are required for MERGE operation")
-        identities = _merge_nodes(tx, pl, pk, labels, list(map(lambda n: [n.get(pk), dict(n)], nodes)))
+        identities = list(_merge_nodes(tx, pl, pk, labels,
+                                       list(map(lambda n: [n.get(pk), dict(n)], nodes))))
+        if len(identities) > len(nodes):
+            raise OperationError("Found %d matching nodes for primary label %r and primary "
+                                 "key %r with labels %r but merging requires no more than "
+                                 "one" % (len(identities), pl, pk, set(labels)))
         for i, identity in enumerate(identities):
             node = nodes[i]
             node.graph = graph
@@ -307,3 +312,8 @@ def subgraph_exists(tx, subgraph):
                  "RETURN count(DISTINCT a) + count(DISTINCT r)")
     parameters = {"x": list(node_ids), "y": list(relationship_ids)}
     return tx.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
+
+
+class OperationError(Exception):
+
+    pass

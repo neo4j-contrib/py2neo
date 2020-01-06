@@ -10,6 +10,10 @@ function run_unit_tests
     echo "Running unit tests"
     coverage run --append --module pytest -v ${ARGS} test/unit
     STATUS="$?"
+    if [[ ${STATUS} -eq 5 ]]
+    then
+        return
+    fi
     if [[ ${STATUS} -ne 0 ]]
     then
         exit ${STATUS}

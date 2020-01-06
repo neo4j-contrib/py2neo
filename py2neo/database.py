@@ -26,8 +26,9 @@ from warnings import warn
 from py2neo.cypher import cypher_escape
 from py2neo.data import Table
 from py2neo.internal.caching import ThreadLocalEntityCache
-from py2neo.internal.text import Words
 from py2neo.internal.compat import Mapping, string_types, xstr
+from py2neo.internal.operations import OperationError
+from py2neo.internal.text import Words
 from py2neo.internal.versioning import Version
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 
@@ -1002,7 +1003,12 @@ class Transaction(object):
         except AttributeError:
             raise TypeError("No method defined to merge object %r" % subgraph)
         else:
-            merge(self, primary_label, primary_key)
+            try:
+                merge(self, primary_label, primary_key)
+            except OperationError as e0:
+                e1 = TransactionError("Failed to merge %r" % (subgraph,))
+                e1.__cause__ = e0
+                raise e1
 
     def pull(self, subgraph):
         """ Update local entities from their remote counterparts.

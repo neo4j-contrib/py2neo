@@ -18,7 +18,7 @@
 
 from pytest import raises
 
-from py2neo import Node, Relationship
+from py2neo import Node, Relationship, TransactionError
 
 
 def test_can_merge_node_that_does_not_exist(graph, make_unique_id):
@@ -44,6 +44,15 @@ def test_can_merge_node_that_does_exist(graph, make_unique_id):
     assert graph.exists(alice)
     new_order = len(graph.nodes)
     assert new_order == old_order
+
+
+def test_cannot_merge_node_where_two_exist(graph, make_unique_id):
+    label = make_unique_id()
+    graph.create(Node(label, name="Alice"))
+    graph.create(Node(label, name="Alice"))
+    alice = Node(label, name="Alice")
+    with raises(TransactionError):
+        graph.merge(alice, label, "name")
 
 
 def test_can_merge_bound_node(graph, make_unique_id):
