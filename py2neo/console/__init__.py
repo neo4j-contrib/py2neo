@@ -138,8 +138,8 @@ class Console(object):
                 return 0
             try:
                 self.run(source)
-            except ServiceUnavailable:
-                return 1
+            except ServiceUnavailable as error:
+                self.echo("Service Unavailable: %s" % (error.args[0]), err=True)
 
     def run_all(self, sources):
         gap = False
