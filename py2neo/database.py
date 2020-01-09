@@ -316,9 +316,6 @@ class Graph(object):
     #: The :class:`.Schema` resource for this :class:`.Graph`.
     schema = None
 
-    node_cache = ThreadLocalEntityCache()
-    relationship_cache = ThreadLocalEntityCache()
-
     def __new__(cls, uri=None, **settings):
         name = settings.pop("name", "data")
         database = Database(uri, **settings)
@@ -328,6 +325,8 @@ class Graph(object):
             inst = object.__new__(cls)
             inst.database = database
             inst.schema = Schema(inst)
+            inst.node_cache = ThreadLocalEntityCache()
+            inst.relationship_cache = ThreadLocalEntityCache()
             inst.__name__ = name
             database[name] = inst
         return inst
