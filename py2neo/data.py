@@ -16,6 +16,7 @@
 # limitations under the License.
 
 
+from collections import OrderedDict
 from functools import reduce
 from io import StringIO
 from itertools import chain
@@ -23,7 +24,7 @@ from operator import xor as xor_operator
 from uuid import uuid4
 
 from py2neo.cypher import cypher_repr, cypher_str
-from py2neo.cypher.encoding import LabelSetView
+from py2neo.cypher.encoding import CypherEncoder, LabelSetView
 from py2neo.internal.collections import is_collection, iter_items, SetView
 from py2neo.internal.compat import Mapping, integer_types, numeric_types, string_types, ustr, xstr
 from py2neo.internal.operations import create_subgraph, merge_subgraph, delete_subgraph, separate_subgraph, \
@@ -85,8 +86,11 @@ class Record(tuple, Mapping):
         return inst
 
     def __repr__(self):
-        return "<%s %s>" % (self.__class__.__name__,
-                            " ".join("%s=%r" % (field, self[i]) for i, field in enumerate(self.__keys)))
+        return "Record({%s})" % ", ".join("%r: %r" % (field, self[i])
+                                          for i, field in enumerate(self.__keys))
+
+    def __str__(self):
+        return "\t".join(map(repr, (self[i] for i, _ in enumerate(self.__keys))))
 
     def __eq__(self, other):
         return dict(self) == dict(other)
@@ -557,8 +561,9 @@ class Subgraph(object):
         if not self.__nodes:
             raise ValueError("Subgraphs must contain at least one node")
 
-    # def __repr__(self):
-    #     return "Subgraph({" + ", ".join(map(repr, self.nodes)) + "}, {" + ", ".join(map(repr, self.relationships)) + "})"
+    def __repr__(self):
+        return "Subgraph({%s}, {%s})" % (", ".join(map(repr, self.nodes)),
+                                         ", ".join(map(repr, self.relationships)))
 
     def __eq__(self, other):
         try:
@@ -670,7 +675,9 @@ class Walkable(Subgraph):
         Subgraph.__init__(self, self.__sequence[0::2], self.__sequence[1::2])
 
     def __repr__(self):
-        return xstr(cypher_repr(self))
+        return "%s(subgraph=%s, sequence=%r)" % (self.__class__.__name__,
+                                                 Subgraph.__repr__(self),
+                                                 self.__sequence)
 
     def __eq__(self, other):
         try:
@@ -767,9 +774,6 @@ class Entity(PropertyDict, Walkable):
             uuid = str(uuid4())
         self.__uuid__ = uuid
 
-    def __repr__(self):
-        return Walkable.__repr__(self)
-
     def __bool__(self):
         return len(self) > 0
 
@@ -830,6 +834,22 @@ class Node(Entity):
         self._labels = set(labels)
         Entity.__init__(self, (self,), properties)
         self._stale = set()
+
+    def __repr__(self):
+        args = list(map(repr, sorted(self._labels)))
+        kwargs = OrderedDict()
+        d = dict(self)
+        for key in sorted(d):
+            if CypherEncoder.is_safe_key(key):
+                args.append("%s=%r" % (key, d[key]))
+            else:
+                kwargs[key] = d[key]
+        if kwargs:
+            args.append("**{%s}" % ", ".join("%r: %r" % (k, kwargs[k]) for k in kwargs))
+        return "Node(%s)" % ", ".join(args)
+
+    def __str__(self):
+        return xstr(cypher_repr(self))
 
     def __eq__(self, other):
         if self is other:
@@ -1002,6 +1022,22 @@ class Relationship(Entity):
 
         self._stale = set()
 
+    def __repr__(self):
+        args = [repr(self.nodes[0]), repr(self.nodes[-1])]
+        kwargs = OrderedDict()
+        d = dict(self)
+        for key in sorted(d):
+            if CypherEncoder.is_safe_key(key):
+                args.append("%s=%r" % (key, d[key]))
+            else:
+                kwargs[key] = d[key]
+        if kwargs:
+            args.append("**{%s}" % ", ".join("%r: %r" % (k, kwargs[k]) for k in kwargs))
+        return "%s(%s)" % (self.__class__.__name__, ", ".join(args))
+
+    def __str__(self):
+        return xstr(cypher_repr(self))
+
     def __eq__(self, other):
         if self is other:
             return True
@@ -1076,3 +1112,6 @@ class Path(Walkable):
                     t, properties = entity
                     entities[i] = Relationship(start_node, t, end_node, **properties)
         Walkable.__init__(self, walk(*entities))
+
+    def __str__(self):
+        return xstr(cypher_repr(self))

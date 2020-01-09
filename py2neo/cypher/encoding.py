@@ -152,11 +152,17 @@ class CypherEncoder(object):
         if relationship_template:
             self.relationship_template = relationship_template
 
-    def encode_key(self, key):
+    @classmethod
+    def is_safe_key(cls, key):
+        key = ustr(key)
+        return key[0] in ID_START and all(key[i] in ID_CONTINUE for i in range(1, len(key)))
+
+    @classmethod
+    def encode_key(cls, key):
         key = ustr(key)
         if not key:
             raise ValueError("Keys cannot be empty")
-        if key[0] in ID_START and all(key[i] in ID_CONTINUE for i in range(1, len(key))):
+        if cls.is_safe_key(key):
             return key
         else:
             return u"`" + key.replace(u"`", u"``") + u"`"

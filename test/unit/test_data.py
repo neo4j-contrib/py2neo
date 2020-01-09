@@ -19,7 +19,7 @@
 from io import StringIO
 from unittest import TestCase
 
-from py2neo.data import Table, Subgraph, Walkable, Node, Relationship, PropertyDict, Path, walk
+from py2neo.data import Record, Table, Subgraph, Walkable, Node, Relationship, PropertyDict, Path, walk
 
 
 KNOWS = Relationship.type("KNOWS")
@@ -30,9 +30,9 @@ WORKS_FOR = Relationship.type("WORKS_FOR")
 WORKS_WITH = Relationship.type("WORKS_WITH")
 
 alice = Node("Person", "Employee", name="Alice", age=33)
-bob = Node("Person")
-carol = Node("Person")
-dave = Node("Person")
+bob = Node("Person", name="Bob")
+carol = Node("Person", name="Carol")
+dave = Node("Person", name="Dave")
 
 alice_knows_bob = KNOWS(alice, bob, since=1999)
 alice_likes_carol = LIKES(alice, carol)
@@ -1096,3 +1096,30 @@ class SymmetricDifferenceTestCase(TestCase):
         assert graph.nodes == (alice | bob | carol | dave).nodes
         assert graph.relationships == frozenset(alice_knows_bob | alice_likes_carol |
                                                 carol_married_to_dave | dave_works_for_dave)
+
+
+def test_record_repr():
+    person = Record([("name", "Alice"), ("age", 33)])
+    assert repr(person) == "Record({'name': 'Alice', 'age': 33})"
+
+
+def test_record_str():
+    person = Record([("name", "Alice"), ("age", 33)])
+    assert str(person) == "'Alice'\t33"
+
+
+def test_node_repr():
+    assert repr(alice) == "Node('Employee', 'Person', age=33, name='Alice')"
+
+
+def test_node_str():
+    assert str(alice) == "(:Employee:Person {age: 33, name: 'Alice'})"
+
+
+def test_relationship_repr():
+    assert (repr(alice_knows_bob) == "KNOWS(Node('Employee', 'Person', age=33, name='Alice'), "
+                                     "Node('Person', name='Bob'), since=1999)")
+
+
+def test_relationship_str():
+    assert str(alice_knows_bob) == "(Alice)-[:KNOWS {since: 1999}]->(Bob)"
