@@ -26,7 +26,7 @@ from certifi import where
 from neobolt.direct import connect, ConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
-from py2neo.internal.compat import bstr, urlsplit
+from py2neo.internal.compat import bstr, urlsplit, string_types
 from py2neo.internal.hydration import CypherResult, JSONHydrator, PackStreamHydrator, HydrationError
 from py2neo.meta import NEO4J_URI, NEO4J_AUTH, NEO4J_USER_AGENT, NEO4J_SECURE, NEO4J_VERIFIED, \
     bolt_user_agent, http_user_agent
@@ -89,7 +89,10 @@ def get_connection_data(uri=None, **settings):
         data["port"] = coalesce(parsed.port, data["port"])
     # apply auth (this can override `uri`)
     if "auth" in settings and settings["auth"] is not None:
-        data["user"], data["password"] = settings["auth"]
+        if isinstance(settings["auth"], string_types):
+            data["user"], _, data["password"] = settings["auth"].partition(":")
+        else:
+            data["user"], data["password"] = settings["auth"]
     elif NEO4J_AUTH is not None:
         data["user"], _, data["password"] = NEO4J_AUTH.partition(":")
     # apply components (these can override `uri` and `auth`)
