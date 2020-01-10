@@ -22,7 +22,7 @@ from py2neo import Graph, Node, Relationship
 
 
 def test_same_uri_gives_same_instance(graph):
-    uri = graph.database.uri
+    uri = graph.service.uri
     graph_1 = Graph(uri)
     graph_2 = Graph(uri)
     assert graph_1 is graph_2
@@ -161,7 +161,7 @@ def test_create_node_with_null_properties(graph):
 
 
 def test_bolt_connection_pool_usage_for_autocommit(graph):
-    connector = graph.database.connector
+    connector = graph.service.connector
     if "bolt" not in connector.scheme:
         skip("Bolt tests are only valid for Bolt connectors")
     pool = connector.pool
@@ -178,7 +178,7 @@ def test_bolt_connection_pool_usage_for_autocommit(graph):
 
 
 def test_bolt_connection_reuse_for_autocommit(graph):
-    connector = graph.database.connector
+    connector = graph.service.connector
     if "bolt" not in connector.scheme:
         skip("Bolt tests are only valid for Bolt connectors")
     pool = connector.pool
@@ -201,7 +201,7 @@ def test_bolt_connection_reuse_for_autocommit(graph):
 
 
 def test_bolt_connection_pool_usage_for_begin_commit(graph):
-    connector = graph.database.connector
+    connector = graph.service.connector
     if "bolt" not in connector.scheme:
         skip("Bolt tests are only valid for Bolt connectors")
     pool = connector.pool
@@ -218,7 +218,7 @@ def test_bolt_connection_pool_usage_for_begin_commit(graph):
 
 
 def test_bolt_connection_pool_usage_for_begin_rollback(graph):
-    connector = graph.database.connector
+    connector = graph.service.connector
     if "bolt" not in connector.scheme:
         skip("Bolt tests are only valid for Bolt connectors")
     pool = connector.pool

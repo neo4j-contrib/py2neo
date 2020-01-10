@@ -45,13 +45,14 @@ def console(graph):
 
 
 def assert_prologue(console):
-    assert console.captured_output.pop(0) == "Py2neo console v" + __version__
-    assert console.captured_output.pop(0) == "Connected to %s" % console.graph.database.uri
-    assert console.captured_output.pop(0) == ""
-    assert console.captured_output.pop(0) == ("//  to enter multi-line mode (press [Alt]+[Enter] to run)\n"
-                                              "/e  to launch external editor\n"
-                                              "/?  for help\n"
-                                              "/x  to exit")
+    output = console.captured_output
+    assert output.pop(0) == "Py2neo console v" + __version__
+    assert output.pop(0) == "Connected to %s" % console.graph.service.uri
+    assert output.pop(0) == ""
+    assert output.pop(0) == ("//  to enter multi-line mode (press [Alt]+[Enter] to run)\n"
+                             "/e  to launch external editor\n"
+                             "/?  for help\n"
+                             "/x  to exit")
 
 
 def test_can_start_console(console):

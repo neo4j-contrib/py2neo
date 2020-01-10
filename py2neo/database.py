@@ -48,23 +48,24 @@ update_stats_keys = [
 ]
 
 
-class Database(object):
+class GraphService(object):
     """ Accessor for an entire Neo4j graph database installation over
-    Bolt or HTTP. Within the py2neo object hierarchy, a :class:`.Database`
-    contains a :class:`.Graph` in which most activity occurs. Currently,
-    Neo4j only supports one `Graph` per `Database`.
+    Bolt or HTTP. Within the py2neo object hierarchy, a
+    :class:`.GraphService` contains a :class:`.Graph` in which most
+    activity occurs. Currently, Neo4j only supports one `Graph` per
+    `GraphService`.
 
     An explicit URI can be passed to the constructor::
 
-        >>> from py2neo import Database
-        >>> db = Database("bolt://camelot.example.com:7687")
+        >>> from py2neo import GraphService
+        >>> gs = GraphService("bolt://camelot.example.com:7687")
 
     Alternatively, the default value of ``bolt://localhost:7687`` is
     used::
 
-        >>> default_db = Database()
-        >>> default_db
-        <Database uri='bolt://localhost:7687'>
+        >>> default_gs = GraphService()
+        >>> default_gs
+        <GraphService uri='bolt://localhost:7687'>
 
     """
 
@@ -77,7 +78,7 @@ class Database(object):
 
     @classmethod
     def forget_all(cls):
-        """ Forget all cached :class:`.Database` details.
+        """ Forget all cached :class:`.GraphService` details.
         """
         for _, db in cls._instances.items():
             # db._driver.close()
@@ -93,7 +94,7 @@ class Database(object):
         try:
             inst = cls._instances[key]
         except KeyError:
-            inst = super(Database, cls).__new__(cls)
+            inst = super(GraphService, cls).__new__(cls)
             inst._connection_data = connection_data
             from py2neo.internal.connectors import Connector
             inst._connector = Connector(
@@ -125,16 +126,16 @@ class Database(object):
     def __hash__(self):
         return hash(self._connection_data["hash"])
 
-    def __contains__(self, database):
-        return database in self._graphs
+    def __contains__(self, graph_name):
+        return graph_name in self._graphs
 
-    def __getitem__(self, database):
-        if database == "data" and database not in self._graphs:
-            self._graphs[database] = Graph(**self._connection_data)
-        return self._graphs[database]
+    def __getitem__(self, graph_name):
+        if graph_name == "data" and graph_name not in self._graphs:
+            self._graphs[graph_name] = Graph(**self._connection_data)
+        return self._graphs[graph_name]
 
-    def __setitem__(self, database, graph):
-        self._graphs[database] = graph
+    def __setitem__(self, graph_name, graph):
+        self._graphs[graph_name] = graph
 
     def __iter__(self):
         yield "data"
@@ -145,13 +146,13 @@ class Database(object):
 
     @property
     def uri(self):
-        """ The URI to which this `Database` is connected.
+        """ The URI to which this `GraphService` is connected.
         """
         return self._connection_data["uri"]
 
     @property
     def default_graph(self):
-        """ The default graph exposed by this database.
+        """ The default graph exposed by this graph service.
 
         :rtype: :class:`.Graph`
         """
@@ -161,7 +162,7 @@ class Database(object):
         return list(self)
 
     def query_jmx(self, namespace, instance=None, name=None, type=None):
-        """ Query the JMX service attached to this database.
+        """ Query the JMX service attached to this graph service.
         """
         d = {}
         for nom, _, attributes in self.default_graph.run("CALL dbms.queryJmx('')"):
@@ -318,25 +319,25 @@ class Graph(object):
 
     def __new__(cls, uri=None, **settings):
         name = settings.pop("name", "data")
-        database = Database(uri, **settings)
-        if name in database:
-            inst = database[name]
+        gs = GraphService(uri, **settings)
+        if name in gs:
+            inst = gs[name]
         else:
             inst = object.__new__(cls)
-            inst.database = database
+            inst.service = gs
             inst.schema = Schema(inst)
             inst.node_cache = ThreadLocalEntityCache()
             inst.relationship_cache = ThreadLocalEntityCache()
             inst.__name__ = name
-            database[name] = inst
+            gs[name] = inst
         return inst
 
     def __repr__(self):
-        return "<Graph database=%r name=%r>" % (self.database, self.__name__)
+        return "<Graph service=%r name=%r>" % (self.service, self.__name__)
 
     def __eq__(self, other):
         try:
-            return self.database == other.database and self.__name__ == other.__name__
+            return self.service == other.service and self.__name__ == other.__name__
         except (AttributeError, TypeError):
             return False
 
@@ -803,7 +804,7 @@ class Transaction(object):
         self.graph = graph
         self.autocommit = autocommit
         self.entities = deque()
-        self.connector = self.graph.database.connector
+        self.connector = self.graph.service.connector
         self.results = []
         if autocommit:
             self.transaction = None
@@ -951,8 +952,8 @@ class Transaction(object):
             delete(self)
 
     def exists(self, subgraph):
-        """ Determine whether one or more graph entities all exist within the
-        database. Note that if any nodes or relationships in *subgraph* are not
+        """ Determine whether one or more entities all exist within the
+        graph. Note that if any nodes or relationships in *subgraph* are not
         bound to remote counterparts, this method will return ``False``.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other

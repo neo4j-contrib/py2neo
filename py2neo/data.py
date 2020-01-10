@@ -866,7 +866,7 @@ class Node(Entity):
 
     def __hash__(self):
         if self.graph and self.identity:
-            return hash(self.graph.database) ^ hash(self.graph.name) ^ hash(self.identity)
+            return hash(self.graph.service) ^ hash(self.graph.name) ^ hash(self.identity)
         else:
             return hash(id(self))
 

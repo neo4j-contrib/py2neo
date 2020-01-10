@@ -18,60 +18,60 @@
 
 from pytest import skip
 
-from py2neo import Database, Graph
+from py2neo import GraphService, Graph
 
 
-def test_can_generate_graph(database):
-    graph = database["data"]
+def test_can_generate_graph(graph_service):
+    graph = graph_service["data"]
     assert isinstance(graph, Graph)
 
 
-def test_repr(database):
-    assert repr(database).startswith("<Database uri=")
+def test_repr(graph_service):
+    assert repr(graph_service).startswith("<GraphService uri=")
 
 
-def test_same_uri_gives_same_instance(database):
-    uri = database.uri
-    dbms_1 = Database(uri)
-    dbms_2 = Database(uri)
-    assert dbms_1 is dbms_2
+def test_same_uri_gives_same_instance(graph_service):
+    uri = graph_service.uri
+    gs1 = GraphService(uri)
+    gs2 = GraphService(uri)
+    assert gs1 is gs2
 
 
-def test_dbms_equality(database):
-    uri = database.uri
-    dbms_1 = Database(uri)
-    dbms_2 = Database(uri)
-    assert dbms_1 == dbms_2
-    assert hash(dbms_1) == hash(dbms_2)
+def test_graph_service_equality(graph_service):
+    uri = graph_service.uri
+    gs1 = GraphService(uri)
+    gs2 = GraphService(uri)
+    assert gs1 == gs2
+    assert hash(gs1) == hash(gs2)
 
 
-def test_dbms_is_not_equal_to_non_dbms(database):
-    assert database != object()
+def test_graph_service_is_not_equal_to_non_graph_service(graph_service):
+    assert graph_service != object()
 
 
-def test_dbms_metadata(database):
+def test_graph_service_metadata(graph_service):
     try:
-        assert database.kernel_start_time
-        assert database.kernel_version
-        assert database.store_creation_time
-        assert database.store_id
-        assert database.primitive_counts
-        assert database.store_file_sizes
-        assert database.config
+        assert graph_service.kernel_start_time
+        assert graph_service.kernel_version
+        assert graph_service.store_creation_time
+        assert graph_service.store_id
+        assert graph_service.primitive_counts
+        assert graph_service.store_file_sizes
+        assert graph_service.config
     except NotImplementedError:
         skip("JMX data not available in this version of Neo4j")
 
 
-def test_database_name(database):
-    if database.name is None:
-        skip("Database name not available in this version of Neo4j")
+def test_graph_service_name(graph_service):
+    if graph_service.name is None:
+        skip("Graph service name not available in this version of Neo4j")
     else:
-        assert database.name == "graph.db"
+        assert graph_service.name == "graph.db"
 
 
-def test_kernel_version(database):
+def test_kernel_version(graph_service):
     try:
-        version = database.kernel_version
+        version = graph_service.kernel_version
     except NotImplementedError:
         skip("Kernel version not available in this version of Neo4j")
     else:
@@ -82,11 +82,11 @@ def test_kernel_version(database):
         assert isinstance(version[2], int)
 
 
-def test_can_get_set_of_graphs_in_database(database):
-    assert set(database) == {"data"}
+def test_can_get_set_of_graphs_in_service(graph_service):
+    assert set(graph_service) == {"data"}
 
 
-def test_can_get_dictionary_of_databases(database):
-    databases = dict(database)
-    assert len(databases) == 1
-    assert databases["data"] is database.default_graph
+def test_can_get_dictionary_of_graphs(graph_service):
+    graphs = dict(graph_service)
+    assert len(graphs) == 1
+    assert graphs["data"] is graph_service.default_graph

@@ -25,7 +25,7 @@ from pytest import fixture
 from py2neo import Graph
 from py2neo.admin.dist import Distribution, minor_versions
 from py2neo.admin.install import Warehouse
-from py2neo.database import Database
+from py2neo.database import GraphService
 from py2neo.internal.compat import SocketError
 from py2neo.internal.connectors import Connector
 
@@ -98,8 +98,8 @@ def connector(uri):
 
 
 @fixture(scope="session")
-def database(uri):
-    return Database(uri)
+def graph_service(uri):
+    return GraphService(uri)
 
 
 @fixture(scope="session")
@@ -132,4 +132,4 @@ def pytest_sessionfinish(session, exitstatus):
         NEO4J_PROCESS["installation"].server.stop()
         NEO4J_PROCESS["warehouse"].uninstall(NEO4J_PROCESS["name"])
         NEO4J_PROCESS.clear()
-        Database.forget_all()
+        GraphService.forget_all()

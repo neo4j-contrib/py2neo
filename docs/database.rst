@@ -19,10 +19,10 @@ To run a query against a local database is straightforward::
        3 |    9
 
 
-The :class:`.Database`
-======================
+The :class:`.GraphService`
+==========================
 
-.. autoclass:: Database
+.. autoclass:: GraphService
    :members:
 
 

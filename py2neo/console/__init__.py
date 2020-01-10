@@ -126,7 +126,7 @@ class Console(object):
 
     def loop(self):
         self.echo(TITLE, err=True)
-        self.echo("Connected to {}".format(self.graph.database.uri).rstrip(), err=True)
+        self.echo("Connected to {}".format(self.graph.service.uri).rstrip(), err=True)
         self.echo(u"", err=True)
         self.echo(dedent(QUICK_HELP), err=True)
         while True:
