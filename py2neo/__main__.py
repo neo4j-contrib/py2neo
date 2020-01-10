@@ -39,10 +39,14 @@ def py2neo_version():
 @py2neo.command("console", help="""\
 Interactive Cypher console
 """)
-@click.option("-u", "--uri", default=NEO4J_URI, help="Set the connection URI.")
-@click.option("-a", "--auth", default=NEO4J_AUTH, help="Set the user and password.")
-@click.option("-s", "--secure", is_flag=True, default=False, help="Use encrypted communication (TLS).")
-@click.option("-v", "--verbose", is_flag=True, default=False, help="Show low level communication detail.")
+@click.option("-u", "--uri", default=NEO4J_URI,
+              help="Set the connection URI.")
+@click.option("-a", "--auth", default=NEO4J_AUTH, metavar="USER:PASSWORD",
+              help="Set the user and password.")
+@click.option("-s", "--secure", is_flag=True, default=False,
+              help="Use encrypted communication (TLS).")
+@click.option("-v", "--verbose", is_flag=True, default=False,
+              help="Show low level communication detail.")
 def py2neo_console(uri, auth=None, secure=None, verbose=None):
     from py2neo.console import Console, ConsoleError
     try:
@@ -117,10 +121,14 @@ def py2neo_get():
 @py2neo.command("run", help="""\
 Run a Cypher query
 """)
-@click.option("-u", "--uri", default=NEO4J_URI, help="Set the connection URI.")
-@click.option("-a", "--auth", default=NEO4J_AUTH, help="Set the user and password.")
-@click.option("-s", "--secure", is_flag=True, default=False, help="Use encrypted communication (TLS).")
-@click.option("-v", "--verbose", is_flag=True, default=False, help="Show low level communication detail.")
+@click.option("-u", "--uri", default=NEO4J_URI,
+              help="Set the connection URI.")
+@click.option("-a", "--auth", default=NEO4J_AUTH, metavar="USER:PASSWORD",
+              help="Set the user and password.")
+@click.option("-s", "--secure", is_flag=True, default=False,
+              help="Use encrypted communication (TLS).")
+@click.option("-v", "--verbose", is_flag=True, default=False,
+              help="Show low level communication detail.")
 @click.argument("cypher", nargs=-1)
 def py2neo_run(cypher, uri, auth=None, secure=None, verbose=None):
     from py2neo.console import Console, ConsoleError
