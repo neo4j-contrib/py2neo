@@ -311,8 +311,8 @@ class Graph(object):
     Driver for Python.
     """
 
-    #: The :class:`.Database` to which this :class:`.Graph` belongs.
-    database = None
+    #: The :class:`.GraphService` to which this :class:`.Graph` belongs.
+    service = None
 
     #: The :class:`.Schema` resource for this :class:`.Graph`.
     schema = None
