@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-#!/usr/bin/env python
-# -*- encoding: utf-8 -*-
-
 # Copyright 2011-2020, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,79 +23,7 @@ This module defines spatial data types.
 
 from neobolt.packstream import Structure
 
-
-__all__ = [
-    "Point",
-    "CartesianPoint",
-    "WGS84Point",
-]
-
-
-# SRID to subclass mappings
-__srid_table = {}
-
-
-class Point(tuple):
-    """ A point within a geometric space. This type is generally used
-    via its subclasses and should not be instantiated directly unless
-    there is no subclass defined for the required SRID.
-    """
-
-    srid = None
-
-    def __new__(cls, iterable):
-        return tuple.__new__(cls, iterable)
-
-    def __repr__(self):
-        return "POINT(%s)" % " ".join(map(str, self))
-
-    def __eq__(self, other):
-        try:
-            return type(self) is type(other) and tuple(self) == tuple(other)
-        except (AttributeError, TypeError):
-            return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return hash(type(self)) ^ hash(tuple(self))
-
-
-def __point_subclass(name, fields, srid_map):
-    """ Dynamically create a Point subclass.
-    """
-
-    def srid(self):
-        try:
-            return srid_map[len(self)]
-        except KeyError:
-            return None
-
-    attributes = {"srid": property(srid)}
-
-    for index, subclass_field in enumerate(fields):
-
-        def accessor(self, i=index, f=subclass_field):
-            try:
-                return self[i]
-            except IndexError:
-                raise AttributeError(f)
-
-        for field_alias in {subclass_field, "xyz"[index]}:
-            attributes[field_alias] = property(accessor)
-
-    cls = type(name, (Point,), attributes)
-
-    for dim, srid in srid_map.items():
-        __srid_table[srid] = (cls, dim)
-
-    return cls
-
-
-# Point subclass definitions
-CartesianPoint = __point_subclass("CartesianPoint", ["x", "y", "z"], {2: 7203, 3: 9157})
-WGS84Point = __point_subclass("WGS84Point", ["longitude", "latitude", "height"], {2: 4326, 3: 4979})
+from py2neo.spatial import Point
 
 
 def hydrate_point(srid, *coordinates):
@@ -108,7 +33,7 @@ def hydrate_point(srid, *coordinates):
     subclass can be found.
     """
     try:
-        point_class, dim = __srid_table[srid]
+        point_class, dim = Point.class_for_srid(srid)
     except KeyError:
         point = Point(coordinates)
         point.srid = srid

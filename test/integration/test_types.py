@@ -20,6 +20,7 @@ from neotime import Date, Time, DateTime, Duration
 from pytest import skip
 
 from py2neo.data import Node
+from py2neo.spatial import CartesianPoint, WGS84Point
 
 
 def test_null(graph):
@@ -135,5 +136,19 @@ def test_date_time(graph):
 def test_duration(graph):
     skip_if_no_temporal_support(graph)
     i = Duration(months=1, days=2, seconds=3)
+    o = graph.evaluate("RETURN $x", x=i)
+    assert o == i
+
+
+def test_cartesian_point(graph):
+    skip_if_no_temporal_support(graph)
+    i = CartesianPoint((12.34, 56.78))
+    o = graph.evaluate("RETURN $x", x=i)
+    assert o == i
+
+
+def test_wgs84_point(graph):
+    skip_if_no_temporal_support(graph)
+    i = WGS84Point((12.34, 56.78))
     o = graph.evaluate("RETURN $x", x=i)
     assert o == i
