@@ -455,7 +455,7 @@ class SecureHTTPConnector(HTTPConnector):
 
     scheme = "https"
 
-    def open(self, cx_data):
+    def open(self, cx_data, cert_reqs=None, **_):
         self.pool = HTTPSConnectionPool(host=cx_data["host"], port=cx_data["port"],
-                                        cert_reqs="CERT_NONE", ca_certs=where())
+                                        cert_reqs=(cert_reqs or "CERT_NONE"), ca_certs=where())
         self.headers = make_headers(basic_auth=":".join(cx_data["auth"]))
