@@ -18,10 +18,11 @@
 
 from os.path import join as path_join, dirname
 
-from pytest import fixture
+from pytest import fixture, raises
 
 from py2neo.data import Node
-from py2neo.matching import NodeMatcher
+from py2neo.matching import NodeMatcher, EQ, NE, LT, LE, GT, GE, IN, LIKE, ALL, ANY, STARTS_WITH, \
+    ENDS_WITH, CONTAINS
 
 
 @fixture()
@@ -31,6 +32,46 @@ def movie_matcher(graph):
         cypher = f.read()
     graph.run(cypher)
     return NodeMatcher(graph)
+
+
+def test_node_matcher_iter(movie_matcher):
+    node_ids = list(movie_matcher)
+    assert len(node_ids) == 169
+
+
+def test_node_matcher_len(movie_matcher):
+    node_count = len(movie_matcher)
+    assert node_count == 169
+
+
+def test_node_matcher_contains(movie_matcher):
+    node_exists = 149 in movie_matcher
+    assert node_exists
+
+
+def test_node_matcher_does_not_contain(movie_matcher):
+    node_exists = 249 in movie_matcher
+    assert not node_exists
+
+
+def test_node_matcher_getitem(movie_matcher):
+    node = movie_matcher[149]
+    assert isinstance(node, Node)
+
+
+def test_node_matcher_getitem_fail(movie_matcher):
+    with raises(KeyError):
+        _ = movie_matcher[249]
+
+
+def test_node_matcher_get(movie_matcher):
+    node = movie_matcher.get(149)
+    assert isinstance(node, Node)
+
+
+def test_node_matcher_get_fail(movie_matcher):
+    node = movie_matcher.get(249)
+    assert node is None
 
 
 def test_can_match_by_label_key_value(movie_matcher):
@@ -87,77 +128,105 @@ def test_custom_conditions_with_parameters(movie_matcher):
     assert first["born"] == 1964
 
 
-def test_special_parameters_gt(movie_matcher):
-    year = 1985
-    found = list(movie_matcher.match("Person", born__gt=year))
-    assert found
-    for actor in found:
-        assert actor["born"] > year
+def test_predicate_none(movie_matcher):
+    people = list(movie_matcher.match("Person", born=None))
+    names = {person["name"] for person in people}
+    assert names == {'Naomie Harris', 'Jessica Thompson',
+                     'Angela Scope', 'Paul Blythe', 'James Thompson'}
 
 
-def test_special_parameters_gte(movie_matcher):
-    year = 1985
-    found = list(movie_matcher.match("Person", born__gte=year))
-    assert found
-    for actor in found:
-        assert actor["born"] >= year
+def test_predicate_eq(movie_matcher):
+    people = movie_matcher.match("Person", born=EQ(1964))
+    names = {person["name"] for person in people}
+    assert names == {"Keanu Reeves"}
 
 
-def test_special_parameters_lt(movie_matcher):
-    year = 1985
-    found = list(movie_matcher.match("Person", born__lt=year))
-    assert found
-    for actor in found:
-        assert actor["born"] < year
+def test_predicate_ne(movie_matcher):
+    people = movie_matcher.match("Person", born=NE(1964))
+    names = {person["name"] for person in people}
+    assert len(names) == 125
+    assert "Keanu Reeves" not in names
 
 
-def test_special_parameters_lte(movie_matcher):
-    year = 1985
-    found = list(movie_matcher.match("Person", born__lte=year))
-    assert found
-    for actor in found:
-        assert actor["born"] <= year
+def test_predicate_lt(movie_matcher):
+    people = movie_matcher.match("Person", born=LT(1930))
+    names = {person["name"] for person in people}
+    assert names == {"Max von Sydow"}
 
 
-def test_special_parameters_exact(movie_matcher):
-    year = 1985
-    found = list(movie_matcher.match("Person", born__exact=year))
-    assert found
-    for actor in found:
-        assert actor["born"] == year
+def test_predicate_le(movie_matcher):
+    people = movie_matcher.match("Person", born=LE(1930))
+    names = {person["name"] for person in people}
+    assert names == {'Max von Sydow', 'Gene Hackman',
+                     'Clint Eastwood', 'Richard Harris'}
 
 
-def test_special_parameters_not(movie_matcher):
-    year = 1985
-    found = list(movie_matcher.match("Person", born__not=year))
-    assert found
-    for actor in found:
-        assert actor["born"] != year
+def test_predicate_gt(movie_matcher):
+    people = movie_matcher.match("Person", born=GT(1985))
+    names = {person["name"] for person in people}
+    assert names == {"Jonathan Lipnicki"}
 
 
-def test_special_parameters_regex(movie_matcher):
-    found = list(movie_matcher.match("Person", name__regex='K.*'))
+def test_predicate_ge(movie_matcher):
+    people = movie_matcher.match("Person", born=GE(1985))
+    names = {person["name"] for person in people}
+    assert names == {"Emile Hirsch", "Jonathan Lipnicki"}
+
+
+def test_predicate_starts_with(movie_matcher):
+    people = movie_matcher.match("Person", name=STARTS_WITH("Keanu"))
+    names = {person["name"] for person in people}
+    assert names == {"Keanu Reeves"}
+
+
+def test_predicate_ends_with(movie_matcher):
+    people = movie_matcher.match("Person", name=ENDS_WITH("Reeves"))
+    names = {person["name"] for person in people}
+    assert names == {"Keanu Reeves"}
+
+
+def test_predicate_contains(movie_matcher):
+    people = movie_matcher.match("Person", name=CONTAINS("eve"))
+    names = {person["name"] for person in people}
+    assert names == {"Keanu Reeves", "Steve Zahn"}
+
+
+def test_predicate_like_from_string(movie_matcher):
+    pattern = 'K.*s'
+    people = list(movie_matcher.match("Person", name=LIKE(pattern)))
+    names = {person["name"] for person in people}
+    assert names == {'Kelly McGillis', 'Keanu Reeves'}
+
+
+def test_predicate_like_from_regex(movie_matcher):
+    import re
+    pattern = re.compile(r'K.*s')
+    people = list(movie_matcher.match("Person", name=LIKE(pattern)))
+    names = {person["name"] for person in people}
+    assert names == {'Kelly McGillis', 'Keanu Reeves'}
+
+
+def test_predicate_in(movie_matcher):
+    people = list(movie_matcher.match("Person", born=IN([1930, 1940, 1950])))
+    names = {person["name"] for person in people}
+    assert names == {'Al Pacino', 'Clint Eastwood', 'Ed Harris',
+                     'Gene Hackman', 'Howard Deutch', 'James Cromwell',
+                     'James L. Brooks', 'John Hurt',
+                     'John Patrick Stanley', 'Richard Harris'}
+
+
+def test_multiple_predicates(movie_matcher):
+    found = list(movie_matcher.match("Person").where(name=STARTS_WITH("J"),
+                                                     born=ALL(GE(1960), LT(1970))))
     found_names = {actor["name"] for actor in found}
-    assert found_names == {'Keanu Reeves', 'Kelly McGillis', 'Kevin Bacon',
-                           'Kevin Pollak', 'Kiefer Sutherland', 'Kelly Preston'}
+    assert found_names == {'James Marshall', 'John Cusack', 'John Goodman',
+                           'John C. Reilly', 'Julia Roberts'}
 
 
-def test_special_parameters_startswith(movie_matcher):
-    found = list(movie_matcher.match("Person", name__startswith='K'))
-    for actor in found:
-        assert actor["name"].startswith("K")
-
-
-def test_special_parameters_endswith(movie_matcher):
-    found = list(movie_matcher.match("Person", name__endswith='eeves'))
-    for actor in found:
-        assert actor["name"].endswith("eeves")
-
-
-def test_special_parameters_contains(movie_matcher):
-    found = list(movie_matcher.match("Person", name__contains='shall'))
-    for actor in found:
-        assert "shall" in actor["name"]
+def test_mutually_exclusive_predicates(movie_matcher):
+    found = list(movie_matcher.match("Person").where(name=ANY(LIKE("K.*d"), LIKE("K.*n"))))
+    found_names = {actor["name"] for actor in found}
+    assert found_names == {'Kiefer Sutherland', 'Kelly Preston', 'Kevin Bacon'}
 
 
 def test_order_by(movie_matcher):
