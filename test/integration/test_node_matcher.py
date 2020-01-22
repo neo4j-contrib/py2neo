@@ -28,6 +28,16 @@ from py2neo.matching import NodeMatcher, \
 
 
 @fixture()
+def good_node_id(graph):
+    return graph.evaluate("MATCH (a) RETURN max(id(a))")
+
+
+@fixture()
+def bad_node_id(graph):
+    return graph.evaluate("MATCH (a) RETURN max(id(a)) + 1")
+
+
+@fixture()
 def movie_matcher(graph):
     graph.delete_all()
     with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
@@ -46,33 +56,33 @@ def test_node_matcher_len(movie_matcher):
     assert node_count == 169
 
 
-def test_node_matcher_contains(movie_matcher):
-    node_exists = 149 in movie_matcher
+def test_node_matcher_contains(movie_matcher, good_node_id):
+    node_exists = good_node_id in movie_matcher
     assert node_exists
 
 
-def test_node_matcher_does_not_contain(movie_matcher):
-    node_exists = 249 in movie_matcher
+def test_node_matcher_does_not_contain(movie_matcher, bad_node_id):
+    node_exists = bad_node_id in movie_matcher
     assert not node_exists
 
 
-def test_node_matcher_getitem(movie_matcher):
-    node = movie_matcher[149]
+def test_node_matcher_getitem(movie_matcher, good_node_id):
+    node = movie_matcher[good_node_id]
     assert isinstance(node, Node)
 
 
-def test_node_matcher_getitem_fail(movie_matcher):
+def test_node_matcher_getitem_fail(movie_matcher, bad_node_id):
     with raises(KeyError):
-        _ = movie_matcher[249]
+        _ = movie_matcher[bad_node_id]
 
 
-def test_node_matcher_get(movie_matcher):
-    node = movie_matcher.get(149)
+def test_node_matcher_get(movie_matcher, good_node_id):
+    node = movie_matcher.get(good_node_id)
     assert isinstance(node, Node)
 
 
-def test_node_matcher_get_fail(movie_matcher):
-    node = movie_matcher.get(249)
+def test_node_matcher_get_fail(movie_matcher, bad_node_id):
+    node = movie_matcher.get(bad_node_id)
     assert node is None
 
 
