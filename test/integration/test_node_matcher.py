@@ -16,12 +16,11 @@
 # limitations under the License.
 
 
-from os.path import join as path_join, dirname
-
 from pytest import fixture, raises
 
-from py2neo.data import Node
-from py2neo.matching import NodeMatcher, \
+from py2neo.data import Node, Relationship, walk
+from py2neo.matching import \
+    NodeMatcher, RelationshipMatcher, \
     EQ, NE, LT, LE, GT, GE, \
     STARTS_WITH, ENDS_WITH, CONTAINS, LIKE, \
     IN, AND, OR, XOR
@@ -38,12 +37,8 @@ def bad_node_id(graph):
 
 
 @fixture()
-def movie_matcher(graph):
-    graph.delete_all()
-    with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
-        cypher = f.read()
-    graph.run(cypher)
-    return NodeMatcher(graph)
+def movie_matcher(movie_graph):
+    return NodeMatcher(movie_graph)
 
 
 def test_node_matcher_iter(movie_matcher):
@@ -288,3 +283,31 @@ def test_frozenset_property_value(movie_matcher):
     found_names = {actor["name"] for actor in found}
     assert found_names == {"Kevin Bacon", "Kiefer Sutherland"}
 
+
+def test_walking_matched_relationships(movie_graph):
+    keanu = movie_graph.nodes.match("Person", name="Keanu Reeves").first()
+    acting = movie_graph.match((keanu,), "ACTED_IN").order_by("endNode(_).title").all()
+    for i, acted in enumerate(acting):
+        walked = [dict(x) for x in walk(acted)]
+        assert walked[0] == {'name': 'Keanu Reeves', 'born': 1964}
+        assert walked[1] == [
+            {'roles': ['Johnny Mnemonic']},
+            {'roles': ['Julian Mercer']},
+            {'roles': ['Kevin Lomax']},
+            {'roles': ['Neo']},
+            {'roles': ['Neo']},
+            {'roles': ['Neo']},
+            {'roles': ['Shane Falco']},
+        ][i]
+        assert walked[2] == [
+            {'title': 'Johnny Mnemonic', 'tagline': 'The hottest data on earth. '
+                                                    'In the coolest head in town', 'released': 1995},
+            {'title': "Something's Gotta Give", 'released': 2003},
+            {'title': "The Devil's Advocate", 'tagline': 'Evil has its winning ways', 'released': 1997},
+            {'title': 'The Matrix', 'tagline': 'Welcome to the Real World', 'released': 1999},
+            {'title': 'The Matrix Reloaded', 'tagline': 'Free your mind', 'released': 2003},
+            {'title': 'The Matrix Revolutions', 'tagline': 'Everything that has a beginning '
+                                                           'has an end', 'released': 2003},
+            {'title': 'The Replacements', 'tagline': 'Pain heals, Chicks dig scars... '
+                                                     'Glory lasts forever', 'released': 2000},
+        ][i]

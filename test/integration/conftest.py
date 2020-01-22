@@ -17,6 +17,7 @@
 
 
 from os import getenv
+from os.path import dirname, join as path_join
 from socket import create_connection
 from uuid import uuid4
 
@@ -105,6 +106,16 @@ def graph_service(uri):
 @fixture(scope="session")
 def graph(uri):
     return Graph(uri)
+
+
+@fixture(scope="function")
+def movie_graph(graph):
+    graph.delete_all()
+    with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
+        cypher = f.read()
+    graph.run(cypher)
+    yield graph
+    graph.delete_all()
 
 
 @fixture()

@@ -672,7 +672,10 @@ class Walkable(Subgraph):
 
     def __init__(self, iterable):
         self.__sequence = tuple(iterable)
-        Subgraph.__init__(self, self.__sequence[0::2], self.__sequence[1::2])
+        nodes = self.__sequence[0::2]
+        for node in nodes:
+            _ = node.labels  # ensure not stale
+        Subgraph.__init__(self, nodes, self.__sequence[1::2])
 
     def __repr__(self):
         return "%s(subgraph=%s, sequence=%r)" % (self.__class__.__name__,
@@ -836,7 +839,7 @@ class Node(Entity):
         self._stale = set()
 
     def __repr__(self):
-        args = list(map(repr, sorted(self._labels)))
+        args = list(map(repr, sorted(self.labels)))
         kwargs = OrderedDict()
         d = dict(self)
         for key in sorted(d):
@@ -878,6 +881,11 @@ class Node(Entity):
     def __ensure_labels(self):
         if self.graph is not None and self.identity is not None and "labels" in self._stale:
             self.graph.pull(self)
+
+    def keys(self):
+        if self.graph is not None and self.identity is not None and "properties" in self._stale:
+            self.graph.pull(self)
+        return Entity.keys(self)
 
     @property
     def labels(self):

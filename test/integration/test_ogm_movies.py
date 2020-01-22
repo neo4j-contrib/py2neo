@@ -16,24 +16,12 @@
 # limitations under the License.
 
 
-from os.path import dirname, join as path_join
-
 from pytest import fixture
 
 from py2neo.ogm import RelatedObjects, Property, RelatedTo, OUTGOING
 from py2neo.matching import NodeMatcher
 
 from test.fixtures.ogm import MovieGraphObject, Person, Film
-
-
-@fixture(scope="function")
-def movie_graph(graph):
-    graph.delete_all()
-    with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
-        cypher = f.read()
-    graph.run(cypher)
-    yield graph
-    graph.delete_all()
 
 
 def test_related_objects_are_automatically_loaded(movie_graph):
