@@ -21,8 +21,10 @@ from os.path import join as path_join, dirname
 from pytest import fixture, raises
 
 from py2neo.data import Node
-from py2neo.matching import NodeMatcher, EQ, NE, LT, LE, GT, GE, IN, LIKE, ALL, ANY, STARTS_WITH, \
-    ENDS_WITH, CONTAINS
+from py2neo.matching import NodeMatcher, \
+    EQ, NE, LT, LE, GT, GE, \
+    STARTS_WITH, ENDS_WITH, CONTAINS, LIKE, \
+    IN, AND, OR, XOR
 
 
 @fixture()
@@ -217,14 +219,14 @@ def test_predicate_in(movie_matcher):
 
 def test_multiple_predicates(movie_matcher):
     found = list(movie_matcher.match("Person").where(name=STARTS_WITH("J"),
-                                                     born=ALL(GE(1960), LT(1970))))
+                                                     born=AND(GE(1960), LT(1970))))
     found_names = {actor["name"] for actor in found}
     assert found_names == {'James Marshall', 'John Cusack', 'John Goodman',
                            'John C. Reilly', 'Julia Roberts'}
 
 
 def test_mutually_exclusive_predicates(movie_matcher):
-    found = list(movie_matcher.match("Person").where(name=ANY(LIKE("K.*d"), LIKE("K.*n"))))
+    found = list(movie_matcher.match("Person").where(name=OR(LIKE("K.*d"), LIKE("K.*n"))))
     found_names = {actor["name"] for actor in found}
     assert found_names == {'Kiefer Sutherland', 'Kelly Preston', 'Kevin Bacon'}
 
