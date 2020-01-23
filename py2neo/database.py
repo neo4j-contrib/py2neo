@@ -375,6 +375,10 @@ class Graph(object):
         `autocommit` :class:`.Transaction`. To delete only the
         relationships, use the :meth:`.separate` method.
 
+        Note that only entities which are bound to corresponding
+        remote entities though the ``graph`` and ``identity``
+        attributes will trigger a deletion.
+
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
         """
@@ -543,6 +547,10 @@ class Graph(object):
     def separate(self, subgraph):
         """ Run a :meth:`.Transaction.separate` operation within an
         `autocommit` :class:`.Transaction`.
+
+        Note that only relationships which are bound to corresponding
+        remote relationships though the ``graph`` and ``identity``
+        attributes will trigger a deletion.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`

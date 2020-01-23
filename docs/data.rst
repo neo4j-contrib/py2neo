@@ -109,6 +109,14 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
 
         Add multiple labels to *node* from the iterable *labels*.
 
+    .. attribute:: node.graph
+
+        The remote graph to which *node* is bound, if any.
+
+    .. attribute:: node.identity
+
+        The ID of the remote node to which *node* is bound, if any.
+
 .. class:: Relationship(start_node, type, end_node, **properties)
            Relationship(start_node, end_node, **properties)
            Relationship(node, type, **properties)
@@ -167,6 +175,14 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
     .. describe:: type(relationship)
 
         Return the type of this relationship.
+
+    .. attribute:: relationship.graph
+
+        The remote graph to which *relationship* is bound, if any.
+
+    .. attribute:: relationship.identity
+
+        The ID of the remote relationship to which *relationship* is bound, if any.
 
 
 Both :class:`.Node` and :class:`.Relationship` extend the :class:`.PropertyDict` class which itself extends Python's built-in dictionary.
