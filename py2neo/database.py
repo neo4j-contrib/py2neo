@@ -796,8 +796,6 @@ class Transaction(object):
     """ A transaction is a logical container for multiple Cypher statements.
     """
 
-    # session = None
-
     _finished = False
 
     def __init__(self, graph, autocommit=False):
@@ -805,15 +803,10 @@ class Transaction(object):
         self.autocommit = autocommit
         self.entities = deque()
         self.connector = self.graph.service.connector
-        self.results = []
         if autocommit:
             self.transaction = None
         else:
             self.transaction = self.connector.begin()
-
-    # def __del__(self):
-    #     if self.session:
-    #         self.session.close()
 
     def __enter__(self):
         return self
