@@ -113,7 +113,7 @@ class Bolt1(Bolt):
         self.writer.send()
         tag, (metadata,) = self.reader.read_message()
         if tag != 0x70:
-            self.close()
+            self.tx.close()
             raise BoltFailure(**metadata)
         self.server_agent = metadata.get("server")
         self.connection_id = metadata.get("connection_id")
@@ -123,7 +123,7 @@ class Bolt1(Bolt):
         self.writer.send()
         tag, (metadata,) = self.reader.read_message()
         if tag != 0x70:
-            self.close()
+            self.tx.close()
             raise BoltFailure(**metadata)
 
 
@@ -145,7 +145,7 @@ class Bolt3(Bolt2):
         self.writer.send()
         tag, (metadata,) = self.reader.read_message()
         if tag != 0x70:
-            self.close()
+            self.tx.close()
             raise BoltFailure(**metadata)
         self.server_agent = metadata.get("server")
         self.connection_id = metadata.get("connection_id")
