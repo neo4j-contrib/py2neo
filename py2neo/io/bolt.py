@@ -144,11 +144,11 @@ class Bolt3(Bolt2):
                                          "credentials": password})
         self.writer.send()
         tag, (metadata,) = self.reader.read_message()
-        if tag == 0x70:
-            self.server_agent = metadata.get("server")
-            self.connection_id = metadata.get("connection_id")
-        else:
+        if tag != 0x70:
+            self.close()
             raise BoltFailure(**metadata)
+        self.server_agent = metadata.get("server")
+        self.connection_id = metadata.get("connection_id")
 
     def goodbye(self):
         self.writer.write_message(0x02)
