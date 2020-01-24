@@ -20,7 +20,7 @@
 
 
 from codecs import decode
-from io import BytesIO
+from collections import OrderedDict
 from struct import pack as struct_pack, unpack as struct_unpack
 
 
@@ -40,6 +40,11 @@ INT64_MAX = 2 ** 63
 
 
 EndOfStream = object()
+
+
+class Dictionary(OrderedDict):
+
+    pass
 
 
 class Structure:
@@ -443,9 +448,9 @@ class Unpacker:
             elif 0x90 <= marker <= 0x9F or 0xD4 <= marker <= 0xD7:
                 return list(self._unpack_list_items(marker))
 
-            # Map
+            # Dictionary
             elif 0xA0 <= marker <= 0xAF or 0xD8 <= marker <= 0xDB:
-                return self._unpack_map(marker)
+                return self._unpack_dictionary(marker)
 
             # Structure
             elif 0xB0 <= marker <= 0xBF:
@@ -493,42 +498,42 @@ class Unpacker:
         else:
             return
 
-    def unpack_map(self):
+    def unpack_dictionary(self):
         marker = self.read_u8()
-        return self._unpack_map(marker)
+        return self._unpack_dictionary(marker)
 
-    def _unpack_map(self, marker):
+    def _unpack_dictionary(self, marker):
         marker_high = marker & 0xF0
         if marker_high == 0xA0:
             size = marker & 0x0F
-            value = {}
+            value = Dictionary()
             for _ in range(size):
                 key = self._unpack()
                 value[key] = self._unpack()
             return value
         elif marker == 0xD8:  # MAP_8:
             size, = struct_unpack(">B", self.read(1))
-            value = {}
+            value = Dictionary()
             for _ in range(size):
                 key = self._unpack()
                 value[key] = self._unpack()
             return value
         elif marker == 0xD9:  # MAP_16:
             size, = struct_unpack(">H", self.read(2))
-            value = {}
+            value = Dictionary()
             for _ in range(size):
                 key = self._unpack()
                 value[key] = self._unpack()
             return value
         elif marker == 0xDA:  # MAP_32:
             size, = struct_unpack(">I", self.read(4))
-            value = {}
+            value = Dictionary()
             for _ in range(size):
                 key = self._unpack()
                 value[key] = self._unpack()
             return value
         elif marker == 0xDB:  # MAP_STREAM:
-            value = {}
+            value = Dictionary()
             key = None
             while key is not EndOfStream:
                 key = self._unpack()
@@ -607,58 +612,6 @@ class UnpackableBuffer:
             if n == 0:
                 raise OSError("No data")
             self.used += n
-
-
-class PackStream:
-    """ Asynchronous chunked message reader/writer for PackStream
-    messaging.
-    """
-
-    def __init__(self, reader, writer):
-        self._reader = reader
-        self._writer = writer
-
-    async def read_message(self):
-        """ Read a chunked message.
-
-        :return:
-        """
-        data = []
-        more = True
-        while more:
-            chunk_header = await self._reader.readexactly(2)
-            chunk_size, = struct_unpack(">H", chunk_header)
-            if chunk_size:
-                chunk_data = await self._reader.readexactly(chunk_size)
-                data.append(chunk_data)
-            else:
-                more = False
-        buffer = UnpackableBuffer(b"".join(data))
-        unpacker = Unpacker(buffer)
-        return unpacker.unpack()
-
-    def write_message(self, message):
-        """ Write a chunked message.
-
-        :param message:
-        :return:
-        """
-        if not isinstance(message, Structure):
-            raise TypeError("Message must be a Structure instance")
-        b = BytesIO()
-        packer = Packer(b)
-        packer.pack(message)
-        data = b.getvalue()
-        # TODO: multi-chunk messages
-        header = bytearray(divmod(len(data), 0x100))
-        self._writer.write(header + data + b"\x00\x00")
-
-    async def drain(self):
-        """ Flush the writer.
-
-        :return:
-        """
-        await self._writer.drain()
 
 
 def packed(*values):

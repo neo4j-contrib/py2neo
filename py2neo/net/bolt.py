@@ -121,25 +121,34 @@ class Bolt1(Bolt):
         log.debug("C: INIT %r %r", self.user_agent, clean_extra)
         self.writer.write_message(0x01, self.user_agent, extra)
         self.writer.send()
-        tag, (metadata,) = self.reader.read_message()
-        if tag != 0x70:
-            log.debug("S: FAILURE %r", metadata)
-            self.tx.close()
-            raise BoltFailure(**metadata)
-        log.debug("S: SUCCESS %r", metadata)
-        self.server_agent = metadata.get("server")
-        self.connection_id = metadata.get("connection_id")
+        metadata = self._read_response(vital=True)
+        if metadata:
+            self.server_agent = metadata.get("server")
+            self.connection_id = metadata.get("connection_id")
 
     def reset(self):
         log.debug("C: RESET")
         self.writer.write_message(0x0F)
         self.writer.send()
+        self._read_response(vital=True)
+
+    def _read_response(self, vital=False):
+        # vital responses close on failure and cannot be ignored
         tag, (metadata,) = self.reader.read_message()
-        if tag != 0x70:
+        if tag == 0x70:
+            log.debug("S: SUCCESS %r", metadata)
+            return metadata
+        elif tag == 0x7F:
             log.debug("S: FAILURE %r", metadata)
-            self.tx.close()
+            if vital:
+                self.tx.close()
             raise BoltFailure(**metadata)
-        log.debug("S: SUCCESS %r", metadata)
+        elif tag == 0x7E and not vital:
+            log.debug("S: IGNORED")
+            return None
+        else:
+            log.debug("S: <ERROR>")
+            self.tx.close()
 
 
 class Bolt2(Bolt1):
@@ -162,14 +171,10 @@ class Bolt3(Bolt2):
         log.debug("C: HELLO %r", clean_extra)
         self.writer.write_message(0x01, extra)
         self.writer.send()
-        tag, (metadata,) = self.reader.read_message()
-        if tag != 0x70:
-            log.debug("S: FAILURE %r", metadata)
-            self.tx.close()
-            raise BoltFailure(**metadata)
-        log.debug("S: SUCCESS %r", metadata)
-        self.server_agent = metadata.get("server")
-        self.connection_id = metadata.get("connection_id")
+        metadata = self._read_response(vital=True)
+        if metadata:
+            self.server_agent = metadata.get("server")
+            self.connection_id = metadata.get("connection_id")
 
     def goodbye(self):
         log.debug("C: GOODBYE")
@@ -183,16 +188,9 @@ class Bolt3(Bolt2):
         log.debug("C: BEGIN %r", extra)
         self.writer.write_message(0x11, extra)
         self.writer.send()
-        tag, (metadata,) = self.reader.read_message()
-        if tag == 0x7E:
-            log.debug("S: IGNORED")
-        if tag != 0x70:
-            log.debug("S: FAILURE %r", metadata)
-            self.tx.close()
-            raise BoltFailure(**metadata)
-        log.debug("S: SUCCESS %r", metadata)
-        self.transaction = Transaction()
-        return self.transaction
+        if self._read_response():
+            self.transaction = Transaction()
+            return self.transaction
 
 
 class Bolt4x0(Bolt3):
