@@ -112,10 +112,18 @@ class Bolt1(Bolt):
                                                           "credentials": password})
         self.writer.send()
         tag, (metadata,) = self.reader.read_message()
-        if tag == 0x70:
-            self.server_agent = metadata.get("server")
-            self.connection_id = metadata.get("connection_id")
-        else:
+        if tag != 0x70:
+            self.close()
+            raise BoltFailure(**metadata)
+        self.server_agent = metadata.get("server")
+        self.connection_id = metadata.get("connection_id")
+
+    def reset(self):
+        self.writer.write_message(0x0F)
+        self.writer.send()
+        tag, (metadata,) = self.reader.read_message()
+        if tag != 0x70:
+            self.close()
             raise BoltFailure(**metadata)
 
 
@@ -167,6 +175,7 @@ def main():
     print(bolt.protocol_version)
     print(bolt.server_agent)
     print(bolt.connection_id)
+    bolt.reset()
     bolt.close()
 
 
