@@ -29,8 +29,6 @@ class Bolt(Connection):
 
     protocol_version = (0, 0)
 
-    server = None
-
     connection_id = None
 
     __subclasses = None
@@ -94,6 +92,7 @@ class Bolt(Connection):
         self.tx = tx
 
     def close(self):
+        self.goodbye()
         self.tx.close()
 
 
@@ -114,7 +113,7 @@ class Bolt1(Bolt):
         self.writer.send()
         tag, (metadata,) = self.reader.read_message()
         if tag == 0x70:
-            self.server = metadata.get("server")
+            self.server_agent = metadata.get("server")
             self.connection_id = metadata.get("connection_id")
         else:
             raise BoltFailure(**metadata)
@@ -138,10 +137,14 @@ class Bolt3(Bolt2):
         self.writer.send()
         tag, (metadata,) = self.reader.read_message()
         if tag == 0x70:
-            self.server = metadata.get("server")
+            self.server_agent = metadata.get("server")
             self.connection_id = metadata.get("connection_id")
         else:
             raise BoltFailure(**metadata)
+
+    def goodbye(self):
+        self.writer.write_message(0x02)
+        self.writer.send()
 
 
 class Bolt4x0(Bolt3):
@@ -162,7 +165,7 @@ class BoltFailure(Exception):
 def main():
     bolt = Bolt.open()
     print(bolt.protocol_version)
-    print(bolt.server)
+    print(bolt.server_agent)
     print(bolt.connection_id)
     bolt.close()
 

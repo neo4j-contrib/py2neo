@@ -153,6 +153,8 @@ class Connection(object):
 
     user_agent = "py2neo/X.Y.Z"
 
+    server_agent = None
+
     @classmethod
     def open(cls, uri=None, **settings):
         pass

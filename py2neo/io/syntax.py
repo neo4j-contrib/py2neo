@@ -717,6 +717,7 @@ class MessageWriter(object):
         self.tx.write(data)
 
     def write_message(self, tag, *fields):
+        print("C: #%02X %s" % (tag, " ".join(map(repr, fields))))
         data = bytearray([0xB0 + len(fields), tag])
         for field in fields:
             data.extend(packed(field))
