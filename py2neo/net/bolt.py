@@ -19,9 +19,9 @@
 from logging import getLogger
 from socket import socket
 
-from py2neo.io.api import get_connection_data, Connection, Transaction, TransactionError
-from py2neo.io.syntax import MessageReader, MessageWriter
-from py2neo.io.wire import ByteReader, ByteWriter
+from py2neo.net.api import get_connection_data, Connection, Transaction, TransactionError
+from py2neo.net.syntax import MessageReader, MessageWriter
+from py2neo.net.wire import ByteReader, ByteWriter
 
 
 log = getLogger(__name__)
