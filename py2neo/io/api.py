@@ -200,3 +200,18 @@ class Connection(object):
 
     def fetch(self, query, stop=lambda: None):
         pass
+
+
+class Transaction(object):
+
+    pass
+
+
+class Query(object):
+
+    pass
+
+
+class TransactionError(Exception):
+
+    pass

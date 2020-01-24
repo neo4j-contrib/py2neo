@@ -19,7 +19,7 @@
 from logging import getLogger
 from socket import socket
 
-from py2neo.io.connect import Connection, get_connection_data
+from py2neo.io.api import get_connection_data, Connection, Transaction, TransactionError
 from py2neo.io.syntax import MessageReader, MessageWriter
 from py2neo.io.wire import ByteReader, ByteWriter
 
@@ -109,6 +109,7 @@ class Bolt1(Bolt):
         super(Bolt1, self).__init__(cx_data, rx, tx)
         self.reader = MessageReader(rx)
         self.writer = MessageWriter(tx)
+        self.transaction = None
 
     def hello(self, auth):
         user, password = auth
@@ -175,6 +176,24 @@ class Bolt3(Bolt2):
         self.writer.write_message(0x02)
         self.writer.send()
 
+    def begin(self, extra=None):
+        if self.transaction is not None:
+            raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
+        extra = dict(extra or {})
+        log.debug("C: BEGIN %r", extra)
+        self.writer.write_message(0x11, extra)
+        self.writer.send()
+        tag, (metadata,) = self.reader.read_message()
+        if tag == 0x7E:
+            log.debug("S: IGNORED")
+        if tag != 0x70:
+            log.debug("S: FAILURE %r", metadata)
+            self.tx.close()
+            raise BoltFailure(**metadata)
+        log.debug("S: SUCCESS %r", metadata)
+        self.transaction = Transaction()
+        return self.transaction
+
 
 class Bolt4x0(Bolt3):
 
@@ -198,6 +217,7 @@ def main():
     print(bolt.protocol_version)
     print(bolt.server_agent)
     print(bolt.connection_id)
+    tx = bolt.begin()
     bolt.reset()
     bolt.close()
 
