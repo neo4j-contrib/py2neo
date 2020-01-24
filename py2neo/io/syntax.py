@@ -703,7 +703,7 @@ class MessageReader(object):
         n = message[0] - 0xB0
         tag = message[1]
         fields = unpacked(message[2:], n)
-        return (tag,) + fields
+        return tag, fields
 
 
 class MessageWriter(object):
@@ -726,4 +726,4 @@ class MessageWriter(object):
         self._write_chunk(b"")
 
     def send(self):
-        self.tx.transmit()
+        self.tx.send()

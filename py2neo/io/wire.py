@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-class Receiver(object):
+class ByteReader(object):
 
     def __init__(self, s):
         self.socket = s
@@ -30,7 +30,7 @@ class Receiver(object):
         return data
 
 
-class Transmitter(object):
+class ByteWriter(object):
 
     def __init__(self, s):
         self.socket = s
@@ -39,7 +39,7 @@ class Transmitter(object):
     def write(self, b):
         self.buffer.extend(b)
 
-    def transmit(self):
+    def send(self):
         self.socket.sendall(self.buffer)
         self.buffer[:] = []
 
