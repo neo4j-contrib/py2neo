@@ -16,11 +16,15 @@
 # limitations under the License.
 
 
+from logging import getLogger
 from socket import socket
 
 from py2neo.io.connect import Connection, get_connection_data
 from py2neo.io.syntax import MessageReader, MessageWriter
 from py2neo.io.wire import ByteReader, ByteWriter
+
+
+log = getLogger(__name__)
 
 
 class Bolt(Connection):
@@ -94,6 +98,7 @@ class Bolt(Connection):
     def close(self):
         self.goodbye()
         self.tx.close()
+        log.debug("C: <CLOSE>")
 
 
 class Bolt1(Bolt):
@@ -107,24 +112,33 @@ class Bolt1(Bolt):
 
     def hello(self, auth):
         user, password = auth
-        self.writer.write_message(0x01, self.user_agent, {"scheme": "basic",
-                                                          "principal": user,
-                                                          "credentials": password})
+        extra = {"scheme": "basic",
+                 "principal": user,
+                 "credentials": password}
+        clean_extra = dict(extra)
+        clean_extra.update({"credentials": "*******"})
+        log.debug("C: INIT %r %r", self.user_agent, clean_extra)
+        self.writer.write_message(0x01, self.user_agent, extra)
         self.writer.send()
         tag, (metadata,) = self.reader.read_message()
         if tag != 0x70:
+            log.debug("S: FAILURE %r", metadata)
             self.tx.close()
             raise BoltFailure(**metadata)
+        log.debug("S: SUCCESS %r", metadata)
         self.server_agent = metadata.get("server")
         self.connection_id = metadata.get("connection_id")
 
     def reset(self):
+        log.debug("C: RESET")
         self.writer.write_message(0x0F)
         self.writer.send()
         tag, (metadata,) = self.reader.read_message()
         if tag != 0x70:
+            log.debug("S: FAILURE %r", metadata)
             self.tx.close()
             raise BoltFailure(**metadata)
+        log.debug("S: SUCCESS %r", metadata)
 
 
 class Bolt2(Bolt1):
@@ -138,19 +152,26 @@ class Bolt3(Bolt2):
 
     def hello(self, auth):
         user, password = auth
-        self.writer.write_message(0x01, {"user_agent": self.user_agent,
-                                         "scheme": "basic",
-                                         "principal": user,
-                                         "credentials": password})
+        extra = {"user_agent": self.user_agent,
+                 "scheme": "basic",
+                 "principal": user,
+                 "credentials": password}
+        clean_extra = dict(extra)
+        clean_extra.update({"credentials": "*******"})
+        log.debug("C: HELLO %r", clean_extra)
+        self.writer.write_message(0x01, extra)
         self.writer.send()
         tag, (metadata,) = self.reader.read_message()
         if tag != 0x70:
+            log.debug("S: FAILURE %r", metadata)
             self.tx.close()
             raise BoltFailure(**metadata)
+        log.debug("S: SUCCESS %r", metadata)
         self.server_agent = metadata.get("server")
         self.connection_id = metadata.get("connection_id")
 
     def goodbye(self):
+        log.debug("C: GOODBYE")
         self.writer.write_message(0x02)
         self.writer.send()
 
@@ -171,6 +192,8 @@ class BoltFailure(Exception):
 
 
 def main():
+    from neobolt.diagnostics import watch
+    watch(__name__)
     bolt = Bolt.open()
     print(bolt.protocol_version)
     print(bolt.server_agent)
