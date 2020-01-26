@@ -181,16 +181,16 @@ class Bolt3(Bolt2):
         self.writer.write_message(0x02)
         self.writer.send()
 
-    def begin(self, extra=None):
+    def begin(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
         if self.transaction is not None:
             raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
-        extra = dict(extra or {})
-        log.debug("C: BEGIN %r", extra)
-        self.writer.write_message(0x11, extra)
+        transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
+        log.debug("C: BEGIN %r", transaction.extra)
+        self.writer.write_message(0x11, transaction.extra)
         self.writer.send()
         if self._read_response():
-            self.transaction = Transaction()
-            return self.transaction
+            self.transaction = transaction
+        return self.transaction
 
 
 class Bolt4x0(Bolt3):

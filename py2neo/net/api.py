@@ -174,8 +174,20 @@ class Connection(object):
     def reset(self):
         pass
 
-    def begin(self, extra=None):
+    def auto_run(self, db, cypher, parameters=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         pass
+
+    def begin(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        """ Begin a transaction
+
+        :param db:
+        :param readonly:
+        :param bookmarks:
+        :param metadata:
+        :param timeout:
+        :return: new :class:`.Transaction` object
+        :raise :exc:`.TransactionError` if a new transaction cannot be created
+        """
 
     def commit(self, tx):
         pass
@@ -186,7 +198,7 @@ class Connection(object):
     def check(self, tx):
         pass
 
-    def run(self, tx, cypher, parameters=None, extra=None):
+    def run(self, tx, cypher, parameters=None):
         pass
 
     def pull(self, query, n=-1):
@@ -204,7 +216,20 @@ class Connection(object):
 
 class Transaction(object):
 
-    pass
+    def __init__(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        self.db = db
+        self.readonly = readonly
+        self.bookmarks = bookmarks
+        self.metadata = metadata
+        self.timeout = timeout
+
+    @property
+    def extra(self):
+        extra = {}
+        if self.readonly:
+            extra["mode"] = "r"
+        # TODO: other extras
+        return extra
 
 
 class Query(object):
