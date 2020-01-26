@@ -55,7 +55,7 @@ package_metadata = {
         "colorama",
         "neobolt~=1.7.12",
         "neotime~=1.7.4",
-        "prompt_toolkit~=2.0.7",
+        "prompt_toolkit>=2.0.7,<4.0.0",
         "pygments~=2.3.1",
         "pytz",
         "urllib3<1.25,>=1.23",
