@@ -16,6 +16,7 @@
 # limitations under the License.
 
 
+from collections import deque
 from logging import getLogger
 from socket import socket
 
@@ -109,6 +110,7 @@ class Bolt1(Bolt):
         super(Bolt1, self).__init__(cx_data, rx, tx)
         self.reader = MessageReader(rx)
         self.writer = MessageWriter(tx)
+        self.requests = deque()
         self.transaction = None
 
     def hello(self, auth):
@@ -119,36 +121,53 @@ class Bolt1(Bolt):
         clean_extra = dict(extra)
         clean_extra.update({"credentials": "*******"})
         log.debug("C: INIT %r %r", self.user_agent, clean_extra)
-        self.writer.write_message(0x01, self.user_agent, extra)
+        request = self._write_request(0x01, self.user_agent, extra, vital=True)
         self.writer.send()
-        metadata = self._read_response(vital=True)
-        if metadata:
-            self.server_agent = metadata.get("server")
-            self.connection_id = metadata.get("connection_id")
+        self._read_response(request)
+        if request.status == 1:
+            self.server_agent = request.metadata.get("server")
+            self.connection_id = request.metadata.get("connection_id")
 
     def reset(self):
         log.debug("C: RESET")
-        self.writer.write_message(0x0F)
+        request = self._write_request(0x0F, vital=True)
         self.writer.send()
-        self._read_response(vital=True)
+        self._read_response(request)
 
-    def _read_response(self, vital=False):
+    def _write_request(self, tag, *fields, vital=False):
+        request = BoltRequest(vital=vital)
+        # TODO: logging
+        self.writer.write_message(tag, *fields)
+        self.requests.append(request)
+        return request
+
+    def _read_response(self, request):
         # vital responses close on failure and cannot be ignored
-        tag, (metadata,) = self.reader.read_message()
-        if tag == 0x70:
-            log.debug("S: SUCCESS %r", metadata)
-            return metadata
-        elif tag == 0x7F:
-            log.debug("S: FAILURE %r", metadata)
-            if vital:
+        while not request.done():
+            top_request = self.requests[0]
+            tag, fields = self.reader.read_message()
+            if tag == 0x70:
+                log.debug("S: SUCCESS %s", " ".join(map(repr, fields)))
+                top_request.set_success(**fields[0])
+                self.requests.popleft()
+            elif tag == 0x71:
+                log.debug("S: RECORD %s", " ".join(map(repr, fields)))
+                top_request.add_record(*fields[0])
+            elif tag == 0x7F:
+                log.debug("S: FAILURE %s", " ".join(map(repr, fields)))
+                top_request.set_failure(**fields[0])
+                self.requests.popleft()
+                if top_request.vital:
+                    self.tx.close()
+                raise BoltFailure(**top_request.metadata)
+            elif tag == 0x7E and not top_request.vital:
+                log.debug("S: IGNORED")
+                top_request.set_ignored()
+                self.requests.popleft()
+            else:
+                log.debug("S: <ERROR>")
                 self.tx.close()
-            raise BoltFailure(**metadata)
-        elif tag == 0x7E and not vital:
-            log.debug("S: IGNORED")
-            return None
-        else:
-            log.debug("S: <ERROR>")
-            self.tx.close()
+                raise RuntimeError("Unexpected protocol message #%02X", tag)
 
 
 class Bolt2(Bolt1):
@@ -169,26 +188,39 @@ class Bolt3(Bolt2):
         clean_extra = dict(extra)
         clean_extra.update({"credentials": "*******"})
         log.debug("C: HELLO %r", clean_extra)
-        self.writer.write_message(0x01, extra)
+        request = self._write_request(0x01, extra, vital=True)
         self.writer.send()
-        metadata = self._read_response(vital=True)
-        if metadata:
-            self.server_agent = metadata.get("server")
-            self.connection_id = metadata.get("connection_id")
+        self._read_response(request)
+        if request.status == 1:
+            self.server_agent = request.metadata.get("server")
+            self.connection_id = request.metadata.get("connection_id")
 
     def goodbye(self):
         log.debug("C: GOODBYE")
-        self.writer.write_message(0x02)
+        self._write_request(0x02)
         self.writer.send()
+
+    def auto_run(self, db, cypher, parameters=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        if self.transaction is not None:
+            raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
+        transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
+        log.debug("C: RUN %r", transaction.extra)
+        log.debug("C: PULL_ALL", transaction.extra)
+        head = self._write_request(0x10, transaction.extra)
+        tail = self._write_request(0x3F)
+        result = BoltResult(head, tail)
+        self.writer.send()
+        self._read_response(head)
+        return result
 
     def begin(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
         if self.transaction is not None:
             raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
         transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
         log.debug("C: BEGIN %r", transaction.extra)
-        self.writer.write_message(0x11, transaction.extra)
+        request = self._write_request(0x11, transaction.extra)
         self.writer.send()
-        if self._read_response():
+        if self._read_response(request):
             self.transaction = transaction
         return self.transaction
 
@@ -196,6 +228,40 @@ class Bolt3(Bolt2):
 class Bolt4x0(Bolt3):
 
     protocol_version = (4, 0)
+
+
+class BoltRequest(object):
+    # A future-like object
+
+    def __init__(self, vital=False):
+        self.vital = vital
+        self.records = deque()
+        self.status = None
+        self.metadata = {}
+
+    def add_record(self, *values):
+        self.records.append(values)
+
+    def set_success(self, **metadata):
+        self.status = 1
+        self.metadata.update(metadata)
+
+    def set_failure(self, **metadata):
+        self.status = -1
+        self.metadata.update(metadata)
+
+    def set_ignored(self):
+        self.status = 0
+
+    def done(self):
+        return self.status is not None
+
+
+class BoltResult(object):  # TODO: extend base Result class
+
+    def __init__(self, head, tail):
+        self.head = head  # request
+        self.tail = tail  # request
 
 
 class BoltFailure(Exception):
@@ -215,7 +281,7 @@ def main():
     print(bolt.protocol_version)
     print(bolt.server_agent)
     print(bolt.connection_id)
-    tx = bolt.begin()
+    tx = bolt.begin("neo4j")
     bolt.reset()
     bolt.close()
 
