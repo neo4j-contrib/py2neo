@@ -110,7 +110,7 @@ class Bolt1(Bolt):
         super(Bolt1, self).__init__(cx_data, rx, tx)
         self.reader = MessageReader(rx)
         self.writer = MessageWriter(tx)
-        self.requests = deque()
+        self.responses = deque()
         self.transaction = None
 
     def hello(self, auth):
@@ -121,49 +121,51 @@ class Bolt1(Bolt):
         clean_extra = dict(extra)
         clean_extra.update({"credentials": "*******"})
         log.debug("C: INIT %r %r", self.user_agent, clean_extra)
-        request = self._write_request(0x01, self.user_agent, extra, vital=True)
+        response = self._write_request(0x01, self.user_agent, extra, vital=True)
         self.writer.send()
-        self._read_response(request)
-        if request.status == 1:
-            self.server_agent = request.metadata.get("server")
-            self.connection_id = request.metadata.get("connection_id")
+        self.wait(response)
+        if response.failure():
+            raise response.failure()
+        self.server_agent = response.summary("server")
+        self.connection_id = response.summary("connection_id")
 
     def reset(self):
         log.debug("C: RESET")
-        request = self._write_request(0x0F, vital=True)
+        response = self._write_request(0x0F, vital=True)
         self.writer.send()
-        self._read_response(request)
+        self.wait(response)
+        if response.failure():
+            raise response.failure()
 
     def _write_request(self, tag, *fields, vital=False):
-        request = BoltRequest(vital=vital)
+        # vital responses close on failure and cannot be ignored
+        response = BoltResponse(vital=vital)
         # TODO: logging
         self.writer.write_message(tag, *fields)
-        self.requests.append(request)
-        return request
+        self.responses.append(response)
+        return response
 
-    def _read_response(self, request):
-        # vital responses close on failure and cannot be ignored
-        while not request.done():
-            top_request = self.requests[0]
+    def wait(self, response):
+        while not response.done():
+            top_response = self.responses[0]
             tag, fields = self.reader.read_message()
             if tag == 0x70:
                 log.debug("S: SUCCESS %s", " ".join(map(repr, fields)))
-                top_request.set_success(**fields[0])
-                self.requests.popleft()
+                top_response.set_success(**fields[0])
+                self.responses.popleft()
             elif tag == 0x71:
                 log.debug("S: RECORD %s", " ".join(map(repr, fields)))
-                top_request.add_record(*fields[0])
+                top_response.add_record(*fields[0])
             elif tag == 0x7F:
                 log.debug("S: FAILURE %s", " ".join(map(repr, fields)))
-                top_request.set_failure(**fields[0])
-                self.requests.popleft()
-                if top_request.vital:
+                top_response.set_failure(**fields[0])
+                self.responses.popleft()
+                if top_response.vital:
                     self.tx.close()
-                raise BoltFailure(**top_request.metadata)
-            elif tag == 0x7E and not top_request.vital:
+            elif tag == 0x7E and not top_response.vital:
                 log.debug("S: IGNORED")
-                top_request.set_ignored()
-                self.requests.popleft()
+                top_response.set_ignored()
+                self.responses.popleft()
             else:
                 log.debug("S: <ERROR>")
                 self.tx.close()
@@ -188,12 +190,14 @@ class Bolt3(Bolt2):
         clean_extra = dict(extra)
         clean_extra.update({"credentials": "*******"})
         log.debug("C: HELLO %r", clean_extra)
-        request = self._write_request(0x01, extra, vital=True)
+        response = self._write_request(0x01, extra, vital=True)
         self.writer.send()
-        self._read_response(request)
-        if request.status == 1:
-            self.server_agent = request.metadata.get("server")
-            self.connection_id = request.metadata.get("connection_id")
+        self.wait(response)
+        if response.failure():
+            raise response.failure()
+        # TODO: handle IGNORED
+        self.server_agent = response.summary("server")
+        self.connection_id = response.summary("connection_id")
 
     def goodbye(self):
         log.debug("C: GOODBYE")
@@ -210,7 +214,8 @@ class Bolt3(Bolt2):
         tail = self._write_request(0x3F)
         result = BoltResult(head, tail)
         self.writer.send()
-        self._read_response(head)
+        self.wait(head)
+        # TODO: handle responses
         return result
 
     def begin(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
@@ -218,10 +223,13 @@ class Bolt3(Bolt2):
             raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
         transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
         log.debug("C: BEGIN %r", transaction.extra)
-        request = self._write_request(0x11, transaction.extra)
+        response = self._write_request(0x11, transaction.extra)
         self.writer.send()
-        if self._read_response(request):
-            self.transaction = transaction
+        self.wait(response)
+        if response.failure():
+            raise response.failure()
+        # TODO: handle IGNORED
+        self.transaction = transaction
         return self.transaction
 
 
@@ -230,38 +238,48 @@ class Bolt4x0(Bolt3):
     protocol_version = (4, 0)
 
 
-class BoltRequest(object):
+class BoltResponse(object):
     # A future-like object
 
     def __init__(self, vital=False):
         self.vital = vital
         self.records = deque()
-        self.status = None
-        self.metadata = {}
+        self._status = None
+        self._metadata = {}
+        self._failure = None
+
+    def summary(self, key, default=None):
+        return self._metadata.get(key, default)
 
     def add_record(self, *values):
         self.records.append(values)
 
     def set_success(self, **metadata):
-        self.status = 1
-        self.metadata.update(metadata)
+        self._status = 1
+        self._metadata.update(metadata)
 
     def set_failure(self, **metadata):
-        self.status = -1
-        self.metadata.update(metadata)
+        self._status = -1
+        self._failure = BoltFailure(**metadata)
 
     def set_ignored(self):
-        self.status = 0
+        self._status = 0
 
     def done(self):
-        return self.status is not None
+        return self._status is not None
+
+    def failure(self):
+        return self._failure
+
+    def ignored(self):
+        return self._status == 0
 
 
 class BoltResult(object):  # TODO: extend base Result class
 
     def __init__(self, head, tail):
-        self.head = head  # request
-        self.tail = tail  # request
+        self.head = head  # response
+        self.tail = tail  # response
 
 
 class BoltFailure(Exception):
