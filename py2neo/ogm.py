@@ -60,6 +60,8 @@ class Property(object):
         self.default = default
 
     def __get__(self, instance, owner):
+        if instance is None:
+            return self
         value = instance.__node__[self.key]
         if value is None:
             value = self.default
@@ -80,6 +82,8 @@ class Label(object):
         self.name = name
 
     def __get__(self, instance, owner):
+        if instance is None:
+            return self
         return instance.__node__.has_label(self.name)
 
     def __set__(self, instance, value):
@@ -119,6 +123,8 @@ class Related(object):
         self.relationship_type = relationship_type
 
     def __get__(self, instance, owner):
+        if instance is None:
+            return self
         return instance.__ogm__.related(self.direction, self.relationship_type,
                                         resolve_class(self.related_class, instance))
 
