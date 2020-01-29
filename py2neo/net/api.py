@@ -18,6 +18,7 @@
 
 from __future__ import absolute_import
 
+from collections import deque
 from hashlib import new as hashlib_new
 
 from py2neo.internal.compat import bstr, urlsplit, string_types
@@ -210,7 +211,7 @@ class Connection(object):
     def send(self, query):
         pass
 
-    def fetch(self, query, stop=lambda: None):
+    def wait(self, query):
         pass
 
 
@@ -222,6 +223,7 @@ class Transaction(object):
         self.bookmarks = bookmarks
         self.metadata = metadata
         self.timeout = timeout
+        self._queries = deque()
 
     @property
     def extra(self):
@@ -231,10 +233,25 @@ class Transaction(object):
         # TODO: other extras
         return extra
 
+    def add_query(self, query):
+        self._queries.append(query)
+
+    def last_query(self):
+        try:
+            return self._queries[-1]
+        except IndexError:
+            return None
+
+
+class AutoCommitTransaction(Transaction):
+
+    pass
+
 
 class Query(object):
 
-    pass
+    def records(self):
+        pass
 
 
 class TransactionError(Exception):

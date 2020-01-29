@@ -24,7 +24,11 @@ class ByteReader(object):
 
     def read(self, n):
         while len(self.buffer) < n:
-            self.buffer.extend(self.socket.recv(n))
+            received = self.socket.recv(n)
+            if received:
+                self.buffer.extend(received)
+            else:
+                raise OSError("Expected %d bytes but peer closed after only %d bytes" % (n, len(self.buffer)))
         data = self.buffer[:n]
         self.buffer[:n] = []
         return data
