@@ -30,6 +30,7 @@ log = getLogger(__name__)
 
 
 class Bolt(Connection):
+
     scheme = "bolt"
 
     protocol_version = (0, 0)
@@ -82,13 +83,16 @@ class Bolt(Connection):
 
     @classmethod
     def handshake(cls, byte_reader, byte_writer):
-        byte_writer.write(b"\x60\x60\xB0\x17"
-                          b"\x00\x00\x00\x03"
-                          b"\x00\x00\x00\x02"
-                          b"\x00\x00\x00\x01"
+        log.debug("C: <BOLT>")
+        byte_writer.write(b"\x60\x60\xB0\x17")
+        log.debug("C: <PROTOCOL> 4.0 | 3.0 | 2.0 | 1.0")
+        byte_writer.write(b"\x00\x00\x00\x01"
+                          b"\x00\x00\x00\x00"
+                          b"\x00\x00\x00\x00"
                           b"\x00\x00\x00\x00")
         byte_writer.send()
         v = bytearray(byte_reader.read(4))
+        log.debug("S: <PROTOCOL> %d.%d", v[-1], v[-2])
         return v[-1], v[-2]
 
     def __init__(self, cx_data, byte_reader, byte_writer):
@@ -103,6 +107,7 @@ class Bolt(Connection):
 
 
 class Bolt1(Bolt):
+
     protocol_version = (1, 0)
 
     def __init__(self, cx_data, byte_reader, byte_writer):
@@ -135,6 +140,21 @@ class Bolt1(Bolt):
         self._wait(response)
         if response.failure():
             raise response.failure()
+
+    def auto_run(self, db, cypher, parameters=None, readonly=False, bookmarks=None, metadata=None,
+                 timeout=None):
+        if self.transaction is not None:
+            raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
+        if metadata:
+            raise TransactionError("Transaction metadata not supported until Bolt v3")
+        if timeout:
+            raise TransactionError("Transaction timeout not supported until Bolt v3")
+        self.transaction = Transaction(db, readonly, bookmarks)
+        log.debug("C: RUN %r %r", cypher, parameters or {})
+        response = self._write_request(0x10, cypher, parameters or {})  # TODO: dehydrate parameters
+        query = BoltQuery(response)
+        self.transaction.append(query, final=True)
+        return query
 
     def pull(self, query, n=-1):
         if not self.transaction:
@@ -219,10 +239,12 @@ class Bolt1(Bolt):
 
 
 class Bolt2(Bolt1):
+
     protocol_version = (2, 0)
 
 
 class Bolt3(Bolt2):
+
     protocol_version = (3, 0)
 
     def hello(self, auth):
@@ -275,6 +297,7 @@ class Bolt3(Bolt2):
 
 
 class Bolt4x0(Bolt3):
+
     protocol_version = (4, 0)
 
 
@@ -353,12 +376,11 @@ def main():
     from neobolt.diagnostics import watch
     watch(__name__)
     cx = Bolt.open()
-    print(cx.protocol_version)
     print(cx.server_agent)
     print(cx.connection_id)
     # tx = bolt.begin("neo4j")
     # bolt.reset()
-    query = cx.auto_run("neo4j", "UNWIND range(1, 3) AS n RETURN n")
+    query = cx.auto_run("neo4j", "UNWIND range(1, $max) AS n RETURN n", {"max": 3})
     cx.pull(query)
     cx.send(query)
     cx.wait(query)

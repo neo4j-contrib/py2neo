@@ -201,7 +201,7 @@ class Connection(object):
 
     scheme = None
 
-    user_agent = "py2neo/X.Y.Z"
+    user_agent = bolt_user_agent()
 
     server_agent = None
 

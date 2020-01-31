@@ -40,9 +40,8 @@ NEO4J_VERIFIED = True if getenv("NEO4J_VERIFIED") == "1" else False if getenv("N
 
 def bolt_user_agent():
     from sys import platform, version_info
-    from neobolt.meta import version as neobolt_version
-    fields = (__package__, __version__, neobolt_version,) + tuple(version_info) + (platform,)
-    return "{}/{} neobolt/{} Python/{}.{}.{}-{}-{} ({})".format(*fields)
+    fields = (__package__, __version__,) + tuple(version_info) + (platform,)
+    return "{}/{} Python/{}.{}.{}-{}-{} ({})".format(*fields)
 
 
 def http_user_agent():
