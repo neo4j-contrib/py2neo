@@ -42,11 +42,6 @@ INT64_MAX = 2 ** 63
 EndOfStream = object()
 
 
-class Dictionary(OrderedDict):
-
-    pass
-
-
 class Structure:
 
     def __init__(self, tag, *fields):
@@ -506,34 +501,34 @@ class Unpacker:
         marker_high = marker & 0xF0
         if marker_high == 0xA0:
             size = marker & 0x0F
-            value = Dictionary()
+            value = {}
             for _ in range(size):
                 key = self._unpack()
                 value[key] = self._unpack()
             return value
         elif marker == 0xD8:  # MAP_8:
             size, = struct_unpack(">B", self.read(1))
-            value = Dictionary()
+            value = {}
             for _ in range(size):
                 key = self._unpack()
                 value[key] = self._unpack()
             return value
         elif marker == 0xD9:  # MAP_16:
             size, = struct_unpack(">H", self.read(2))
-            value = Dictionary()
+            value = {}
             for _ in range(size):
                 key = self._unpack()
                 value[key] = self._unpack()
             return value
         elif marker == 0xDA:  # MAP_32:
             size, = struct_unpack(">I", self.read(4))
-            value = Dictionary()
+            value = {}
             for _ in range(size):
                 key = self._unpack()
                 value[key] = self._unpack()
             return value
         elif marker == 0xDB:  # MAP_STREAM:
-            value = Dictionary()
+            value = {}
             key = None
             while key is not EndOfStream:
                 key = self._unpack()
