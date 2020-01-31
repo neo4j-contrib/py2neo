@@ -136,14 +136,6 @@ class Bolt1(Bolt):
         if response.failure():
             raise response.failure()
 
-    def _write_request(self, tag, *fields, vital=False):
-        # vital responses close on failure and cannot be ignored
-        response = BoltResponse(vital=vital)
-        # TODO: logging
-        self.writer.write_message(tag, *fields)
-        self.responses.append(response)
-        return response
-
     def pull(self, query, n=-1):
         if not self.transaction:
             raise TransactionError("No active transaction")
@@ -187,9 +179,19 @@ class Bolt1(Bolt):
                 self.reset()
                 raise query.failure()
 
+    def _write_request(self, tag, *fields, vital=False):
+        # vital responses close on failure and cannot be ignored
+        response = BoltResponse(vital=vital)
+        # TODO: logging
+        self.writer.write_message(tag, *fields)
+        self.responses.append(response)
+        return response
+
     def _wait(self, response, on_record=None):
         if not callable(on_record):
-            on_record = self._bootleg_record
+            def on_record(values):
+                self.byte_writer.close()
+                raise RuntimeError("Unexpected record %r", values)
         while not response.done():
             top_response = self.responses[0]
             tag, fields = self.reader.read_message()
@@ -214,10 +216,6 @@ class Bolt1(Bolt):
                 log.debug("S: <ERROR>")
                 self.byte_writer.close()
                 raise RuntimeError("Unexpected protocol message #%02X", tag)
-
-    def _bootleg_record(self, values):
-        self.byte_writer.close()
-        raise RuntimeError("Unexpected record %r", values)
 
 
 class Bolt2(Bolt1):
