@@ -16,11 +16,12 @@
 # limitations under the License.
 
 
-from collections import deque
+from collections import deque, namedtuple
 from logging import getLogger
 from socket import socket
 
-from py2neo.net.api import get_connection_data, Connection, Transaction, TransactionError, Query
+from py2neo.net.api import get_connection_data, Connection, Transaction, TransactionError, Query, \
+    Task, ItemizedTask
 from py2neo.net.syntax import MessageReader, MessageWriter
 from py2neo.net.wire import ByteReader, ByteWriter
 
@@ -29,7 +30,6 @@ log = getLogger(__name__)
 
 
 class Bolt(Connection):
-
     scheme = "bolt"
 
     protocol_version = (0, 0)
@@ -60,13 +60,13 @@ class Bolt(Connection):
         cx_data = get_connection_data(uri, **settings)
         s = cls.connect(("localhost", 7687))
         s = cls.secure(s)
-        rx = ByteReader(s)
-        tx = ByteWriter(s)
-        protocol_version = cls.handshake(rx, tx)
+        byte_reader = ByteReader(s)
+        byte_writer = ByteWriter(s)
+        protocol_version = cls.handshake(byte_reader, byte_writer)
         subclass = cls.get_subclass(protocol_version)
         if subclass is None:
             raise RuntimeError("Unable to agree supported protocol version")
-        bolt = subclass(cx_data, rx, tx)
+        bolt = subclass(cx_data, byte_reader, byte_writer)
         bolt.hello(auth=("neo4j", "password"))
         return bolt
 
@@ -81,35 +81,34 @@ class Bolt(Connection):
         return s
 
     @classmethod
-    def handshake(cls, rx, tx):
-        tx.write(b"\x60\x60\xB0\x17"
-                 b"\x00\x00\x00\x03"
-                 b"\x00\x00\x00\x02"
-                 b"\x00\x00\x00\x01"
-                 b"\x00\x00\x00\x00")
-        tx.send()
-        v = bytearray(rx.read(4))
+    def handshake(cls, byte_reader, byte_writer):
+        byte_writer.write(b"\x60\x60\xB0\x17"
+                          b"\x00\x00\x00\x03"
+                          b"\x00\x00\x00\x02"
+                          b"\x00\x00\x00\x01"
+                          b"\x00\x00\x00\x00")
+        byte_writer.send()
+        v = bytearray(byte_reader.read(4))
         return v[-1], v[-2]
 
-    def __init__(self, cx_data, rx, tx):
+    def __init__(self, cx_data, byte_reader, byte_writer):
         super(Bolt, self).__init__(cx_data)
-        self.rx = rx
-        self.tx = tx
+        self.byte_reader = byte_reader
+        self.byte_writer = byte_writer
 
     def close(self):
         self.goodbye()
-        self.tx.close()
+        self.byte_writer.close()
         log.debug("C: <CLOSE>")
 
 
 class Bolt1(Bolt):
-
     protocol_version = (1, 0)
 
-    def __init__(self, cx_data, rx, tx):
-        super(Bolt1, self).__init__(cx_data, rx, tx)
-        self.reader = MessageReader(rx)
-        self.writer = MessageWriter(tx)
+    def __init__(self, cx_data, byte_reader, byte_writer):
+        super(Bolt1, self).__init__(cx_data, byte_reader, byte_writer)
+        self.reader = MessageReader(byte_reader)
+        self.writer = MessageWriter(byte_writer)
         self.responses = deque()
         self.transaction = None
 
@@ -146,40 +145,51 @@ class Bolt1(Bolt):
         return response
 
     def pull(self, query, n=-1):
-        if query is not self.transaction.last_query():
+        if not self.transaction:
+            raise TransactionError("No active transaction")
+        if query is not self.transaction.latest():
             raise TransactionError("Random query access is not supported before Bolt 4.0")
         if n != -1:
             raise TransactionError("Flow control is not supported before Bolt 4.0")
         log.debug("C: PULL_ALL")
         response = self._write_request(0x3F)
-        query.add_response(response)
-        query.set_done()
+        query.append(response, final=True)
         return response
 
     def discard(self, query, n=-1):
-        if query is not self.transaction.last_query():
+        if not self.transaction:
+            raise TransactionError("No active transaction")
+        if query is not self.transaction.latest():
             raise TransactionError("Random query access is not supported before Bolt 4.0")
         if n != -1:
             raise TransactionError("Flow control is not supported before Bolt 4.0")
         log.debug("C: DISCARD_ALL")
         response = self._write_request(0x2F)
-        query.add_response(response)
-        query.set_done()
+        query.append(response, final=True)
         return response
 
     def send(self, query):
-        if query is not self.transaction.last_query():
+        if not self.transaction:
+            raise TransactionError("No active transaction")
+        if query is not self.transaction.latest():
             raise TransactionError("Random query access is not supported before Bolt 4.0")
         self.writer.send()
 
     def wait(self, query):
-        if query is not self.transaction.last_query():
+        if not self.transaction:
+            raise TransactionError("No active transaction")
+        if query is not self.transaction.latest():
             raise TransactionError("Random query access is not supported before Bolt 4.0")
-        response = query.last_response()
-        if response is not None:
-            self._wait(response)
+        self._wait(query.latest(), on_record=query.add_record)
+        if self.transaction.done():
+            self.transaction = None
+            if query.failure():
+                self.reset()
+                raise query.failure()
 
-    def _wait(self, response):
+    def _wait(self, response, on_record=None):
+        if not callable(on_record):
+            on_record = self._bootleg_record
         while not response.done():
             top_response = self.responses[0]
             tag, fields = self.reader.read_message()
@@ -189,30 +199,32 @@ class Bolt1(Bolt):
                 self.responses.popleft()
             elif tag == 0x71:
                 log.debug("S: RECORD %s", " ".join(map(repr, fields)))
-                top_response.add_record(*fields[0])
+                on_record(fields[0])
             elif tag == 0x7F:
                 log.debug("S: FAILURE %s", " ".join(map(repr, fields)))
                 top_response.set_failure(**fields[0])
                 self.responses.popleft()
                 if top_response.vital:
-                    self.tx.close()
+                    self.byte_writer.close()
             elif tag == 0x7E and not top_response.vital:
                 log.debug("S: IGNORED")
                 top_response.set_ignored()
                 self.responses.popleft()
             else:
                 log.debug("S: <ERROR>")
-                self.tx.close()
+                self.byte_writer.close()
                 raise RuntimeError("Unexpected protocol message #%02X", tag)
+
+    def _bootleg_record(self, values):
+        self.byte_writer.close()
+        raise RuntimeError("Unexpected record %r", values)
 
 
 class Bolt2(Bolt1):
-
     protocol_version = (2, 0)
 
 
 class Bolt3(Bolt2):
-
     protocol_version = (3, 0)
 
     def hello(self, auth):
@@ -229,7 +241,6 @@ class Bolt3(Bolt2):
         self._wait(response)
         if response.failure():
             raise response.failure()
-        # TODO: handle IGNORED
         self.server_agent = response.summary("server")
         self.connection_id = response.summary("connection_id")
 
@@ -238,14 +249,17 @@ class Bolt3(Bolt2):
         self._write_request(0x02)
         self.writer.send()
 
-    def auto_run(self, db, cypher, parameters=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+    def auto_run(self, db, cypher, parameters=None, readonly=False, bookmarks=None, metadata=None,
+                 timeout=None):
         if self.transaction is not None:
             raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
-        transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
-        log.debug("C: RUN %r %r %r", cypher, parameters or {}, transaction.extra)
-        response = self._write_request(0x10, cypher, parameters or {}, transaction.extra)  # TODO: dehydrate parameters
-        query = BoltQuery(response)
-        transaction.add_query(query)
+        self.transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
+        log.debug("C: RUN %r %r %r", cypher, parameters or {}, self.transaction.extra)
+        response = self._write_request(0x10, cypher, parameters or {},
+                                       self.transaction.extra)  # TODO: dehydrate parameters
+        query = BoltQuery()
+        query.append(response)
+        self.transaction.append(query, final=True)
         return query
 
     def begin(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
@@ -264,75 +278,60 @@ class Bolt3(Bolt2):
 
 
 class Bolt4x0(Bolt3):
-
     protocol_version = (4, 0)
 
 
-class BoltResponse(object):
-    # A future-like object
+class BoltQuery(ItemizedTask, Query):
+
+    def __init__(self):
+        Query.__init__(self)
+        ItemizedTask.__init__(self)
+
+    def record_type(self):
+        try:
+            header = self._items[0]
+        except IndexError:
+            return super(BoltQuery, self).record_type()
+        else:
+            return namedtuple("Record", header.summary("fields"))
+
+
+class BoltResponse(Task):
+
+    # 0 = not done
+    # 1 = success
+    # 2 = failure
+    # 3 = ignored
 
     def __init__(self, vital=False):
+        super(BoltResponse, self).__init__()
         self.vital = vital
-        self._records = deque()
-        self._status = None
+        self._status = 0
         self._metadata = {}
         self._failure = None
-
-    def add_record(self, *values):
-        self._records.append(values)
 
     def set_success(self, **metadata):
         self._status = 1
         self._metadata.update(metadata)
 
     def set_failure(self, **metadata):
-        self._status = -1
+        self._status = 2
         self._failure = BoltFailure(**metadata)
 
     def set_ignored(self):
-        self._status = 0
+        self._status = 3
 
     def done(self):
-        return self._status is not None
+        return self._status != 0
 
     def failure(self):
         return self._failure
 
     def ignored(self):
-        return self._status == 0
-
-    def records(self):
-        return iter(self._records)
+        return self._status == 2
 
     def summary(self, key, default=None):
         return self._metadata.get(key, default)
-
-
-class BoltQuery(Query):
-
-    def __init__(self, *responses):
-        self._responses = deque(responses)
-        self._done = False
-
-    def add_response(self, response):
-        self._responses.append(response)
-
-    def last_response(self):
-        try:
-            return self._responses[-1]
-        except IndexError:
-            return None
-
-    def set_done(self):
-        self._done = True
-
-    def done(self):
-        return self._done
-
-    def records(self):
-        for response in self._responses:
-            for record in response.records():
-                yield record
 
 
 class BoltFailure(Exception):
@@ -358,6 +357,7 @@ def main():
     cx.pull(query)
     cx.send(query)
     cx.wait(query)
+    assert query.done()
     for record in query.records():
         print(record)
     cx.close()

@@ -144,6 +144,55 @@ def get_connection_data(uri=None, **settings):
     return data
 
 
+class Task(object):
+
+    def done(self):
+        pass
+
+    def failure(self):
+        pass
+
+    def ignored(self):
+        pass
+
+
+class ItemizedTask(Task):
+
+    def __init__(self):
+        Task.__init__(self)
+        self._items = deque()
+        self._complete = False
+
+    def items(self):
+        return iter(self._items)
+
+    def append(self, item, final=False):
+        self._items.append(item)
+        if final:
+            self._complete = True
+
+    def complete(self):
+        return self._complete
+
+    def latest(self):
+        try:
+            return self._items[-1]
+        except IndexError:
+            return None
+
+    def done(self):
+        return self.complete() and self.latest().done()
+
+    def failure(self):
+        for item in self._items:
+            if item.failure():
+                return item.failure()
+        return None
+
+    def ignored(self):
+        return self._items and self._items[0].ignored()
+
+
 class Connection(object):
     """
 
@@ -215,15 +264,15 @@ class Connection(object):
         pass
 
 
-class Transaction(object):
+class Transaction(ItemizedTask):
 
     def __init__(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        super(Transaction, self).__init__()
         self.db = db
         self.readonly = readonly
         self.bookmarks = bookmarks
         self.metadata = metadata
         self.timeout = timeout
-        self._queries = deque()
 
     @property
     def extra(self):
@@ -233,25 +282,23 @@ class Transaction(object):
         # TODO: other extras
         return extra
 
-    def add_query(self, query):
-        self._queries.append(query)
-
-    def last_query(self):
-        try:
-            return self._queries[-1]
-        except IndexError:
-            return None
-
-
-class AutoCommitTransaction(Transaction):
-
-    pass
-
 
 class Query(object):
 
+    def __init__(self):
+        super(Query, self).__init__()
+        self._records = deque()
+
+    def record_type(self):
+        return tuple
+
+    def add_record(self, values):
+        self._records.append(values)
+
     def records(self):
-        pass
+        t = self.record_type()
+        for record in self._records:
+            yield t(record)
 
 
 class TransactionError(Exception):
