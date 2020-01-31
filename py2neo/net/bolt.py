@@ -257,8 +257,7 @@ class Bolt3(Bolt2):
         log.debug("C: RUN %r %r %r", cypher, parameters or {}, self.transaction.extra)
         response = self._write_request(0x10, cypher, parameters or {},
                                        self.transaction.extra)  # TODO: dehydrate parameters
-        query = BoltQuery()
-        query.append(response)
+        query = BoltQuery(response)
         self.transaction.append(query, final=True)
         return query
 
@@ -282,10 +281,18 @@ class Bolt4x0(Bolt3):
 
 
 class BoltQuery(ItemizedTask, Query):
+    """ A query carried out over a Bolt connection.
 
-    def __init__(self):
+    Implementation-wise, this form of query is comprised of a number of
+    individual message exchanges. Each of these exchanges may succeed
+    or fail in its own right, but contribute to the overall success or
+    failure of the query.
+    """
+
+    def __init__(self, response):
         Query.__init__(self)
         ItemizedTask.__init__(self)
+        self.append(response)
 
     def record_type(self):
         try:
