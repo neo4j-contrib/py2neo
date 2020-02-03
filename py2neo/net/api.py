@@ -224,10 +224,11 @@ class Connection(object):
     def reset(self):
         pass
 
-    def auto_run(self, db, cypher, parameters=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+    def auto_run(self, cypher, parameters=None,
+                 db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         pass
 
-    def begin(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
+    def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         """ Begin a transaction
 
         :param db:
@@ -266,7 +267,7 @@ class Connection(object):
 
 class Transaction(ItemizedTask):
 
-    def __init__(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
+    def __init__(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         super(Transaction, self).__init__()
         self.db = db
         self.readonly = readonly
@@ -277,6 +278,8 @@ class Transaction(ItemizedTask):
     @property
     def extra(self):
         extra = {}
+        if self.db:
+            extra["db"] = self.db
         if self.readonly:
             extra["mode"] = "r"
         # TODO: other extras
@@ -287,18 +290,12 @@ class Query(object):
 
     def __init__(self):
         super(Query, self).__init__()
-        self._records = deque()
 
     def record_type(self):
         return tuple
 
-    def add_record(self, values):
-        self._records.append(values)
-
     def records(self):
-        t = self.record_type()
-        for record in self._records:
-            yield t(record)
+        raise NotImplementedError
 
 
 class TransactionError(Exception):

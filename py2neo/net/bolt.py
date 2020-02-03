@@ -86,9 +86,9 @@ class Bolt(Connection):
         log.debug("C: <BOLT>")
         byte_writer.write(b"\x60\x60\xB0\x17")
         log.debug("C: <PROTOCOL> 4.0 | 3.0 | 2.0 | 1.0")
-        byte_writer.write(b"\x00\x00\x00\x01"
-                          b"\x00\x00\x00\x00"
-                          b"\x00\x00\x00\x00"
+        byte_writer.write(b"\x00\x00\x00\x03"
+                          b"\x00\x00\x00\x02"
+                          b"\x00\x00\x00\x01"
                           b"\x00\x00\x00\x00")
         byte_writer.send()
         v = bytearray(byte_reader.read(4))
@@ -116,6 +116,10 @@ class Bolt1(Bolt):
         self.writer = MessageWriter(byte_writer)
         self.responses = deque()
         self.transaction = None
+        self.metadata = {}
+
+    def bookmark(self):
+        return self.metadata.get("bookmark")
 
     def hello(self, auth):
         user, password = auth
@@ -126,41 +130,71 @@ class Bolt1(Bolt):
         clean_extra.update({"credentials": "*******"})
         log.debug("C: INIT %r %r", self.user_agent, clean_extra)
         response = self._write_request(0x01, self.user_agent, extra, vital=True)
-        self.writer.send()
-        self._wait(response)
-        if response.failure():
-            raise response.failure()
+        self._sync(response)
         self.server_agent = response.summary("server")
         self.connection_id = response.summary("connection_id")
 
     def reset(self):
         log.debug("C: RESET")
         response = self._write_request(0x0F, vital=True)
-        self.writer.send()
-        self._wait(response)
-        if response.failure():
-            raise response.failure()
+        self._sync(response)
 
-    def auto_run(self, db, cypher, parameters=None, readonly=False, bookmarks=None, metadata=None,
-                 timeout=None):
-        if self.transaction is not None:
-            raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
+    def _begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        self._assert_no_transaction()
         if metadata:
             raise TransactionError("Transaction metadata not supported until Bolt v3")
         if timeout:
             raise TransactionError("Transaction timeout not supported until Bolt v3")
         self.transaction = Transaction(db, readonly, bookmarks)
-        log.debug("C: RUN %r %r", cypher, parameters or {})
-        response = self._write_request(0x10, cypher, parameters or {})  # TODO: dehydrate parameters
+
+    def auto_run(self, cypher, parameters=None,
+                 db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        self._begin()
+        return self._run(cypher, parameters or {}, final=True)
+
+    def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        self._begin()
+        log.debug("C: RUN 'BEGIN' %r", self.transaction.extra)
+        log.debug("C: DISCARD_ALL")
+        responses = (self._write_request(0x10, "BEGIN", self.transaction.extra),
+                     self._write_request(0x2F))
+        if bookmarks:
+            self._sync(*responses)
+        return self.transaction
+
+    def commit(self, tx):
+        self._assert_open_transaction(tx)
+        try:
+            log.debug("C: RUN 'COMMIT' {}")
+            log.debug("C: DISCARD_ALL")
+            self._sync(self._write_request(0x10, "COMMIT", {}),
+                       self._write_request(0x2F))
+        finally:
+            self.transaction = None
+
+    def rollback(self, tx):
+        self._assert_open_transaction(tx)
+        try:
+            log.debug("C: RUN 'ROLLBACK' {}")
+            log.debug("C: DISCARD_ALL")
+            self._sync(self._write_request(0x10, "ROLLBACK", {}),
+                       self._write_request(0x2F))
+        finally:
+            self.transaction = None
+
+    def run(self, tx, cypher, parameters=None):
+        self._assert_open_transaction(tx)
+        return self._run(cypher, parameters or {})
+
+    def _run(self, cypher, parameters, extra=None, final=False):
+        log.debug("C: RUN %r %r", cypher, parameters)
+        response = self._write_request(0x10, cypher, parameters)  # TODO: dehydrate parameters
         query = BoltQuery(response)
-        self.transaction.append(query, final=True)
+        self.transaction.append(query, final=final)
         return query
 
     def pull(self, query, n=-1):
-        if not self.transaction:
-            raise TransactionError("No active transaction")
-        if query is not self.transaction.latest():
-            raise TransactionError("Random query access is not supported before Bolt 4.0")
+        self._assert_open_query(query)
         if n != -1:
             raise TransactionError("Flow control is not supported before Bolt 4.0")
         log.debug("C: PULL_ALL")
@@ -169,10 +203,7 @@ class Bolt1(Bolt):
         return response
 
     def discard(self, query, n=-1):
-        if not self.transaction:
-            raise TransactionError("No active transaction")
-        if query is not self.transaction.latest():
-            raise TransactionError("Random query access is not supported before Bolt 4.0")
+        self._assert_open_query(query)
         if n != -1:
             raise TransactionError("Flow control is not supported before Bolt 4.0")
         log.debug("C: DISCARD_ALL")
@@ -181,23 +212,31 @@ class Bolt1(Bolt):
         return response
 
     def send(self, query):
-        if not self.transaction:
-            raise TransactionError("No active transaction")
-        if query is not self.transaction.latest():
-            raise TransactionError("Random query access is not supported before Bolt 4.0")
-        self.writer.send()
+        self._assert_open_query(query)
+        self._send()
 
     def wait(self, query):
-        if not self.transaction:
-            raise TransactionError("No active transaction")
-        if query is not self.transaction.latest():
-            raise TransactionError("Random query access is not supported before Bolt 4.0")
-        self._wait(query.latest(), on_record=query.add_record)
+        self._assert_open_query(query)
+        self._wait(query.latest())
         if self.transaction.done():
             self.transaction = None
             if query.failure():
                 self.reset()
                 raise query.failure()
+
+    def _assert_no_transaction(self):
+        if self.transaction is not None:
+            raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
+
+    def _assert_open_transaction(self, tx):
+        if self.transaction is not tx:
+            raise TransactionError("Transaction %r is not open on this connection", self.transaction)
+
+    def _assert_open_query(self, query):
+        if not self.transaction:
+            raise TransactionError("No active transaction")
+        if query is not self.transaction.latest():
+            raise TransactionError("Random query access is not supported before Bolt 4.0")
 
     def _write_request(self, tag, *fields, vital=False):
         # vital responses close on failure and cannot be ignored
@@ -207,11 +246,14 @@ class Bolt1(Bolt):
         self.responses.append(response)
         return response
 
-    def _wait(self, response, on_record=None):
-        if not callable(on_record):
-            def on_record(values):
-                self.byte_writer.close()
-                raise RuntimeError("Unexpected record %r", values)
+    def _send(self):
+        log.debug("C: <SEND>")
+        self.writer.send()
+
+    def _wait(self, response):
+        """ Read all incoming responses up to and including a
+        particular response.
+        """
         while not response.done():
             top_response = self.responses[0]
             tag, fields = self.reader.read_message()
@@ -219,9 +261,10 @@ class Bolt1(Bolt):
                 log.debug("S: SUCCESS %s", " ".join(map(repr, fields)))
                 top_response.set_success(**fields[0])
                 self.responses.popleft()
+                self.metadata.update(fields[0])
             elif tag == 0x71:
                 log.debug("S: RECORD %s", " ".join(map(repr, fields)))
-                on_record(fields[0])
+                top_response.add_record(fields[0])
             elif tag == 0x7F:
                 log.debug("S: FAILURE %s", " ".join(map(repr, fields)))
                 top_response.set_failure(**fields[0])
@@ -236,6 +279,14 @@ class Bolt1(Bolt):
                 log.debug("S: <ERROR>")
                 self.byte_writer.close()
                 raise RuntimeError("Unexpected protocol message #%02X", tag)
+
+    def _sync(self, *responses):
+        self._send()
+        self._wait(responses[-1])
+        for response in responses:
+            if response.failure():
+                raise response.failure()
+        # TODO: handle IGNORED
 
 
 class Bolt2(Bolt1):
@@ -257,43 +308,56 @@ class Bolt3(Bolt2):
         clean_extra.update({"credentials": "*******"})
         log.debug("C: HELLO %r", clean_extra)
         response = self._write_request(0x01, extra, vital=True)
-        self.writer.send()
-        self._wait(response)
-        if response.failure():
-            raise response.failure()
+        self._sync(response)
         self.server_agent = response.summary("server")
         self.connection_id = response.summary("connection_id")
 
     def goodbye(self):
         log.debug("C: GOODBYE")
         self._write_request(0x02)
-        self.writer.send()
+        self._send()
 
-    def auto_run(self, db, cypher, parameters=None, readonly=False, bookmarks=None, metadata=None,
-                 timeout=None):
-        if self.transaction is not None:
-            raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
+    def auto_run(self, cypher, parameters=None,
+                 db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        self._assert_no_transaction()
         self.transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
-        log.debug("C: RUN %r %r %r", cypher, parameters or {}, self.transaction.extra)
-        response = self._write_request(0x10, cypher, parameters or {},
-                                       self.transaction.extra)  # TODO: dehydrate parameters
-        query = BoltQuery(response)
-        self.transaction.append(query, final=True)
-        return query
+        return self._run(cypher, parameters or {}, self.transaction.extra, final=True)
 
-    def begin(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
-        if self.transaction is not None:
-            raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
-        transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
-        log.debug("C: BEGIN %r", transaction.extra)
-        response = self._write_request(0x11, transaction.extra)
-        self.writer.send()
-        self._wait(response)
-        if response.failure():
-            raise response.failure()
-        # TODO: handle IGNORED
-        self.transaction = transaction
+    def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        self._assert_no_transaction()
+        self.transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
+        log.debug("C: BEGIN %r", self.transaction.extra)
+        response = self._write_request(0x11, self.transaction.extra)
+        if bookmarks:
+            self._sync(response)
         return self.transaction
+
+    def commit(self, tx):
+        self._assert_open_transaction(tx)
+        try:
+            log.debug("C: COMMIT")
+            self._sync(self._write_request(0x12))
+        finally:
+            self.transaction = None
+
+    def rollback(self, tx):
+        self._assert_open_transaction(tx)
+        try:
+            log.debug("C: ROLLBACK")
+            self._sync(self._write_request(0x13))
+        finally:
+            self.transaction = None
+
+    def run(self, tx, cypher, parameters=None):
+        self._assert_open_transaction(tx)
+        return self._run(cypher, parameters or {}, self.transaction.extra)
+
+    def _run(self, cypher, parameters, extra=None, final=False):
+        log.debug("C: RUN %r %r %r", cypher, parameters, extra or {})
+        response = self._write_request(0x10, cypher, parameters, extra or {})  # TODO: dehydrate parameters
+        query = BoltQuery(response)
+        self.transaction.append(query, final=final)
+        return query
 
 
 class Bolt4x0(Bolt3):
@@ -323,6 +387,12 @@ class BoltQuery(ItemizedTask, Query):
         else:
             return namedtuple("Record", header.summary("fields"))
 
+    def records(self):
+        t = self.record_type()
+        for response in self._items:
+            for record in response.records():
+                yield t(record)
+
 
 class BoltResponse(Task):
 
@@ -334,9 +404,16 @@ class BoltResponse(Task):
     def __init__(self, vital=False):
         super(BoltResponse, self).__init__()
         self.vital = vital
+        self._records = deque()
         self._status = 0
         self._metadata = {}
         self._failure = None
+
+    def records(self):
+        return iter(self._records)
+
+    def add_record(self, values):
+        self._records.append(values)
 
     def set_success(self, **metadata):
         self._status = 1
@@ -378,15 +455,20 @@ def main():
     cx = Bolt.open()
     print(cx.server_agent)
     print(cx.connection_id)
-    # tx = bolt.begin("neo4j")
+    tx = cx.begin()
+    q1 = cx.run(tx, "UNWIND range(1, $max) AS n RETURN n", {"max": 3})
+    cx.pull(q1)
+    cx.commit(tx)
+    print(cx.bookmark())
     # bolt.reset()
-    query = cx.auto_run("neo4j", "UNWIND range(1, $max) AS n RETURN n", {"max": 3})
-    cx.pull(query)
-    cx.send(query)
-    cx.wait(query)
-    assert query.done()
-    for record in query.records():
+    q2 = cx.auto_run("UNWIND range(1, $max) AS n RETURN n", {"max": 3})
+    cx.pull(q2)
+    cx.send(q2)
+    cx.wait(q2)
+    assert q2.done()
+    for record in q2.records():
         print(record)
+    print(cx.bookmark())
     cx.close()
 
 
