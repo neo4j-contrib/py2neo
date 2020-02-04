@@ -22,7 +22,7 @@ from socket import socket
 
 from py2neo.net.api import get_connection_data, Connection, Transaction, TransactionError, Query, \
     Task, ItemizedTask
-from py2neo.net.syntax import MessageReader, MessageWriter
+from py2neo.net.packstream import MessageReader, MessageWriter
 from py2neo.net.wire import ByteReader, ByteWriter
 
 

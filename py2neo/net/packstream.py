@@ -359,28 +359,17 @@ class Packer:
         self._write(b"\xDF")
 
 
-class Unpacker:
+class UnpackStream(object):
 
-    def __init__(self, unpackable):
-        self.unpackable = unpackable
-
-    def reset(self):
-        self.unpackable.reset()
-
-    def read(self, n=1):
-        return self.unpackable.read(n)
-
-    def read_u8(self):
-        return self.unpackable.read_u8()
+    def __init__(self, b):
+        self._mem = memoryview(b)
+        self._p = 0
 
     def unpack(self):
-        return self._unpack()
-
-    def _unpack(self):
-        marker = self.read_u8()
-
-        if marker == -1:
-            raise ValueError("Nothing to unpack")
+        if self._p < len(self._mem):
+            marker = self._read_u8()
+        else:
+            raise ValueError("Nothing to unpack")  # TODO: better error
 
         # Tiny Integer
         if 0x00 <= marker <= 0x7F:
@@ -394,8 +383,7 @@ class Unpacker:
 
         # Float
         elif marker == 0xC1:
-            value, = struct_unpack(">d", self.read(8))
-            return value
+            return self._read_f64be()
 
         # Boolean
         elif marker == 0xC2:
@@ -405,39 +393,39 @@ class Unpacker:
 
         # Integer
         elif marker == 0xC8:
-            return struct_unpack(">b", self.read(1))[0]
+            return self._read_i8()
         elif marker == 0xC9:
-            return struct_unpack(">h", self.read(2))[0]
+            return self._read_i16be()
         elif marker == 0xCA:
-            return struct_unpack(">i", self.read(4))[0]
+            return self._read_i32be()
         elif marker == 0xCB:
-            return struct_unpack(">q", self.read(8))[0]
+            return self._read_i64be()
 
         # Bytes
         elif marker == 0xCC:
-            size, = struct_unpack(">B", self.read(1))
-            return self.read(size).tobytes()
+            size = self._read_u8()
+            return self._read(size)
         elif marker == 0xCD:
-            size, = struct_unpack(">H", self.read(2))
-            return self.read(size).tobytes()
+            size = self._read_u16be()
+            return self._read(size)
         elif marker == 0xCE:
-            size, = struct_unpack(">I", self.read(4))
-            return self.read(size).tobytes()
+            size = self._read_u32be()
+            return self._read(size)
 
         else:
             marker_high = marker & 0xF0
             # String
             if marker_high == 0x80:  # TINY_STRING
-                return decode(self.read(marker & 0x0F), "utf-8")
+                return decode(self._read(marker & 0x0F), "utf-8")
             elif marker == 0xD0:  # STRING_8:
-                size, = struct_unpack(">B", self.read(1))
-                return decode(self.read(size), "utf-8")
+                size = self._read_u8()
+                return decode(self._read(size), "utf-8")
             elif marker == 0xD1:  # STRING_16:
-                size, = struct_unpack(">H", self.read(2))
-                return decode(self.read(size), "utf-8")
+                size = self._read_u16be()
+                return decode(self._read(size), "utf-8")
             elif marker == 0xD2:  # STRING_32:
-                size, = struct_unpack(">I", self.read(4))
-                return decode(self.read(size), "utf-8")
+                size = self._read_u32be()
+                return decode(self._read(size), "utf-8")
 
             # List
             elif 0x90 <= marker <= 0x9F or 0xD4 <= marker <= 0xD7:
@@ -452,7 +440,7 @@ class Unpacker:
                 size, tag = self._unpack_structure_header(marker)
                 value = Structure(tag, *([None] * size))
                 for i in range(len(value)):
-                    value[i] = self._unpack()
+                    value[i] = self.unpack()
                 return value
 
             elif marker == 0xDF:  # END_OF_STREAM:
@@ -468,34 +456,30 @@ class Unpacker:
             if size == 0:
                 return
             elif size == 1:
-                yield self._unpack()
+                yield self.unpack()
             else:
                 for _ in range(size):
-                    yield self._unpack()
+                    yield self.unpack()
         elif marker == 0xD4:  # LIST_8:
-            size, = struct_unpack(">B", self.read(1))
+            size = self._read_u8()
             for _ in range(size):
-                yield self._unpack()
+                yield self.unpack()
         elif marker == 0xD5:  # LIST_16:
-            size, = struct_unpack(">H", self.read(2))
+            size = self._read_u16be()
             for _ in range(size):
-                yield self._unpack()
+                yield self.unpack()
         elif marker == 0xD6:  # LIST_32:
-            size, = struct_unpack(">I", self.read(4))
+            size = self._read_u32be()
             for _ in range(size):
-                yield self._unpack()
+                yield self.unpack()
         elif marker == 0xD7:  # LIST_STREAM:
             item = None
             while item is not EndOfStream:
-                item = self._unpack()
+                item = self.unpack()
                 if item is not EndOfStream:
                     yield item
         else:
             return
-
-    def unpack_dictionary(self):
-        marker = self.read_u8()
-        return self._unpack_dictionary(marker)
 
     def _unpack_dictionary(self, marker):
         marker_high = marker & 0xF0
@@ -503,110 +487,100 @@ class Unpacker:
             size = marker & 0x0F
             value = {}
             for _ in range(size):
-                key = self._unpack()
-                value[key] = self._unpack()
+                key = self.unpack()
+                value[key] = self.unpack()
             return value
         elif marker == 0xD8:  # MAP_8:
-            size, = struct_unpack(">B", self.read(1))
+            size = self._read_u8()
             value = {}
             for _ in range(size):
-                key = self._unpack()
-                value[key] = self._unpack()
+                key = self.unpack()
+                value[key] = self.unpack()
             return value
         elif marker == 0xD9:  # MAP_16:
-            size, = struct_unpack(">H", self.read(2))
+            size = self._read_u16be()
             value = {}
             for _ in range(size):
-                key = self._unpack()
-                value[key] = self._unpack()
+                key = self.unpack()
+                value[key] = self.unpack()
             return value
         elif marker == 0xDA:  # MAP_32:
-            size, = struct_unpack(">I", self.read(4))
+            size = self._read_u32be()
             value = {}
             for _ in range(size):
-                key = self._unpack()
-                value[key] = self._unpack()
+                key = self.unpack()
+                value[key] = self.unpack()
             return value
         elif marker == 0xDB:  # MAP_STREAM:
             value = {}
             key = None
             while key is not EndOfStream:
-                key = self._unpack()
+                key = self.unpack()
                 if key is not EndOfStream:
-                    value[key] = self._unpack()
+                    value[key] = self.unpack()
             return value
         else:
             return None
 
-    def unpack_structure_header(self):
-        marker = self.read_u8()
-        if marker == -1:
-            return None, None
-        else:
-            return self._unpack_structure_header(marker)
-
     def _unpack_structure_header(self, marker):
         marker_high = marker & 0xF0
         if marker_high == 0xB0:  # TINY_STRUCT
-            signature = self.read(1).tobytes()
+            signature = self._read_u8()
             return marker & 0x0F, signature
         else:
             raise ValueError("Expected structure, found marker %02X" % marker)
 
+    def _read(self, n=1):
+        q = self._p + n
+        m = self._mem[self._p:q]
+        self._p = q
+        return m.tobytes()
 
-class UnpackableBuffer:
+    def _read_u8(self):
+        n = self._mem[self._p]
+        self._p += 1
+        return n
 
-    initial_capacity = 8192
+    def _read_u16be(self):
+        q = self._p + 2
+        n, = struct_unpack(">H", self._mem[self._p:q])
+        self._p = q
+        return n
 
-    def __init__(self, data=None):
-        if data is None:
-            self.data = bytearray(self.initial_capacity)
-            self.used = 0
-        else:
-            self.data = bytearray(data)
-            self.used = len(self.data)
-        self.p = 0
+    def _read_u32be(self):
+        q = self._p + 4
+        n, = struct_unpack(">I", self._mem[self._p:q])
+        self._p = q
+        return n
 
-    def reset(self):
-        self.used = 0
-        self.p = 0
+    def _read_i8(self):
+        z = self._mem[self._p]
+        self._p += 1
+        return z if z < 0x80 else z - 0x100
 
-    def read(self, n=1):
-        view = memoryview(self.data)
-        q = self.p + n
-        subview = view[self.p:q]
-        self.p = q
-        return subview
+    def _read_i16be(self):
+        q = self._p + 2
+        z, = struct_unpack(">h", self._mem[self._p:q])
+        self._p = q
+        return z
 
-    def read_u8(self):
-        if self.used - self.p >= 1:
-            value = self.data[self.p]
-            self.p += 1
-            return value
-        else:
-            return -1
+    def _read_i32be(self):
+        q = self._p + 4
+        z, = struct_unpack(">i", self._mem[self._p:q])
+        self._p = q
+        return z
 
-    def pop_u16(self):
-        """ Remove the last two bytes of data, returning them as a big-endian
-        16-bit unsigned integer.
-        """
-        if self.used >= 2:
-            value = 0x100 * self.data[self.used - 2] + self.data[self.used - 1]
-            self.used -= 2
-            return value
-        else:
-            return -1
+    def _read_i64be(self):
+        q = self._p + 8
+        z, = struct_unpack(">q", self._mem[self._p:q])
+        self._p = q
+        return z
 
-    def receive(self, sock, n_bytes):
-        end = self.used + n_bytes
-        if end > len(self.data):
-            self.data += bytearray(end - len(self.data))
-        view = memoryview(self.data)
-        while self.used < end:
-            n = sock.recv_into(view[self.used:end], end - self.used)
-            if n == 0:
-                raise OSError("No data")
-            self.used += n
+    def _read_f64be(self):
+        q = self._p + 8
+        r, = struct_unpack(">d", self._mem[self._p:q])
+        self._p = q
+        return r
 
 
 def packed(*values):
@@ -616,15 +590,6 @@ def packed(*values):
     for value in values:
         packer.pack(value)
     return b.getvalue()
-
-
-def unpacked(data, n):
-    buffer = UnpackableBuffer(data)
-    unpacker = Unpacker(buffer)
-    values = []
-    for _ in range(n):
-        values.append(unpacker.unpack())
-    return tuple(values)
 
 
 class MessageReader(object):
@@ -648,9 +613,10 @@ class MessageReader(object):
                 message.extend(chunk)
             else:
                 more = False
-        n = message[0] - 0xB0
+        _, n = divmod(message[0], 0x10)
         tag = message[1]
-        fields = unpacked(message[2:], n)
+        unpacker = UnpackStream(message[2:])
+        fields = tuple(unpacker.unpack() for _ in range(n))
         return tag, fields
 
 
