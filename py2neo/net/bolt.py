@@ -73,7 +73,7 @@ class Bolt(Connection):
             raise RuntimeError("Unable to agree supported protocol version")
         bolt = subclass(service, byte_reader, byte_writer)
         bolt.__local_port = local_port
-        bolt.hello(auth=service.auth)
+        bolt.hello()
         return bolt
 
     def __init__(self, service, byte_reader, byte_writer):
@@ -123,16 +123,15 @@ class Bolt1(Bolt):
     def bookmark(self):
         return self.metadata.get("bookmark")
 
-    def hello(self, auth):
+    def hello(self):
         self._assert_open()
-        user, password = auth
         extra = {"scheme": "basic",
-                 "principal": user,
-                 "credentials": password}
+                 "principal": self.service.user,
+                 "credentials": self.service.password}
         clean_extra = dict(extra)
         clean_extra.update({"credentials": "*******"})
         log.debug("[#%04X] C: INIT %r %r", self.local_port, self.user_agent, clean_extra)
-        response = self._write_request(0x01, self.user_agent, extra, vital=True)
+        response = self._write_request(0x01, self.service.user_agent, extra, vital=True)
         self._sync(response)
         self.server_agent = response.summary("server")
         self.connection_id = response.summary("connection_id")
@@ -310,13 +309,12 @@ class Bolt3(Bolt2):
 
     protocol_version = (3, 0)
 
-    def hello(self, auth):
+    def hello(self):
         self._assert_open()
-        user, password = auth
-        extra = {"user_agent": self.user_agent,
+        extra = {"user_agent": self.service.user_agent,
                  "scheme": "basic",
-                 "principal": user,
-                 "credentials": password}
+                 "principal": self.service.user,
+                 "credentials": self.service.password}
         clean_extra = dict(extra)
         clean_extra.update({"credentials": "*******"})
         log.debug("[#%04X] C: HELLO %r", self.local_port, clean_extra)

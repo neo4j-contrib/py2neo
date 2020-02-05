@@ -187,8 +187,6 @@ class Connection(object):
 
     protocol_version = ()
 
-    user_agent = None
-
     server_agent = None
 
     connection_id = None
@@ -247,7 +245,7 @@ class Connection(object):
         """
         return perf_counter() - self.__t_opened
 
-    def hello(self, auth):
+    def hello(self):
         pass
 
     def goodbye(self):
