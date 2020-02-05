@@ -38,6 +38,11 @@ try:
 except ImportError:
     from urllib import urlretrieve
 
+try:
+    from time import perf_counter
+except ImportError:
+    from time import time as perf_counter
+
 from io import StringIO
 import os
 from socket import error as SocketError

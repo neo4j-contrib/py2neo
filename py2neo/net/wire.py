@@ -16,7 +16,22 @@
 # limitations under the License.
 
 
-class ByteReader(object):
+class Breakable:
+    """ Mixin for objects that can break, resulting in an unusable,
+    unrecoverable state.
+    """
+
+    __broken = False
+
+    def set_broken(self):
+        self.__broken = True
+
+    @property
+    def broken(self):
+        return self.__broken
+
+
+class ByteReader(Breakable, object):
 
     def __init__(self, s):
         self.socket = s
@@ -24,28 +39,51 @@ class ByteReader(object):
 
     def read(self, n):
         while len(self.buffer) < n:
-            received = self.socket.recv(n)
-            if received:
-                self.buffer.extend(received)
+            try:
+                received = self.socket.recv(n)
+            except OSError:
+                self.set_broken()
+                raise
             else:
-                raise OSError("Expected %d bytes but peer closed after only %d bytes" % (n, len(self.buffer)))
+                if received:
+                    self.buffer.extend(received)
+                else:
+                    self.set_broken()
+                    raise OSError("Network read incomplete "
+                                  "(received %d of %d bytes)" % (len(self.buffer), n))
         data = self.buffer[:n]
         self.buffer[:n] = []
         return data
 
 
-class ByteWriter(object):
+class ByteWriter(Breakable, object):
 
     def __init__(self, s):
-        self.socket = s
-        self.buffer = bytearray()
+        self.__socket = s
+        self.__buffer = bytearray()
+        self.__closed = False
 
     def write(self, b):
-        self.buffer.extend(b)
+        self.__buffer.extend(b)
 
     def send(self):
-        self.socket.sendall(self.buffer)
-        self.buffer[:] = []
+        try:
+            self.__socket.sendall(self.__buffer)
+        except OSError:
+            self.set_broken()
+            raise
+        else:
+            self.__buffer[:] = []
 
     def close(self):
-        self.socket.close()
+        try:
+            self.__socket.close()
+        except OSError:
+            self.set_broken()
+            raise
+        else:
+            self.__closed = True
+
+    @property
+    def closed(self):
+        return self.__closed

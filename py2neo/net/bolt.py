@@ -20,8 +20,10 @@ from collections import deque, namedtuple
 from logging import getLogger
 from socket import socket
 
-from py2neo.net.api import get_connection_data, Connection, Transaction, TransactionError, Query, \
+from py2neo.meta import bolt_user_agent
+from py2neo.net.api import Transaction, TransactionError, Query, \
     Task, ItemizedTask
+from py2neo.net import Connection
 from py2neo.net.packstream import MessageReader, MessageWriter
 from py2neo.net.wire import ByteReader, ByteWriter
 
@@ -33,85 +35,78 @@ class Bolt(Connection):
 
     scheme = "bolt"
 
-    protocol_version = (0, 0)
+    user_agent = bolt_user_agent()
 
-    connection_id = None
-
-    __subclasses = None
+    __local_port = 0
 
     @classmethod
-    def walk_subclasses(cls):
-        for subclass in cls.__subclasses__():
-            assert issubclass(subclass, cls)  # for the benefit of the IDE
-            yield subclass
-            for k in subclass.walk_subclasses():
-                yield k
-
-    @classmethod
-    def get_subclass(cls, protocol_version):
-        if cls.__subclasses is None:
-            cls.__subclasses = {}
-            for subclass in cls.walk_subclasses():
-                cls.__subclasses[subclass.protocol_version] = subclass
-        return cls.__subclasses.get(protocol_version)
-
-    @classmethod
-    def open(cls, uri=None, **settings):
+    def open(cls, service):
         # TODO
-        cx_data = get_connection_data(uri, **settings)
-        s = cls.connect(("localhost", 7687))
-        s = cls.secure(s)
+        s = socket(family=service.address.family)
+        log.debug("[#%04X] C: <DIAL> '%s'", 0, service.address)
+        s.connect(service.address)
+        local_port = s.getsockname()[1]
+        log.debug("[#%04X] C: <ACCEPT>", local_port)
+
+        # TODO: secure socket
+
         byte_reader = ByteReader(s)
         byte_writer = ByteWriter(s)
-        protocol_version = cls.handshake(byte_reader, byte_writer)
-        subclass = cls.get_subclass(protocol_version)
+
+        def handshake():
+            # TODO
+            log.debug("[#%04X] C: <BOLT>", local_port)
+            byte_writer.write(b"\x60\x60\xB0\x17")
+            log.debug("[#%04X] C: <PROTOCOL> 4.0 | 3.0 | 2.0 | 1.0", local_port)
+            byte_writer.write(b"\x00\x00\x00\x03"
+                              b"\x00\x00\x00\x02"
+                              b"\x00\x00\x00\x01"
+                              b"\x00\x00\x00\x00")
+            byte_writer.send()
+            v = bytearray(byte_reader.read(4))
+            log.debug("[#%04X] S: <PROTOCOL> %d.%d", local_port, v[-1], v[-2])
+            return v[-1], v[-2]
+
+        protocol_version = handshake()
+        subclass = cls._get_subclass(cls.scheme, protocol_version)
         if subclass is None:
             raise RuntimeError("Unable to agree supported protocol version")
-        bolt = subclass(cx_data, byte_reader, byte_writer)
-        bolt.hello(auth=("neo4j", "password"))
+        bolt = subclass(service, byte_reader, byte_writer)
+        bolt.__local_port = local_port
+        bolt.hello(auth=service.auth)
         return bolt
 
-    @classmethod
-    def connect(cls, address):
-        s = socket()
-        s.connect(address)
-        return s
-
-    @classmethod
-    def secure(cls, s):
-        return s
-
-    @classmethod
-    def handshake(cls, byte_reader, byte_writer):
-        log.debug("C: <BOLT>")
-        byte_writer.write(b"\x60\x60\xB0\x17")
-        log.debug("C: <PROTOCOL> 4.0 | 3.0 | 2.0 | 1.0")
-        byte_writer.write(b"\x00\x00\x00\x03"
-                          b"\x00\x00\x00\x02"
-                          b"\x00\x00\x00\x01"
-                          b"\x00\x00\x00\x00")
-        byte_writer.send()
-        v = bytearray(byte_reader.read(4))
-        log.debug("S: <PROTOCOL> %d.%d", v[-1], v[-2])
-        return v[-1], v[-2]
-
-    def __init__(self, cx_data, byte_reader, byte_writer):
-        super(Bolt, self).__init__(cx_data)
+    def __init__(self, service, byte_reader, byte_writer):
+        super(Bolt, self).__init__(service)
         self.byte_reader = byte_reader
         self.byte_writer = byte_writer
 
     def close(self):
+        if self.closed or self.broken:
+            return
         self.goodbye()
         self.byte_writer.close()
-        log.debug("C: <CLOSE>")
+        log.debug("[#%04X] C: <HANGUP>", self.local_port)
+
+    @property
+    def closed(self):
+        return self.byte_writer.closed
+
+    @property
+    def broken(self):
+        return self.byte_reader.broken or self.byte_writer.broken
+
+    @property
+    def local_port(self):
+        return self.__local_port
 
 
 class Bolt1(Bolt):
 
     protocol_version = (1, 0)
 
-    def __init__(self, cx_data, byte_reader, byte_writer):
-        super(Bolt1, self).__init__(cx_data, byte_reader, byte_writer)
+    def __init__(self, service, byte_reader, byte_writer):
+        super(Bolt1, self).__init__(service, byte_reader, byte_writer)
         self.reader = MessageReader(byte_reader)
         self.writer = MessageWriter(byte_writer)
         self.responses = deque()
@@ -128,14 +123,15 @@ class Bolt1(Bolt):
                  "credentials": password}
         clean_extra = dict(extra)
         clean_extra.update({"credentials": "*******"})
-        log.debug("C: INIT %r %r", self.user_agent, clean_extra)
+        log.debug("[#%04X] C: INIT %r %r", self.local_port, self.user_agent, clean_extra)
         response = self._write_request(0x01, self.user_agent, extra, vital=True)
         self._sync(response)
         self.server_agent = response.summary("server")
         self.connection_id = response.summary("connection_id")
 
-    def reset(self):
-        log.debug("C: RESET")
+    def reset(self, force=False):
+        # TODO: use force flag
+        log.debug("[#%04X] C: RESET", self.local_port)
         response = self._write_request(0x0F, vital=True)
         self._sync(response)
 
@@ -154,8 +150,8 @@ class Bolt1(Bolt):
 
     def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         self._begin()
-        log.debug("C: RUN 'BEGIN' %r", self.transaction.extra)
-        log.debug("C: DISCARD_ALL")
+        log.debug("[#%04X] C: RUN 'BEGIN' %r", self.local_port, self.transaction.extra)
+        log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
         responses = (self._write_request(0x10, "BEGIN", self.transaction.extra),
                      self._write_request(0x2F))
         if bookmarks:
@@ -165,8 +161,8 @@ class Bolt1(Bolt):
     def commit(self, tx):
         self._assert_open_transaction(tx)
         try:
-            log.debug("C: RUN 'COMMIT' {}")
-            log.debug("C: DISCARD_ALL")
+            log.debug("[#%04X] C: RUN 'COMMIT' {}", self.local_port)
+            log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
             self._sync(self._write_request(0x10, "COMMIT", {}),
                        self._write_request(0x2F))
         finally:
@@ -175,8 +171,8 @@ class Bolt1(Bolt):
     def rollback(self, tx):
         self._assert_open_transaction(tx)
         try:
-            log.debug("C: RUN 'ROLLBACK' {}")
-            log.debug("C: DISCARD_ALL")
+            log.debug("[#%04X] C: RUN 'ROLLBACK' {}", self.local_port)
+            log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
             self._sync(self._write_request(0x10, "ROLLBACK", {}),
                        self._write_request(0x2F))
         finally:
@@ -187,7 +183,7 @@ class Bolt1(Bolt):
         return self._run(cypher, parameters or {})
 
     def _run(self, cypher, parameters, extra=None, final=False):
-        log.debug("C: RUN %r %r", cypher, parameters)
+        log.debug("[#%04X] C: RUN %r %r", self.local_port, cypher, parameters)
         response = self._write_request(0x10, cypher, parameters)  # TODO: dehydrate parameters
         query = BoltQuery(response)
         self.transaction.append(query, final=final)
@@ -197,7 +193,7 @@ class Bolt1(Bolt):
         self._assert_open_query(query)
         if n != -1:
             raise TransactionError("Flow control is not supported before Bolt 4.0")
-        log.debug("C: PULL_ALL")
+        log.debug("[#%04X] C: PULL_ALL", self.local_port)
         response = self._write_request(0x3F)
         query.append(response, final=True)
         return response
@@ -206,7 +202,7 @@ class Bolt1(Bolt):
         self._assert_open_query(query)
         if n != -1:
             raise TransactionError("Flow control is not supported before Bolt 4.0")
-        log.debug("C: DISCARD_ALL")
+        log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
         response = self._write_request(0x2F)
         query.append(response, final=True)
         return response
@@ -247,7 +243,7 @@ class Bolt1(Bolt):
         return response
 
     def _send(self):
-        log.debug("C: <SEND>")
+        log.debug("[#%04X] C: <SEND>", self.local_port)
         self.writer.send()
 
     def _wait(self, response):
@@ -258,25 +254,25 @@ class Bolt1(Bolt):
             top_response = self.responses[0]
             tag, fields = self.reader.read_message()
             if tag == 0x70:
-                log.debug("S: SUCCESS %s", " ".join(map(repr, fields)))
+                log.debug("[#%04X] S: SUCCESS %s", self.local_port, " ".join(map(repr, fields)))
                 top_response.set_success(**fields[0])
                 self.responses.popleft()
                 self.metadata.update(fields[0])
             elif tag == 0x71:
-                log.debug("S: RECORD %s", " ".join(map(repr, fields)))
+                log.debug("[#%04X] S: RECORD %s", self.local_port, " ".join(map(repr, fields)))
                 top_response.add_record(fields[0])
             elif tag == 0x7F:
-                log.debug("S: FAILURE %s", " ".join(map(repr, fields)))
+                log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
                 top_response.set_failure(**fields[0])
                 self.responses.popleft()
                 if top_response.vital:
                     self.byte_writer.close()
             elif tag == 0x7E and not top_response.vital:
-                log.debug("S: IGNORED")
+                log.debug("[#%04X] S: IGNORED", self.local_port)
                 top_response.set_ignored()
                 self.responses.popleft()
             else:
-                log.debug("S: <ERROR>")
+                log.debug("[#%04X] S: <ERROR>", self.local_port)
                 self.byte_writer.close()
                 raise RuntimeError("Unexpected protocol message #%02X", tag)
 
@@ -306,14 +302,14 @@ class Bolt3(Bolt2):
                  "credentials": password}
         clean_extra = dict(extra)
         clean_extra.update({"credentials": "*******"})
-        log.debug("C: HELLO %r", clean_extra)
+        log.debug("[#%04X] C: HELLO %r", self.local_port, clean_extra)
         response = self._write_request(0x01, extra, vital=True)
         self._sync(response)
         self.server_agent = response.summary("server")
         self.connection_id = response.summary("connection_id")
 
     def goodbye(self):
-        log.debug("C: GOODBYE")
+        log.debug("[#%04X] C: GOODBYE", self.local_port)
         self._write_request(0x02)
         self._send()
 
@@ -326,7 +322,7 @@ class Bolt3(Bolt2):
     def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         self._assert_no_transaction()
         self.transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
-        log.debug("C: BEGIN %r", self.transaction.extra)
+        log.debug("[#%04X] C: BEGIN %r", self.local_port, self.transaction.extra)
         response = self._write_request(0x11, self.transaction.extra)
         if bookmarks:
             self._sync(response)
@@ -335,7 +331,7 @@ class Bolt3(Bolt2):
     def commit(self, tx):
         self._assert_open_transaction(tx)
         try:
-            log.debug("C: COMMIT")
+            log.debug("[#%04X] C: COMMIT", self.local_port)
             self._sync(self._write_request(0x12))
         finally:
             self.transaction = None
@@ -343,7 +339,7 @@ class Bolt3(Bolt2):
     def rollback(self, tx):
         self._assert_open_transaction(tx)
         try:
-            log.debug("C: ROLLBACK")
+            log.debug("[#%04X] C: ROLLBACK", self.local_port)
             self._sync(self._write_request(0x13))
         finally:
             self.transaction = None
@@ -353,7 +349,7 @@ class Bolt3(Bolt2):
         return self._run(cypher, parameters or {}, self.transaction.extra)
 
     def _run(self, cypher, parameters, extra=None, final=False):
-        log.debug("C: RUN %r %r %r", cypher, parameters, extra or {})
+        log.debug("[#%04X] C: RUN %r %r %r", self.local_port, cypher, parameters, extra or {})
         response = self._write_request(0x10, cypher, parameters, extra or {})  # TODO: dehydrate parameters
         query = BoltQuery(response)
         self.transaction.append(query, final=final)
@@ -447,30 +443,3 @@ class BoltFailure(Exception):
 
     def __str__(self):
         return "[%s] %s" % (self.code, super(BoltFailure, self).__str__())
-
-
-def main():
-    from neobolt.diagnostics import watch
-    watch(__name__)
-    cx = Bolt.open()
-    print(cx.server_agent)
-    print(cx.connection_id)
-    tx = cx.begin()
-    q1 = cx.run(tx, "UNWIND range(1, $max) AS n RETURN n", {"max": 3})
-    cx.pull(q1)
-    cx.commit(tx)
-    print(cx.bookmark())
-    # bolt.reset()
-    q2 = cx.auto_run("UNWIND range(1, $max) AS n RETURN n", {"max": 3})
-    cx.pull(q2)
-    cx.send(q2)
-    cx.wait(q2)
-    assert q2.done()
-    for record in q2.records():
-        print(record)
-    print(cx.bookmark())
-    cx.close()
-
-
-if __name__ == "__main__":
-    main()
