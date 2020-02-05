@@ -100,6 +100,13 @@ class Bolt(Connection):
     def local_port(self):
         return self.__local_port
 
+    def _assert_open(self):
+        # TODO: better errors
+        if self.closed:
+            raise RuntimeError("Connection has been closed")
+        if self.broken:
+            raise RuntimeError("Connection is broken")
+
 
 class Bolt1(Bolt):
 
@@ -117,6 +124,7 @@ class Bolt1(Bolt):
         return self.metadata.get("bookmark")
 
     def hello(self, auth):
+        self._assert_open()
         user, password = auth
         extra = {"scheme": "basic",
                  "principal": user,
@@ -130,12 +138,14 @@ class Bolt1(Bolt):
         self.connection_id = response.summary("connection_id")
 
     def reset(self, force=False):
-        # TODO: use force flag
-        log.debug("[#%04X] C: RESET", self.local_port)
-        response = self._write_request(0x0F, vital=True)
-        self._sync(response)
+        self._assert_open()
+        if force or self.transaction is not None:
+            log.debug("[#%04X] C: RESET", self.local_port)
+            response = self._write_request(0x0F, vital=True)
+            self._sync(response)
 
     def _begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        self._assert_open()
         self._assert_no_transaction()
         if metadata:
             raise TransactionError("Transaction metadata not supported until Bolt v3")
@@ -159,6 +169,7 @@ class Bolt1(Bolt):
         return self.transaction
 
     def commit(self, tx):
+        self._assert_open()
         self._assert_open_transaction(tx)
         try:
             log.debug("[#%04X] C: RUN 'COMMIT' {}", self.local_port)
@@ -169,6 +180,7 @@ class Bolt1(Bolt):
             self.transaction = None
 
     def rollback(self, tx):
+        self._assert_open()
         self._assert_open_transaction(tx)
         try:
             log.debug("[#%04X] C: RUN 'ROLLBACK' {}", self.local_port)
@@ -179,6 +191,7 @@ class Bolt1(Bolt):
             self.transaction = None
 
     def run(self, tx, cypher, parameters=None):
+        self._assert_open()
         self._assert_open_transaction(tx)
         return self._run(cypher, parameters or {})
 
@@ -190,6 +203,7 @@ class Bolt1(Bolt):
         return query
 
     def pull(self, query, n=-1):
+        self._assert_open()
         self._assert_open_query(query)
         if n != -1:
             raise TransactionError("Flow control is not supported before Bolt 4.0")
@@ -199,6 +213,7 @@ class Bolt1(Bolt):
         return response
 
     def discard(self, query, n=-1):
+        self._assert_open()
         self._assert_open_query(query)
         if n != -1:
             raise TransactionError("Flow control is not supported before Bolt 4.0")
@@ -208,10 +223,12 @@ class Bolt1(Bolt):
         return response
 
     def send(self, query):
+        self._assert_open()
         self._assert_open_query(query)
         self._send()
 
     def wait(self, query):
+        self._assert_open()
         self._assert_open_query(query)
         self._wait(query.latest())
         if self.transaction.done():
@@ -237,7 +254,6 @@ class Bolt1(Bolt):
     def _write_request(self, tag, *fields, vital=False):
         # vital responses close on failure and cannot be ignored
         response = BoltResponse(vital=vital)
-        # TODO: logging
         self.writer.write_message(tag, *fields)
         self.responses.append(response)
         return response
@@ -295,6 +311,7 @@ class Bolt3(Bolt2):
     protocol_version = (3, 0)
 
     def hello(self, auth):
+        self._assert_open()
         user, password = auth
         extra = {"user_agent": self.user_agent,
                  "scheme": "basic",
@@ -315,11 +332,13 @@ class Bolt3(Bolt2):
 
     def auto_run(self, cypher, parameters=None,
                  db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        self._assert_open()
         self._assert_no_transaction()
         self.transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
         return self._run(cypher, parameters or {}, self.transaction.extra, final=True)
 
     def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        self._assert_open()
         self._assert_no_transaction()
         self.transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
         log.debug("[#%04X] C: BEGIN %r", self.local_port, self.transaction.extra)
@@ -329,6 +348,7 @@ class Bolt3(Bolt2):
         return self.transaction
 
     def commit(self, tx):
+        self._assert_open()
         self._assert_open_transaction(tx)
         try:
             log.debug("[#%04X] C: COMMIT", self.local_port)
@@ -337,6 +357,7 @@ class Bolt3(Bolt2):
             self.transaction = None
 
     def rollback(self, tx):
+        self._assert_open()
         self._assert_open_transaction(tx)
         try:
             log.debug("[#%04X] C: ROLLBACK", self.local_port)
@@ -345,6 +366,7 @@ class Bolt3(Bolt2):
             self.transaction = None
 
     def run(self, tx, cypher, parameters=None):
+        self._assert_open()
         self._assert_open_transaction(tx)
         return self._run(cypher, parameters or {}, self.transaction.extra)
 
