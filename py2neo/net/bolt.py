@@ -35,12 +35,10 @@ class Bolt(Connection):
 
     scheme = "bolt"
 
-    user_agent = bolt_user_agent()
-
     __local_port = 0
 
     @classmethod
-    def open(cls, service):
+    def open(cls, service, user_agent=None):
         # TODO
         s = socket(family=service.address.family)
         log.debug("[#%04X] C: <DIAL> '%s'", 0, service.address)
@@ -71,13 +69,13 @@ class Bolt(Connection):
         subclass = cls._get_subclass(cls.scheme, protocol_version)
         if subclass is None:
             raise RuntimeError("Unable to agree supported protocol version")
-        bolt = subclass(service, byte_reader, byte_writer)
+        bolt = subclass(service, (user_agent or bolt_user_agent()), byte_reader, byte_writer)
         bolt.__local_port = local_port
         bolt.hello()
         return bolt
 
-    def __init__(self, service, byte_reader, byte_writer):
-        super(Bolt, self).__init__(service)
+    def __init__(self, service, user_agent, byte_reader, byte_writer):
+        super(Bolt, self).__init__(service, user_agent)
         self.byte_reader = byte_reader
         self.byte_writer = byte_writer
 
@@ -112,8 +110,8 @@ class Bolt1(Bolt):
 
     protocol_version = (1, 0)
 
-    def __init__(self, service, byte_reader, byte_writer):
-        super(Bolt1, self).__init__(service, byte_reader, byte_writer)
+    def __init__(self, service, user_agent, byte_reader, byte_writer):
+        super(Bolt1, self).__init__(service, user_agent, byte_reader, byte_writer)
         self.reader = MessageReader(byte_reader)
         self.writer = MessageWriter(byte_writer)
         self.responses = deque()
@@ -131,7 +129,7 @@ class Bolt1(Bolt):
         clean_extra = dict(extra)
         clean_extra.update({"credentials": "*******"})
         log.debug("[#%04X] C: INIT %r %r", self.local_port, self.user_agent, clean_extra)
-        response = self._write_request(0x01, self.service.user_agent, extra, vital=True)
+        response = self._write_request(0x01, self.user_agent, extra, vital=True)
         self._sync(response)
         self.server_agent = response.summary("server")
         self.connection_id = response.summary("connection_id")
@@ -311,7 +309,7 @@ class Bolt3(Bolt2):
 
     def hello(self):
         self._assert_open()
-        extra = {"user_agent": self.service.user_agent,
+        extra = {"user_agent": self.user_agent,
                  "scheme": "basic",
                  "principal": self.service.user,
                  "credentials": self.service.password}

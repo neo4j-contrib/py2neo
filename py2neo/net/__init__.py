@@ -53,8 +53,7 @@ log = getLogger(__name__)
 class Service(object):
     """ Neo4j service descriptor.
     """
-    
-    user_agent = None
+
     secure = None
     verified = None
     scheme = None
@@ -93,7 +92,6 @@ class Service(object):
             self.user, _, self.password = NEO4J_AUTH.partition(":")
 
     def _apply_components(self, **settings):
-        self.user_agent = self._coalesce(settings.get("user_agent"), NEO4J_USER_AGENT, self.user_agent)
         self.secure = self._coalesce(settings.get("secure"), self.secure, NEO4J_SECURE)
         self.verified = self._coalesce(settings.get("verified"), self.verified, NEO4J_VERIFIED)
         self.scheme = self._coalesce(settings.get("scheme"), self.scheme)
@@ -109,8 +107,6 @@ class Service(object):
             self.scheme = "http"
 
     def _apply_other_defaults(self):
-        if not self.user_agent:
-            self.user_agent = http_user_agent() if self.scheme in ["http", "https"] else bolt_user_agent()
         if self.secure is None:
             self.secure = DEFAULT_SECURE
         if self.verified is None:
@@ -158,8 +154,7 @@ class Service(object):
         return "%s://%s:%s" % (self.scheme, self.host, self.port)
 
     def __hash__(self):
-        keys = ["user_agent", "secure", "verified", "scheme",
-                "user", "password", "host", "port"]
+        keys = ["secure", "verified", "scheme", "user", "password", "address"]
         h = hashlib_new("md5")
         for key in keys:
             h.update(bstr(getattr(self, key)))
@@ -181,6 +176,7 @@ class Connection(object):
     server.
 
     :ivar service: service descriptor
+    :ivar user_agent:
     """
 
     scheme = None
@@ -212,16 +208,17 @@ class Connection(object):
         return cls.__subclasses.get(key)
 
     @classmethod
-    def open(cls, service):
+    def open(cls, service, user_agent=None):
         # TODO: automatically via subclass sniffing
         if service.scheme == "bolt":
             from py2neo.net.bolt import Bolt
-            return Bolt.open(service)
+            return Bolt.open(service, user_agent=user_agent)
         else:
             raise ValueError("Unsupported scheme %r" % service.scheme)
 
-    def __init__(self, service):
+    def __init__(self, service, user_agent):
         self.service = service
+        self.user_agent = user_agent
         self.__t_opened = perf_counter()
 
     def close(self):
