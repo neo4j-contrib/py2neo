@@ -288,6 +288,9 @@ class Connection(object):
     def send(self, query):
         pass
 
+    def fetch(self, query):
+        pass
+
     def wait(self, query):
         pass
 
@@ -547,9 +550,12 @@ def main():
     print(cx.server_agent)
     print(cx.connection_id)
     tx = cx.begin()
-    q1 = cx.run(tx, "UNWIND range(1, $max) AS n RETURN n", {"max": 3})
+    q1 = cx.run(tx, "FUNWIND range(1, $max) AS n RETURN n", {"max": 3})
     cx.pull(q1)
-    cx.commit(tx)
+    try:
+        cx.commit(tx)
+    except Exception as e:
+        print("ERROR %r" % e)
     print(cx.bookmark())
     # bolt.reset()
     q2 = cx.auto_run("UNWIND range(1, $max) AS n RETURN n", {"max": 3})

@@ -131,8 +131,9 @@ class Bolt1(Bolt):
         log.debug("[#%04X] C: INIT %r %r", self.local_port, self.user_agent, clean_extra)
         response = self._write_request(0x01, self.user_agent, extra, vital=True)
         self._sync(response)
-        self.server_agent = response.summary("server")
-        self.connection_id = response.summary("connection_id")
+        self._audit(response)
+        self.server_agent = response.metadata.get("server")
+        self.connection_id = response.metadata.get("connection_id")
 
     def reset(self, force=False):
         self._assert_open()
@@ -140,6 +141,7 @@ class Bolt1(Bolt):
             log.debug("[#%04X] C: RESET", self.local_port)
             response = self._write_request(0x0F, vital=True)
             self._sync(response)
+            self._audit(response)
 
     def _begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         self._assert_open()
@@ -163,29 +165,28 @@ class Bolt1(Bolt):
                      self._write_request(0x2F))
         if bookmarks:
             self._sync(*responses)
+            self._audit(self.transaction)
         return self.transaction
 
     def commit(self, tx):
         self._assert_open()
         self._assert_open_transaction(tx)
-        try:
-            log.debug("[#%04X] C: RUN 'COMMIT' {}", self.local_port)
-            log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
-            self._sync(self._write_request(0x10, "COMMIT", {}),
-                       self._write_request(0x2F))
-        finally:
-            self.transaction = None
+        self.transaction.set_complete()
+        log.debug("[#%04X] C: RUN 'COMMIT' {}", self.local_port)
+        log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
+        self._sync(self._write_request(0x10, "COMMIT", {}),
+                   self._write_request(0x2F))
+        self._audit(self.transaction)
 
     def rollback(self, tx):
         self._assert_open()
         self._assert_open_transaction(tx)
-        try:
-            log.debug("[#%04X] C: RUN 'ROLLBACK' {}", self.local_port)
-            log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
-            self._sync(self._write_request(0x10, "ROLLBACK", {}),
-                       self._write_request(0x2F))
-        finally:
-            self.transaction = None
+        self.transaction.set_complete()
+        log.debug("[#%04X] C: RUN 'ROLLBACK' {}", self.local_port)
+        log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
+        self._sync(self._write_request(0x10, "ROLLBACK", {}),
+                   self._write_request(0x2F))
+        self._audit(self.transaction)
 
     def run(self, tx, cypher, parameters=None):
         self._assert_open()
@@ -224,18 +225,21 @@ class Bolt1(Bolt):
         self._assert_open_query(query)
         self._send()
 
+    def fetch(self, query):
+        if query.done():
+            return
+        while self.responses[0] not in query:
+            self._fetch()
+        self._fetch()
+        self._audit(query)
+
     def wait(self, query):
         self._assert_open()
-        self._assert_open_query(query)
         self._wait(query.latest())
-        if self.transaction.done():
-            self.transaction = None
-            if query.failure():
-                self.reset()
-                raise query.failure()
+        self._audit(query)
 
     def _assert_no_transaction(self):
-        if self.transaction is not None:
+        if self.transaction:
             raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
 
     def _assert_open_transaction(self, tx):
@@ -259,43 +263,66 @@ class Bolt1(Bolt):
         log.debug("[#%04X] C: <SEND>", self.local_port)
         self.writer.send()
 
+    def _fetch(self):
+        """ Fetch and process the next incoming message.
+
+        This method does not raise an exception on receipt of a
+        FAILURE message. Instead, it sets the response (and
+        consequently the parent query and transaction) to a failed
+        state. It is the responsibility of the caller to convert this
+        failed state into an exception.
+        """
+        response = self.responses[0]
+        tag, fields = self.reader.read_message()
+        if tag == 0x70:
+            log.debug("[#%04X] S: SUCCESS %s", self.local_port, " ".join(map(repr, fields)))
+            response.set_success(**fields[0])
+            self.responses.popleft()
+            self.metadata.update(fields[0])
+        elif tag == 0x71:
+            log.debug("[#%04X] S: RECORD %s", self.local_port, " ".join(map(repr, fields)))
+            response.add_record(fields[0])
+        elif tag == 0x7F:
+            log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
+            response.set_failure(**fields[0])
+            self.responses.popleft()
+            if response.vital:
+                self.byte_writer.close()
+        elif tag == 0x7E and not response.vital:
+            log.debug("[#%04X] S: IGNORED", self.local_port)
+            response.set_ignored()
+            self.responses.popleft()
+        else:
+            log.debug("[#%04X] S: <ERROR>", self.local_port)
+            self.byte_writer.close()
+            raise RuntimeError("Unexpected protocol message #%02X", tag)
+
     def _wait(self, response):
         """ Read all incoming responses up to and including a
         particular response.
+
+        This method calls fetch, but does not raise an exception on
+        FAILURE.
         """
         while not response.done():
-            top_response = self.responses[0]
-            tag, fields = self.reader.read_message()
-            if tag == 0x70:
-                log.debug("[#%04X] S: SUCCESS %s", self.local_port, " ".join(map(repr, fields)))
-                top_response.set_success(**fields[0])
-                self.responses.popleft()
-                self.metadata.update(fields[0])
-            elif tag == 0x71:
-                log.debug("[#%04X] S: RECORD %s", self.local_port, " ".join(map(repr, fields)))
-                top_response.add_record(fields[0])
-            elif tag == 0x7F:
-                log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
-                top_response.set_failure(**fields[0])
-                self.responses.popleft()
-                if top_response.vital:
-                    self.byte_writer.close()
-            elif tag == 0x7E and not top_response.vital:
-                log.debug("[#%04X] S: IGNORED", self.local_port)
-                top_response.set_ignored()
-                self.responses.popleft()
-            else:
-                log.debug("[#%04X] S: <ERROR>", self.local_port)
-                self.byte_writer.close()
-                raise RuntimeError("Unexpected protocol message #%02X", tag)
+            self._fetch()
 
     def _sync(self, *responses):
         self._send()
-        self._wait(responses[-1])
         for response in responses:
-            if response.failure():
-                raise response.failure()
-        # TODO: handle IGNORED
+            self._wait(response)
+
+    def _audit(self, task):
+        """ Checks a specific task (response, query or transaction)
+        for failure, raising an exception if one is found.
+
+        :raise BoltFailure:
+        """
+        try:
+            task.audit()
+        except BoltFailure:
+            self.reset(force=True)
+            raise
 
 
 class Bolt2(Bolt1):
@@ -318,8 +345,9 @@ class Bolt3(Bolt2):
         log.debug("[#%04X] C: HELLO %r", self.local_port, clean_extra)
         response = self._write_request(0x01, extra, vital=True)
         self._sync(response)
-        self.server_agent = response.summary("server")
-        self.connection_id = response.summary("connection_id")
+        self._audit(response)
+        self.server_agent = response.metadata.get("server")
+        self.connection_id = response.metadata.get("connection_id")
 
     def goodbye(self):
         log.debug("[#%04X] C: GOODBYE", self.local_port)
@@ -341,25 +369,24 @@ class Bolt3(Bolt2):
         response = self._write_request(0x11, self.transaction.extra)
         if bookmarks:
             self._sync(response)
+            self._audit(self.transaction)
         return self.transaction
 
     def commit(self, tx):
         self._assert_open()
         self._assert_open_transaction(tx)
-        try:
-            log.debug("[#%04X] C: COMMIT", self.local_port)
-            self._sync(self._write_request(0x12))
-        finally:
-            self.transaction = None
+        self.transaction.set_complete()
+        log.debug("[#%04X] C: COMMIT", self.local_port)
+        self._sync(self._write_request(0x12))
+        self._audit(self.transaction)
 
     def rollback(self, tx):
         self._assert_open()
         self._assert_open_transaction(tx)
-        try:
-            log.debug("[#%04X] C: ROLLBACK", self.local_port)
-            self._sync(self._write_request(0x13))
-        finally:
-            self.transaction = None
+        self.transaction.set_complete()
+        log.debug("[#%04X] C: ROLLBACK", self.local_port)
+        self._sync(self._write_request(0x13))
+        self._audit(self.transaction)
 
     def run(self, tx, cypher, parameters=None):
         self._assert_open()
@@ -393,13 +420,25 @@ class BoltQuery(ItemizedTask, Query):
         ItemizedTask.__init__(self)
         self.append(response)
 
+    @property
+    def header(self):
+        if len(self._items) < 1:
+            return None
+        return self._items[0]
+
+    @property
+    def footer(self):
+        if len(self._items) < 2:
+            return None
+        return self._items[-1]
+
     def record_type(self):
         try:
             header = self._items[0]
         except IndexError:
             return super(BoltQuery, self).record_type()
         else:
-            return namedtuple("Record", header.summary("fields"))
+            return namedtuple("Record", header.metadata.get("fields", ()))
 
     def records(self):
         t = self.record_type()
@@ -443,14 +482,14 @@ class BoltResponse(Task):
     def done(self):
         return self._status != 0
 
-    def failure(self):
-        return self._failure
+    def audit(self):
+        if self._failure:
+            self.set_ignored()
+            raise self._failure
 
-    def ignored(self):
-        return self._status == 2
-
-    def summary(self, key, default=None):
-        return self._metadata.get(key, default)
+    @property
+    def metadata(self):
+        return self._metadata
 
 
 class BoltFailure(Exception):

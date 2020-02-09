@@ -26,19 +26,22 @@ class Task(object):
     def done(self):
         pass
 
-    def failure(self):
-        pass
-
-    def ignored(self):
+    def audit(self):
         pass
 
 
 class ItemizedTask(Task):
 
     def __init__(self):
-        Task.__init__(self)
+        super(ItemizedTask, self).__init__()
         self._items = deque()
         self._complete = False
+
+    def __bool__(self):
+        return not self.done()
+
+    def __contains__(self, item):
+        return item in self._items
 
     def items(self):
         return iter(self._items)
@@ -46,7 +49,10 @@ class ItemizedTask(Task):
     def append(self, item, final=False):
         self._items.append(item)
         if final:
-            self._complete = True
+            self.set_complete()
+
+    def set_complete(self):
+        self._complete = True
 
     def complete(self):
         return self._complete
@@ -60,14 +66,9 @@ class ItemizedTask(Task):
     def done(self):
         return self.complete() and self.latest().done()
 
-    def failure(self):
+    def audit(self):
         for item in self._items:
-            if item.failure():
-                return item.failure()
-        return None
-
-    def ignored(self):
-        return self._items and self._items[0].ignored()
+            item.audit()
 
 
 class Transaction(ItemizedTask):
