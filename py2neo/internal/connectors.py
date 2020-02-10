@@ -27,7 +27,8 @@ from neobolt.direct import connect, ConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo.internal.compat import bstr, urlsplit, string_types
-from py2neo.internal.hydration import CypherResult, JSONHydrator, PackStreamHydrator, HydrationError
+from py2neo.internal.hydration import CypherResult, JSONHydrator, PackStreamHydrator, \
+    HydrationError, AbstractCypherResult
 from py2neo.meta import NEO4J_URI, NEO4J_AUTH, NEO4J_USER_AGENT, NEO4J_SECURE, NEO4J_VERIFIED, \
     bolt_user_agent, http_user_agent
 
@@ -209,6 +210,151 @@ class Connector(object):
 
     def sync(self, tx):
         raise NotImplementedError()
+
+
+class BadlyNamedCypherResult(AbstractCypherResult):
+
+    def __init__(self, cx, query):
+        self._cx = cx
+        self._query = query
+
+    def buffer(self):
+        self._cx.wait(self._query)
+
+    def keys(self):
+        self.buffer()
+        return self._query.header("fields")
+
+    def summary(self):
+        from py2neo.database import CypherSummary
+        self.buffer()
+        footer = self._query.footer
+        return CypherSummary(**footer.metadata)
+
+    def plan(self):
+        from py2neo.database import CypherPlan
+        self.buffer()
+        footer = self._query.footer
+        if "plan" in footer.metadata:
+            return CypherPlan(**footer.metadata["plan"])
+        elif "profile" in footer.metadata:
+            return CypherPlan(**footer.metadata["profile"])
+        else:
+            return None
+
+    def stats(self):
+        from py2neo.database import CypherStats
+        self.buffer()
+        footer = self._query.footer
+        return CypherStats(**footer.metadata.get("stats", {}))
+
+    def fetch(self):
+        pass  # TODO
+        # record = self._query.take_record()
+        # if record is None and not self._query.done():
+
+
+class BadlyNamedBoltConnector(Connector):
+
+    scheme = "bolt"
+
+    @property
+    def server_agent(self):
+        cx = self.pool.acquire()
+        try:
+            return cx.server_agent
+        finally:
+            self.pool.release(cx)
+
+    def open(self, cx_data, max_connections=None, **_):
+        from py2neo.net import Service, ConnectionPool
+        service = Service(**cx_data)
+        max_size = max_connections or DEFAULT_MAX_CONNECTIONS
+        self.pool = ConnectionPool(service, max_size=max_size, max_age=None)
+
+    def close(self):
+        self.pool.close()
+
+    ### DONE TO HERE ###
+
+    def _run_1(self, statement, parameters, graph, keys, entities):
+        cx = self.pool.acquire()
+        hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys, entities=entities)
+        dehydrated_parameters = hydrator.dehydrate(parameters)
+        result = CypherResult(on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
+        result.update_metadata({"connection": self.connection_data})
+
+        def update_metadata_with_keys(metadata):
+            result.update_metadata(metadata)
+            hydrator.keys = result.keys()
+
+        cx.run(statement, dehydrated_parameters or {}, on_success=update_metadata_with_keys, on_failure=self._fail)
+        cx.pull_all(on_records=lambda records: result.append_records(map(hydrator.hydrate, records)),
+                    on_success=result.update_metadata, on_failure=self._fail, on_summary=result.done)
+        cx.send()
+        cx.fetch()
+        return result
+
+    def _run_in_tx(self, statement, parameters, tx, graph, keys, entities):
+        self._assert_valid_tx(tx)
+
+        def fetch():
+            tx.fetch()
+
+        def fail(metadata):
+            self.transactions.remove(tx)
+            self.pool.release(tx)
+            self._fail(metadata)
+
+        hydrator = PackStreamHydrator(version=tx.protocol_version, graph=graph, keys=keys, entities=entities)
+        dehydrated_parameters = hydrator.dehydrate(parameters)
+        result = CypherResult(on_more=fetch)
+        result.update_metadata({"connection": self.connection_data})
+
+        def update_metadata_with_keys(metadata):
+            result.update_metadata(metadata)
+            hydrator.keys = result.keys()
+
+        tx.run(statement, dehydrated_parameters or {}, on_success=update_metadata_with_keys, on_failure=fail)
+        tx.pull_all(on_records=lambda records: result.append_records(map(hydrator.hydrate, records)),
+                    on_success=result.update_metadata, on_failure=fail, on_summary=result.done)
+        tx.send()
+        result.keys()   # force receipt of RUN summary, to detect any errors
+        return result
+
+    @classmethod
+    def _fail(cls, metadata):
+        from py2neo.database import GraphError
+        raise GraphError.hydrate(metadata)
+
+    def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
+        if tx is None:
+            return self._run_1(statement, parameters, graph, keys, entities)
+        else:
+            return self._run_in_tx(statement, parameters, tx, graph, keys, entities)
+
+    def begin(self):
+        tx = self.pool.acquire()
+        tx.begin()
+        self.transactions.add(tx)
+        return tx
+
+    def commit(self, tx):
+        self._assert_valid_tx(tx)
+        self.transactions.remove(tx)
+        tx.commit()
+        tx.sync()
+        self.pool.release(tx)
+
+    def rollback(self, tx):
+        self._assert_valid_tx(tx)
+        self.transactions.remove(tx)
+        tx.rollback()
+        tx.sync()
+        self.pool.release(tx)
+
+    def sync(self, cx):
+        cx.sync()
 
 
 class BoltConnector(Connector):

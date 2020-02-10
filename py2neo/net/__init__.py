@@ -288,10 +288,10 @@ class Connection(object):
     def send(self, query):
         pass
 
-    def fetch(self, query):
+    def wait(self, query):
         pass
 
-    def wait(self, query):
+    def take(self, query):
         pass
 
 
@@ -561,9 +561,12 @@ def main():
     q2 = cx.auto_run("UNWIND range(1, $max) AS n RETURN n", {"max": 3})
     cx.pull(q2)
     cx.send(q2)
-    cx.wait(q2)
-    assert q2.done()
-    for record in q2.records():
+    # cx.wait(q2)
+    # assert q2.done()
+    while True:
+        record = cx.take(q2)
+        if record is None:
+            break
         print(record)
     print(cx.bookmark())
     pool.release(cx)

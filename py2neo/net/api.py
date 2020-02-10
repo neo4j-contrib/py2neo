@@ -40,9 +40,6 @@ class ItemizedTask(Task):
     def __bool__(self):
         return not self.done()
 
-    def __contains__(self, item):
-        return item in self._items
-
     def items(self):
         return iter(self._items)
 
@@ -100,7 +97,10 @@ class Query(object):
     def record_type(self):
         return tuple
 
-    def records(self):
+    def has_records(self):
+        raise NotImplementedError
+
+    def take_record(self):
         raise NotImplementedError
 
 

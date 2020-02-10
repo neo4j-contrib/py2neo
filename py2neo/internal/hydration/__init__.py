@@ -46,7 +46,28 @@ def uri_to_id(uri):
     return int(identity)
 
 
-class CypherResult(object):
+class AbstractCypherResult(object):
+
+    def buffer(self):
+        raise NotImplementedError
+
+    def keys(self):
+        raise NotImplementedError
+
+    def summary(self):
+        raise NotImplementedError
+
+    def plan(self):
+        raise NotImplementedError
+
+    def stats(self):
+        raise NotImplementedError
+
+    def fetch(self):
+        raise NotImplementedError
+
+
+class CypherResult(AbstractCypherResult):
     """ Buffer for a result from a Cypher query.
     """
 

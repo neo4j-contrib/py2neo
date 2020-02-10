@@ -225,18 +225,19 @@ class Bolt1(Bolt):
         self._assert_open_query(query)
         self._send()
 
-    def fetch(self, query):
-        if query.done():
-            return
-        while self.responses[0] not in query:
-            self._fetch()
-        self._fetch()
-        self._audit(query)
-
     def wait(self, query):
-        self._assert_open()
         self._wait(query.latest())
         self._audit(query)
+
+    def take(self, query):
+        if not query.has_records() and not query.done():
+            while self.responses[0] is not query.latest():
+                self._wait(self.responses[0])
+            # self._fetch()  # TODO: fetch N
+            self._wait(query.latest())
+            self._audit(query)
+        record = query.take_record()
+        return record
 
     def _assert_no_transaction(self):
         if self.transaction:
@@ -418,6 +419,7 @@ class BoltQuery(ItemizedTask, Query):
     def __init__(self, response):
         Query.__init__(self)
         ItemizedTask.__init__(self)
+        self.__record_type = None
         self.append(response)
 
     @property
@@ -433,18 +435,27 @@ class BoltQuery(ItemizedTask, Query):
         return self._items[-1]
 
     def record_type(self):
-        try:
-            header = self._items[0]
-        except IndexError:
-            return super(BoltQuery, self).record_type()
-        else:
-            return namedtuple("Record", header.metadata.get("fields", ()))
+        if self.__record_type is None:
+            try:
+                header = self._items[0]
+            except IndexError:
+                raise AssertionError("Record definition not available")
+            else:
+                self.__record_type = namedtuple("Record", header.metadata.get("fields", ()))
+        return self.__record_type
 
-    def records(self):
+    def has_records(self):
+        return any(response.has_records()
+                   for response in self._items)
+
+    def take_record(self):
         t = self.record_type()
         for response in self._items:
-            for record in response.records():
-                yield t(record)
+            record = response.take_record()
+            if record is None:
+                continue
+            return t(record)
+        return None
 
 
 class BoltResponse(Task):
@@ -462,11 +473,27 @@ class BoltResponse(Task):
         self._metadata = {}
         self._failure = None
 
-    def records(self):
-        return iter(self._records)
+    def __repr__(self):
+        if self._status == 1:
+            return "<BoltResponse SUCCESS %r>" % self._metadata
+        elif self._status == 2:
+            return "<BoltResponse FAILURE %r>" % self._metadata
+        elif self._status == 3:
+            return "<BoltResponse IGNORED>"
+        else:
+            return "<BoltResponse ?>"
 
     def add_record(self, values):
         self._records.append(values)
+
+    def has_records(self):
+        return bool(self._records)
+
+    def take_record(self):
+        try:
+            return self._records.popleft()
+        except IndexError:
+            return None
 
     def set_success(self, **metadata):
         self._status = 1
