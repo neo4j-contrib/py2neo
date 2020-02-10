@@ -200,13 +200,13 @@ class Bolt1(Bolt):
         self.transaction.append(query, final=final)
         return query
 
-    def pull(self, query, n=-1):
+    def pull(self, query, n=-1, capacity=-1):
         self._assert_open()
         self._assert_open_query(query)
         if n != -1:
             raise TransactionError("Flow control is not supported before Bolt 4.0")
         log.debug("[#%04X] C: PULL_ALL", self.local_port)
-        response = self._write_request(0x3F)
+        response = self._write_request(0x3F, capacity=capacity)
         query.append(response, final=True)
         return response
 
@@ -233,7 +233,6 @@ class Bolt1(Bolt):
         if not query.has_records() and not query.done():
             while self.responses[0] is not query.latest():
                 self._wait(self.responses[0])
-            # self._fetch()  # TODO: fetch N
             self._wait(query.latest())
             self._audit(query)
         record = query.take_record()
@@ -253,9 +252,10 @@ class Bolt1(Bolt):
         if query is not self.transaction.latest():
             raise TransactionError("Random query access is not supported before Bolt 4.0")
 
-    def _write_request(self, tag, *fields, vital=False):
+    def _write_request(self, tag, *fields, capacity=-1, vital=False):
+        # capacity denotes the preferred max number of records that a response can hold
         # vital responses close on failure and cannot be ignored
-        response = BoltResponse(vital=vital)
+        response = BoltResponse(capacity=capacity, vital=vital)
         self.writer.write_message(tag, *fields)
         self.responses.append(response)
         return response
@@ -305,8 +305,8 @@ class Bolt1(Bolt):
         This method calls fetch, but does not raise an exception on
         FAILURE.
         """
-        while not response.done():
-            self._fetch()
+        while not response.full() and not response.done():
+            self._fetch()  # TODO: inline
 
     def _sync(self, *responses):
         self._send()
@@ -465,8 +465,9 @@ class BoltResponse(Task):
     # 2 = failure
     # 3 = ignored
 
-    def __init__(self, vital=False):
+    def __init__(self, capacity=-1, vital=False):
         super(BoltResponse, self).__init__()
+        self.capacity = capacity
         self.vital = vital
         self._records = deque()
         self._status = 0
@@ -505,6 +506,12 @@ class BoltResponse(Task):
 
     def set_ignored(self):
         self._status = 3
+
+    def full(self):
+        if self.capacity >= 0:
+            return len(self._records) >= self.capacity
+        else:
+            return False
 
     def done(self):
         return self._status != 0

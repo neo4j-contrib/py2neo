@@ -550,7 +550,7 @@ def main():
     print(cx.server_agent)
     print(cx.connection_id)
     tx = cx.begin()
-    q1 = cx.run(tx, "FUNWIND range(1, $max) AS n RETURN n", {"max": 3})
+    q1 = cx.run(tx, "FUNWIND range(1, $max) AS n RETURN n", {"max": 5})
     cx.pull(q1)
     try:
         cx.commit(tx)
@@ -558,16 +558,15 @@ def main():
         print("ERROR %r" % e)
     print(cx.bookmark())
     # bolt.reset()
-    q2 = cx.auto_run("UNWIND range(1, $max) AS n RETURN n", {"max": 3})
-    cx.pull(q2)
+    q2 = cx.auto_run("UNWIND range(1, $max) AS n RETURN n", {"max": 5})
+    cx.pull(q2, capacity=3)
     cx.send(q2)
-    # cx.wait(q2)
-    # assert q2.done()
     while True:
         record = cx.take(q2)
         if record is None:
             break
         print(record)
+    assert q2.done()
     print(cx.bookmark())
     pool.release(cx)
     pool.close()
