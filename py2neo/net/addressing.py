@@ -56,16 +56,6 @@ class Address(tuple):
             return cls((host or default_host or "localhost",
                         port or default_port or 0))
 
-    @classmethod
-    def parse_list(cls, *s, default_host=None, default_port=None):
-        """ Parse a string containing one or more socket addresses, each
-        separated by whitespace.
-        """
-        if not all(isinstance(s0, str) for s0 in s):
-            raise TypeError("Address.parse_list requires a string argument")
-        return [Address.parse(a, default_host, default_port)
-                for a in " ".join(s).split()]
-
     def __new__(cls, iterable):
         if isinstance(iterable, cls):
             return iterable
