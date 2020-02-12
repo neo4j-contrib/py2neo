@@ -256,7 +256,7 @@ class BadlyNamedCypherResult(AbstractCypherResult):
 
 class BadlyNamedBoltConnector(Connector):
 
-    scheme = "bolt"
+    # TODO: scheme = "bolt"
 
     @property
     def server_agent(self):
