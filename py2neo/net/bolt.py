@@ -454,7 +454,7 @@ class BoltQuery(ItemizedTask, Query):
             record = response.take_record()
             if record is None:
                 continue
-            return t(record)
+            return t(*record)
         return None
 
 
