@@ -386,7 +386,7 @@ class ConnectionPool(object):
         """
         return len(self._in_use_list) + len(self._free_list)
 
-    def _sanitize(self, cx, *, force_reset):
+    def _sanitize(self, cx, force_reset=False):
         """ Attempt to clean up a connection, such that it can be
         reused.
 
@@ -408,7 +408,7 @@ class ConnectionPool(object):
         cx.reset(force=force_reset)
         return cx
 
-    def acquire(self, *, force_reset=False):
+    def acquire(self, force_reset=False):
         """ Acquire a connection from the pool.
 
         In the simplest case, this will return an existing open
@@ -443,7 +443,7 @@ class ConnectionPool(object):
         self._in_use_list.append(cx)
         return cx
 
-    def release(self, cx, *, force_reset=False):
+    def release(self, cx, force_reset=False):
         """ Release a Bolt connection, putting it back into the pool
         if the connection is healthy and the pool is not already at
         capacity.
