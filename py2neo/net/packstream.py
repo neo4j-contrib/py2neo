@@ -49,7 +49,7 @@ class Structure:
         self.fields = list(fields)
 
     def __repr__(self):
-        return "Structure[0x%02X](%s)" % (ord(self.tag), ", ".join(map(repr, self.fields)))
+        return "Structure[#%02X](%s)" % (self.tag, ", ".join(map(repr, self.fields)))
 
     def __eq__(self, other):
         try:

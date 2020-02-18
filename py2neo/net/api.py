@@ -54,14 +54,24 @@ class ItemizedTask(Task):
     def complete(self):
         return self._complete
 
-    def latest(self):
+    def first(self):
+        try:
+            return self._items[0]
+        except IndexError:
+            return None
+
+    def last(self):
         try:
             return self._items[-1]
         except IndexError:
             return None
 
     def done(self):
-        return self.complete() and self.latest().done()
+        if self.complete():
+            last = self.last()
+            return (last and last.done()) or not last
+        else:
+            return False
 
     def audit(self):
         for item in self._items:

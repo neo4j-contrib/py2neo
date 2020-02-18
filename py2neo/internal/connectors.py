@@ -156,7 +156,7 @@ class Connector(object):
     scheme = NotImplemented
 
     pool = None
-    transactions = set()
+    transactions = {}
 
     @classmethod
     def walk_subclasses(cls):
@@ -214,22 +214,30 @@ class Connector(object):
 
 class BadlyNamedCypherResult(AbstractCypherResult):
 
-    def __init__(self, cx, query):
+    def __init__(self, cx, query, hydrator):
         self._cx = cx
         self._query = query
+        self._hydrator = hydrator
+
+    def _set_keys(self):
+        self._hydrator.keys = self._query.header.metadata.get("fields", ())
 
     def buffer(self):
+        if self._query.done():
+            return
+        self._cx.send(self._query)
         self._cx.wait(self._query)
+        self._set_keys()
 
     def keys(self):
         self.buffer()
-        return self._query.header("fields")
+        return self._hydrator.keys
 
     def summary(self):
         from py2neo.database import CypherSummary
         self.buffer()
         footer = self._query.footer
-        return CypherSummary(**footer.metadata)
+        return CypherSummary(connection=self._cx.service.to_dict(), **footer.metadata)
 
     def plan(self):
         from py2neo.database import CypherPlan
@@ -249,14 +257,17 @@ class BadlyNamedCypherResult(AbstractCypherResult):
         return CypherStats(**footer.metadata.get("stats", {}))
 
     def fetch(self):
-        pass  # TODO
-        # record = self._query.take_record()
-        # if record is None and not self._query.done():
+        from py2neo.data import Record
+        record = self._cx.take(self._query)
+        self._set_keys()  # TODO: don't do this for every record
+        if record is None:
+            return None
+        return Record(zip(self._hydrator.keys, self._hydrator.hydrate(record)))
 
 
 class BadlyNamedBoltConnector(Connector):
 
-    # TODO: scheme = "bolt"
+    scheme = "bolt"
 
     @property
     def server_agent(self):
@@ -275,51 +286,24 @@ class BadlyNamedBoltConnector(Connector):
     def close(self):
         self.pool.close()
 
-    ### DONE TO HERE ###
-
     def _run_1(self, statement, parameters, graph, keys, entities):
         cx = self.pool.acquire()
         hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys, entities=entities)
         dehydrated_parameters = hydrator.dehydrate(parameters)
-        result = CypherResult(on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
-        result.update_metadata({"connection": self.connection_data})
-
-        def update_metadata_with_keys(metadata):
-            result.update_metadata(metadata)
-            hydrator.keys = result.keys()
-
-        cx.run(statement, dehydrated_parameters or {}, on_success=update_metadata_with_keys, on_failure=self._fail)
-        cx.pull_all(on_records=lambda records: result.append_records(map(hydrator.hydrate, records)),
-                    on_success=result.update_metadata, on_failure=self._fail, on_summary=result.done)
-        cx.send()
-        cx.fetch()
+        query = cx.auto_run(statement, dehydrated_parameters)
+        cx.pull(query)
+        cx.send(query)
+        result = BadlyNamedCypherResult(cx, query, hydrator)
         return result
 
     def _run_in_tx(self, statement, parameters, tx, graph, keys, entities):
-        self._assert_valid_tx(tx)
-
-        def fetch():
-            tx.fetch()
-
-        def fail(metadata):
-            self.transactions.remove(tx)
-            self.pool.release(tx)
-            self._fail(metadata)
-
-        hydrator = PackStreamHydrator(version=tx.protocol_version, graph=graph, keys=keys, entities=entities)
+        cx = self.transactions.get(tx)
+        hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys, entities=entities)
         dehydrated_parameters = hydrator.dehydrate(parameters)
-        result = CypherResult(on_more=fetch)
-        result.update_metadata({"connection": self.connection_data})
-
-        def update_metadata_with_keys(metadata):
-            result.update_metadata(metadata)
-            hydrator.keys = result.keys()
-
-        tx.run(statement, dehydrated_parameters or {}, on_success=update_metadata_with_keys, on_failure=fail)
-        tx.pull_all(on_records=lambda records: result.append_records(map(hydrator.hydrate, records)),
-                    on_success=result.update_metadata, on_failure=fail, on_summary=result.done)
-        tx.send()
-        result.keys()   # force receipt of RUN summary, to detect any errors
+        query = cx.run(tx, statement, dehydrated_parameters)
+        cx.pull(query)
+        cx.send(query)
+        result = BadlyNamedCypherResult(cx, query, hydrator)
         return result
 
     @classmethod
@@ -334,27 +318,25 @@ class BadlyNamedBoltConnector(Connector):
             return self._run_in_tx(statement, parameters, tx, graph, keys, entities)
 
     def begin(self):
-        tx = self.pool.acquire()
-        tx.begin()
-        self.transactions.add(tx)
+        cx = self.pool.acquire()
+        tx = cx.begin()
+        self.transactions[tx] = cx
         return tx
 
     def commit(self, tx):
         self._assert_valid_tx(tx)
-        self.transactions.remove(tx)
-        tx.commit()
-        tx.sync()
-        self.pool.release(tx)
+        cx = self.transactions.pop(tx)
+        cx.commit(tx)
+        self.pool.release(cx)
 
     def rollback(self, tx):
         self._assert_valid_tx(tx)
-        self.transactions.remove(tx)
-        tx.rollback()
-        tx.sync()
-        self.pool.release(tx)
+        cx = self.transactions.pop(tx)
+        cx.rollback(tx)
+        self.pool.release(cx)
 
-    def sync(self, cx):
-        cx.sync()
+    def sync(self, tx):
+        pass
 
 
 class BoltConnector(Connector):

@@ -170,6 +170,14 @@ class Service(object):
                 return value
         return None
 
+    def to_dict(self):
+        keys = ["secure", "verified", "scheme", "user", "password", "address",
+                "auth", "host", "port", "port_number", "uri"]
+        d = {}
+        for key in keys:
+            d[key] = getattr(self, key)
+        return d
+
 
 class Connection(object):
     """ A single point-to-point connection between a client and a

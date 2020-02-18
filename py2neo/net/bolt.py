@@ -99,7 +99,8 @@ class Bolt(Connection):
         return self.__local_port
 
     def _assert_open(self):
-        # TODO: better errors
+        # TODO: better errors and hooks back into the pool, for
+        #  deactivating and/or removing addresses from the routing table
         if self.closed:
             raise RuntimeError("Connection has been closed")
         if self.broken:
@@ -226,14 +227,14 @@ class Bolt1(Bolt):
         self._send()
 
     def wait(self, query):
-        self._wait(query.latest())
+        self._wait(query.last())
         self._audit(query)
 
     def take(self, query):
         if not query.has_records() and not query.done():
-            while self.responses[0] is not query.latest():
+            while self.responses[0] is not query.last():
                 self._wait(self.responses[0])
-            self._wait(query.latest())
+            self._wait(query.last())
             self._audit(query)
         record = query.take_record()
         return record
@@ -249,7 +250,7 @@ class Bolt1(Bolt):
     def _assert_open_query(self, query):
         if not self.transaction:
             raise TransactionError("No active transaction")
-        if query is not self.transaction.latest():
+        if query is not self.transaction.last():
             raise TransactionError("Random query access is not supported before Bolt 4.0")
 
     def _write_request(self, tag, *fields, capacity=-1, vital=False):
@@ -449,12 +450,12 @@ class BoltQuery(ItemizedTask, Query):
                    for response in self._items)
 
     def take_record(self):
-        t = self.record_type()
+        # t = self.record_type()
         for response in self._items:
             record = response.take_record()
             if record is None:
                 continue
-            return t(*record)
+            return record
         return None
 
 

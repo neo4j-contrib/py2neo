@@ -224,12 +224,12 @@ class PackStreamHydrator(Hydrator):
 
     def __init__(self, version, graph, keys, entities=None):
         super(PackStreamHydrator, self).__init__(graph)
-        self.version = version
+        self.version = version if isinstance(version, tuple) else (version, 0)
         self.keys = keys
         self.entities = entities or {}
         self.hydration_functions = {}
         self.dehydration_functions = {}
-        if self.version >= 2:
+        if self.version >= (2, 0):
             self.hydration_functions.update(temporal_hydration_functions())
             self.hydration_functions.update(spatial_hydration_functions())
             self.dehydration_functions.update(temporal_dehydration_functions())

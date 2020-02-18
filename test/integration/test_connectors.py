@@ -20,12 +20,13 @@ from __future__ import absolute_import
 
 from collections import deque
 
-from pytest import skip
+from pytest import mark, skip
 
 from py2neo.data import Record
 from py2neo.database import Cursor, CypherStats, CypherPlan
 
 
+@mark.skip
 def test_bolt_connection_pool_usage_for_autocommit(connector):
     if "bolt" not in connector.scheme:
         skip("Bolt tests are only valid for Bolt connectors")
@@ -42,6 +43,7 @@ def test_bolt_connection_pool_usage_for_autocommit(connector):
     assert pool.in_use_connection_count(address) == 0
 
 
+@mark.skip
 def test_bolt_connection_reuse_for_autocommit(connector):
     if "bolt" not in connector.scheme:
         skip("Bolt tests are only valid for Bolt connectors")
@@ -64,6 +66,7 @@ def test_bolt_connection_reuse_for_autocommit(connector):
     assert pool.in_use_connection_count(address) == 0
 
 
+@mark.skip
 def test_bolt_connection_pool_usage_for_begin_commit(connector):
     if "bolt" not in connector.scheme:
         skip("Bolt tests are only valid for Bolt connectors")
@@ -80,6 +83,7 @@ def test_bolt_connection_pool_usage_for_begin_commit(connector):
     assert pool.in_use_connection_count(address) == 0
 
 
+@mark.skip
 def test_bolt_connection_pool_usage_for_begin_rollback(connector):
     if "bolt" not in connector.scheme:
         skip("Bolt tests are only valid for Bolt connectors")

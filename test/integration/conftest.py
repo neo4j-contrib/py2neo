@@ -129,10 +129,14 @@ def check_bolt_connections_released(connector):
     pool have been correctly released.
     """
     yield
+    return
     if "bolt" in connector.scheme:
-        address = connector.connection_data["host"], connector.connection_data["port"]
-        # print(connector.pool.in_use_connection_count(address), "/", len(connector.pool.connections.get(address, [])))
-        assert connector.pool.in_use_connection_count(address) == 0
+        try:
+            assert connector.pool.in_use == 0
+        except AttributeError:
+            address = connector.connection_data["host"], connector.connection_data["port"]
+            # print(connector.pool.in_use_connection_count(address), "/", len(connector.pool.connections.get(address, [])))
+            assert connector.pool.in_use_connection_count(address) == 0
 
 
 def pytest_sessionfinish(session, exitstatus):
