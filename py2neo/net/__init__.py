@@ -195,6 +195,8 @@ class Connection(object):
 
     connection_id = None
 
+    pool = None
+
     __subclasses = None
 
     @classmethod
@@ -228,6 +230,14 @@ class Connection(object):
         self.service = service
         self.user_agent = user_agent
         self.__t_opened = perf_counter()
+
+    def __del__(self):
+        if self.pool:
+            return
+        try:
+            self.close()
+        except OSError:
+            pass
 
     def close(self):
         pass
@@ -281,9 +291,6 @@ class Connection(object):
     def rollback(self, tx):
         pass
 
-    def check(self, tx):
-        pass
-
     def run(self, tx, cypher, parameters=None):
         pass
 
@@ -332,8 +339,15 @@ class ConnectionPool(object):
         self._max_size = max_size
         self._max_age = max_age
         self._in_use_list = deque()
+        self._quarantine = deque()
         self._free_list = deque()
         self._waiting_list = WaitingList()
+
+    def __del__(self):
+        try:
+            self.close()
+        except OSError:
+            pass
 
     def __repr__(self):
         return "<{} service={!r} [{}{}{}]>".format(
@@ -413,7 +427,9 @@ class ConnectionPool(object):
         if expired:
             cx.close()
             return None
+        self._quarantine.append(cx)
         cx.reset(force=force_reset)
+        self._quarantine.remove(cx)
         return cx
 
     def acquire(self, force_reset=False):
@@ -425,6 +441,11 @@ class ConnectionPool(object):
         free connections are available, this will block until a
         connection is released, or until the acquire call is cancelled.
 
+        This method will return :py:`None` if and only if the maximum
+        size of the pool is set to zero. In this special case, no
+        amount of waiting would result in the acquisition of a
+        connection. This will be the case if the pool has been closed.
+
         :param force_reset: if true, the connection will be forcibly
             reset before being returned; if false, this will only occur
             if the connection is not already in a clean state
@@ -433,6 +454,8 @@ class ConnectionPool(object):
         log.debug("Acquiring connection from pool %r", self)
         cx = None
         while cx is None or cx.broken or cx.closed:
+            if self.max_size == 0:
+                return None
             try:
                 # Plan A: select a free connection from the pool
                 cx = self._free_list.popleft()
@@ -441,6 +464,7 @@ class ConnectionPool(object):
                     # Plan B: if the pool isn't full, open
                     # a new connection
                     cx = Connection.open(self.service)
+                    cx.pool = self
                 else:
                     # Plan C: wait for more capacity to become
                     # available, then try again
@@ -485,8 +509,10 @@ class ConnectionPool(object):
                 cx.close()
         elif cx in self._free_list:
             raise ValueError("Connection is not in use")
+        elif cx in self._quarantine:
+            pass
         else:
-            raise ValueError("Connection does not belong to this pool")
+            raise ValueError("Connection %r does not belong to this pool" % cx)
 
     def prune(self):
         """ Close all free connections.
@@ -496,11 +522,13 @@ class ConnectionPool(object):
     def close(self):
         """ Close all connections immediately.
 
-        This does not permanently disable the connection pool, it
-        merely shuts down all open connections, including those in
-        use. Depending on the applications, it may be perfectly
-        acceptable to re-acquire connections after pool closure,
-        which will have the implicit affect of reopening the pool.
+        This does not permanently disable the connection pool. Instead,
+        it sets the maximum pool size to zero before shutting down all
+        open connections, including those in use.
+
+        To reuse the pool, the maximum size will need to be set to a
+        a value greater than zero before connections can once again be
+        acquired.
 
         To close gracefully, allowing work in progress to continue
         until connections are released, use the following sequence
@@ -509,14 +537,17 @@ class ConnectionPool(object):
             pool.max_size = 0
             pool.prune()
 
-        This will force all future connection acquisitions onto the
-        waiting list, and released connections will be closed instead
+        This will force all future connection acquisitions to be
+        rejected, and released connections will be closed instead
         of being returned to the pool.
         """
+        self.max_size = 0
         self.prune()
         self.__close(self._in_use_list)
+        self._waiting_list.notify()
 
-    def __close(self, connections):
+    @classmethod
+    def __close(cls, connections):
         """ Close all connections in the given list.
         """
         closers = deque()
@@ -548,37 +579,3 @@ class WaitingList:
             pass
         else:
             event.set()
-
-
-def main():
-    from neobolt.diagnostics import watch
-    watch("py2neo.net.bolt")
-    pool = ConnectionPool.open(Service())
-    cx = pool.acquire()
-    print(cx.server_agent)
-    print(cx.connection_id)
-    tx = cx.begin()
-    q1 = cx.run(tx, "FUNWIND range(1, $max) AS n RETURN n", {"max": 5})
-    cx.pull(q1)
-    try:
-        cx.commit(tx)
-    except Exception as e:
-        print("ERROR %r" % e)
-    print(cx.bookmark())
-    # bolt.reset()
-    q2 = cx.auto_run("UNWIND range(1, $max) AS n RETURN n", {"max": 5})
-    cx.pull(q2, capacity=3)
-    cx.send(q2)
-    while True:
-        record = cx.take(q2)
-        if record is None:
-            break
-        print(record)
-    assert q2.done()
-    print(cx.bookmark())
-    pool.release(cx)
-    pool.close()
-
-
-if __name__ == "__main__":
-    main()

@@ -23,7 +23,6 @@ from hashlib import new as hashlib_new
 from json import dumps as json_dumps, loads as json_loads
 
 from certifi import where
-from neobolt.direct import connect, ConnectionPool
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo.internal.compat import bstr, urlsplit, string_types
@@ -156,7 +155,8 @@ class Connector(object):
     scheme = NotImplemented
 
     pool = None
-    transactions = {}
+
+    transactions = None
 
     @classmethod
     def walk_subclasses(cls):
@@ -169,12 +169,16 @@ class Connector(object):
     def __new__(cls, uri, **settings):
         cx_data = get_connection_data(uri, **settings)
         for subclass in cls.walk_subclasses():
+            assert issubclass(subclass, Connector)
             if subclass.scheme == cx_data["scheme"]:
                 inst = object.__new__(subclass)
                 inst.open(cx_data, **settings)
                 inst.connection_data = cx_data
                 return inst
         raise ValueError("Unsupported scheme %r" % cx_data["scheme"])
+
+    def __init__(self, uri, **settings):
+        self.transactions = {}
 
     @property
     def server_agent(self):
@@ -190,11 +194,11 @@ class Connector(object):
         raise NotImplementedError()
 
     def is_valid_transaction(self, tx):
-        return tx is not None and tx in self.transactions
+        return tx and tx in self.transactions
 
     def _assert_valid_tx(self, tx):
         from py2neo.database import TransactionError
-        if tx is None:
+        if not tx:
             raise TransactionError("No transaction")
         if tx not in self.transactions:
             raise TransactionError("Invalid transaction")
@@ -262,7 +266,8 @@ class BadlyNamedCypherResult(AbstractCypherResult):
         self._set_keys()  # TODO: don't do this for every record
         if record is None:
             return None
-        return Record(zip(self._hydrator.keys, self._hydrator.hydrate(record)))
+        hydrated = Record(zip(self._hydrator.keys, self._hydrator.hydrate(record)))
+        return hydrated
 
 
 class BadlyNamedBoltConnector(Connector):
@@ -293,6 +298,8 @@ class BadlyNamedBoltConnector(Connector):
         query = cx.auto_run(statement, dehydrated_parameters)
         cx.pull(query)
         cx.send(query)
+        cx._wait(query.first())
+        cx._audit(query)
         result = BadlyNamedCypherResult(cx, query, hydrator)
         return result
 
@@ -303,13 +310,10 @@ class BadlyNamedBoltConnector(Connector):
         query = cx.run(tx, statement, dehydrated_parameters)
         cx.pull(query)
         cx.send(query)
+        cx._wait(query.first())
+        cx._audit(query)
         result = BadlyNamedCypherResult(cx, query, hydrator)
         return result
-
-    @classmethod
-    def _fail(cls, metadata):
-        from py2neo.database import GraphError
-        raise GraphError.hydrate(metadata)
 
     def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
         if tx is None:
@@ -327,125 +331,128 @@ class BadlyNamedBoltConnector(Connector):
         self._assert_valid_tx(tx)
         cx = self.transactions.pop(tx)
         cx.commit(tx)
-        self.pool.release(cx)
+        # self.pool.release(cx)
 
     def rollback(self, tx):
         self._assert_valid_tx(tx)
         cx = self.transactions.pop(tx)
         cx.rollback(tx)
-        self.pool.release(cx)
+        # self.pool.release(cx)
 
     def sync(self, tx):
         pass
 
 
-class BoltConnector(Connector):
-
-    scheme = "bolt"
-
-    @property
-    def server_agent(self):
-        cx = self.pool.acquire()
-        try:
-            return cx.server.agent
-        finally:
-            self.pool.release(cx)
-
-    def open(self, cx_data, max_connections=None, **_):
-
-        def connector(address_, **kwargs):
-            return connect(address_, auth=cx_data["auth"],
-                           encrypted=cx_data["secure"], **kwargs)
-
-        address = (cx_data["host"], cx_data["port"])
-        max_connections = max_connections or DEFAULT_MAX_CONNECTIONS
-        self.pool = ConnectionPool(
-            connector=connector,
-            address=address,
-            max_connection_pool_size=max_connections,
-        )
-
-    def close(self):
-        self.pool.close()
-
-    def _run_1(self, statement, parameters, graph, keys, entities):
-        cx = self.pool.acquire()
-        hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys, entities=entities)
-        dehydrated_parameters = hydrator.dehydrate(parameters)
-        result = CypherResult(on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
-        result.update_metadata({"connection": self.connection_data})
-
-        def update_metadata_with_keys(metadata):
-            result.update_metadata(metadata)
-            hydrator.keys = result.keys()
-
-        cx.run(statement, dehydrated_parameters or {}, on_success=update_metadata_with_keys, on_failure=self._fail)
-        cx.pull_all(on_records=lambda records: result.append_records(map(hydrator.hydrate, records)),
-                    on_success=result.update_metadata, on_failure=self._fail, on_summary=result.done)
-        cx.send()
-        cx.fetch()
-        return result
-
-    def _run_in_tx(self, statement, parameters, tx, graph, keys, entities):
-        self._assert_valid_tx(tx)
-
-        def fetch():
-            tx.fetch()
-
-        def fail(metadata):
-            self.transactions.remove(tx)
-            self.pool.release(tx)
-            self._fail(metadata)
-
-        hydrator = PackStreamHydrator(version=tx.protocol_version, graph=graph, keys=keys, entities=entities)
-        dehydrated_parameters = hydrator.dehydrate(parameters)
-        result = CypherResult(on_more=fetch)
-        result.update_metadata({"connection": self.connection_data})
-
-        def update_metadata_with_keys(metadata):
-            result.update_metadata(metadata)
-            hydrator.keys = result.keys()
-
-        tx.run(statement, dehydrated_parameters or {}, on_success=update_metadata_with_keys, on_failure=fail)
-        tx.pull_all(on_records=lambda records: result.append_records(map(hydrator.hydrate, records)),
-                    on_success=result.update_metadata, on_failure=fail, on_summary=result.done)
-        tx.send()
-        result.keys()   # force receipt of RUN summary, to detect any errors
-        return result
-
-    @classmethod
-    def _fail(cls, metadata):
-        from py2neo.database import GraphError
-        raise GraphError.hydrate(metadata)
-
-    def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
-        if tx is None:
-            return self._run_1(statement, parameters, graph, keys, entities)
-        else:
-            return self._run_in_tx(statement, parameters, tx, graph, keys, entities)
-
-    def begin(self):
-        tx = self.pool.acquire()
-        tx.begin()
-        self.transactions.add(tx)
-        return tx
-
-    def commit(self, tx):
-        self._assert_valid_tx(tx)
-        self.transactions.remove(tx)
-        tx.commit()
-        tx.sync()
-        self.pool.release(tx)
-
-    def rollback(self, tx):
-        self._assert_valid_tx(tx)
-        self.transactions.remove(tx)
-        tx.rollback()
-        tx.sync()
-        self.pool.release(tx)
-
-    def sync(self, cx):
-        cx.sync()
+# class BoltConnector(Connector):
+#
+#     scheme = "bolt"
+#
+#     def __init__(self, uri, **settings):
+#         self.transactions = set()
+#
+#     @property
+#     def server_agent(self):
+#         cx = self.pool.acquire()
+#         try:
+#             return cx.server.agent
+#         finally:
+#             self.pool.release(cx)
+#
+#     def open(self, cx_data, max_connections=None, **_):
+#
+#         def connector(address_, **kwargs):
+#             return connect(address_, auth=cx_data["auth"],
+#                            encrypted=cx_data["secure"], **kwargs)
+#
+#         address = (cx_data["host"], cx_data["port"])
+#         max_connections = max_connections or DEFAULT_MAX_CONNECTIONS
+#         self.pool = ConnectionPool(
+#             connector=connector,
+#             address=address,
+#             max_connection_pool_size=max_connections,
+#         )
+#
+#     def close(self):
+#         self.pool.close()
+#
+#     def _run_1(self, statement, parameters, graph, keys, entities):
+#         cx = self.pool.acquire()
+#         hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys, entities=entities)
+#         dehydrated_parameters = hydrator.dehydrate(parameters)
+#         result = CypherResult(on_more=cx.fetch, on_done=lambda: self.pool.release(cx))
+#         result.update_metadata({"connection": self.connection_data})
+#
+#         def update_metadata_with_keys(metadata):
+#             result.update_metadata(metadata)
+#             hydrator.keys = result.keys()
+#
+#         cx.run(statement, dehydrated_parameters or {}, on_success=update_metadata_with_keys, on_failure=self._fail)
+#         cx.pull_all(on_records=lambda records: result.append_records(map(hydrator.hydrate, records)),
+#                     on_success=result.update_metadata, on_failure=self._fail, on_summary=result.done)
+#         cx.send()
+#         cx.fetch()
+#         return result
+#
+#     def _run_in_tx(self, statement, parameters, tx, graph, keys, entities):
+#         self._assert_valid_tx(tx)
+#
+#         def fetch():
+#             tx.fetch()
+#
+#         def fail(metadata):
+#             self.transactions.remove(tx)
+#             self.pool.release(tx)
+#             self._fail(metadata)
+#
+#         hydrator = PackStreamHydrator(version=tx.protocol_version, graph=graph, keys=keys, entities=entities)
+#         dehydrated_parameters = hydrator.dehydrate(parameters)
+#         result = CypherResult(on_more=fetch)
+#         result.update_metadata({"connection": self.connection_data})
+#
+#         def update_metadata_with_keys(metadata):
+#             result.update_metadata(metadata)
+#             hydrator.keys = result.keys()
+#
+#         tx.run(statement, dehydrated_parameters or {}, on_success=update_metadata_with_keys, on_failure=fail)
+#         tx.pull_all(on_records=lambda records: result.append_records(map(hydrator.hydrate, records)),
+#                     on_success=result.update_metadata, on_failure=fail, on_summary=result.done)
+#         tx.send()
+#         result.keys()   # force receipt of RUN summary, to detect any errors
+#         return result
+#
+#     @classmethod
+#     def _fail(cls, metadata):
+#         from py2neo.database import GraphError
+#         raise GraphError.hydrate(metadata)
+#
+#     def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
+#         if tx is None:
+#             return self._run_1(statement, parameters, graph, keys, entities)
+#         else:
+#             return self._run_in_tx(statement, parameters, tx, graph, keys, entities)
+#
+#     def begin(self):
+#         tx = self.pool.acquire()
+#         tx.begin()
+#         self.transactions.add(tx)
+#         return tx
+#
+#     def commit(self, tx):
+#         self._assert_valid_tx(tx)
+#         self.transactions.remove(tx)
+#         tx.commit()
+#         tx.sync()
+#         self.pool.release(tx)
+#
+#     def rollback(self, tx):
+#         self._assert_valid_tx(tx)
+#         self.transactions.remove(tx)
+#         tx.rollback()
+#         tx.sync()
+#         self.pool.release(tx)
+#
+#     def sync(self, cx):
+#         cx.sync()
 
 
 class HTTPConnector(Connector):
@@ -453,6 +460,9 @@ class HTTPConnector(Connector):
     scheme = "http"
 
     headers = None
+
+    def __init__(self, uri, **settings):
+        self.transactions = set()
 
     @property
     def server_agent(self):

@@ -129,7 +129,6 @@ def check_bolt_connections_released(connector):
     pool have been correctly released.
     """
     yield
-    return
     if "bolt" in connector.scheme:
         try:
             assert connector.pool.in_use == 0

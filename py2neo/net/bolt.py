@@ -265,40 +265,6 @@ class Bolt1(Bolt):
         log.debug("[#%04X] C: <SEND>", self.local_port)
         self.writer.send()
 
-    def _fetch(self):
-        """ Fetch and process the next incoming message.
-
-        This method does not raise an exception on receipt of a
-        FAILURE message. Instead, it sets the response (and
-        consequently the parent query and transaction) to a failed
-        state. It is the responsibility of the caller to convert this
-        failed state into an exception.
-        """
-        response = self.responses[0]
-        tag, fields = self.reader.read_message()
-        if tag == 0x70:
-            log.debug("[#%04X] S: SUCCESS %s", self.local_port, " ".join(map(repr, fields)))
-            response.set_success(**fields[0])
-            self.responses.popleft()
-            self.metadata.update(fields[0])
-        elif tag == 0x71:
-            log.debug("[#%04X] S: RECORD %s", self.local_port, " ".join(map(repr, fields)))
-            response.add_record(fields[0])
-        elif tag == 0x7F:
-            log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
-            response.set_failure(**fields[0])
-            self.responses.popleft()
-            if response.vital:
-                self.byte_writer.close()
-        elif tag == 0x7E and not response.vital:
-            log.debug("[#%04X] S: IGNORED", self.local_port)
-            response.set_ignored()
-            self.responses.popleft()
-        else:
-            log.debug("[#%04X] S: <ERROR>", self.local_port)
-            self.byte_writer.close()
-            raise RuntimeError("Unexpected protocol message #%02X", tag)
-
     def _wait(self, response):
         """ Read all incoming responses up to and including a
         particular response.
@@ -306,8 +272,45 @@ class Bolt1(Bolt):
         This method calls fetch, but does not raise an exception on
         FAILURE.
         """
+
+        def fetch():
+            """ Fetch and process the next incoming message.
+
+            This method does not raise an exception on receipt of a
+            FAILURE message. Instead, it sets the response (and
+            consequently the parent query and transaction) to a failed
+            state. It is the responsibility of the caller to convert this
+            failed state into an exception.
+            """
+            rs = self.responses[0]
+            tag, fields = self.reader.read_message()
+            if tag == 0x70:
+                log.debug("[#%04X] S: SUCCESS %s", self.local_port, " ".join(map(repr, fields)))
+                rs.set_success(**fields[0])
+                self.responses.popleft()
+                self.metadata.update(fields[0])
+            elif tag == 0x71:
+                log.debug("[#%04X] S: RECORD %s", self.local_port, " ".join(map(repr, fields)))
+                rs.add_record(fields[0])
+            elif tag == 0x7F:
+                log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
+                rs.set_failure(**fields[0])
+                self.responses.popleft()
+                if rs.vital:
+                    self.byte_writer.close()
+            elif tag == 0x7E and not rs.vital:
+                log.debug("[#%04X] S: IGNORED", self.local_port)
+                rs.set_ignored()
+                self.responses.popleft()
+            else:
+                log.debug("[#%04X] S: <ERROR>", self.local_port)
+                self.byte_writer.close()
+                raise RuntimeError("Unexpected protocol message #%02X", tag)
+
         while not response.full() and not response.done():
-            self._fetch()  # TODO: inline
+            fetch()
+            if not self.transaction and self.pool:
+                self.pool.release(self)
 
     def _sync(self, *responses):
         self._send()
@@ -503,7 +506,10 @@ class BoltResponse(Task):
 
     def set_failure(self, **metadata):
         self._status = 2
-        self._failure = BoltFailure(**metadata)
+        # self._failure = BoltFailure(**metadata)
+        # TODO: tidy up where these errors live
+        from py2neo.database import GraphError
+        self._failure = GraphError.hydrate(metadata)
 
     def set_ignored(self):
         self._status = 3
@@ -516,6 +522,9 @@ class BoltResponse(Task):
 
     def done(self):
         return self._status != 0
+
+    def failed(self):
+        return self._status >= 2
 
     def audit(self):
         if self._failure:
@@ -532,6 +541,11 @@ class BoltFailure(Exception):
     def __init__(self, message, code):
         super(BoltFailure, self).__init__(message)
         self.code = code
+        _, self.classification, self.category, self.title = self.code.split(".")
 
     def __str__(self):
         return "[%s] %s" % (self.code, super(BoltFailure, self).__str__())
+
+    @property
+    def message(self):
+        return self.args[0]

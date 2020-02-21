@@ -24,13 +24,20 @@ from collections import deque
 class Task(object):
 
     def done(self):
-        pass
+        raise NotImplementedError
+
+    def failed(self):
+        raise NotImplementedError
 
     def audit(self):
-        pass
+        raise NotImplementedError
 
 
 class ItemizedTask(Task):
+    """ This class represents a form of dynamic checklist. Items may
+    be added, up to a "final" item which marks the list as complete.
+    Each item may then be marked as done.
+    """
 
     def __init__(self):
         super(ItemizedTask, self).__init__()
@@ -38,7 +45,7 @@ class ItemizedTask(Task):
         self._complete = False
 
     def __bool__(self):
-        return not self.done()
+        return not self.done() and not self.failed()
 
     def items(self):
         return iter(self._items)
@@ -52,6 +59,9 @@ class ItemizedTask(Task):
         self._complete = True
 
     def complete(self):
+        """ Flag to indicate whether all items have been appended to
+        this task, whether or not they are done.
+        """
         return self._complete
 
     def first(self):
@@ -67,11 +77,17 @@ class ItemizedTask(Task):
             return None
 
     def done(self):
+        """ Flag to indicate whether the list of items is complete and
+        all items are done.
+        """
         if self.complete():
             last = self.last()
             return (last and last.done()) or not last
         else:
             return False
+
+    def failed(self):
+        return any(item.failed() for item in self._items)
 
     def audit(self):
         for item in self._items:

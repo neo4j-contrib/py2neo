@@ -28,7 +28,6 @@ from textwrap import dedent
 from timeit import default_timer as timer
 
 import click
-from neobolt.exceptions import ServiceUnavailable, CypherError
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
@@ -41,6 +40,7 @@ from py2neo.cypher.lexer import CypherLexer
 from py2neo.data import Table
 from py2neo.database import Graph
 from py2neo.internal.connectors import get_connection_data
+from py2neo.net.bolt import BoltFailure
 
 
 def is_command(source):
@@ -75,7 +75,7 @@ class Console(object):
         connection_data = get_connection_data(uri, **settings)
         try:
             self.graph = Graph(uri, **settings)
-        except ServiceUnavailable as error:
+        except OSError as error:
             raise ConsoleError("Could not connect to {} -- {}".format(connection_data["uri"], error))
         try:
             makedirs(HISTORY_FILE_DIR)
@@ -138,7 +138,7 @@ class Console(object):
                 return 0
             try:
                 self.run(source)
-            except ServiceUnavailable as error:
+            except OSError as error:
                 self.echo("Service Unavailable: %s" % (error.args[0]), err=True)
 
     def run_all(self, sources):
@@ -160,7 +160,7 @@ class Console(object):
                 self.run_command(source)
             else:
                 self.run_source(source)
-        except CypherError as error:
+        except BoltFailure as error:
             if error.classification == "ClientError":
                 pass
             elif error.classification == "DatabaseError":
@@ -172,7 +172,7 @@ class Console(object):
             self.echo("{}: {}".format(error.title, error.message), err=True)
         # except TransactionError:
         #     self.echo("Transaction error", err=True, fg=self.err_colour)
-        except ServiceUnavailable:
+        except OSError:
             raise
         except Exception as error:
             self.echo("{}: {}".format(error.__class__.__name__, str(error)), err=True, fg=self.err_colour)

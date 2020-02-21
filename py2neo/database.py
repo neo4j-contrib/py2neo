@@ -835,7 +835,7 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
-        from neobolt.exceptions import CypherError
+        # from neobolt.exceptions import CypherError
 
         self._assert_unfinished()
         try:
@@ -850,8 +850,8 @@ class Transaction(object):
                                              graph=self.graph,
                                              keys=[],
                                              entities=entities))
-        except CypherError as error:
-            raise GraphError.hydrate({"code": error.code, "message": error.message})
+        # except CypherError as error:
+        #     raise GraphError.hydrate({"code": error.code, "message": error.message})
         finally:
             if not self.transaction:
                 self.finish()

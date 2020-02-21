@@ -21,8 +21,6 @@ from __future__ import absolute_import
 from collections import deque, namedtuple
 from json import loads as json_loads
 
-from neobolt.packstream import Structure
-
 from py2neo.internal.compat import Sequence, Mapping, integer_types, string_types
 from py2neo.internal.hydration.spatial import (
     hydration_functions as spatial_hydration_functions,
@@ -33,6 +31,7 @@ from py2neo.internal.hydration.temporal import (
     dehydration_functions as temporal_dehydration_functions,
 )
 from py2neo.matching import RelationshipMatcher
+from py2neo.net.packstream import Structure
 
 
 INT64_LO = -(2 ** 63)
@@ -243,7 +242,7 @@ class PackStreamHydrator(Hydrator):
 
     def hydrate_object(self, obj, inst=None):
         if isinstance(obj, Structure):
-            tag = obj.tag
+            tag = obj.tag if isinstance(obj.tag, bytes) else bytearray([obj.tag])
             fields = obj.fields
             if tag == b"N":
                 return self.hydrate_node(inst, fields[0], fields[1], self.hydrate_object(fields[2]))
