@@ -212,9 +212,6 @@ class Connector(object):
     def rollback(self, tx):
         raise NotImplementedError()
 
-    def sync(self, tx):
-        raise NotImplementedError()
-
 
 class BadlyNamedCypherResult(AbstractCypherResult):
 
@@ -325,9 +322,6 @@ class BoltConnector(Connector):
         self._assert_valid_tx(tx)
         cx = self.transactions.pop(tx)
         cx.rollback(tx)
-
-    def sync(self, tx):
-        pass
 
 
 class HTTPConnector(Connector):
@@ -459,9 +453,6 @@ class HTTPConnector(Connector):
         self._assert_valid_tx(tx)
         self.transactions.remove(tx)
         self._delete("/db/data/transaction/%s" % tx)
-
-    def sync(self, tx):
-        pass
 
 
 class SecureHTTPConnector(HTTPConnector):

@@ -856,15 +856,7 @@ class Transaction(object):
             if not self.transaction:
                 self.finish()
 
-    def process(self):
-        """ Send all pending statements to the server for processing.
-        """
-        self._assert_unfinished()
-        if self.transaction:
-            self.connector.sync(self.transaction)
-
     def finish(self):
-        self.process()
         self._assert_unfinished()
         self._finished = True
 

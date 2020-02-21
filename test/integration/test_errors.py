@@ -33,7 +33,6 @@ def test_can_generate_transaction_error(graph):
 def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(graph):
     tx = graph.begin()
     cursor = tx.run("CREATE (a), (b) RETURN a, b")
-    tx.process()
     record = next(cursor)
     parameters = {"A": record["a"].identity, "B": record["b"].identity}
     statement = ("MATCH (a) WHERE id(a)=$A MATCH (b) WHERE id(b)=$B "

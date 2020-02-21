@@ -52,7 +52,6 @@ def test_can_create_nodes_and_relationship_1(graph):
         b = Node("Person", name="Bob")
         tx.create(a)
         tx.create(b)
-        tx.process()
         r = Relationship(a, "KNOWS", b, since=1999)
         tx.create(r)
     assert a.graph == graph
