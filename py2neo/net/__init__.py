@@ -223,6 +223,9 @@ class Connection(object):
         if service.scheme == "bolt":
             from py2neo.net.bolt import Bolt
             return Bolt.open(service, user_agent=user_agent)
+        # elif service.scheme == "http":
+        #     from py2neo.net.http import HTTP
+        #     return HTTP.open(service, user_agent=user_agent)
         else:
             raise ValueError("Unsupported scheme %r" % service.scheme)
 
@@ -291,25 +294,23 @@ class Connection(object):
     def rollback(self, tx):
         pass
 
-    def run(self, tx, cypher, parameters=None):
+    def run_in_tx(self, tx, cypher, parameters=None):
         pass
 
-    def pull(self, query, n=-1):
+    def pull(self, result, n=-1):
         pass
 
-    def discard(self, query, n=-1):
+    def discard(self, result, n=-1):
         pass
 
-    def send(self, query):
+    def wait(self, result):
         pass
 
-    def wait(self, query):
-        pass
-
-    def take(self, query):
+    def take(self, result):
         pass
 
 
+# TODO: fix the docstring
 class ConnectionPool(object):
     """ A pool of connections to a single address.
 

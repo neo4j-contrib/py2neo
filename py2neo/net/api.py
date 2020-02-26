@@ -115,13 +115,10 @@ class Transaction(ItemizedTask):
         return extra
 
 
-class Query(object):
+class Result(object):
 
     def __init__(self):
-        super(Query, self).__init__()
-
-    def record_type(self):
-        return tuple
+        super(Result, self).__init__()
 
     def has_records(self):
         raise NotImplementedError
@@ -133,3 +130,18 @@ class Query(object):
 class TransactionError(Exception):
 
     pass
+
+
+class Failure(Exception):
+
+    def __init__(self, message, code):
+        super(Failure, self).__init__(message)
+        self.code = code
+        _, self.classification, self.category, self.title = self.code.split(".")
+
+    def __str__(self):
+        return "[%s] %s" % (self.code, super(Failure, self).__str__())
+
+    @property
+    def message(self):
+        return self.args[0]

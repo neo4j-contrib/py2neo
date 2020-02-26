@@ -67,13 +67,19 @@ class ByteWriter(Breakable, object):
         self.__buffer.extend(b)
 
     def send(self):
-        try:
-            self.__socket.sendall(self.__buffer)
-        except OSError:
-            self.set_broken()
-            raise
-        else:
-            self.__buffer[:] = []
+        if self.__closed:
+            raise OSError("Closed")
+        sent = 0
+        while self.__buffer:
+            try:
+                n = self.__socket.send(self.__buffer)
+            except OSError:
+                self.set_broken()
+                raise
+            else:
+                self.__buffer[:n] = []
+                sent += n
+        return sent
 
     def close(self):
         try:

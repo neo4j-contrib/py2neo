@@ -21,8 +21,8 @@ from logging import getLogger
 from socket import socket
 
 from py2neo.meta import bolt_user_agent
-from py2neo.net.api import Transaction, TransactionError, Query, \
-    Task, ItemizedTask
+from py2neo.net.api import Transaction, TransactionError, Result, \
+    Task, ItemizedTask, Failure
 from py2neo.net import Connection
 from py2neo.net.packstream import MessageReader, MessageWriter
 from py2neo.net.wire import ByteReader, ByteWriter
@@ -44,7 +44,7 @@ class Bolt(Connection):
         log.debug("[#%04X] C: <DIAL> '%s'", 0, service.address)
         s.connect(service.address)
         local_port = s.getsockname()[1]
-        log.debug("[#%04X] C: <ACCEPT>", local_port)
+        log.debug("[#%04X] S: <ACCEPT>", local_port)
 
         # TODO: secure socket
 
@@ -189,7 +189,7 @@ class Bolt1(Bolt):
                    self._write_request(0x2F))
         self._audit(self.transaction)
 
-    def run(self, tx, cypher, parameters=None):
+    def run_in_tx(self, tx, cypher, parameters=None):
         self._assert_open()
         self._assert_open_transaction(tx)
         return self._run(cypher, parameters or {})
@@ -197,46 +197,42 @@ class Bolt1(Bolt):
     def _run(self, cypher, parameters, extra=None, final=False):
         log.debug("[#%04X] C: RUN %r %r", self.local_port, cypher, parameters)
         response = self._write_request(0x10, cypher, parameters)  # TODO: dehydrate parameters
-        query = BoltQuery(response)
-        self.transaction.append(query, final=final)
-        return query
+        result = BoltResult(response)
+        self.transaction.append(result, final=final)
+        return result
 
-    def pull(self, query, n=-1, capacity=-1):
+    def pull(self, result, n=-1, capacity=-1):
         self._assert_open()
-        self._assert_open_query(query)
+        self._assert_open_query(result)
         if n != -1:
             raise TransactionError("Flow control is not supported before Bolt 4.0")
         log.debug("[#%04X] C: PULL_ALL", self.local_port)
         response = self._write_request(0x3F, capacity=capacity)
-        query.append(response, final=True)
+        result.append(response, final=True)
         return response
 
-    def discard(self, query, n=-1):
+    def discard(self, result, n=-1):
         self._assert_open()
-        self._assert_open_query(query)
+        self._assert_open_query(result)
         if n != -1:
             raise TransactionError("Flow control is not supported before Bolt 4.0")
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
         response = self._write_request(0x2F)
-        query.append(response, final=True)
+        result.append(response, final=True)
         return response
 
-    def send(self, query):
-        self._assert_open()
-        self._assert_open_query(query)
+    def wait(self, result):
         self._send()
+        self._wait(result.last())
+        self._audit(result)
 
-    def wait(self, query):
-        self._wait(query.last())
-        self._audit(query)
-
-    def take(self, query):
-        if not query.has_records() and not query.done():
-            while self.responses[0] is not query.last():
+    def take(self, result):
+        if not result.has_records() and not result.done():
+            while self.responses[0] is not result.last():
                 self._wait(self.responses[0])
-            self._wait(query.last())
-            self._audit(query)
-        record = query.take_record()
+            self._wait(result.last())
+            self._audit(result)
+        record = result.take_record()
         return record
 
     def _assert_no_transaction(self):
@@ -262,8 +258,9 @@ class Bolt1(Bolt):
         return response
 
     def _send(self):
-        log.debug("[#%04X] C: <SEND>", self.local_port)
-        self.writer.send()
+        sent = self.writer.send()
+        if sent:
+            log.debug("[#%04X] C: <SENT %r bytes>", self.local_port, sent)
 
     def _wait(self, response):
         """ Read all incoming responses up to and including a
@@ -325,7 +322,7 @@ class Bolt1(Bolt):
         """
         try:
             task.audit()
-        except BoltFailure:
+        except Failure:
             self.reset(force=True)
             raise
 
@@ -401,9 +398,9 @@ class Bolt3(Bolt2):
     def _run(self, cypher, parameters, extra=None, final=False):
         log.debug("[#%04X] C: RUN %r %r %r", self.local_port, cypher, parameters, extra or {})
         response = self._write_request(0x10, cypher, parameters, extra or {})  # TODO: dehydrate parameters
-        query = BoltQuery(response)
-        self.transaction.append(query, final=final)
-        return query
+        result = BoltResult(response)
+        self.transaction.append(result, final=final)
+        return result
 
 
 class Bolt4x0(Bolt3):
@@ -411,7 +408,7 @@ class Bolt4x0(Bolt3):
     protocol_version = (4, 0)
 
 
-class BoltQuery(ItemizedTask, Query):
+class BoltResult(ItemizedTask, Result):
     """ A query carried out over a Bolt connection.
 
     Implementation-wise, this form of query is comprised of a number of
@@ -421,7 +418,7 @@ class BoltQuery(ItemizedTask, Query):
     """
 
     def __init__(self, response):
-        Query.__init__(self)
+        Result.__init__(self)
         ItemizedTask.__init__(self)
         self.__record_type = None
         self.append(response)
@@ -438,22 +435,11 @@ class BoltQuery(ItemizedTask, Query):
             return None
         return self._items[-1]
 
-    def record_type(self):
-        if self.__record_type is None:
-            try:
-                header = self._items[0]
-            except IndexError:
-                raise AssertionError("Record definition not available")
-            else:
-                self.__record_type = namedtuple("Record", header.metadata.get("fields", ()))
-        return self.__record_type
-
     def has_records(self):
         return any(response.has_records()
                    for response in self._items)
 
     def take_record(self):
-        # t = self.record_type()
         for response in self._items:
             record = response.take_record()
             if record is None:
@@ -506,7 +492,7 @@ class BoltResponse(Task):
 
     def set_failure(self, **metadata):
         self._status = 2
-        # self._failure = BoltFailure(**metadata)
+        # self._failure = Failure(**metadata)
         # TODO: tidy up where these errors live
         from py2neo.database import GraphError
         self._failure = GraphError.hydrate(metadata)
@@ -534,18 +520,3 @@ class BoltResponse(Task):
     @property
     def metadata(self):
         return self._metadata
-
-
-class BoltFailure(Exception):
-
-    def __init__(self, message, code):
-        super(BoltFailure, self).__init__(message)
-        self.code = code
-        _, self.classification, self.category, self.title = self.code.split(".")
-
-    def __str__(self):
-        return "[%s] %s" % (self.code, super(BoltFailure, self).__str__())
-
-    @property
-    def message(self):
-        return self.args[0]

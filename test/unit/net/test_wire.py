@@ -42,6 +42,12 @@ class FakeSocket(object):
         value, self._in_buffer = self._in_buffer[:n_bytes], self._in_buffer[n_bytes:]
         return value
 
+    def send(self, b, flags=None):
+        if self._closed:
+            raise OSError("Socket closed")
+        self._out_packets.append(bytes(b))
+        return len(b)
+
     def sendall(self, b, flags=None):
         if self._closed:
             raise OSError("Socket closed")

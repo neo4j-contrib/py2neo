@@ -623,12 +623,12 @@ class MessageReader(object):
 class MessageWriter(object):
 
     def __init__(self, tx):
-        self.tx = tx
+        self._tx = tx
 
     def _write_chunk(self, data):
         size = len(data)
-        self.tx.write(struct_pack(">H", size))
-        self.tx.write(data)
+        self._tx.write(struct_pack(">H", size))
+        self._tx.write(data)
 
     def write_message(self, tag, *fields):
         data = bytearray([0xB0 + len(fields), tag])
@@ -640,4 +640,4 @@ class MessageWriter(object):
         self._write_chunk(b"")
 
     def send(self):
-        self.tx.send()
+        return self._tx.send()

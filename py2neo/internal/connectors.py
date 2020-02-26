@@ -215,19 +215,17 @@ class Connector(object):
 
 class BadlyNamedCypherResult(AbstractCypherResult):
 
-    def __init__(self, cx, query, hydrator):
+    def __init__(self, cx, result, hydrator):
         self._cx = cx
-        self._query = query
+        self._result = result
         self._hydrator = hydrator
 
     def _set_keys(self):
-        self._hydrator.keys = self._query.header.metadata.get("fields", ())
+        self._hydrator.keys = self._result.header.metadata.get("fields", ())
 
     def buffer(self):
-        if self._query.done():
-            return
-        self._cx.send(self._query)
-        self._cx.wait(self._query)
+        if not self._result.done():
+            self._cx.wait(self._result)
         self._set_keys()
 
     def keys(self):
@@ -237,13 +235,13 @@ class BadlyNamedCypherResult(AbstractCypherResult):
     def summary(self):
         from py2neo.database import CypherSummary
         self.buffer()
-        footer = self._query.footer
+        footer = self._result.footer
         return CypherSummary(connection=self._cx.service.to_dict(), **footer.metadata)
 
     def plan(self):
         from py2neo.database import CypherPlan
         self.buffer()
-        footer = self._query.footer
+        footer = self._result.footer
         if "plan" in footer.metadata:
             return CypherPlan(**footer.metadata["plan"])
         elif "profile" in footer.metadata:
@@ -254,12 +252,12 @@ class BadlyNamedCypherResult(AbstractCypherResult):
     def stats(self):
         from py2neo.database import CypherStats
         self.buffer()
-        footer = self._query.footer
+        footer = self._result.footer
         return CypherStats(**footer.metadata.get("stats", {}))
 
     def fetch(self):
         from py2neo.data import Record
-        record = self._cx.take(self._query)
+        record = self._cx.take(self._result)
         self._set_keys()  # TODO: don't do this for every record
         if record is None:
             return None
@@ -293,19 +291,16 @@ class BoltConnector(Connector):
             cx = self.pool.acquire()
             hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys,
                                           entities=entities)
-            query = cx.auto_run(statement, hydrator.dehydrate(parameters))
+            result = cx.auto_run(statement, hydrator.dehydrate(parameters))
         else:
             cx = self.transactions.get(tx)
             hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys,
                                           entities=entities)
-            query = cx.run(tx, statement, hydrator.dehydrate(parameters))
-        cx.pull(query)
-        cx.send(query)
-        # TODO: refactor call to internal methods
-        cx._wait(query.first())
-        cx._audit(query)
-        result = BadlyNamedCypherResult(cx, query, hydrator)
-        return result
+            result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
+        cx.pull(result)
+        cx.wait(result)
+        result1 = BadlyNamedCypherResult(cx, result, hydrator)
+        return result1
 
     def begin(self):
         cx = self.pool.acquire()
@@ -322,6 +317,60 @@ class BoltConnector(Connector):
         self._assert_valid_tx(tx)
         cx = self.transactions.pop(tx)
         cx.rollback(tx)
+
+
+# class BadlyNamedHTTPConnector(Connector):
+#
+#     scheme = "http"
+#
+#     @property
+#     def server_agent(self):
+#         cx = self.pool.acquire()
+#         try:
+#             return cx.server_agent
+#         finally:
+#             self.pool.release(cx)
+#
+#     def open(self, cx_data, max_connections=None, **_):
+#         from py2neo.net import Service, ConnectionPool
+#         service = Service(**cx_data)
+#         max_size = max_connections or DEFAULT_MAX_CONNECTIONS
+#         self.pool = ConnectionPool(service, max_size=max_size, max_age=None)
+#
+#     def close(self):
+#         self.pool.close()
+#
+#     def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
+#         if tx is None:
+#             cx = self.pool.acquire()
+#             hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys,
+#                                           entities=entities)
+#             query = cx.auto_run(statement, hydrator.dehydrate(parameters))
+#         else:
+#             cx = self.transactions.get(tx)
+#             hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys,
+#                                           entities=entities)
+#             query = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
+#         cx.pull(query)
+#         cx.wait(query)
+#         result = BadlyNamedCypherResult(cx, query, hydrator)
+#         return result
+#
+#     def begin(self):
+#         cx = self.pool.acquire()
+#         tx = cx.begin()
+#         self.transactions[tx] = cx
+#         return tx
+#
+#     def commit(self, tx):
+#         self._assert_valid_tx(tx)
+#         cx = self.transactions.pop(tx)
+#         cx.commit(tx)
+#
+#     def rollback(self, tx):
+#         self._assert_valid_tx(tx)
+#         cx = self.transactions.pop(tx)
+#         cx.rollback(tx)
 
 
 class HTTPConnector(Connector):

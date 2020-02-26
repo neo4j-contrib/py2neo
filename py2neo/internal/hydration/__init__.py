@@ -242,7 +242,7 @@ class PackStreamHydrator(Hydrator):
 
     def hydrate_object(self, obj, inst=None):
         if isinstance(obj, Structure):
-            tag = obj.tag if isinstance(obj.tag, bytes) else bytearray([obj.tag])
+            tag = obj.tag if isinstance(obj.tag, bytes) else bytes(bytearray([obj.tag]))
             fields = obj.fields
             if tag == b"N":
                 return self.hydrate_node(inst, fields[0], fields[1], self.hydrate_object(fields[2]))
@@ -253,7 +253,7 @@ class PackStreamHydrator(Hydrator):
                 return self.hydrate_path(*fields)
             else:
                 try:
-                    f = self.hydration_functions[obj.tag]
+                    f = self.hydration_functions[tag]
                 except KeyError:
                     # If we don't recognise the structure type, just return it as-is
                     return obj

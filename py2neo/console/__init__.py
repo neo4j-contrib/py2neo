@@ -40,7 +40,7 @@ from py2neo.cypher.lexer import CypherLexer
 from py2neo.data import Table
 from py2neo.database import Graph
 from py2neo.internal.connectors import get_connection_data
-from py2neo.net.bolt import BoltFailure
+from py2neo.net.api import Failure
 
 
 def is_command(source):
@@ -160,7 +160,7 @@ class Console(object):
                 self.run_command(source)
             else:
                 self.run_source(source)
-        except BoltFailure as error:
+        except Failure as error:
             if error.classification == "ClientError":
                 pass
             elif error.classification == "DatabaseError":
