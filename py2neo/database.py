@@ -1141,12 +1141,19 @@ class Cursor(object):
     def summary(self):
         """ Return the result summary.
         """
-        return self._result.summary()
+        self._result.buffer()
+        return CypherSummary(**self._result.metadata)
 
     def plan(self):
         """ Return the plan returned with this result, if any.
         """
-        return self._result.plan()
+        self._result.buffer()
+        if "plan" in self._result.metadata:
+            return CypherPlan(**self._result.metadata["plan"])
+        elif "profile" in self._result.metadata:
+            return CypherPlan(**self._result.metadata["profile"])
+        else:
+            return None
 
     def stats(self):
         """ Return the query statistics.
@@ -1172,7 +1179,8 @@ class Cursor(object):
         relationships_deleted: 0
 
         """
-        return self._result.stats()
+        self._result.buffer()
+        return CypherStats(**self._result.metadata.get("stats", {}))
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by

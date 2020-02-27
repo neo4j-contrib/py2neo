@@ -223,6 +223,11 @@ class BadlyNamedCypherResult(AbstractCypherResult):
     def _set_keys(self):
         self._hydrator.keys = self._result.header.metadata.get("fields", ())
 
+    @property
+    def metadata(self):
+        return dict(self._result.footer.metadata,
+                    connection=self._cx.service.to_dict())
+
     def buffer(self):
         if not self._result.done():
             self._cx.sync(self._result)
@@ -231,29 +236,6 @@ class BadlyNamedCypherResult(AbstractCypherResult):
     def keys(self):
         self.buffer()
         return self._hydrator.keys
-
-    def summary(self):
-        from py2neo.database import CypherSummary
-        self.buffer()
-        footer = self._result.footer
-        return CypherSummary(connection=self._cx.service.to_dict(), **footer.metadata)
-
-    def plan(self):
-        from py2neo.database import CypherPlan
-        self.buffer()
-        footer = self._result.footer
-        if "plan" in footer.metadata:
-            return CypherPlan(**footer.metadata["plan"])
-        elif "profile" in footer.metadata:
-            return CypherPlan(**footer.metadata["profile"])
-        else:
-            return None
-
-    def stats(self):
-        from py2neo.database import CypherStats
-        self.buffer()
-        footer = self._result.footer
-        return CypherStats(**footer.metadata.get("stats", {}))
 
     def fetch(self):
         from py2neo.data import Record

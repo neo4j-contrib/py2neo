@@ -47,19 +47,14 @@ def uri_to_id(uri):
 
 class AbstractCypherResult(object):
 
+    @property
+    def metadata(self):
+        raise NotImplementedError
+
     def buffer(self):
         raise NotImplementedError
 
     def keys(self):
-        raise NotImplementedError
-
-    def summary(self):
-        raise NotImplementedError
-
-    def plan(self):
-        raise NotImplementedError
-
-    def stats(self):
         raise NotImplementedError
 
     def fetch(self):
@@ -90,37 +85,21 @@ class CypherResult(AbstractCypherResult):
 
     @property
     def _keys(self):
-        return self._metadata.get("fields")
+        return self.metadata.get("fields")
 
     def keys(self):
         while not self._keys and not self._done and callable(self._on_more):
             self._on_more()
         return self._keys
 
+    @property
+    def metadata(self):
+        return self._metadata
+
     def buffer(self):
         while not self._done:
             if callable(self._on_more):
                 self._on_more()
-
-    def summary(self):
-        from py2neo.database import CypherSummary
-        self.buffer()
-        return CypherSummary(**self._metadata)
-
-    def plan(self):
-        from py2neo.database import CypherPlan
-        self.buffer()
-        if "plan" in self._metadata:
-            return CypherPlan(**self._metadata["plan"])
-        elif "profile" in self._metadata:
-            return CypherPlan(**self._metadata["profile"])
-        else:
-            return None
-
-    def stats(self):
-        from py2neo.database import CypherStats
-        self.buffer()
-        return CypherStats(**self._metadata.get("stats", {}))
 
     def fetch(self):
         from py2neo.data import Record
