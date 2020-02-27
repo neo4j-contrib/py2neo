@@ -47,6 +47,8 @@ class ItemizedTask(Task):
     def __bool__(self):
         return not self.done() and not self.failed()
 
+    __nonzero__ = __bool__
+
     def items(self):
         return iter(self._items)
 

@@ -20,8 +20,9 @@
 
 
 from codecs import decode
-from collections import OrderedDict
 from struct import pack as struct_pack, unpack as struct_unpack
+
+from py2neo.internal.compat import integer_types, bytes_types, string_types, bstr
 
 
 PACKED_UINT_8 = [struct_pack(">B", value) for value in range(0x100)]
@@ -101,7 +102,7 @@ class Packer:
             write(struct_pack(">d", value))
 
         # Integer
-        elif isinstance(value, int):
+        elif isinstance(value, integer_types):
             if -0x10 <= value < 0x80:
                 write(PACKED_UINT_8[value % 0x100])
             elif -0x80 <= value < -0x10:
@@ -120,16 +121,13 @@ class Packer:
                 raise OverflowError("Integer %s out of range" % value)
 
         # String
-        elif isinstance(value, str):
-            encoded = value.encode("utf-8")
+        elif isinstance(value, string_types):
+            encoded = bstr(value)
             self.pack_string_header(len(encoded))
             self.pack_raw(encoded)
 
         # Bytes
-        elif isinstance(value, bytes):
-            self.pack_bytes_header(len(value))
-            self.pack_raw(value)
-        elif isinstance(value, bytearray):
+        elif isinstance(value, bytes_types):
             self.pack_bytes_header(len(value))
             self.pack_raw(bytes(value))
 
@@ -555,9 +553,10 @@ class UnpackStream(object):
         return n
 
     def _read_i8(self):
-        z = self._mem[self._p]
-        self._p += 1
-        return z if z < 0x80 else z - 0x100
+        q = self._p + 1
+        z, = struct_unpack(">b", self._mem[self._p:q])
+        self._p = q
+        return z
 
     def _read_i16be(self):
         q = self._p + 2
