@@ -155,7 +155,7 @@ class HTTP(Connection):
     def discard(self, result, n=-1):
         pass
 
-    def wait(self, result):
+    def sync(self, result):
         pass
 
     def take(self, result):

@@ -221,7 +221,7 @@ class Bolt1(Bolt):
         result.append(response, final=True)
         return response
 
-    def wait(self, result):
+    def sync(self, result):
         self._send()
         self._wait(result.last())
         self._audit(result)

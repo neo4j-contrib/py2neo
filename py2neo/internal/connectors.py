@@ -225,7 +225,7 @@ class BadlyNamedCypherResult(AbstractCypherResult):
 
     def buffer(self):
         if not self._result.done():
-            self._cx.wait(self._result)
+            self._cx.sync(self._result)
         self._set_keys()
 
     def keys(self):

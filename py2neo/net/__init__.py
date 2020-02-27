@@ -303,8 +303,10 @@ class Connection(object):
     def discard(self, result, n=-1):
         pass
 
-    def wait(self, result):
-        pass
+    def sync(self, result):
+        """ Perform network synchronisation required to make available
+        a given result.
+        """
 
     def take(self, result):
         pass
