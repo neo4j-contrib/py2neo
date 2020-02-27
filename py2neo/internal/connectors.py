@@ -298,7 +298,7 @@ class BoltConnector(Connector):
                                           entities=entities)
             result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
         cx.pull(result)
-        cx.wait(result)
+        cx.sync(result)
         result1 = BadlyNamedCypherResult(cx, result, hydrator)
         return result1
 
@@ -352,7 +352,7 @@ class BoltConnector(Connector):
 #                                           entities=entities)
 #             query = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
 #         cx.pull(query)
-#         cx.wait(query)
+#         cx.sync(query)
 #         result = BadlyNamedCypherResult(cx, query, hydrator)
 #         return result
 #
