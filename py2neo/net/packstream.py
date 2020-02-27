@@ -537,8 +537,9 @@ class UnpackStream(object):
         return m.tobytes()
 
     def _read_u8(self):
-        n = self._mem[self._p]
-        self._p += 1
+        q = self._p + 1
+        n, = struct_unpack(">B", self._mem[self._p:q])
+        self._p = q
         return n
 
     def _read_u16be(self):
