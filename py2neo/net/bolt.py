@@ -249,10 +249,10 @@ class Bolt1(Bolt):
         if query is not self.transaction.last():
             raise TransactionError("Random query access is not supported before Bolt 4.0")
 
-    def _write_request(self, tag, *fields, capacity=-1, vital=False):
+    def _write_request(self, tag, *fields, **kwargs):
         # capacity denotes the preferred max number of records that a response can hold
         # vital responses close on failure and cannot be ignored
-        response = BoltResponse(capacity=capacity, vital=vital)
+        response = BoltResponse(**kwargs)
         self.writer.write_message(tag, *fields)
         self.responses.append(response)
         return response
