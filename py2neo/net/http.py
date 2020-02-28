@@ -20,13 +20,14 @@ from collections import OrderedDict
 from logging import getLogger
 from json import dumps as json_dumps, loads as json_loads
 
-from urllib3 import HTTPConnectionPool, make_headers
+from certifi import where
+from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo import http_user_agent
 from py2neo.internal.compat import urlsplit
 from py2neo.internal.hydration import JSONHydrator
 from py2neo.net import Connection
-from py2neo.net.api import Result, Failure
+from py2neo.net.api import Result
 
 
 log = getLogger(__name__)
@@ -44,15 +45,19 @@ class HTTP(Connection):
 
     def __init__(self, service, user_agent):
         super(HTTP, self).__init__(service, user_agent)
+        self.http_pool = None
+        self.headers = make_headers(basic_auth=":".join(service.auth))
+        self.transactions = set()
+        self.__closed = False
+        self._make_pool(service)
+
+    def _make_pool(self, service):
         self.http_pool = HTTPConnectionPool(
             host=service.host,
             port=service.port_number,
             maxsize=1,
             block=True,
         )
-        self.headers = make_headers(basic_auth=":".join(service.auth))
-        self.transactions = set()
-        self.__closed = False
 
     def close(self):
         self.http_pool.close()
@@ -194,10 +199,23 @@ class HTTP(Connection):
                                  headers=dict(self.headers))
 
 
+class HTTPS(HTTP):
+
+    def _make_pool(self, service):
+        cert_reqs = None  # TODO: expose this through service
+        self.http_pool = HTTPSConnectionPool(
+            host=service.host,
+            port=service.port_number,
+            maxsize=1,
+            block=True,
+            cert_reqs=(cert_reqs or "CERT_NONE"),
+            ca_certs=where()
+        )
+
+
 class HTTPResult(Result):
 
     def __init__(self, result, errors):
-        from py2neo.database import GraphError
         super(Result, self).__init__()
         self.columns = result.get("columns", ())
         self.data = result.get("data", [])
