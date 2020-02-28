@@ -1099,7 +1099,7 @@ class Cursor(object):
     def __del__(self):
         try:
             self.close()
-        except:
+        except OSError:
             pass
 
     def __next__(self):

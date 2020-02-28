@@ -223,9 +223,9 @@ class Connection(object):
         if service.scheme == "bolt":
             from py2neo.net.bolt import Bolt
             return Bolt.open(service, user_agent=user_agent)
-        # elif service.scheme == "http":
-        #     from py2neo.net.http import HTTP
-        #     return HTTP.open(service, user_agent=user_agent)
+        elif service.scheme == "http":
+            from py2neo.net.http import HTTP
+            return HTTP.open(service, user_agent=user_agent)
         else:
             raise ValueError("Unsupported scheme %r" % service.scheme)
 
@@ -472,7 +472,8 @@ class ConnectionPool(object):
                     # Plan C: wait for more capacity to become
                     # available, then try again
                     log.debug("Joining waiting list")
-                    self._waiting_list.join()
+                    if not self._waiting_list.wait():
+                        raise RuntimeError("Unable to acquire connection")
             else:
                 cx = self._sanitize(cx, force_reset=force_reset)
         self._in_use_list.append(cx)
@@ -570,10 +571,10 @@ class WaitingList:
     def __init__(self):
         self._wait_list = deque()
 
-    def join(self):
+    def wait(self):
         event = Event()
         self._wait_list.append(event)
-        event.wait()
+        return event.wait(3)
 
     def notify(self):
         try:

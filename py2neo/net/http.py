@@ -24,6 +24,7 @@ from urllib3 import HTTPConnectionPool, make_headers
 
 from py2neo import http_user_agent
 from py2neo.internal.compat import urlsplit
+from py2neo.internal.hydration import JSONHydrator
 from py2neo.net import Connection
 from py2neo.net.api import Result, Failure
 
@@ -116,10 +117,9 @@ class HTTP(Connection):
                  db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         r = self._post("/db/data/transaction/commit", cypher, parameters)
         assert r.status == 200  # TODO: other codes
-        data = json_loads(r.data.decode("utf-8"))
-        if data.get("errors"):
-            raise Failure(**data["errors"][0])
-        return HTTPResult(data["results"][0])
+        data = json_loads(r.data.decode("utf-8"), object_hook=JSONHydrator.json_to_packstream)
+        result_data = data["results"][0] if data["results"] else {}
+        return HTTPResult(result_data, data["errors"])
 
     def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         r = self._post("/db/data/transaction")
@@ -144,10 +144,9 @@ class HTTP(Connection):
     def run_in_tx(self, tx, cypher, parameters=None):
         r = self._post("/db/data/transaction/%s" % tx, cypher, parameters)
         assert r.status == 200  # TODO: other codes
-        data = json_loads(r.data.decode("utf-8"))
-        if data.get("errors"):
-            raise Failure(**data["errors"][0])
-        return HTTPResult(data["results"][0])
+        data = json_loads(r.data.decode("utf-8"), object_hook=JSONHydrator.json_to_packstream)
+        result_data = data["results"][0] if data["results"] else {}
+        return HTTPResult(result_data, data.get("errors"))
 
     def pull(self, result, n=-1):
         pass
@@ -156,10 +155,14 @@ class HTTP(Connection):
         pass
 
     def sync(self, result):
-        pass
+        self._audit(result)
+
+    def _audit(self, result):
+        result.audit()
 
     def take(self, result):
-        pass
+        record = result.take_record()
+        return record
 
     def _assert_valid_tx(self, tx):
         from py2neo.database import TransactionError
@@ -193,11 +196,31 @@ class HTTP(Connection):
 
 class HTTPResult(Result):
 
-    def __init__(self, result):
+    def __init__(self, result, errors):
+        from py2neo.database import GraphError
         super(Result, self).__init__()
-        self.columns = result.get("columns")
-        self.data = result.get("data")
+        self.columns = result.get("columns", ())
+        self.data = result.get("data", [])
+        self.stats = result.get("stats", {})
+        self.errors = errors
         self.cursor = 0
+
+    def done(self):
+        return True
+
+    def audit(self):
+        if self.errors:
+            from py2neo.database import GraphError
+            failure = GraphError.hydrate(self.errors.pop(0))
+            raise failure
+
+    @property
+    def fields(self):
+        return self.columns
+
+    @property
+    def summary(self):
+        return {"stats": self.stats}
 
     def has_records(self):
         return self.cursor < len(self.data)

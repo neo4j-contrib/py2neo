@@ -322,25 +322,25 @@ class JSONHydrator(Hydrator):
         # TODO: other partial hydration
         if "self" in data:
             if "type" in data:
-                return Structure(b"R",
+                return Structure(ord(b"R"),
                                  uri_to_id(data["self"]),
                                  uri_to_id(data["start"]),
                                  uri_to_id(data["end"]),
                                  data["type"],
                                  data["data"])
             else:
-                return Structure(b"N",
+                return Structure(ord(b"N"),
                                  uri_to_id(data["self"]),
                                  data["metadata"]["labels"],
                                  data["data"])
         elif "nodes" in data and "relationships" in data:
-            nodes = [Structure(b"N", i, None, None) for i in map(uri_to_id, data["nodes"])]
-            relps = [Structure(b"r", i, None, None) for i in map(uri_to_id, data["relationships"])]
+            nodes = [Structure(ord(b"N"), i, None, None) for i in map(uri_to_id, data["nodes"])]
+            relps = [Structure(ord(b"r"), i, None, None) for i in map(uri_to_id, data["relationships"])]
             seq = [i // 2 + 1 for i in range(2 * len(data["relationships"]))]
             for i, direction in enumerate(data["directions"]):
                 if direction == "<-":
                     seq[2 * i] *= -1
-            return Structure(b"P", nodes, relps, seq)
+            return Structure(ord(b"P"), nodes, relps, seq)
         else:
             # from warnings import warn
             # warn("Map literals returned over the Neo4j HTTP interface are ambiguous "
@@ -364,13 +364,13 @@ class JSONHydrator(Hydrator):
             if isinstance(obj, Structure):
                 tag = obj.tag
                 fields = obj.fields
-                if tag == b"N":
+                if tag == ord(b"N"):
                     return self.hydrate_node(inst, fields[0], fields[1], hydrate_object(fields[2]))
-                elif tag == b"R":
+                elif tag == ord(b"R"):
                     return self.hydrate_relationship(inst, fields[0],
                                                      fields[1], fields[2],
                                                      fields[3], hydrate_object(fields[4]))
-                elif tag == b"P":
+                elif tag == ord(b"P"):
                     # Herein lies a dirty hack to retrieve missing relationship
                     # detail for paths received over HTTP.
                     nodes = [hydrate_object(node) for node in fields[0]]
@@ -411,7 +411,7 @@ class JSONHydrator(Hydrator):
                     return Path(*steps)
                 else:
                     try:
-                        f = self.hydration_functions[obj.tag]
+                        f = self.hydration_functions[tag]
                     except KeyError:
                         # If we don't recognise the structure type, just return it as-is
                         return obj

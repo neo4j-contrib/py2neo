@@ -221,11 +221,11 @@ class BadlyNamedCypherResult(AbstractCypherResult):
         self._hydrator = hydrator
 
     def _set_keys(self):
-        self._hydrator.keys = self._result.header.metadata.get("fields", ())
+        self._hydrator.keys = self._result.fields
 
     @property
     def metadata(self):
-        return dict(self._result.footer.metadata,
+        return dict(self._result.summary,
                     connection=self._cx.service.to_dict())
 
     def buffer(self):
@@ -301,63 +301,68 @@ class BoltConnector(Connector):
         cx.rollback(tx)
 
 
-# class BadlyNamedHTTPConnector(Connector):
-#
-#     scheme = "http"
-#
-#     @property
-#     def server_agent(self):
-#         cx = self.pool.acquire()
-#         try:
-#             return cx.server_agent
-#         finally:
-#             self.pool.release(cx)
-#
-#     def open(self, cx_data, max_connections=None, **_):
-#         from py2neo.net import Service, ConnectionPool
-#         service = Service(**cx_data)
-#         max_size = max_connections or DEFAULT_MAX_CONNECTIONS
-#         self.pool = ConnectionPool(service, max_size=max_size, max_age=None)
-#
-#     def close(self):
-#         self.pool.close()
-#
-#     def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
-#         if tx is None:
-#             cx = self.pool.acquire()
-#             hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys,
-#                                           entities=entities)
-#             query = cx.auto_run(statement, hydrator.dehydrate(parameters))
-#         else:
-#             cx = self.transactions.get(tx)
-#             hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys,
-#                                           entities=entities)
-#             query = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
-#         cx.pull(query)
-#         cx.sync(query)
-#         result = BadlyNamedCypherResult(cx, query, hydrator)
-#         return result
-#
-#     def begin(self):
-#         cx = self.pool.acquire()
-#         tx = cx.begin()
-#         self.transactions[tx] = cx
-#         return tx
-#
-#     def commit(self, tx):
-#         self._assert_valid_tx(tx)
-#         cx = self.transactions.pop(tx)
-#         cx.commit(tx)
-#
-#     def rollback(self, tx):
-#         self._assert_valid_tx(tx)
-#         cx = self.transactions.pop(tx)
-#         cx.rollback(tx)
+class BadlyNamedHTTPConnector(Connector):
+
+    scheme = "http"
+
+    @property
+    def server_agent(self):
+        cx = self.pool.acquire()
+        try:
+            return cx.server_agent
+        finally:
+            self.pool.release(cx)
+
+    def open(self, cx_data, max_connections=None, **_):
+        from py2neo.net import Service, ConnectionPool
+        service = Service(**cx_data)
+        max_size = max_connections or DEFAULT_MAX_CONNECTIONS
+        self.pool = ConnectionPool(service, max_size=max_size, max_age=None)
+
+    def close(self):
+        self.pool.close()
+
+    def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
+        cx = self.pool.acquire()
+        if tx is None:
+            hydrator = JSONHydrator(version="rest", graph=graph, keys=keys,
+                                    entities=entities)
+            query = cx.auto_run(statement, hydrator.dehydrate(parameters))
+        else:
+            hydrator = JSONHydrator(version="rest", graph=graph, keys=keys,
+                                    entities=entities)
+            query = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
+        cx.pull(query)
+        cx.sync(query)
+        self.pool.release(cx)
+        result = BadlyNamedCypherResult(cx, query, hydrator)
+        return result
+
+    def begin(self):
+        cx = self.pool.acquire()
+        tx = cx.begin()
+        self.pool.release(cx)
+        self.transactions[tx] = None
+        return tx
+
+    def commit(self, tx):
+        self._assert_valid_tx(tx)
+        self.transactions.pop(tx)
+        cx = self.pool.acquire()
+        cx.commit(tx)
+        self.pool.release(cx)
+
+    def rollback(self, tx):
+        self._assert_valid_tx(tx)
+        self.transactions.pop(tx)
+        cx = self.pool.acquire()
+        cx.rollback(tx)
+        self.pool.release(cx)
 
 
 class HTTPConnector(Connector):
 
-    scheme = "http"
+    #scheme = "http"
 
     headers = None
 

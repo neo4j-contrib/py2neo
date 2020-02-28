@@ -315,7 +315,7 @@ class Bolt1(Bolt):
             self._wait(response)
 
     def _audit(self, task):
-        """ Checks a specific task (response, query or transaction)
+        """ Checks a specific task (response, result or transaction)
         for failure, raising an exception if one is found.
 
         :raise BoltFailure:
@@ -434,6 +434,14 @@ class BoltResult(ItemizedTask, Result):
         if len(self._items) < 2:
             return None
         return self._items[-1]
+
+    @property
+    def fields(self):
+        return self._items[0].metadata.get("fields")
+
+    @property
+    def summary(self):
+        return self._items[-1].metadata
 
     def has_records(self):
         return any(response.has_records()
