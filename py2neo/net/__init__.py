@@ -226,6 +226,9 @@ class Connection(object):
         elif service.scheme == "http":
             from py2neo.net.http import HTTP
             return HTTP.open(service, user_agent=user_agent)
+        elif service.scheme == "https":
+            from py2neo.net.http import HTTPS
+            return HTTPS.open(service, user_agent=user_agent)
         else:
             raise ValueError("Unsupported scheme %r" % service.scheme)
 

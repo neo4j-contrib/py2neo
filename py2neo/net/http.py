@@ -37,6 +37,8 @@ class HTTP(Connection):
 
     scheme = "http"
 
+    protocol_version = (1, 1)
+
     @classmethod
     def open(cls, service, user_agent=None):
         http = cls(service, (user_agent or http_user_agent()))
@@ -200,6 +202,8 @@ class HTTP(Connection):
 
 
 class HTTPS(HTTP):
+
+    scheme = "https"
 
     def _make_pool(self, service):
         cert_reqs = None  # TODO: expose this through service

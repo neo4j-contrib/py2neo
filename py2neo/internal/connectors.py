@@ -18,16 +18,10 @@
 
 from __future__ import absolute_import
 
-from collections import OrderedDict
 from hashlib import new as hashlib_new
-from json import dumps as json_dumps, loads as json_loads
-
-from certifi import where
-from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo.internal.compat import bstr, urlsplit, string_types
-from py2neo.internal.hydration import CypherResult, JSONHydrator, PackStreamHydrator, \
-    HydrationError, AbstractCypherResult
+from py2neo.internal.hydration import JSONHydrator, PackStreamHydrator
 from py2neo.meta import NEO4J_URI, NEO4J_AUTH, NEO4J_USER_AGENT, NEO4J_SECURE, NEO4J_VERIFIED, \
     bolt_user_agent, http_user_agent
 
@@ -182,13 +176,20 @@ class Connector(object):
 
     @property
     def server_agent(self):
-        raise NotImplementedError()
+        cx = self.pool.acquire()
+        try:
+            return cx.server_agent
+        finally:
+            self.pool.release(cx)
 
-    def open(self, cx_data, **_):
-        raise NotImplementedError()
+    def open(self, cx_data, max_connections=None, **_):
+        from py2neo.net import Service, ConnectionPool
+        service = Service(**cx_data)
+        max_size = max_connections or DEFAULT_MAX_CONNECTIONS
+        self.pool = ConnectionPool(service, max_size=max_size, max_age=None)
 
     def close(self):
-        raise NotImplementedError()
+        self.pool.close()
 
     def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
         raise NotImplementedError()
@@ -213,7 +214,7 @@ class Connector(object):
         raise NotImplementedError()
 
 
-class BadlyNamedCypherResult(AbstractCypherResult):
+class HydratedResult(object):
 
     def __init__(self, cx, result, hydrator):
         self._cx = cx
@@ -251,23 +252,6 @@ class BoltConnector(Connector):
 
     scheme = "bolt"
 
-    @property
-    def server_agent(self):
-        cx = self.pool.acquire()
-        try:
-            return cx.server_agent
-        finally:
-            self.pool.release(cx)
-
-    def open(self, cx_data, max_connections=None, **_):
-        from py2neo.net import Service, ConnectionPool
-        service = Service(**cx_data)
-        max_size = max_connections or DEFAULT_MAX_CONNECTIONS
-        self.pool = ConnectionPool(service, max_size=max_size, max_age=None)
-
-    def close(self):
-        self.pool.close()
-
     def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
         if tx is None:
             cx = self.pool.acquire()
@@ -281,7 +265,7 @@ class BoltConnector(Connector):
             result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
         cx.pull(result)
         cx.sync(result)
-        result1 = BadlyNamedCypherResult(cx, result, hydrator)
+        result1 = HydratedResult(cx, result, hydrator)
         return result1
 
     def begin(self):
@@ -301,17 +285,9 @@ class BoltConnector(Connector):
         cx.rollback(tx)
 
 
-class BadlyNamedHTTPConnector(Connector):
+class HTTPConnector(Connector):
 
     scheme = "http"
-
-    @property
-    def server_agent(self):
-        cx = self.pool.acquire()
-        try:
-            return cx.server_agent
-        finally:
-            self.pool.release(cx)
 
     def open(self, cx_data, max_connections=None, **_):
         from py2neo.net import Service, ConnectionPool
@@ -335,7 +311,7 @@ class BadlyNamedHTTPConnector(Connector):
         cx.pull(query)
         cx.sync(query)
         self.pool.release(cx)
-        result = BadlyNamedCypherResult(cx, query, hydrator)
+        result = HydratedResult(cx, query, hydrator)
         return result
 
     def begin(self):
@@ -360,142 +336,6 @@ class BadlyNamedHTTPConnector(Connector):
         self.pool.release(cx)
 
 
-class HTTPConnector(Connector):
-
-    #scheme = "http"
-
-    headers = None
-
-    def __init__(self, uri, **settings):
-        self.transactions = set()
-
-    @property
-    def server_agent(self):
-        r = self.pool.request(method="GET",
-                              url="/",
-                              headers=dict(self.headers))
-        metadata = json_loads(r.data.decode("utf-8"))
-        if "neo4j_version" in metadata:     # Neo4j 4.x
-            # {
-            #   "bolt_routing" : "neo4j://localhost:7687",
-            #   "transaction" : "http://localhost:7474/db/{databaseName}/tx",
-            #   "bolt_direct" : "bolt://localhost:7687",
-            #   "neo4j_version" : "4.0.0",
-            #   "neo4j_edition" : "community"
-            # }
-            neo4j_version = metadata["neo4j_version"]
-        else:                               # Neo4j 3.x
-            # {
-            #   "data" : "http://localhost:7474/db/data/",
-            #   "management" : "http://localhost:7474/db/manage/",
-            #   "bolt" : "bolt://localhost:7687"
-            # }
-            r = self.pool.request(method="GET",
-                                  url="/db/data/",
-                                  headers=dict(self.headers))
-            metadata = json_loads(r.data.decode("utf-8"))
-            # {
-            #   "extensions" : { },
-            #   "node" : "http://localhost:7474/db/data/node",
-            #   "relationship" : "http://localhost:7474/db/data/relationship",
-            #   "node_index" : "http://localhost:7474/db/data/index/node",
-            #   "relationship_index" : "http://localhost:7474/db/data/index/relationship",
-            #   "extensions_info" : "http://localhost:7474/db/data/ext",
-            #   "relationship_types" : "http://localhost:7474/db/data/relationship/types",
-            #   "batch" : "http://localhost:7474/db/data/batch",
-            #   "cypher" : "http://localhost:7474/db/data/cypher",
-            #   "indexes" : "http://localhost:7474/db/data/schema/index",
-            #   "constraints" : "http://localhost:7474/db/data/schema/constraint",
-            #   "transaction" : "http://localhost:7474/db/data/transaction",
-            #   "node_labels" : "http://localhost:7474/db/data/labels",
-            #   "neo4j_version" : "3.5.12"
-            # }
-            neo4j_version = metadata["neo4j_version"]
-        return "Neo4j/{}".format(neo4j_version)
-
-    def open(self, cx_data, max_connections=None, **_):
-        self.pool = HTTPConnectionPool(
-            host=cx_data["host"],
-            port=cx_data["port"],
-            maxsize=max_connections or DEFAULT_MAX_CONNECTIONS,
-            block=True,
-        )
-        self.headers = make_headers(basic_auth=":".join(cx_data["auth"]))
-
-    def close(self):
-        self.pool.close()
-
-    def _post(self, url, statement=None, parameters=None):
-        if statement:
-            statements = [
-                OrderedDict([
-                    ("statement", statement),
-                    ("parameters", parameters or {}),
-                    ("resultDataContents", ["REST"]),
-                    ("includeStats", True),
-                ])
-            ]
-        else:
-            statements = []
-        return self.pool.request(method="POST",
-                                 url=url,
-                                 headers=dict(self.headers, **{"Content-Type": "application/json"}),
-                                 body=json_dumps({"statements": statements}))
-
-    def _delete(self, url):
-        return self.pool.request(method="DELETE",
-                                 url=url,
-                                 headers=dict(self.headers))
-
-    def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
-        hydrator = JSONHydrator(version="rest", graph=graph, keys=keys, entities=entities)
-        r = self._post("/db/data/transaction/%s" % (tx or "commit"), statement, hydrator.dehydrate(parameters))
-        assert r.status == 200  # TODO: other codes
-        try:
-            raw_result = hydrator.hydrate_result(r.data.decode("utf-8"))
-        except HydrationError as e:
-            from py2neo.database import GraphError  # TODO: breaks abstraction layers :(
-            if tx is not None:
-                self.transactions.remove(tx)
-            raise GraphError.hydrate(e.args[0])
-        else:
-            result = CypherResult({
-                "connection": self.connection_data,
-                "fields": raw_result.get("columns"),
-                "plan": raw_result.get("plan"),
-                "stats": raw_result.get("stats"),
-            })
-            hydrator.keys = result.keys()
-            result.append_records(hydrator.hydrate(record[hydrator.version]) for record in raw_result["data"])
-            result.done()
-            return result
-
-    def begin(self):
-        r = self._post("/db/data/transaction")
-        if r.status == 201:
-            location_path = urlsplit(r.headers["Location"]).path
-            tx = location_path.rpartition("/")[-1]
-            self.transactions.add(tx)
-            return tx
-        else:
-            raise RuntimeError("Can't begin a new transaction")
-
-    def commit(self, tx):
-        self._assert_valid_tx(tx)
-        self.transactions.remove(tx)
-        self._post("/db/data/transaction/%s/commit" % tx)
-
-    def rollback(self, tx):
-        self._assert_valid_tx(tx)
-        self.transactions.remove(tx)
-        self._delete("/db/data/transaction/%s" % tx)
-
-
-class SecureHTTPConnector(HTTPConnector):
+class HTTPSConnector(HTTPConnector):
 
     scheme = "https"
-
-    def open(self, cx_data, cert_reqs=None, **_):
-        self.pool = HTTPSConnectionPool(host=cx_data["host"], port=cx_data["port"],
-                                        cert_reqs=(cert_reqs or "CERT_NONE"), ca_certs=where())
-        self.headers = make_headers(basic_auth=":".join(cx_data["auth"]))

@@ -18,7 +18,7 @@
 
 from __future__ import absolute_import
 
-from collections import deque, namedtuple
+from collections import namedtuple
 from json import loads as json_loads
 
 from py2neo.internal.compat import Sequence, Mapping, integer_types, string_types
@@ -43,78 +43,6 @@ def uri_to_id(uri):
     """
     _, _, identity = uri.rpartition("/")
     return int(identity)
-
-
-class AbstractCypherResult(object):
-
-    @property
-    def metadata(self):
-        raise NotImplementedError
-
-    def buffer(self):
-        raise NotImplementedError
-
-    def keys(self):
-        raise NotImplementedError
-
-    def fetch(self):
-        raise NotImplementedError
-
-
-class CypherResult(AbstractCypherResult):
-    """ Buffer for a result from a Cypher query.
-    """
-
-    def __init__(self, metadata=None, on_more=None, on_done=None):
-        self._on_more = on_more
-        self._on_done = on_done
-        self._records = deque()
-        self._metadata = metadata or {}
-        self._done = False
-
-    def append_records(self, records):
-        self._records.extend(tuple(record) for record in records)
-
-    def update_metadata(self, metadata):
-        self._metadata.update(metadata)
-
-    def done(self):
-        if callable(self._on_done):
-            self._on_done()
-        self._done = True
-
-    @property
-    def _keys(self):
-        return self.metadata.get("fields")
-
-    def keys(self):
-        while not self._keys and not self._done and callable(self._on_more):
-            self._on_more()
-        return self._keys
-
-    @property
-    def metadata(self):
-        return self._metadata
-
-    def buffer(self):
-        while not self._done:
-            if callable(self._on_more):
-                self._on_more()
-
-    def fetch(self):
-        from py2neo.data import Record
-        if self._records:
-            return Record(zip(self.keys(), self._records.popleft()))
-        elif self._done:
-            return None
-        else:
-            while not self._records and not self._done:
-                if callable(self._on_more):
-                    self._on_more()
-            try:
-                return Record(zip(self.keys(), self._records.popleft()))
-            except IndexError:
-                return None
 
 
 class Hydrator(object):
