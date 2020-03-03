@@ -197,7 +197,7 @@ class Bolt1(Bolt):
     def _run(self, cypher, parameters, extra=None, final=False):
         log.debug("[#%04X] C: RUN %r %r", self.local_port, cypher, parameters)
         response = self._write_request(0x10, cypher, parameters)  # TODO: dehydrate parameters
-        result = BoltResult(response)
+        result = BoltResult(self, response)
         self.transaction.append(result, final=final)
         return result
 
@@ -226,7 +226,7 @@ class Bolt1(Bolt):
         self._wait(result.last())
         self._audit(result)
 
-    def take(self, result):
+    def fetch(self, result):
         if not result.has_records() and not result.done():
             while self.responses[0] is not result.last():
                 self._wait(self.responses[0])
@@ -398,7 +398,7 @@ class Bolt3(Bolt2):
     def _run(self, cypher, parameters, extra=None, final=False):
         log.debug("[#%04X] C: RUN %r %r %r", self.local_port, cypher, parameters, extra or {})
         response = self._write_request(0x10, cypher, parameters, extra or {})  # TODO: dehydrate parameters
-        result = BoltResult(response)
+        result = BoltResult(self, response)
         self.transaction.append(result, final=final)
         return result
 
@@ -417,31 +417,27 @@ class BoltResult(ItemizedTask, Result):
     failure of the query.
     """
 
-    def __init__(self, response):
+    def __init__(self, cx, response):
         Result.__init__(self)
         ItemizedTask.__init__(self)
         self.__record_type = None
+        self.__cx = cx
         self.append(response)
 
-    @property
-    def header(self):
-        if len(self._items) < 1:
-            return None
-        return self._items[0]
+    def buffer(self):
+        if not self.done():
+            self.__cx.sync(self)
 
-    @property
-    def footer(self):
-        if len(self._items) < 2:
-            return None
-        return self._items[-1]
-
-    @property
     def fields(self):
+        self.__cx.sync(self)
         return self._items[0].metadata.get("fields")
 
-    @property
     def summary(self):
-        return self._items[-1].metadata
+        return dict(self._items[-1].metadata,
+                    connection=self.__cx.service.to_dict())
+
+    def fetch(self):
+        return self.__cx.fetch(self)
 
     def has_records(self):
         return any(response.has_records()

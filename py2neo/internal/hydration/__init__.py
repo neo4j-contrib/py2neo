@@ -50,7 +50,7 @@ class Hydrator(object):
     def __init__(self, graph):
         self.graph = graph
 
-    def hydrate(self, values):
+    def hydrate(self, keys, values):
         raise NotImplementedError()
 
     def dehydrate(self, values):
@@ -128,10 +128,9 @@ class PackStreamHydrator(Hydrator):
 
     unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
-    def __init__(self, version, graph, keys, entities=None):
+    def __init__(self, version, graph, entities=None):
         super(PackStreamHydrator, self).__init__(graph)
         self.version = version if isinstance(version, tuple) else (version, 0)
-        self.keys = keys
         self.entities = entities or {}
         self.hydration_functions = {}
         self.dehydration_functions = {}
@@ -141,10 +140,10 @@ class PackStreamHydrator(Hydrator):
             self.dehydration_functions.update(temporal_dehydration_functions())
             self.dehydration_functions.update(spatial_dehydration_functions())
 
-    def hydrate(self, values):
+    def hydrate(self, keys, values):
         """ Convert PackStream values into native values.
         """
-        return tuple(self.hydrate_object(value, self.entities.get(self.keys[i]))
+        return tuple(self.hydrate_object(value, self.entities.get(keys[i]))
                      for i, value in enumerate(values))
 
     def hydrate_object(self, obj, inst=None):
@@ -232,12 +231,11 @@ class JSONHydrator(Hydrator):
 
     unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
-    def __init__(self, version, graph, keys, entities=None):
+    def __init__(self, version, graph, entities=None):
         super(JSONHydrator, self).__init__(graph)
         self.version = version
         if self.version != "rest":
             raise ValueError("Unsupported JSON version %r" % self.version)
-        self.keys = keys
         self.entities = entities or {}
         self.hydration_functions = {}
 
@@ -275,7 +273,7 @@ class JSONHydrator(Hydrator):
             #      "and may be unintentionally hydrated as graph objects")
             return data
 
-    def hydrate(self, values):
+    def hydrate(self, keys, values):
         """ Convert JSON values into native values. This is the other half
         of the HTTP hydration process, and is basically a copy of the
         Bolt/PackStream hydration code. It needs to be combined with the
@@ -285,7 +283,6 @@ class JSONHydrator(Hydrator):
 
         graph = self.graph
         entities = self.entities
-        keys = self.keys
 
         def hydrate_object(obj, inst=None):
             from py2neo.data import Path

@@ -24,7 +24,7 @@ from time import sleep
 from warnings import warn
 
 from py2neo.cypher import cypher_escape
-from py2neo.data import Table
+from py2neo.data import Record, Table
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.compat import Mapping, string_types, xstr
 from py2neo.internal.operations import OperationError
@@ -844,12 +844,10 @@ class Transaction(object):
             entities = {}
 
         try:
-            return Cursor(self.connector.run(statement=cypher,
-                                             parameters=dict(parameters or {}, **kwparameters),
-                                             tx=self.transaction,
-                                             graph=self.graph,
-                                             keys=[],
-                                             entities=entities))
+            result, hydrator = self.connector.run(cypher, dict(parameters or {}, **kwparameters),
+                                                  tx=self.transaction, graph=self.graph,
+                                                  entities=entities)
+            return Cursor(result, hydrator)
         # except CypherError as error:
         #     raise GraphError.hydrate({"code": error.code, "message": error.message})
         finally:
@@ -1092,9 +1090,12 @@ class Cursor(object):
 
     """
 
-    def __init__(self, result):
+    def __init__(self, result, hydrator):
         self._result = result
+        self._hydrator = hydrator
+        # self._hydrated_result = HydratedResult(result, hydrator)
         self._current = None
+        self._closed = False
 
     def __del__(self):
         try:
@@ -1128,30 +1129,31 @@ class Cursor(object):
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        if self._result is not None:
+        if not self._closed:
             self._result.buffer()   # force consumption of remaining data
-            self._result = None
-        self._current = None
+            self._closed = True
 
     def keys(self):
         """ Return the field names for the records in the stream.
         """
-        return self._result.keys()
+        return self._result.fields()
 
     def summary(self):
         """ Return the result summary.
         """
         self._result.buffer()
-        return CypherSummary(**self._result.metadata)
+        metadata = self._result.summary()
+        return CypherSummary(**metadata)
 
     def plan(self):
         """ Return the plan returned with this result, if any.
         """
         self._result.buffer()
-        if "plan" in self._result.metadata:
-            return CypherPlan(**self._result.metadata["plan"])
-        elif "profile" in self._result.metadata:
-            return CypherPlan(**self._result.metadata["profile"])
+        metadata = self._result.summary()
+        if "plan" in metadata:
+            return CypherPlan(**metadata["plan"])
+        elif "profile" in metadata:
+            return CypherPlan(**metadata["profile"])
         else:
             return None
 
@@ -1180,7 +1182,8 @@ class Cursor(object):
 
         """
         self._result.buffer()
-        return CypherStats(**self._result.metadata.get("stats", {}))
+        metadata = self._result.summary()
+        return CypherStats(**metadata.get("stats", {}))
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
@@ -1197,13 +1200,13 @@ class Cursor(object):
         assert amount > 0
         amount = int(amount)
         moved = 0
-        fetch = self._result.fetch
         while moved != amount:
-            new_current = fetch()
-            if new_current is None:
+            values = self._result.fetch()
+            if values is None:
                 break
             else:
-                self._current = new_current
+                keys = self._result.fields()  # TODO: don't do this for every record
+                self._current = Record(zip(keys, self._hydrator.hydrate(keys, values)))
                 moved += 1
         return moved
 

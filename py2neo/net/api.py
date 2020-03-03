@@ -122,6 +122,18 @@ class Result(object):
     def __init__(self):
         super(Result, self).__init__()
 
+    def buffer(self):
+        raise NotImplementedError
+
+    def fields(self):
+        raise NotImplementedError
+
+    def summary(self):
+        raise NotImplementedError
+
+    def fetch(self):
+        raise NotImplementedError
+
     def has_records(self):
         raise NotImplementedError
 

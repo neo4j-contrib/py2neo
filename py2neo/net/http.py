@@ -153,7 +153,7 @@ class HTTP(Connection):
         assert r.status == 200  # TODO: other codes
         data = json_loads(r.data.decode("utf-8"), object_hook=JSONHydrator.json_to_packstream)
         result_data = data["results"][0] if data["results"] else {}
-        return HTTPResult(result_data, data.get("errors"))
+        return HTTPResult(result_data, data.get("errors"), service=self.service)
 
     def pull(self, result, n=-1):
         pass
@@ -167,7 +167,7 @@ class HTTP(Connection):
     def _audit(self, result):
         result.audit()
 
-    def take(self, result):
+    def fetch(self, result):
         record = result.take_record()
         return record
 
@@ -219,39 +219,44 @@ class HTTPS(HTTP):
 
 class HTTPResult(Result):
 
-    def __init__(self, result, errors):
+    def __init__(self, result, errors, service=None):
         super(Result, self).__init__()
-        self.columns = result.get("columns", ())
-        self.data = result.get("data", [])
-        self.stats = result.get("stats", {})
-        self.errors = errors
-        self.cursor = 0
-
-    def done(self):
-        return True
+        self._columns = result.get("columns", ())
+        self._data = result.get("data", [])
+        self._summary = {}
+        if "stats" in result:
+            self._summary["stats"] = result["stats"]
+        if service:
+            self._summary["connection"] = service.to_dict()
+        self._errors = errors
+        self._cursor = 0
 
     def audit(self):
-        if self.errors:
+        if self._errors:
             from py2neo.database import GraphError
-            failure = GraphError.hydrate(self.errors.pop(0))
+            failure = GraphError.hydrate(self._errors.pop(0))
             raise failure
 
-    @property
-    def fields(self):
-        return self.columns
+    def buffer(self):
+        pass
 
-    @property
+    def fields(self):
+        return self._columns
+
     def summary(self):
-        return {"stats": self.stats}
+        return self._summary
+
+    def fetch(self):
+        return self.take_record()
 
     def has_records(self):
-        return self.cursor < len(self.data)
+        return self._cursor < len(self._data)
 
     def take_record(self):
         try:
-            record = self.data[self.cursor]["rest"]
+            record = self._data[self._cursor]["rest"]
         except IndexError:
             return None
         else:
-            self.cursor += 1
+            self._cursor += 1
             return record

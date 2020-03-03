@@ -311,7 +311,7 @@ class Connection(object):
         a given result.
         """
 
-    def take(self, result):
+    def fetch(self, result):
         pass
 
 

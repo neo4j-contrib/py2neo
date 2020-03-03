@@ -191,7 +191,7 @@ class Connector(object):
     def close(self):
         self.pool.close()
 
-    def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
+    def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
         raise NotImplementedError()
 
     def is_valid_transaction(self, tx):
@@ -214,59 +214,22 @@ class Connector(object):
         raise NotImplementedError()
 
 
-class HydratedResult(object):
-
-    def __init__(self, cx, result, hydrator):
-        self._cx = cx
-        self._result = result
-        self._hydrator = hydrator
-
-    def _set_keys(self):
-        self._hydrator.keys = self._result.fields
-
-    @property
-    def metadata(self):
-        return dict(self._result.summary,
-                    connection=self._cx.service.to_dict())
-
-    def buffer(self):
-        if not self._result.done():
-            self._cx.sync(self._result)
-        self._set_keys()
-
-    def keys(self):
-        self.buffer()
-        return self._hydrator.keys
-
-    def fetch(self):
-        from py2neo.data import Record
-        record = self._cx.take(self._result)
-        self._set_keys()  # TODO: don't do this for every record
-        if record is None:
-            return None
-        hydrated = Record(zip(self._hydrator.keys, self._hydrator.hydrate(record)))
-        return hydrated
-
-
 class BoltConnector(Connector):
 
     scheme = "bolt"
 
-    def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
+    def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
         if tx is None:
             cx = self.pool.acquire()
-            hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys,
-                                          entities=entities)
+            hydrator = PackStreamHydrator(cx.protocol_version, graph, entities)
             result = cx.auto_run(statement, hydrator.dehydrate(parameters))
         else:
             cx = self.transactions.get(tx)
-            hydrator = PackStreamHydrator(version=cx.protocol_version, graph=graph, keys=keys,
-                                          entities=entities)
+            hydrator = PackStreamHydrator(cx.protocol_version, graph, entities)
             result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
         cx.pull(result)
         cx.sync(result)
-        result1 = HydratedResult(cx, result, hydrator)
-        return result1
+        return result, hydrator
 
     def begin(self):
         cx = self.pool.acquire()
@@ -298,21 +261,18 @@ class HTTPConnector(Connector):
     def close(self):
         self.pool.close()
 
-    def run(self, statement, parameters=None, tx=None, graph=None, keys=None, entities=None):
+    def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
         cx = self.pool.acquire()
         if tx is None:
-            hydrator = JSONHydrator(version="rest", graph=graph, keys=keys,
-                                    entities=entities)
-            query = cx.auto_run(statement, hydrator.dehydrate(parameters))
+            hydrator = JSONHydrator("rest", graph, entities)
+            result = cx.auto_run(statement, hydrator.dehydrate(parameters))
         else:
-            hydrator = JSONHydrator(version="rest", graph=graph, keys=keys,
-                                    entities=entities)
-            query = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
-        cx.pull(query)
-        cx.sync(query)
+            hydrator = JSONHydrator("rest", graph, entities)
+            result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
+        cx.pull(result)
+        cx.sync(result)
         self.pool.release(cx)
-        result = HydratedResult(cx, query, hydrator)
-        return result
+        return result, hydrator
 
     def begin(self):
         cx = self.pool.acquire()
