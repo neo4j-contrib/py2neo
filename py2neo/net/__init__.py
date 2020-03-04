@@ -50,8 +50,8 @@ DEFAULT_MAX_CONNECTIONS = 40
 log = getLogger(__name__)
 
 
-class Service(object):
-    """ Neo4j service descriptor.
+class ConnectionProfile(object):
+    """ Connection details for a Neo4j service.
     """
 
     secure = None
@@ -99,6 +99,12 @@ class Service(object):
         self.password = self._coalesce(settings.get("password"), self.password)
         if "address" in settings:
             self.address = Address.parse(settings.get("address"))
+        if "host" in settings and "port" in settings:
+            self.address = Address.parse("%s:%s" % (settings.get("host"), settings.get("port")))
+        elif "host" in settings:
+            self.address = Address.parse("%s:%s" % (settings.get("host"), self.port))
+        elif "port" in settings:
+            self.address = Address.parse("%s:%s" % (self.host, settings.get("port")))
 
     def _apply_correct_scheme_for_security(self):
         if self.secure is True and self.scheme == "http":
@@ -153,12 +159,16 @@ class Service(object):
     def uri(self):
         return "%s://%s:%s" % (self.scheme, self.host, self.port)
 
+    __hash_keys = ("secure", "verified", "scheme", "user", "password", "address")
+
     def __hash__(self):
-        keys = ["secure", "verified", "scheme", "user", "password", "address"]
-        h = hashlib_new("md5")
-        for key in keys:
-            h.update(bstr(getattr(self, key)))
-        return h.hexdigest()
+        values = tuple(getattr(self, key) for key in self.__hash_keys)
+        return hash(values)
+
+    def __eq__(self, other):
+        self_values = tuple(getattr(self, key) for key in self.__hash_keys)
+        other_values = tuple(getattr(other, key) for key in self.__hash_keys)
+        return self_values == other_values
 
     @staticmethod
     def _coalesce(*values):
@@ -183,7 +193,7 @@ class Connection(object):
     """ A single point-to-point connection between a client and a
     server.
 
-    :ivar service: service descriptor
+    :ivar profile: connection profile
     :ivar user_agent:
     """
 
@@ -218,22 +228,22 @@ class Connection(object):
         return cls.__subclasses.get(key)
 
     @classmethod
-    def open(cls, service, user_agent=None):
+    def open(cls, profile, user_agent=None):
         # TODO: automatically via subclass sniffing
-        if service.scheme == "bolt":
+        if profile.scheme == "bolt":
             from py2neo.net.bolt import Bolt
-            return Bolt.open(service, user_agent=user_agent)
-        elif service.scheme == "http":
+            return Bolt.open(profile, user_agent=user_agent)
+        elif profile.scheme == "http":
             from py2neo.net.http import HTTP
-            return HTTP.open(service, user_agent=user_agent)
-        elif service.scheme == "https":
+            return HTTP.open(profile, user_agent=user_agent)
+        elif profile.scheme == "https":
             from py2neo.net.http import HTTPS
-            return HTTPS.open(service, user_agent=user_agent)
+            return HTTPS.open(profile, user_agent=user_agent)
         else:
-            raise ValueError("Unsupported scheme %r" % service.scheme)
+            raise ValueError("Unsupported scheme %r" % profile.scheme)
 
-    def __init__(self, service, user_agent):
-        self.service = service
+    def __init__(self, profile, user_agent):
+        self.profile = profile
         self.user_agent = user_agent
         self.__t_opened = perf_counter()
 
@@ -330,18 +340,19 @@ class ConnectionPool(object):
     """
 
     @classmethod
-    def open(cls, service=None, init_size=1, max_size=100, max_age=3600):
+    def open(cls, profile=None, user_agent=None, init_size=1, max_size=100, max_age=3600):
         """ Create a new connection pool, with an option to seed one
         or more initial connections.
         """
-        pool = cls(service, max_size, max_age)
+        pool = cls(profile, user_agent, max_size, max_age)
         seeds = [pool.acquire() for _ in range(init_size)]
         for seed in seeds:
             pool.release(seed)
         return pool
 
-    def __init__(self, service, max_size, max_age):
-        self._service = service
+    def __init__(self, profile, user_agent, max_size, max_age):
+        self._profile = profile
+        self._user_agent = user_agent
         self._max_size = max_size
         self._max_age = max_age
         self._in_use_list = deque()
@@ -356,9 +367,9 @@ class ConnectionPool(object):
             pass
 
     def __repr__(self):
-        return "<{} service={!r} [{}{}{}]>".format(
+        return "<{} profile={!r} [{}{}{}]>".format(
             self.__class__.__name__,
-            self.service,
+            self.profile,
             "|" * len(self._in_use_list),
             "." * len(self._free_list),
             " " * (self.max_size - self.size),
@@ -371,10 +382,16 @@ class ConnectionPool(object):
         return self.size
 
     @property
-    def service(self):
-        """ The remote service for which this pool operates.
+    def profile(self):
+        """ The connection profile for which this pool operates.
         """
-        return self._service
+        return self._profile
+
+    @property
+    def user_agent(self):
+        """ The user agent for connections in this pool.
+        """
+        return self._user_agent
 
     @property
     def max_size(self):
@@ -469,7 +486,7 @@ class ConnectionPool(object):
                 if self.size < self.max_size:
                     # Plan B: if the pool isn't full, open
                     # a new connection
-                    cx = Connection.open(self.service)
+                    cx = Connection.open(self.profile, user_agent=self.user_agent)
                     cx.pool = self
                 else:
                     # Plan C: wait for more capacity to become

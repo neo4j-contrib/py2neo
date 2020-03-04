@@ -38,11 +38,11 @@ class Bolt(Connection):
     __local_port = 0
 
     @classmethod
-    def open(cls, service, user_agent=None):
+    def open(cls, profile, user_agent=None):
         # TODO
-        s = socket(family=service.address.family)
-        log.debug("[#%04X] C: <DIAL> '%s'", 0, service.address)
-        s.connect(service.address)
+        s = socket(family=profile.address.family)
+        log.debug("[#%04X] C: <DIAL> '%s'", 0, profile.address)
+        s.connect(profile.address)
         local_port = s.getsockname()[1]
         log.debug("[#%04X] S: <ACCEPT>", local_port)
 
@@ -69,13 +69,13 @@ class Bolt(Connection):
         subclass = cls._get_subclass(cls.scheme, protocol_version)
         if subclass is None:
             raise RuntimeError("Unable to agree supported protocol version")
-        bolt = subclass(service, (user_agent or bolt_user_agent()), byte_reader, byte_writer)
+        bolt = subclass(profile, (user_agent or bolt_user_agent()), byte_reader, byte_writer)
         bolt.__local_port = local_port
         bolt.hello()
         return bolt
 
-    def __init__(self, service, user_agent, byte_reader, byte_writer):
-        super(Bolt, self).__init__(service, user_agent)
+    def __init__(self, profile, user_agent, byte_reader, byte_writer):
+        super(Bolt, self).__init__(profile, user_agent)
         self.byte_reader = byte_reader
         self.byte_writer = byte_writer
 
@@ -111,8 +111,8 @@ class Bolt1(Bolt):
 
     protocol_version = (1, 0)
 
-    def __init__(self, service, user_agent, byte_reader, byte_writer):
-        super(Bolt1, self).__init__(service, user_agent, byte_reader, byte_writer)
+    def __init__(self, profile, user_agent, byte_reader, byte_writer):
+        super(Bolt1, self).__init__(profile, user_agent, byte_reader, byte_writer)
         self.reader = MessageReader(byte_reader)
         self.writer = MessageWriter(byte_writer)
         self.responses = deque()
@@ -125,8 +125,8 @@ class Bolt1(Bolt):
     def hello(self):
         self._assert_open()
         extra = {"scheme": "basic",
-                 "principal": self.service.user,
-                 "credentials": self.service.password}
+                 "principal": self.profile.user,
+                 "credentials": self.profile.password}
         clean_extra = dict(extra)
         clean_extra.update({"credentials": "*******"})
         log.debug("[#%04X] C: INIT %r %r", self.local_port, self.user_agent, clean_extra)
@@ -340,8 +340,8 @@ class Bolt3(Bolt2):
         self._assert_open()
         extra = {"user_agent": self.user_agent,
                  "scheme": "basic",
-                 "principal": self.service.user,
-                 "credentials": self.service.password}
+                 "principal": self.profile.user,
+                 "credentials": self.profile.password}
         clean_extra = dict(extra)
         clean_extra.update({"credentials": "*******"})
         log.debug("[#%04X] C: HELLO %r", self.local_port, clean_extra)
@@ -434,7 +434,7 @@ class BoltResult(ItemizedTask, Result):
 
     def summary(self):
         return dict(self._items[-1].metadata,
-                    connection=self.__cx.service.to_dict())
+                    connection=self.__cx.profile.to_dict())
 
     def fetch(self):
         return self.__cx.fetch(self)

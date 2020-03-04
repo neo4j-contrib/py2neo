@@ -39,7 +39,7 @@ from py2neo.console.meta import HISTORY_FILE_DIR, HISTORY_FILE, TITLE, QUICK_HEL
 from py2neo.cypher.lexer import CypherLexer
 from py2neo.data import Table
 from py2neo.database import Graph
-from py2neo.internal.connectors import get_connection_data
+from py2neo.net import ConnectionProfile
 from py2neo.net.api import Failure
 
 
@@ -72,11 +72,11 @@ class Console(object):
     def __init__(self, uri=None, **settings):
         self.output_file = settings.pop("file", None)
         verbose = settings.pop("verbose", False)
-        connection_data = get_connection_data(uri, **settings)
+        profile = ConnectionProfile(uri, **settings)
         try:
             self.graph = Graph(uri, **settings)
         except OSError as error:
-            raise ConsoleError("Could not connect to {} -- {}".format(connection_data["uri"], error))
+            raise ConsoleError("Could not connect to {} -- {}".format(profile.uri, error))
         try:
             makedirs(HISTORY_FILE_DIR)
         except OSError:
@@ -97,7 +97,7 @@ class Console(object):
         self.result_writer = Table.write
         if verbose:
             from neobolt.diagnostics import watch
-            self.watcher = watch("neo4j.%s" % connection_data["scheme"])
+            self.watcher = watch("neo4j.%s" % profile.scheme)
 
         self.commands = {
 

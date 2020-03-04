@@ -18,152 +18,152 @@
 
 from unittest import TestCase
 
-from py2neo.internal.connectors import get_connection_data
-from py2neo.meta import bolt_user_agent, http_user_agent
+from py2neo.net import ConnectionProfile
+from py2neo.net.addressing import IPv4Address
 
 
 class AddressingTestCase(TestCase):
 
     def test_bolt_uri_only(self):
-        data = get_connection_data("bolt://host:9999")
-        del data["hash"]
+        data = ConnectionProfile("bolt://host:9999").to_dict()
         self.assertEqual(data, {
+            'address': IPv4Address(('host', 9999)),
             'auth': ('neo4j', 'password'),
             'host': 'host',
             'password': 'password',
             'port': 9999,
+            'port_number': 9999,
             'scheme': 'bolt',
             'secure': False,
             'verified': False,
             'uri': 'bolt://host:9999',
             'user': 'neo4j',
-            'user_agent': bolt_user_agent(),
         })
 
     def test_http_uri_only(self):
-        data = get_connection_data("http://host:9999")
-        del data["hash"]
+        data = ConnectionProfile("http://host:9999").to_dict()
         self.assertEqual(data, {
+            'address': IPv4Address(('host', 9999)),
             'auth': ('neo4j', 'password'),
             'host': 'host',
             'password': 'password',
             'port': 9999,
+            'port_number': 9999,
             'scheme': 'http',
             'secure': False,
             'verified': False,
             'uri': 'http://host:9999',
             'user': 'neo4j',
-            'user_agent': http_user_agent(),
         })
 
     def test_http_uri_wth_secure(self):
-        data = get_connection_data("http://host:9999", secure=True)
-        del data["hash"]
+        data = ConnectionProfile("http://host:9999", secure=True).to_dict()
         self.assertEqual(data, {
+            'address': IPv4Address(('host', 9999)),
             'auth': ('neo4j', 'password'),
             'host': 'host',
             'password': 'password',
             'port': 9999,
+            'port_number': 9999,
             'scheme': 'https',
             'secure': True,
             'verified': False,
             'uri': 'https://host:9999',
             'user': 'neo4j',
-            'user_agent': http_user_agent(),
         })
 
     def test_http_uri_wth_secure_and_verified(self):
-        data = get_connection_data("http://host:9999", secure=True, verified=True)
-        del data["hash"]
+        data = ConnectionProfile("http://host:9999", secure=True, verified=True).to_dict()
         self.assertEqual(data, {
+            'address': IPv4Address(('host', 9999)),
             'auth': ('neo4j', 'password'),
             'host': 'host',
             'password': 'password',
             'port': 9999,
+            'port_number': 9999,
             'scheme': 'https',
             'secure': True,
             'verified': True,
             'uri': 'https://host:9999',
             'user': 'neo4j',
-            'user_agent': http_user_agent(),
         })
 
     def test_https_uri_only(self):
-        data = get_connection_data("https://host:9999")
-        del data["hash"]
+        data = ConnectionProfile("https://host:9999").to_dict()
         self.assertEqual(data, {
+            'address': IPv4Address(('host', 9999)),
             'auth': ('neo4j', 'password'),
             'host': 'host',
             'password': 'password',
             'port': 9999,
+            'port_number': 9999,
             'scheme': 'https',
             'secure': True,
             'verified': False,
             'uri': 'https://host:9999',
             'user': 'neo4j',
-            'user_agent': http_user_agent(),
         })
 
     def test_https_uri_without_secure(self):
-        data = get_connection_data("https://host:9999", secure=False)
-        del data["hash"]
+        data = ConnectionProfile("https://host:9999", secure=False).to_dict()
         self.assertEqual(data, {
+            'address': IPv4Address(('host', 9999)),
             'auth': ('neo4j', 'password'),
             'host': 'host',
             'password': 'password',
             'port': 9999,
+            'port_number': 9999,
             'scheme': 'http',
             'secure': False,
             'verified': False,
             'uri': 'http://host:9999',
             'user': 'neo4j',
-            'user_agent': http_user_agent(),
         })
 
     def test_uri_and_scheme(self):
-        data = get_connection_data("bolt://host:9999", scheme="http")
-        del data["hash"]
+        data = ConnectionProfile("bolt://host:9999", scheme="http").to_dict()
         self.assertEqual(data, {
+            'address': IPv4Address(('host', 9999)),
             'auth': ('neo4j', 'password'),
             'host': 'host',
             'password': 'password',
             'port': 9999,
+            'port_number': 9999,
             'scheme': 'http',
             'secure': False,
             'verified': False,
             'uri': 'http://host:9999',
             'user': 'neo4j',
-            'user_agent': http_user_agent(),
         })
 
     def test_uri_and_host(self):
-        data = get_connection_data("bolt://host:9999", host="other")
-        del data["hash"]
+        data = ConnectionProfile("bolt://host:9999", host="other").to_dict()
         self.assertEqual(data, {
+            'address': IPv4Address(('other', 9999)),
             'auth': ('neo4j', 'password'),
             'host': 'other',
             'password': 'password',
             'port': 9999,
+            'port_number': 9999,
             'scheme': 'bolt',
             'secure': False,
             'verified': False,
             'uri': 'bolt://other:9999',
             'user': 'neo4j',
-            'user_agent': bolt_user_agent(),
         })
 
     def test_uri_and_port(self):
-        data = get_connection_data("bolt://host:8888", port=8888)
-        del data["hash"]
+        data = ConnectionProfile("bolt://host:8888", port=8888).to_dict()
         self.assertEqual(data, {
+            'address': IPv4Address(('host', 8888)),
             'auth': ('neo4j', 'password'),
             'host': 'host',
             'password': 'password',
             'port': 8888,
+            'port_number': 8888,
             'scheme': 'bolt',
             'secure': False,
             'verified': False,
             'uri': 'bolt://host:8888',
             'user': 'neo4j',
-            'user_agent': bolt_user_agent(),
         })

@@ -29,6 +29,7 @@ from py2neo.admin.install import Warehouse
 from py2neo.database import GraphService
 from py2neo.internal.compat import SocketError
 from py2neo.internal.connectors import Connector
+from py2neo.net import ConnectionProfile
 
 
 NEO4J_EDITION = "enterprise"
@@ -94,8 +95,13 @@ def uri(request):
 
 
 @fixture(scope="session")
-def connector(uri):
-    return Connector(uri)
+def connection_profile(uri):
+    return ConnectionProfile(uri)
+
+
+@fixture(scope="session")
+def connector(connection_profile):
+    return Connector(connection_profile)
 
 
 @fixture(scope="session")

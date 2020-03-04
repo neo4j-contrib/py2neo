@@ -88,31 +88,24 @@ class GraphService(object):
         cls._instances.clear()
 
     def __new__(cls, uri=None, **settings):
-        from py2neo.internal.connectors import get_connection_data
-        connection_data = get_connection_data(uri, **settings)
-        key = connection_data["hash"]
+        from py2neo.net import ConnectionProfile
+        profile = ConnectionProfile(uri, **settings)
         try:
-            inst = cls._instances[key]
+            inst = cls._instances[profile]
         except KeyError:
             inst = super(GraphService, cls).__new__(cls)
-            inst._connection_data = connection_data
+            inst._profile = profile
             from py2neo.internal.connectors import Connector
-            inst._connector = Connector(
-                connection_data["uri"],
-                auth=connection_data["auth"],
-                secure=connection_data["secure"],
-                user_agent=connection_data["user_agent"],
-                max_connections=settings.get("max_connections"),
-            )
+            inst._connector = Connector(profile, **settings)
             inst._graphs = {}
-            cls._instances[key] = inst
+            cls._instances[profile] = inst
         return inst
 
     def __repr__(self):
         class_name = self.__class__.__name__
-        data = self._connection_data
+        profile = self._profile
         return "<%s uri=%r secure=%r user_agent=%r>" % (
-            class_name, data["uri"], data["secure"], data["user_agent"])
+            class_name, profile.uri, profile.secure, self._connector.user_agent)
 
     def __eq__(self, other):
         try:
@@ -124,14 +117,14 @@ class GraphService(object):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self._connection_data["hash"])
+        return hash(self._profile)
 
     def __contains__(self, graph_name):
         return graph_name in self._graphs
 
     def __getitem__(self, graph_name):
         if graph_name == "data" and graph_name not in self._graphs:
-            self._graphs[graph_name] = Graph(**self._connection_data)
+            self._graphs[graph_name] = Graph(**self._profile.to_dict())
         return self._graphs[graph_name]
 
     def __setitem__(self, graph_name, graph):
@@ -148,7 +141,7 @@ class GraphService(object):
     def uri(self):
         """ The URI to which this `GraphService` is connected.
         """
-        return self._connection_data["uri"]
+        return self._profile.uri
 
     @property
     def default_graph(self):

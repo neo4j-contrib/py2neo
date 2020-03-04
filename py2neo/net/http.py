@@ -40,23 +40,23 @@ class HTTP(Connection):
     protocol_version = (1, 1)
 
     @classmethod
-    def open(cls, service, user_agent=None):
-        http = cls(service, (user_agent or http_user_agent()))
+    def open(cls, profile, user_agent=None):
+        http = cls(profile, (user_agent or http_user_agent()))
         http.hello()
         return http
 
-    def __init__(self, service, user_agent):
-        super(HTTP, self).__init__(service, user_agent)
+    def __init__(self, profile, user_agent):
+        super(HTTP, self).__init__(profile, user_agent)
         self.http_pool = None
-        self.headers = make_headers(basic_auth=":".join(service.auth))
+        self.headers = make_headers(basic_auth=":".join(profile.auth))
         self.transactions = set()
         self.__closed = False
-        self._make_pool(service)
+        self._make_pool(profile)
 
-    def _make_pool(self, service):
+    def _make_pool(self, profile):
         self.http_pool = HTTPConnectionPool(
-            host=service.host,
-            port=service.port_number,
+            host=profile.host,
+            port=profile.port_number,
             maxsize=1,
             block=True,
         )
@@ -79,8 +79,8 @@ class HTTP(Connection):
 
     def hello(self):
         r = self.http_pool.request(method="GET",
-                              url="/",
-                              headers=dict(self.headers))
+                                   url="/",
+                                   headers=dict(self.headers))
         metadata = json_loads(r.data.decode("utf-8"))
         if "neo4j_version" in metadata:     # Neo4j 4.x
             # {
@@ -98,8 +98,8 @@ class HTTP(Connection):
             #   "bolt" : "bolt://localhost:7687"
             # }
             r = self.http_pool.request(method="GET",
-                                  url="/db/data/",
-                                  headers=dict(self.headers))
+                                       url="/db/data/",
+                                       headers=dict(self.headers))
             metadata = json_loads(r.data.decode("utf-8"))
             # {
             #   "extensions" : { },
@@ -153,7 +153,7 @@ class HTTP(Connection):
         assert r.status == 200  # TODO: other codes
         data = json_loads(r.data.decode("utf-8"), object_hook=JSONHydrator.json_to_packstream)
         result_data = data["results"][0] if data["results"] else {}
-        return HTTPResult(result_data, data.get("errors"), service=self.service)
+        return HTTPResult(result_data, data.get("errors"), profile=self.profile)
 
     def pull(self, result, n=-1):
         pass
@@ -191,14 +191,14 @@ class HTTP(Connection):
         else:
             statements = []
         return self.http_pool.request(method="POST",
-                                 url=url,
-                                 headers=dict(self.headers, **{"Content-Type": "application/json"}),
-                                 body=json_dumps({"statements": statements}))
+                                      url=url,
+                                      headers=dict(self.headers, **{"Content-Type": "application/json"}),
+                                      body=json_dumps({"statements": statements}))
 
     def _delete(self, url):
         return self.http_pool.request(method="DELETE",
-                                 url=url,
-                                 headers=dict(self.headers))
+                                      url=url,
+                                      headers=dict(self.headers))
 
 
 class HTTPS(HTTP):
@@ -219,15 +219,15 @@ class HTTPS(HTTP):
 
 class HTTPResult(Result):
 
-    def __init__(self, result, errors, service=None):
+    def __init__(self, result, errors, profile=None):
         super(Result, self).__init__()
         self._columns = result.get("columns", ())
         self._data = result.get("data", [])
         self._summary = {}
         if "stats" in result:
             self._summary["stats"] = result["stats"]
-        if service:
-            self._summary["connection"] = service.to_dict()
+        if profile:
+            self._summary["connection"] = profile.to_dict()
         self._errors = errors
         self._cursor = 0
 
