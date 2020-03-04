@@ -735,38 +735,38 @@ class ClientError(GraphError):
 
     @classmethod
     def get_mapped_class(cls, status):
+        # TODO: mappings to error subclasses:
+        #     {
+        #         #
+        #         # ConstraintError
+        #         "Neo.ClientError.Schema.ConstraintValidationFailed": ConstraintError,
+        #         "Neo.ClientError.Schema.ConstraintViolation": ConstraintError,
+        #         "Neo.ClientError.Statement.ConstraintVerificationFailed": ConstraintError,
+        #         "Neo.ClientError.Statement.ConstraintViolation": ConstraintError,
+        #         #
+        #         # CypherSyntaxError
+        #         "Neo.ClientError.Statement.InvalidSyntax": CypherSyntaxError,
+        #         "Neo.ClientError.Statement.SyntaxError": CypherSyntaxError,
+        #         #
+        #         # CypherTypeError
+        #         "Neo.ClientError.Procedure.TypeError": CypherTypeError,
+        #         "Neo.ClientError.Statement.InvalidType": CypherTypeError,
+        #         "Neo.ClientError.Statement.TypeError": CypherTypeError,
+        #         #
+        #         # Forbidden
+        #         "Neo.ClientError.General.ForbiddenOnReadOnlyDatabase": Forbidden,
+        #         "Neo.ClientError.General.ReadOnly": Forbidden,
+        #         "Neo.ClientError.Schema.ForbiddenOnConstraintIndex": Forbidden,
+        #         "Neo.ClientError.Schema.IndexBelongsToConstrain": Forbidden,
+        #         "Neo.ClientError.Security.Forbidden": Forbidden,
+        #         "Neo.ClientError.Transaction.ForbiddenDueToTransactionType": Forbidden,
+        #         #
+        #         # Unauthorized
+        #         "Neo.ClientError.Security.AuthorizationFailed": AuthError,
+        #         "Neo.ClientError.Security.Unauthorized": AuthError,
+        #         #
+        #     }
         raise KeyError(status)
-        from neobolt.exceptions import ConstraintError, CypherSyntaxError, CypherTypeError, Forbidden, AuthError
-        return {
-
-            # ConstraintError
-            "Neo.ClientError.Schema.ConstraintValidationFailed": ConstraintError,
-            "Neo.ClientError.Schema.ConstraintViolation": ConstraintError,
-            "Neo.ClientError.Statement.ConstraintVerificationFailed": ConstraintError,
-            "Neo.ClientError.Statement.ConstraintViolation": ConstraintError,
-
-            # CypherSyntaxError
-            "Neo.ClientError.Statement.InvalidSyntax": CypherSyntaxError,
-            "Neo.ClientError.Statement.SyntaxError": CypherSyntaxError,
-
-            # CypherTypeError
-            "Neo.ClientError.Procedure.TypeError": CypherTypeError,
-            "Neo.ClientError.Statement.InvalidType": CypherTypeError,
-            "Neo.ClientError.Statement.TypeError": CypherTypeError,
-
-            # Forbidden
-            "Neo.ClientError.General.ForbiddenOnReadOnlyDatabase": Forbidden,
-            "Neo.ClientError.General.ReadOnly": Forbidden,
-            "Neo.ClientError.Schema.ForbiddenOnConstraintIndex": Forbidden,
-            "Neo.ClientError.Schema.IndexBelongsToConstrain": Forbidden,
-            "Neo.ClientError.Security.Forbidden": Forbidden,
-            "Neo.ClientError.Transaction.ForbiddenDueToTransactionType": Forbidden,
-
-            # Unauthorized
-            "Neo.ClientError.Security.AuthorizationFailed": AuthError,
-            "Neo.ClientError.Security.Unauthorized": AuthError,
-
-        }[status]
 
 
 class DatabaseError(GraphError):
@@ -828,8 +828,6 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
-        # from neobolt.exceptions import CypherError
-
         self._assert_unfinished()
         try:
             entities = self.entities.popleft()
@@ -841,8 +839,6 @@ class Transaction(object):
                                                   tx=self.transaction, graph=self.graph,
                                                   entities=entities)
             return Cursor(result, hydrator)
-        # except CypherError as error:
-        #     raise GraphError.hydrate({"code": error.code, "message": error.message})
         finally:
             if not self.transaction:
                 self.finish()

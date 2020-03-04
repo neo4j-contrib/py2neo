@@ -89,8 +89,8 @@ def uri(request):
             "pid": pid,
         })
     if NEO4J_DEBUG:
-        from neobolt.diagnostics import watch
-        watch("neobolt")
+        from py2neo.diagnostics import watch
+        watch("py2neo")
     return uri
 
 

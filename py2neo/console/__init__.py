@@ -96,8 +96,8 @@ class Console(object):
         self.lexer = CypherLexer()
         self.result_writer = Table.write
         if verbose:
-            from neobolt.diagnostics import watch
-            self.watcher = watch("neo4j.%s" % profile.scheme)
+            from py2neo.diagnostics import watch
+            self.watcher = watch("py2neo")
 
         self.commands = {
 
