@@ -24,7 +24,7 @@ from time import sleep
 from warnings import warn
 
 from py2neo.cypher import cypher_escape
-from py2neo.data import Table
+from py2neo.data import Record, Table
 from py2neo.internal.caching import ThreadLocalEntityCache
 from py2neo.internal.compat import Mapping, string_types, xstr
 from py2neo.internal.operations import OperationError
@@ -88,31 +88,24 @@ class GraphService(object):
         cls._instances.clear()
 
     def __new__(cls, uri=None, **settings):
-        from py2neo.internal.connectors import get_connection_data
-        connection_data = get_connection_data(uri, **settings)
-        key = connection_data["hash"]
+        from py2neo.net import ConnectionProfile
+        profile = ConnectionProfile(uri, **settings)
         try:
-            inst = cls._instances[key]
+            inst = cls._instances[profile]
         except KeyError:
             inst = super(GraphService, cls).__new__(cls)
-            inst._connection_data = connection_data
+            inst._profile = profile
             from py2neo.internal.connectors import Connector
-            inst._connector = Connector(
-                connection_data["uri"],
-                auth=connection_data["auth"],
-                secure=connection_data["secure"],
-                user_agent=connection_data["user_agent"],
-                max_connections=settings.get("max_connections"),
-            )
+            inst._connector = Connector(profile, **settings)
             inst._graphs = {}
-            cls._instances[key] = inst
+            cls._instances[profile] = inst
         return inst
 
     def __repr__(self):
         class_name = self.__class__.__name__
-        data = self._connection_data
+        profile = self._profile
         return "<%s uri=%r secure=%r user_agent=%r>" % (
-            class_name, data["uri"], data["secure"], data["user_agent"])
+            class_name, profile.uri, profile.secure, self._connector.user_agent)
 
     def __eq__(self, other):
         try:
@@ -124,14 +117,14 @@ class GraphService(object):
         return not self.__eq__(other)
 
     def __hash__(self):
-        return hash(self._connection_data["hash"])
+        return hash(self._profile)
 
     def __contains__(self, graph_name):
         return graph_name in self._graphs
 
     def __getitem__(self, graph_name):
         if graph_name == "data" and graph_name not in self._graphs:
-            self._graphs[graph_name] = Graph(**self._connection_data)
+            self._graphs[graph_name] = Graph(**self._profile.to_dict())
         return self._graphs[graph_name]
 
     def __setitem__(self, graph_name, graph):
@@ -148,7 +141,7 @@ class GraphService(object):
     def uri(self):
         """ The URI to which this `GraphService` is connected.
         """
-        return self._connection_data["uri"]
+        return self._profile.uri
 
     @property
     def default_graph(self):
@@ -750,38 +743,38 @@ class ClientError(GraphError):
 
     @classmethod
     def get_mapped_class(cls, status):
+        # TODO: mappings to error subclasses:
+        #     {
+        #         #
+        #         # ConstraintError
+        #         "Neo.ClientError.Schema.ConstraintValidationFailed": ConstraintError,
+        #         "Neo.ClientError.Schema.ConstraintViolation": ConstraintError,
+        #         "Neo.ClientError.Statement.ConstraintVerificationFailed": ConstraintError,
+        #         "Neo.ClientError.Statement.ConstraintViolation": ConstraintError,
+        #         #
+        #         # CypherSyntaxError
+        #         "Neo.ClientError.Statement.InvalidSyntax": CypherSyntaxError,
+        #         "Neo.ClientError.Statement.SyntaxError": CypherSyntaxError,
+        #         #
+        #         # CypherTypeError
+        #         "Neo.ClientError.Procedure.TypeError": CypherTypeError,
+        #         "Neo.ClientError.Statement.InvalidType": CypherTypeError,
+        #         "Neo.ClientError.Statement.TypeError": CypherTypeError,
+        #         #
+        #         # Forbidden
+        #         "Neo.ClientError.General.ForbiddenOnReadOnlyDatabase": Forbidden,
+        #         "Neo.ClientError.General.ReadOnly": Forbidden,
+        #         "Neo.ClientError.Schema.ForbiddenOnConstraintIndex": Forbidden,
+        #         "Neo.ClientError.Schema.IndexBelongsToConstrain": Forbidden,
+        #         "Neo.ClientError.Security.Forbidden": Forbidden,
+        #         "Neo.ClientError.Transaction.ForbiddenDueToTransactionType": Forbidden,
+        #         #
+        #         # Unauthorized
+        #         "Neo.ClientError.Security.AuthorizationFailed": AuthError,
+        #         "Neo.ClientError.Security.Unauthorized": AuthError,
+        #         #
+        #     }
         raise KeyError(status)
-        from neobolt.exceptions import ConstraintError, CypherSyntaxError, CypherTypeError, Forbidden, AuthError
-        return {
-
-            # ConstraintError
-            "Neo.ClientError.Schema.ConstraintValidationFailed": ConstraintError,
-            "Neo.ClientError.Schema.ConstraintViolation": ConstraintError,
-            "Neo.ClientError.Statement.ConstraintVerificationFailed": ConstraintError,
-            "Neo.ClientError.Statement.ConstraintViolation": ConstraintError,
-
-            # CypherSyntaxError
-            "Neo.ClientError.Statement.InvalidSyntax": CypherSyntaxError,
-            "Neo.ClientError.Statement.SyntaxError": CypherSyntaxError,
-
-            # CypherTypeError
-            "Neo.ClientError.Procedure.TypeError": CypherTypeError,
-            "Neo.ClientError.Statement.InvalidType": CypherTypeError,
-            "Neo.ClientError.Statement.TypeError": CypherTypeError,
-
-            # Forbidden
-            "Neo.ClientError.General.ForbiddenOnReadOnlyDatabase": Forbidden,
-            "Neo.ClientError.General.ReadOnly": Forbidden,
-            "Neo.ClientError.Schema.ForbiddenOnConstraintIndex": Forbidden,
-            "Neo.ClientError.Schema.IndexBelongsToConstrain": Forbidden,
-            "Neo.ClientError.Security.Forbidden": Forbidden,
-            "Neo.ClientError.Transaction.ForbiddenDueToTransactionType": Forbidden,
-
-            # Unauthorized
-            "Neo.ClientError.Security.AuthorizationFailed": AuthError,
-            "Neo.ClientError.Security.Unauthorized": AuthError,
-
-        }[status]
 
 
 class DatabaseError(GraphError):
@@ -843,8 +836,6 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
-        from neobolt.exceptions import CypherError
-
         self._assert_unfinished()
         try:
             entities = self.entities.popleft()
@@ -852,27 +843,15 @@ class Transaction(object):
             entities = {}
 
         try:
-            return Cursor(self.connector.run(statement=cypher,
-                                             parameters=dict(parameters or {}, **kwparameters),
-                                             tx=self.transaction,
-                                             graph=self.graph,
-                                             keys=[],
-                                             entities=entities))
-        except CypherError as error:
-            raise GraphError.hydrate({"code": error.code, "message": error.message})
+            result, hydrator = self.connector.run(cypher, dict(parameters or {}, **kwparameters),
+                                                  tx=self.transaction, graph=self.graph,
+                                                  entities=entities)
+            return Cursor(result, hydrator)
         finally:
             if not self.transaction:
                 self.finish()
 
-    def process(self):
-        """ Send all pending statements to the server for processing.
-        """
-        self._assert_unfinished()
-        if self.transaction:
-            self.connector.sync(self.transaction)
-
     def finish(self):
-        self.process()
         self._assert_unfinished()
         self._finished = True
 
@@ -1108,14 +1087,17 @@ class Cursor(object):
 
     """
 
-    def __init__(self, result):
+    def __init__(self, result, hydrator):
         self._result = result
+        self._hydrator = hydrator
+        # self._hydrated_result = HydratedResult(result, hydrator)
         self._current = None
+        self._closed = False
 
     def __del__(self):
         try:
             self.close()
-        except:
+        except OSError:
             pass
 
     def __next__(self):
@@ -1144,25 +1126,33 @@ class Cursor(object):
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        if self._result is not None:
+        if not self._closed:
             self._result.buffer()   # force consumption of remaining data
-            self._result = None
-        self._current = None
+            self._closed = True
 
     def keys(self):
         """ Return the field names for the records in the stream.
         """
-        return self._result.keys()
+        return self._result.fields()
 
     def summary(self):
         """ Return the result summary.
         """
-        return self._result.summary()
+        self._result.buffer()
+        metadata = self._result.summary()
+        return CypherSummary(**metadata)
 
     def plan(self):
         """ Return the plan returned with this result, if any.
         """
-        return self._result.plan()
+        self._result.buffer()
+        metadata = self._result.summary()
+        if "plan" in metadata:
+            return CypherPlan(**metadata["plan"])
+        elif "profile" in metadata:
+            return CypherPlan(**metadata["profile"])
+        else:
+            return None
 
     def stats(self):
         """ Return the query statistics.
@@ -1188,7 +1178,9 @@ class Cursor(object):
         relationships_deleted: 0
 
         """
-        return self._result.stats()
+        self._result.buffer()
+        metadata = self._result.summary()
+        return CypherStats(**metadata.get("stats", {}))
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
@@ -1205,13 +1197,13 @@ class Cursor(object):
         assert amount > 0
         amount = int(amount)
         moved = 0
-        fetch = self._result.fetch
         while moved != amount:
-            new_current = fetch()
-            if new_current is None:
+            values = self._result.fetch()
+            if values is None:
                 break
             else:
-                self._current = new_current
+                keys = self._result.fields()  # TODO: don't do this for every record
+                self._current = Record(zip(keys, self._hydrator.hydrate(keys, values)))
                 moved += 1
         return moved
 

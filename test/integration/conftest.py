@@ -29,6 +29,7 @@ from py2neo.admin.install import Warehouse
 from py2neo.database import GraphService
 from py2neo.internal.compat import SocketError
 from py2neo.internal.connectors import Connector
+from py2neo.net import ConnectionProfile
 
 
 NEO4J_EDITION = "enterprise"
@@ -88,14 +89,19 @@ def uri(request):
             "pid": pid,
         })
     if NEO4J_DEBUG:
-        from neobolt.diagnostics import watch
-        watch("neobolt")
+        from py2neo.diagnostics import watch
+        watch("py2neo")
     return uri
 
 
 @fixture(scope="session")
-def connector(uri):
-    return Connector(uri)
+def connection_profile(uri):
+    return ConnectionProfile(uri)
+
+
+@fixture(scope="session")
+def connector(connection_profile):
+    return Connector(connection_profile)
 
 
 @fixture(scope="session")
@@ -130,9 +136,12 @@ def check_bolt_connections_released(connector):
     """
     yield
     if "bolt" in connector.scheme:
-        address = connector.connection_data["host"], connector.connection_data["port"]
-        # print(connector.pool.in_use_connection_count(address), "/", len(connector.pool.connections.get(address, [])))
-        assert connector.pool.in_use_connection_count(address) == 0
+        try:
+            assert connector.pool.in_use == 0
+        except AttributeError:
+            address = connector.connection_data["host"], connector.connection_data["port"]
+            # print(connector.pool.in_use_connection_count(address), "/", len(connector.pool.connections.get(address, [])))
+            assert connector.pool.in_use_connection_count(address) == 0
 
 
 def pytest_sessionfinish(session, exitstatus):

@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from pytest import raises, skip
+from pytest import raises, skip, mark
 
 from py2neo import Graph, Node, Relationship
 
@@ -160,6 +160,7 @@ def test_create_node_with_null_properties(graph):
     assert a["no-foo"] is None
 
 
+@mark.skip
 def test_bolt_connection_pool_usage_for_autocommit(graph):
     connector = graph.service.connector
     if "bolt" not in connector.scheme:
@@ -177,6 +178,7 @@ def test_bolt_connection_pool_usage_for_autocommit(graph):
     assert pool.in_use_connection_count(address) == 0
 
 
+@mark.skip
 def test_bolt_connection_reuse_for_autocommit(graph):
     connector = graph.service.connector
     if "bolt" not in connector.scheme:
@@ -200,6 +202,7 @@ def test_bolt_connection_reuse_for_autocommit(graph):
     assert pool.in_use_connection_count(address) == 0
 
 
+@mark.skip
 def test_bolt_connection_pool_usage_for_begin_commit(graph):
     connector = graph.service.connector
     if "bolt" not in connector.scheme:
@@ -217,6 +220,7 @@ def test_bolt_connection_pool_usage_for_begin_commit(graph):
     assert pool.in_use_connection_count(address) == 0
 
 
+@mark.skip
 def test_bolt_connection_pool_usage_for_begin_rollback(graph):
     connector = graph.service.connector
     if "bolt" not in connector.scheme:

@@ -68,7 +68,6 @@ def test_can_run_multi_execute_transaction(graph):
         cursor_1 = tx.run("CREATE (a) RETURN a")
         cursor_2 = tx.run("CREATE (a) RETURN a")
         cursor_3 = tx.run("CREATE (a) RETURN a")
-        tx.process()
         for cursor in (cursor_1, cursor_2, cursor_3):
             records = list(cursor)
             assert len(records) == 1
@@ -85,7 +84,7 @@ def test_can_rollback_transaction(graph):
         cursor_1 = tx.run("CREATE (a) RETURN a")
         cursor_2 = tx.run("CREATE (a) RETURN a")
         cursor_3 = tx.run("CREATE (a) RETURN a")
-        tx.process()
+        # tx.process()
         for cursor in (cursor_1, cursor_2, cursor_3):
             records = list(cursor)
             assert len(records) == 1

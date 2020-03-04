@@ -18,10 +18,8 @@
 
 from __future__ import absolute_import
 
-from collections import deque, namedtuple
+from collections import namedtuple
 from json import loads as json_loads
-
-from neobolt.packstream import Structure
 
 from py2neo.internal.compat import Sequence, Mapping, integer_types, string_types
 from py2neo.internal.hydration.spatial import (
@@ -33,6 +31,7 @@ from py2neo.internal.hydration.temporal import (
     dehydration_functions as temporal_dehydration_functions,
 )
 from py2neo.matching import RelationshipMatcher
+from py2neo.net.packstream import Structure
 
 
 INT64_LO = -(2 ** 63)
@@ -46,84 +45,12 @@ def uri_to_id(uri):
     return int(identity)
 
 
-class CypherResult(object):
-    """ Buffer for a result from a Cypher query.
-    """
-
-    def __init__(self, metadata=None, on_more=None, on_done=None):
-        self._on_more = on_more
-        self._on_done = on_done
-        self._records = deque()
-        self._metadata = metadata or {}
-        self._done = False
-
-    def append_records(self, records):
-        self._records.extend(tuple(record) for record in records)
-
-    def update_metadata(self, metadata):
-        self._metadata.update(metadata)
-
-    def done(self):
-        if callable(self._on_done):
-            self._on_done()
-        self._done = True
-
-    @property
-    def _keys(self):
-        return self._metadata.get("fields")
-
-    def keys(self):
-        while not self._keys and not self._done and callable(self._on_more):
-            self._on_more()
-        return self._keys
-
-    def buffer(self):
-        while not self._done:
-            if callable(self._on_more):
-                self._on_more()
-
-    def summary(self):
-        from py2neo.database import CypherSummary
-        self.buffer()
-        return CypherSummary(**self._metadata)
-
-    def plan(self):
-        from py2neo.database import CypherPlan
-        self.buffer()
-        if "plan" in self._metadata:
-            return CypherPlan(**self._metadata["plan"])
-        elif "profile" in self._metadata:
-            return CypherPlan(**self._metadata["profile"])
-        else:
-            return None
-
-    def stats(self):
-        from py2neo.database import CypherStats
-        self.buffer()
-        return CypherStats(**self._metadata.get("stats", {}))
-
-    def fetch(self):
-        from py2neo.data import Record
-        if self._records:
-            return Record(zip(self.keys(), self._records.popleft()))
-        elif self._done:
-            return None
-        else:
-            while not self._records and not self._done:
-                if callable(self._on_more):
-                    self._on_more()
-            try:
-                return Record(zip(self.keys(), self._records.popleft()))
-            except IndexError:
-                return None
-
-
 class Hydrator(object):
 
     def __init__(self, graph):
         self.graph = graph
 
-    def hydrate(self, values):
+    def hydrate(self, keys, values):
         raise NotImplementedError()
 
     def dehydrate(self, values):
@@ -201,28 +128,27 @@ class PackStreamHydrator(Hydrator):
 
     unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
-    def __init__(self, version, graph, keys, entities=None):
+    def __init__(self, version, graph, entities=None):
         super(PackStreamHydrator, self).__init__(graph)
-        self.version = version
-        self.keys = keys
+        self.version = version if isinstance(version, tuple) else (version, 0)
         self.entities = entities or {}
         self.hydration_functions = {}
         self.dehydration_functions = {}
-        if self.version >= 2:
+        if self.version >= (2, 0):
             self.hydration_functions.update(temporal_hydration_functions())
             self.hydration_functions.update(spatial_hydration_functions())
             self.dehydration_functions.update(temporal_dehydration_functions())
             self.dehydration_functions.update(spatial_dehydration_functions())
 
-    def hydrate(self, values):
+    def hydrate(self, keys, values):
         """ Convert PackStream values into native values.
         """
-        return tuple(self.hydrate_object(value, self.entities.get(self.keys[i]))
+        return tuple(self.hydrate_object(value, self.entities.get(keys[i]))
                      for i, value in enumerate(values))
 
     def hydrate_object(self, obj, inst=None):
         if isinstance(obj, Structure):
-            tag = obj.tag
+            tag = obj.tag if isinstance(obj.tag, bytes) else bytes(bytearray([obj.tag]))
             fields = obj.fields
             if tag == b"N":
                 return self.hydrate_node(inst, fields[0], fields[1], self.hydrate_object(fields[2]))
@@ -233,7 +159,7 @@ class PackStreamHydrator(Hydrator):
                 return self.hydrate_path(*fields)
             else:
                 try:
-                    f = self.hydration_functions[obj.tag]
+                    f = self.hydration_functions[tag]
                 except KeyError:
                     # If we don't recognise the structure type, just return it as-is
                     return obj
@@ -305,12 +231,11 @@ class JSONHydrator(Hydrator):
 
     unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
-    def __init__(self, version, graph, keys, entities=None):
+    def __init__(self, version, graph, entities=None):
         super(JSONHydrator, self).__init__(graph)
         self.version = version
         if self.version != "rest":
             raise ValueError("Unsupported JSON version %r" % self.version)
-        self.keys = keys
         self.entities = entities or {}
         self.hydration_functions = {}
 
@@ -323,32 +248,32 @@ class JSONHydrator(Hydrator):
         # TODO: other partial hydration
         if "self" in data:
             if "type" in data:
-                return Structure(b"R",
+                return Structure(ord(b"R"),
                                  uri_to_id(data["self"]),
                                  uri_to_id(data["start"]),
                                  uri_to_id(data["end"]),
                                  data["type"],
                                  data["data"])
             else:
-                return Structure(b"N",
+                return Structure(ord(b"N"),
                                  uri_to_id(data["self"]),
                                  data["metadata"]["labels"],
                                  data["data"])
         elif "nodes" in data and "relationships" in data:
-            nodes = [Structure(b"N", i, None, None) for i in map(uri_to_id, data["nodes"])]
-            relps = [Structure(b"r", i, None, None) for i in map(uri_to_id, data["relationships"])]
+            nodes = [Structure(ord(b"N"), i, None, None) for i in map(uri_to_id, data["nodes"])]
+            relps = [Structure(ord(b"r"), i, None, None) for i in map(uri_to_id, data["relationships"])]
             seq = [i // 2 + 1 for i in range(2 * len(data["relationships"]))]
             for i, direction in enumerate(data["directions"]):
                 if direction == "<-":
                     seq[2 * i] *= -1
-            return Structure(b"P", nodes, relps, seq)
+            return Structure(ord(b"P"), nodes, relps, seq)
         else:
             # from warnings import warn
             # warn("Map literals returned over the Neo4j HTTP interface are ambiguous "
             #      "and may be unintentionally hydrated as graph objects")
             return data
 
-    def hydrate(self, values):
+    def hydrate(self, keys, values):
         """ Convert JSON values into native values. This is the other half
         of the HTTP hydration process, and is basically a copy of the
         Bolt/PackStream hydration code. It needs to be combined with the
@@ -358,20 +283,19 @@ class JSONHydrator(Hydrator):
 
         graph = self.graph
         entities = self.entities
-        keys = self.keys
 
         def hydrate_object(obj, inst=None):
             from py2neo.data import Path
             if isinstance(obj, Structure):
                 tag = obj.tag
                 fields = obj.fields
-                if tag == b"N":
+                if tag == ord(b"N"):
                     return self.hydrate_node(inst, fields[0], fields[1], hydrate_object(fields[2]))
-                elif tag == b"R":
+                elif tag == ord(b"R"):
                     return self.hydrate_relationship(inst, fields[0],
                                                      fields[1], fields[2],
                                                      fields[3], hydrate_object(fields[4]))
-                elif tag == b"P":
+                elif tag == ord(b"P"):
                     # Herein lies a dirty hack to retrieve missing relationship
                     # detail for paths received over HTTP.
                     nodes = [hydrate_object(node) for node in fields[0]]
@@ -412,7 +336,7 @@ class JSONHydrator(Hydrator):
                     return Path(*steps)
                 else:
                     try:
-                        f = self.hydration_functions[obj.tag]
+                        f = self.hydration_functions[tag]
                     except KeyError:
                         # If we don't recognise the structure type, just return it as-is
                         return obj
