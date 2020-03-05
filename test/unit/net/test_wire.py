@@ -20,7 +20,7 @@ from collections import deque
 
 from pytest import fixture, raises
 
-from py2neo.net.wire import ByteReader, ByteWriter
+from py2neo.net.wire import Wire
 
 
 class FakeSocket(object):
@@ -61,7 +61,7 @@ class FakeSocket(object):
 def fake_reader():
     def reader(packets):
         s = FakeSocket(packets)
-        return ByteReader(s)
+        return Wire(s)
     return reader
 
 
@@ -69,7 +69,7 @@ def fake_reader():
 def fake_writer():
     def writer(into):
         s = FakeSocket(out_packets=into)
-        return ByteWriter(s)
+        return Wire(s)
     return writer
 
 

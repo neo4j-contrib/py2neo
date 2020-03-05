@@ -16,68 +16,53 @@
 # limitations under the License.
 
 
-class Breakable:
-    """ Mixin for objects that can break, resulting in an unusable,
-    unrecoverable state.
+class Wire:
+    """ Socket wrapper for reading and writing bytes.
     """
+
+    __closed = False
 
     __broken = False
 
-    def set_broken(self):
-        self.__broken = True
-
-    @property
-    def broken(self):
-        return self.__broken
-
-
-class ByteReader(Breakable, object):
-
     def __init__(self, s):
-        self.socket = s
-        self.buffer = bytearray()
+        self.__socket = s
+        self.__input = bytearray()
+        self.__output = bytearray()
 
     def read(self, n):
-        while len(self.buffer) < n:
+        while len(self.__input) < n:
             try:
-                received = self.socket.recv(n)
+                received = self.__socket.recv(n)
             except OSError:
-                self.set_broken()
+                self.__broken = True
                 raise
             else:
                 if received:
-                    self.buffer.extend(received)
+                    self.__input.extend(received)
                 else:
-                    self.set_broken()
+                    self.__broken = True
                     raise OSError("Network read incomplete "
-                                  "(received %d of %d bytes)" % (len(self.buffer), n))
-        data = self.buffer[:n]
-        self.buffer[:n] = []
+                                  "(received %d of %d bytes)" %
+                                  (len(self.__input), n))
+        data = self.__input[:n]
+        self.__input[:n] = []
         return data
 
-
-class ByteWriter(Breakable, object):
-
-    def __init__(self, s):
-        self.__socket = s
-        self.__buffer = bytearray()
-        self.__closed = False
-
     def write(self, b):
-        self.__buffer.extend(b)
+        self.__output.extend(b)
 
     def send(self):
         if self.__closed:
             raise OSError("Closed")
         sent = 0
-        while self.__buffer:
+        while self.__output:
             try:
-                n = self.__socket.send(self.__buffer)
+                n = self.__socket.send(self.__output)
             except OSError:
-                self.set_broken()
+                self.__broken = True
                 raise
             else:
-                self.__buffer[:n] = []
+                self.__output[:n] = []
                 sent += n
         return sent
 
@@ -85,7 +70,7 @@ class ByteWriter(Breakable, object):
         try:
             self.__socket.close()
         except OSError:
-            self.set_broken()
+            self.__broken = True
             raise
         else:
             self.__closed = True
@@ -93,3 +78,7 @@ class ByteWriter(Breakable, object):
     @property
     def closed(self):
         return self.__closed
+
+    @property
+    def broken(self):
+        return self.__broken

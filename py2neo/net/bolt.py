@@ -25,7 +25,7 @@ from py2neo.net.api import Transaction, TransactionError, Result, \
     Task, ItemizedTask, Failure
 from py2neo.net import Connection
 from py2neo.net.packstream import MessageReader, MessageWriter
-from py2neo.net.wire import ByteReader, ByteWriter
+from py2neo.net.wire import Wire
 
 
 log = getLogger(__name__)
@@ -48,20 +48,19 @@ class Bolt(Connection):
 
         # TODO: secure socket
 
-        byte_reader = ByteReader(s)
-        byte_writer = ByteWriter(s)
+        wire = Wire(s)
 
         def handshake():
             # TODO
             log.debug("[#%04X] C: <BOLT>", local_port)
-            byte_writer.write(b"\x60\x60\xB0\x17")
+            wire.write(b"\x60\x60\xB0\x17")
             log.debug("[#%04X] C: <PROTOCOL> 4.0 | 3.0 | 2.0 | 1.0", local_port)
-            byte_writer.write(b"\x00\x00\x00\x03"
-                              b"\x00\x00\x00\x02"
-                              b"\x00\x00\x00\x01"
-                              b"\x00\x00\x00\x00")
-            byte_writer.send()
-            v = bytearray(byte_reader.read(4))
+            wire.write(b"\x00\x00\x00\x03"
+                       b"\x00\x00\x00\x02"
+                       b"\x00\x00\x00\x01"
+                       b"\x00\x00\x00\x00")
+            wire.send()
+            v = bytearray(wire.read(4))
             log.debug("[#%04X] S: <PROTOCOL> %d.%d", local_port, v[-1], v[-2])
             return v[-1], v[-2]
 
@@ -69,30 +68,29 @@ class Bolt(Connection):
         subclass = cls._get_subclass(cls.scheme, protocol_version)
         if subclass is None:
             raise RuntimeError("Unable to agree supported protocol version")
-        bolt = subclass(profile, (user_agent or bolt_user_agent()), byte_reader, byte_writer)
+        bolt = subclass(profile, (user_agent or bolt_user_agent()), wire)
         bolt.__local_port = local_port
         bolt.hello()
         return bolt
 
-    def __init__(self, profile, user_agent, byte_reader, byte_writer):
+    def __init__(self, profile, user_agent, wire):
         super(Bolt, self).__init__(profile, user_agent)
-        self.byte_reader = byte_reader
-        self.byte_writer = byte_writer
+        self._wire = wire
 
     def close(self):
         if self.closed or self.broken:
             return
         self.goodbye()
-        self.byte_writer.close()
+        self._wire.close()
         log.debug("[#%04X] C: <HANGUP>", self.local_port)
 
     @property
     def closed(self):
-        return self.byte_writer.closed
+        return self._wire.closed
 
     @property
     def broken(self):
-        return self.byte_reader.broken or self.byte_writer.broken
+        return self._wire.broken
 
     @property
     def local_port(self):
@@ -111,10 +109,10 @@ class Bolt1(Bolt):
 
     protocol_version = (1, 0)
 
-    def __init__(self, profile, user_agent, byte_reader, byte_writer):
-        super(Bolt1, self).__init__(profile, user_agent, byte_reader, byte_writer)
-        self.reader = MessageReader(byte_reader)
-        self.writer = MessageWriter(byte_writer)
+    def __init__(self, profile, user_agent, wire):
+        super(Bolt1, self).__init__(profile, user_agent, wire)
+        self.reader = MessageReader(wire)
+        self.writer = MessageWriter(wire)
         self.responses = deque()
         self.transaction = None
         self.metadata = {}
@@ -294,14 +292,14 @@ class Bolt1(Bolt):
                 rs.set_failure(**fields[0])
                 self.responses.popleft()
                 if rs.vital:
-                    self.byte_writer.close()
+                    self._wire.close()
             elif tag == 0x7E and not rs.vital:
                 log.debug("[#%04X] S: IGNORED", self.local_port)
                 rs.set_ignored()
                 self.responses.popleft()
             else:
                 log.debug("[#%04X] S: <ERROR>", self.local_port)
-                self.byte_writer.close()
+                self._wire.close()
                 raise RuntimeError("Unexpected protocol message #%02X", tag)
 
         while not response.full() and not response.done():
