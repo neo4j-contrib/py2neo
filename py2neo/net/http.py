@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from __future__ import absolute_import
+
 from collections import OrderedDict
 from logging import getLogger
 from json import dumps as json_dumps, loads as json_loads
@@ -25,7 +27,7 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo import http_user_agent
 from py2neo.internal.compat import urlsplit
-from py2neo.internal.hydration import JSONHydrator
+from py2neo.net.json import JSONHydrator
 from py2neo.net import Connection
 from py2neo.net.api import Result
 

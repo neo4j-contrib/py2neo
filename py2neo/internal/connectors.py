@@ -18,7 +18,8 @@
 
 from __future__ import absolute_import
 
-from py2neo.internal.hydration import JSONHydrator, PackStreamHydrator
+from py2neo.net.json import JSONHydrator
+from py2neo.net.packstream import PackStreamHydrator
 
 
 DEFAULT_MAX_CONNECTIONS = 40

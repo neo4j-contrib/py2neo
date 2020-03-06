@@ -832,6 +832,37 @@ class Node(Entity):
         apply(obj)
         return inst
 
+    @classmethod
+    def hydrate(cls, graph, identity, labels=None, properties=None, into=None):
+        if into is None:
+
+            def instance_constructor():
+                new_instance = cls()
+                new_instance.graph = graph
+                new_instance.identity = identity
+                new_instance._stale.update({"labels", "properties"})
+                return new_instance
+
+            into = graph.node_cache.update(identity, instance_constructor)
+        else:
+            assert isinstance(into, cls)
+            into.graph = graph
+            into.identity = identity
+            graph.node_cache.update(identity, into)
+
+        if properties is not None:
+            into._stale.discard("properties")
+            into.clear()
+            into.update(properties)
+
+        if labels is not None:
+            into._stale.discard("labels")
+            into._remote_labels = frozenset(labels)
+            into.clear_labels()
+            into.update_labels(labels)
+
+        return into
+
     def __init__(self, *labels, **properties):
         self._remote_labels = frozenset()
         self._labels = set(labels)
@@ -996,6 +1027,38 @@ class Relationship(Entity):
                 end_node = entities[end_node]
         return Relationship(start_node, get_type(t), end_node, **properties)
 
+    @classmethod
+    def hydrate(cls, graph, identity, start, end, type=None, properties=None, into=None):
+        if into is None:
+
+            def instance_constructor():
+                if properties is None:
+                    new_instance = cls(Node.hydrate(graph, start), type,
+                                       Node.hydrate(graph, end))
+                    new_instance._stale.add("properties")
+                else:
+                    new_instance = cls(Node.hydrate(graph, start), type,
+                                       Node.hydrate(graph, end), **properties)
+                new_instance.graph = graph
+                new_instance.identity = identity
+                return new_instance
+
+            into = graph.relationship_cache.update(identity, instance_constructor)
+        else:
+            assert isinstance(into, Relationship)
+            into.graph = graph
+            into.identity = identity
+            Node.hydrate(graph, start, into=into.start_node)
+            Node.hydrate(graph, end, into=into.end_node)
+            into._type = type
+            if properties is None:
+                into._stale.add("properties")
+            else:
+                into.clear()
+                into.update(properties)
+            graph.relationship_cache.update(identity, into)
+        return into
+
     def __init__(self, *nodes, **properties):
         n = []
         for value in nodes:
@@ -1097,6 +1160,26 @@ class Path(Walkable):
         ({name:"Dave"})-[:KNOWS]->({name:"Eve"})
 
     """
+
+    @classmethod
+    def hydrate(cls, graph, nodes, u_rels, sequence):
+        last_node = nodes[0]
+        steps = [last_node]
+        for i, rel_index in enumerate(sequence[::2]):
+            next_node = nodes[sequence[2 * i + 1]]
+            if rel_index > 0:
+                u_rel = u_rels[rel_index - 1]
+                rel = Relationship.hydrate(graph, u_rel.id,
+                                           last_node.identity, next_node.identity,
+                                           u_rel.type, u_rel.properties)
+            else:
+                u_rel = u_rels[-rel_index - 1]
+                rel = Relationship.hydrate(graph, u_rel.id,
+                                           next_node.identity, last_node.identity,
+                                           u_rel.type, u_rel.properties)
+            steps.append(rel)
+            last_node = next_node
+        return cls(*steps)
 
     def __init__(self, *entities):
         entities = list(entities)
