@@ -28,8 +28,7 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 from py2neo import http_user_agent
 from py2neo.internal.compat import urlsplit
 from py2neo.net.json import JSONHydrator
-from py2neo.net import Connection
-from py2neo.net.api import Result
+from py2neo.net import Connection, Result
 
 
 log = getLogger(__name__)
