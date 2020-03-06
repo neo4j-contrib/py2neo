@@ -38,6 +38,8 @@ class HTTP(Connection):
 
     scheme = "http"
 
+    protocol = "http"
+
     protocol_version = (1, 1)
 
     @classmethod
@@ -55,12 +57,23 @@ class HTTP(Connection):
         self._make_pool(profile)
 
     def _make_pool(self, profile):
-        self.http_pool = HTTPConnectionPool(
-            host=profile.host,
-            port=profile.port_number,
-            maxsize=1,
-            block=True,
-        )
+        if profile.secure:
+            cert_reqs = None  # TODO: expose this through service
+            self.http_pool = HTTPSConnectionPool(
+                host=profile.host,
+                port=profile.port_number,
+                maxsize=1,
+                block=True,
+                cert_reqs=(cert_reqs or "CERT_NONE"),
+                ca_certs=where()
+            )
+        else:
+            self.http_pool = HTTPConnectionPool(
+                host=profile.host,
+                port=profile.port_number,
+                maxsize=1,
+                block=True,
+            )
 
     def close(self):
         self.http_pool.close()

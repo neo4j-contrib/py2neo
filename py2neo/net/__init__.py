@@ -156,6 +156,15 @@ class ConnectionProfile(object):
         return self.address.port_number
 
     @property
+    def protocol(self):
+        if self.scheme in ("neo4j", "bolt", "bolt+routing"):
+            return "bolt"
+        elif self.scheme in ("http", "https"):
+            return "http"
+        else:
+            return None
+
+    @property
     def uri(self):
         return "%s://%s:%s" % (self.scheme, self.host, self.port)
 
@@ -198,6 +207,8 @@ class Connection(object):
     """
 
     scheme = None
+
+    protocol = None
 
     protocol_version = ()
 

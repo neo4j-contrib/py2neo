@@ -108,7 +108,7 @@ def skip_if_no_temporal_support(graph):
     connector = graph.service.connector
     if graph.service.kernel_version < (3, 4):
         skip("Temporal type tests are only valid for Neo4j 3.4+")
-    if "bolt" not in connector.scheme:
+    if connector.profile.protocol != "bolt":
         skip("Temporal type tests are only valid for Bolt connectors")
 
 

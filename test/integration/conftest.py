@@ -135,7 +135,7 @@ def check_bolt_connections_released(connector):
     pool have been correctly released.
     """
     yield
-    if "bolt" in connector.scheme:
+    if connector.profile.protocol == "bolt":
         try:
             assert connector.pool.in_use == 0
         except AttributeError:

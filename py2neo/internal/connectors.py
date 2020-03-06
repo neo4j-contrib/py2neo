@@ -27,32 +27,19 @@ DEFAULT_MAX_CONNECTIONS = 40
 
 class Connector(object):
 
-    scheme = NotImplemented
-
-    pool = None
-
-    transactions = None
-
-    @classmethod
-    def walk_subclasses(cls):
-        subclasses = cls.__subclasses__()
-        for subclass in subclasses:
-            assert issubclass(subclass, cls)
-            yield subclass
-            for c in subclass.walk_subclasses():
-                yield c
-
     def __new__(cls, profile, **settings):
-        for subclass in cls.walk_subclasses():
-            assert issubclass(subclass, Connector)
-            if subclass.scheme == profile.scheme:
-                inst = object.__new__(subclass)
-                inst.open(profile, **settings)
-                inst.profile = profile
-                return inst
-        raise ValueError("Unsupported scheme %r" % profile.scheme)
+        if profile.protocol == "bolt":
+            return object.__new__(BoltConnector)
+        elif profile.protocol == "http":
+            return object.__new__(HTTPConnector)
+        else:
+            raise ValueError("Unsupported protocol %r" % profile.protocol)
 
-    def __init__(self, profile, **settings):
+    def __init__(self, profile, user_agent=None, max_connections=None, **_):
+        from py2neo.net import ConnectionPool
+        max_size = max_connections or DEFAULT_MAX_CONNECTIONS
+        self.profile = profile
+        self.pool = ConnectionPool(profile, user_agent=user_agent, max_size=max_size, max_age=None)
         self.transactions = {}
 
     @property
@@ -66,11 +53,6 @@ class Connector(object):
     @property
     def user_agent(self):
         return self.pool.user_agent
-
-    def open(self, profile, user_agent=None, max_connections=None, **_):
-        from py2neo.net import ConnectionPool
-        max_size = max_connections or DEFAULT_MAX_CONNECTIONS
-        self.pool = ConnectionPool(profile, user_agent=user_agent, max_size=max_size, max_age=None)
 
     def close(self):
         self.pool.close()
@@ -99,8 +81,6 @@ class Connector(object):
 
 
 class BoltConnector(Connector):
-
-    scheme = "bolt"
 
     def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
         if tx is None:
@@ -133,8 +113,6 @@ class BoltConnector(Connector):
 
 
 class HTTPConnector(Connector):
-
-    scheme = "http"
 
     def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
         cx = self.pool.acquire()
@@ -169,8 +147,3 @@ class HTTPConnector(Connector):
         cx = self.pool.acquire()
         cx.rollback(tx)
         self.pool.release(cx)
-
-
-class HTTPSConnector(HTTPConnector):
-
-    scheme = "https"
