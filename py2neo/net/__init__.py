@@ -206,37 +206,11 @@ class Connection(object):
     :ivar user_agent:
     """
 
-    scheme = None
-
-    protocol = None
-
-    protocol_version = ()
-
     server_agent = None
 
     connection_id = None
 
     pool = None
-
-    __subclasses = None
-
-    @classmethod
-    def _walk_subclasses(cls):
-        for subclass in cls.__subclasses__():
-            assert issubclass(subclass, cls)  # for the benefit of the IDE
-            yield subclass
-            for k in subclass._walk_subclasses():
-                yield k
-
-    @classmethod
-    def _get_subclass(cls, scheme, protocol_version):
-        key = (scheme, protocol_version)
-        if cls.__subclasses is None:
-            cls.__subclasses = {}
-            for subclass in cls._walk_subclasses():
-                subclass_key = (subclass.scheme, subclass.protocol_version)
-                cls.__subclasses[subclass_key] = subclass
-        return cls.__subclasses.get(key)
 
     @classmethod
     def open(cls, profile, user_agent=None):

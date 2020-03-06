@@ -32,9 +32,22 @@ log = getLogger(__name__)
 
 class Bolt(Connection):
 
-    scheme = "bolt"
-
     __local_port = 0
+
+    @classmethod
+    def _walk_subclasses(cls):
+        for subclass in cls.__subclasses__():
+            assert issubclass(subclass, cls)  # for the benefit of the IDE
+            yield subclass
+            for k in subclass._walk_subclasses():
+                yield k
+
+    @classmethod
+    def _get_subclass(cls, protocol_version):
+        for subclass in cls._walk_subclasses():
+            if subclass.protocol_version == protocol_version:
+                return subclass
+        raise RuntimeError("Unsupported protocol version %r" % protocol_version)
 
     @classmethod
     def open(cls, profile, user_agent=None):
@@ -64,7 +77,7 @@ class Bolt(Connection):
             return v[-1], v[-2]
 
         protocol_version = handshake()
-        subclass = cls._get_subclass(cls.scheme, protocol_version)
+        subclass = cls._get_subclass(protocol_version)
         if subclass is None:
             raise RuntimeError("Unable to agree supported protocol version")
         bolt = subclass(profile, (user_agent or bolt_user_agent()), wire)

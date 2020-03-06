@@ -27,20 +27,14 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo import http_user_agent
 from py2neo.internal.compat import urlsplit
-from py2neo.net.json import JSONHydrator
 from py2neo.net import Connection, Result
+from py2neo.net.json import JSONHydrator
 
 
 log = getLogger(__name__)
 
 
 class HTTP(Connection):
-
-    scheme = "http"
-
-    protocol = "http"
-
-    protocol_version = (1, 1)
 
     @classmethod
     def open(cls, profile, user_agent=None):
@@ -213,22 +207,6 @@ class HTTP(Connection):
         return self.http_pool.request(method="DELETE",
                                       url=url,
                                       headers=dict(self.headers))
-
-
-class HTTPS(HTTP):
-
-    scheme = "https"
-
-    def _make_pool(self, service):
-        cert_reqs = None  # TODO: expose this through service
-        self.http_pool = HTTPSConnectionPool(
-            host=service.host,
-            port=service.port_number,
-            maxsize=1,
-            block=True,
-            cert_reqs=(cert_reqs or "CERT_NONE"),
-            ca_certs=where()
-        )
 
 
 class HTTPResult(Result):
