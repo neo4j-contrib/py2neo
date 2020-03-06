@@ -19,7 +19,6 @@
 from __future__ import absolute_import
 
 from collections import namedtuple
-from json import loads as json_loads
 
 from py2neo.internal.compat import Sequence, Mapping, integer_types, string_types
 from py2neo.internal.hydration.spatial import (
@@ -117,11 +116,6 @@ class Hydrator(object):
                 instance.update(properties)
             self.graph.relationship_cache.update(identity, instance)
         return instance
-
-
-class HydrationError(Exception):
-
-    pass
 
 
 class PackStreamHydrator(Hydrator):
@@ -234,8 +228,7 @@ class JSONHydrator(Hydrator):
     def __init__(self, version, graph, entities=None):
         super(JSONHydrator, self).__init__(graph)
         self.version = version
-        if self.version != "rest":
-            raise ValueError("Unsupported JSON version %r" % self.version)
+        assert self.version == "rest"
         self.entities = entities or {}
         self.hydration_functions = {}
 
@@ -350,12 +343,6 @@ class JSONHydrator(Hydrator):
                 return obj
 
         return tuple(hydrate_object(value, entities.get(keys[i])) for i, value in enumerate(values))
-
-    def hydrate_result(self, data, index=0):
-        data = json_loads(data, object_hook=self.json_to_packstream)
-        if data.get("errors"):
-            raise HydrationError(*data["errors"])
-        return data["results"][index]
 
     def dehydrate(self, data):
         """ Dehydrate to JSON.
