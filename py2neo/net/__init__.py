@@ -233,7 +233,7 @@ class Connection(object):
         self.__t_opened = perf_counter()
 
     def __del__(self):
-        if self.pool:
+        if self.pool is not None:
             return
         try:
             self.close()
@@ -344,6 +344,7 @@ class ConnectionPool(object):
         self._quarantine = deque()
         self._free_list = deque()
         self._waiting_list = WaitingList()
+        self._transactions = {}
 
     def __del__(self):
         try:
@@ -359,12 +360,6 @@ class ConnectionPool(object):
             "." * len(self._free_list),
             " " * (self.max_size - self.size),
         )
-
-    def __contains__(self, cx):
-        return cx in self._in_use_list or cx in self._free_list
-
-    def __len__(self):
-        return self.size
 
     @property
     def profile(self):

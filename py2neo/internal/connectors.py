@@ -60,9 +60,6 @@ class Connector(object):
     def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
         raise NotImplementedError()
 
-    def is_valid_transaction(self, tx):
-        return tx and tx in self.transactions
-
     def _assert_valid_tx(self, tx):
         from py2neo.database import TransactionError
         if not tx:

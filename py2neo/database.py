@@ -865,8 +865,7 @@ class Transaction(object):
     def _rollback(self):
         """ Implicit rollback.
         """
-        if self.connector.is_valid_transaction(self.transaction):
-            self.connector.rollback(self.transaction)
+        self.connector.rollback(self.transaction)
         self._finished = True
 
     def rollback(self):

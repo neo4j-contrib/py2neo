@@ -316,7 +316,7 @@ class Bolt1(Bolt):
 
         while not response.full() and not response.done():
             fetch()
-            if not self.transaction and self.pool:
+            if self.pool is not None and not self.transaction:
                 self.pool.release(self)
 
     def _sync(self, *responses):
