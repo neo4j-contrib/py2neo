@@ -131,7 +131,6 @@ class Bolt1(Bolt):
         self.reader = MessageReader(wire)
         self.writer = MessageWriter(wire)
         self.responses = deque()
-        self.transaction = None
         self.metadata = {}
 
     def bookmark(self):
@@ -321,8 +320,8 @@ class Bolt1(Bolt):
 
         while not response.full() and not response.done():
             fetch()
-            if self.pool is not None and not self.transaction:
-                self.pool.release(self)
+            if not self.transaction:
+                self.release()
 
     def _sync(self, *responses):
         self._send()

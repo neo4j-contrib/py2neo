@@ -134,6 +134,7 @@ class HTTP(Connection):
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
+        self.release()
         return HTTPResult(rs.result())
 
     def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
@@ -145,6 +146,7 @@ class HTTP(Connection):
         location_path = urlsplit(r.headers["Location"]).path
         tx = location_path.rpartition("/")[-1]
         self.transactions.add(tx)
+        self.release()
         return tx
 
     def commit(self, tx):
@@ -154,6 +156,7 @@ class HTTP(Connection):
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
+        self.release()
 
     def rollback(self, tx):
         self._assert_valid_tx(tx)
@@ -162,12 +165,14 @@ class HTTP(Connection):
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
+        self.release()
 
     def run_in_tx(self, tx, cypher, parameters=None):
         r = self._post("/db/data/transaction/%s" % tx, cypher, parameters)
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
+        self.release()
         return HTTPResult(rs.result(), profile=self.profile)
 
     def pull(self, result, n=-1):

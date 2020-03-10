@@ -212,6 +212,8 @@ class Connection(object):
 
     pool = None
 
+    transaction = None
+
     @classmethod
     def open(cls, profile, user_agent=None):
         # TODO: automatically via subclass sniffing
@@ -311,6 +313,10 @@ class Connection(object):
 
     def default_hydrator(self, graph, entities):
         raise NotImplementedError
+
+    def release(self):
+        if self.pool is not None:
+            self.pool.release(self)
 
 
 # TODO: fix the docstring

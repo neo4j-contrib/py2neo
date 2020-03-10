@@ -18,9 +18,6 @@
 
 from __future__ import absolute_import
 
-from py2neo.net.json import JSONHydrator
-from py2neo.net.packstream import PackStreamHydrator
-
 
 DEFAULT_MAX_CONNECTIONS = 40
 
@@ -57,7 +54,15 @@ class Connector(object):
         self.pool.close()
 
     def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
-        raise NotImplementedError()
+        cx = self.pool.reacquire(tx)
+        hydrator = cx.default_hydrator(graph, entities)
+        if tx is None:
+            result = cx.auto_run(statement, hydrator.dehydrate(parameters))
+        else:
+            result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
+        cx.pull(result)
+        cx.sync(result)
+        return result, hydrator
 
     def begin(self):
         raise NotImplementedError()
@@ -70,17 +75,6 @@ class Connector(object):
 
 
 class BoltConnector(Connector):
-
-    def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
-        cx = self.pool.reacquire(tx)
-        hydrator = cx.default_hydrator(graph, entities)
-        if tx is None:
-            result = cx.auto_run(statement, hydrator.dehydrate(parameters))
-        else:
-            result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
-        cx.pull(result)
-        cx.sync(result)
-        return result, hydrator
 
     def begin(self):
         cx = self.pool.acquire()
@@ -101,30 +95,15 @@ class BoltConnector(Connector):
 
 class HTTPConnector(Connector):
 
-    def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
-        cx = self.pool.reacquire(tx)
-        hydrator = cx.default_hydrator(graph, entities)
-        if tx is None:
-            result = cx.auto_run(statement, hydrator.dehydrate(parameters))
-        else:
-            result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
-        cx.pull(result)
-        cx.sync(result)
-        self.pool.release(cx)
-        return result, hydrator
-
     def begin(self):
         cx = self.pool.acquire()
         tx = cx.begin()
-        self.pool.release(cx)
         return tx
 
     def commit(self, tx):
         cx = self.pool.reacquire(tx)
         cx.commit(tx)
-        self.pool.release(cx)
 
     def rollback(self, tx):
         cx = self.pool.reacquire(tx)
         cx.rollback(tx)
-        self.pool.release(cx)
