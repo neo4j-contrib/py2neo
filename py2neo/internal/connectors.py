@@ -24,14 +24,6 @@ DEFAULT_MAX_CONNECTIONS = 40
 
 class Connector(object):
 
-    def __new__(cls, profile, **settings):
-        if profile.protocol == "bolt":
-            return object.__new__(BoltConnector)
-        elif profile.protocol == "http":
-            return object.__new__(HTTPConnector)
-        else:
-            raise ValueError("Unsupported protocol %r" % profile.protocol)
-
     def __init__(self, profile, user_agent=None, max_connections=None, **_):
         from py2neo.net import ConnectionPool
         max_size = max_connections or DEFAULT_MAX_CONNECTIONS
@@ -63,37 +55,6 @@ class Connector(object):
         cx.pull(result)
         cx.sync(result)
         return result, hydrator
-
-    def begin(self):
-        raise NotImplementedError()
-
-    def commit(self, tx):
-        raise NotImplementedError()
-
-    def rollback(self, tx):
-        raise NotImplementedError()
-
-
-class BoltConnector(Connector):
-
-    def begin(self):
-        cx = self.pool.acquire()
-        tx = cx.begin()
-        self.pool.bind(tx, cx)
-        return tx
-
-    def commit(self, tx):
-        cx = self.pool.reacquire(tx)
-        cx.commit(tx)
-        self.pool.unbind(tx)
-
-    def rollback(self, tx):
-        cx = self.pool.reacquire(tx)
-        cx.rollback(tx)
-        self.pool.unbind(tx)
-
-
-class HTTPConnector(Connector):
 
     def begin(self):
         cx = self.pool.acquire()

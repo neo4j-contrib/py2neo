@@ -181,6 +181,7 @@ class Bolt1(Bolt):
         if bookmarks:
             self._sync(*responses)
             self._audit(self.transaction)
+        self._bind()
         return self.transaction
 
     def commit(self, tx):
@@ -192,6 +193,7 @@ class Bolt1(Bolt):
         self._sync(self._write_request(0x10, "COMMIT", {}),
                    self._write_request(0x2F))
         self._audit(self.transaction)
+        self._unbind()
 
     def rollback(self, tx):
         self._assert_open()
@@ -202,6 +204,7 @@ class Bolt1(Bolt):
         self._sync(self._write_request(0x10, "ROLLBACK", {}),
                    self._write_request(0x2F))
         self._audit(self.transaction)
+        self._unbind()
 
     def run_in_tx(self, tx, cypher, parameters=None):
         self._assert_open()
@@ -340,6 +343,14 @@ class Bolt1(Bolt):
             self.reset(force=True)
             raise
 
+    def _bind(self):
+        if self.pool:
+            self.pool.bind(self.transaction, self)
+
+    def _unbind(self):
+        if self.pool:
+            self.pool.unbind(self.transaction)
+
 
 class Bolt2(Bolt1):
 
@@ -386,6 +397,7 @@ class Bolt3(Bolt2):
         if bookmarks:
             self._sync(response)
             self._audit(self.transaction)
+        self._bind()
         return self.transaction
 
     def commit(self, tx):
@@ -395,6 +407,7 @@ class Bolt3(Bolt2):
         log.debug("[#%04X] C: COMMIT", self.local_port)
         self._sync(self._write_request(0x12))
         self._audit(self.transaction)
+        self._unbind()
 
     def rollback(self, tx):
         self._assert_open()
@@ -403,6 +416,7 @@ class Bolt3(Bolt2):
         log.debug("[#%04X] C: ROLLBACK", self.local_port)
         self._sync(self._write_request(0x13))
         self._audit(self.transaction)
+        self._unbind()
 
     def run(self, tx, cypher, parameters=None):
         self._assert_open()
