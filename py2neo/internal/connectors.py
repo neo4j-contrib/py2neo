@@ -40,7 +40,6 @@ class Connector(object):
         max_size = max_connections or DEFAULT_MAX_CONNECTIONS
         self.profile = profile
         self.pool = ConnectionPool(profile, user_agent=user_agent, max_size=max_size, max_age=None)
-        self.transactions = {}
 
     @property
     def server_agent(self):
@@ -60,13 +59,6 @@ class Connector(object):
     def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
         raise NotImplementedError()
 
-    def _assert_valid_tx(self, tx):
-        from py2neo.database import TransactionError
-        if not tx:
-            raise TransactionError("No transaction")
-        if tx not in self.transactions:
-            raise TransactionError("Invalid transaction")
-
     def begin(self):
         raise NotImplementedError()
 
@@ -80,13 +72,11 @@ class Connector(object):
 class BoltConnector(Connector):
 
     def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
+        cx = self.pool.reacquire(tx)
+        hydrator = PackStreamHydrator(cx.protocol_version, graph, entities)
         if tx is None:
-            cx = self.pool.acquire()
-            hydrator = PackStreamHydrator(cx.protocol_version, graph, entities)
             result = cx.auto_run(statement, hydrator.dehydrate(parameters))
         else:
-            cx = self.transactions.get(tx)
-            hydrator = PackStreamHydrator(cx.protocol_version, graph, entities)
             result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
         cx.pull(result)
         cx.sync(result)
@@ -95,29 +85,28 @@ class BoltConnector(Connector):
     def begin(self):
         cx = self.pool.acquire()
         tx = cx.begin()
-        self.transactions[tx] = cx
+        self.pool.bind(tx, cx)
         return tx
 
     def commit(self, tx):
-        self._assert_valid_tx(tx)
-        cx = self.transactions.pop(tx)
+        cx = self.pool.reacquire(tx)
         cx.commit(tx)
+        self.pool.unbind(tx)
 
     def rollback(self, tx):
-        self._assert_valid_tx(tx)
-        cx = self.transactions.pop(tx)
+        cx = self.pool.reacquire(tx)
         cx.rollback(tx)
+        self.pool.unbind(tx)
 
 
 class HTTPConnector(Connector):
 
     def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
-        cx = self.pool.acquire()
+        cx = self.pool.reacquire(tx)
+        hydrator = JSONHydrator("rest", graph, entities)
         if tx is None:
-            hydrator = JSONHydrator("rest", graph, entities)
             result = cx.auto_run(statement, hydrator.dehydrate(parameters))
         else:
-            hydrator = JSONHydrator("rest", graph, entities)
             result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
         cx.pull(result)
         cx.sync(result)
@@ -128,19 +117,14 @@ class HTTPConnector(Connector):
         cx = self.pool.acquire()
         tx = cx.begin()
         self.pool.release(cx)
-        self.transactions[tx] = None
         return tx
 
     def commit(self, tx):
-        self._assert_valid_tx(tx)
-        self.transactions.pop(tx)
-        cx = self.pool.acquire()
+        cx = self.pool.reacquire(tx)
         cx.commit(tx)
         self.pool.release(cx)
 
     def rollback(self, tx):
-        self._assert_valid_tx(tx)
-        self.transactions.pop(tx)
-        cx = self.pool.acquire()
+        cx = self.pool.reacquire(tx)
         cx.rollback(tx)
         self.pool.release(cx)

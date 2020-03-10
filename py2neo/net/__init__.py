@@ -565,6 +565,35 @@ class ConnectionPool(object):
         for closer in closers:
             closer()
 
+    def reacquire(self, tx):
+        """ Lookup and return the connection bound to this
+        transaction. If this transaction is not bound, acquire
+        a connection via the regular acquire method.
+        """
+        try:
+            return self._transactions[tx]
+        except KeyError:
+            return self.acquire()
+
+    def is_bound(self, tx):
+        """ Return true if the given transaction is bound
+        within this pool.
+        """
+        return tx in self._transactions
+
+    def bind(self, tx, cx):
+        """ Bind a transaction to a connection.
+        """
+        self._transactions[tx] = cx
+
+    def unbind(self, tx):
+        """ Unbind a transaction from a connection.
+        """
+        try:
+            del self._transactions[tx]
+        except KeyError:
+            raise TransactionError("Transaction not bound")
+
 
 class WaitingList:
 
