@@ -132,36 +132,43 @@ class HTTP(Connection):
                  db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         r = self._post("/db/data/transaction/commit", cypher, parameters)
         assert r.status == 200  # TODO: other codes
-        data = json_loads(r.data.decode("utf-8"), object_hook=JSONHydrator.json_to_packstream)
-        result_data = data["results"][0] if data["results"] else {}
-        return HTTPResult(result_data, data["errors"])
+        rs = HTTPResponse.from_json(r.data.decode("utf-8"))
+        rs.audit()
+        return HTTPResult(rs.result())
 
     def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         r = self._post("/db/data/transaction")
-        if r.status == 201:
-            location_path = urlsplit(r.headers["Location"]).path
-            tx = location_path.rpartition("/")[-1]
-            self.transactions.add(tx)
-            return tx
-        else:
+        if r.status != 201:
             raise RuntimeError("Can't begin a new transaction")
+        rs = HTTPResponse.from_json(r.data.decode("utf-8"))
+        rs.audit()
+        location_path = urlsplit(r.headers["Location"]).path
+        tx = location_path.rpartition("/")[-1]
+        self.transactions.add(tx)
+        return tx
 
     def commit(self, tx):
         self._assert_valid_tx(tx)
         self.transactions.remove(tx)
-        self._post("/db/data/transaction/%s/commit" % tx)
+        r = self._post("/db/data/transaction/%s/commit" % tx)
+        assert r.status == 200  # TODO: other codes
+        rs = HTTPResponse.from_json(r.data.decode("utf-8"))
+        rs.audit()
 
     def rollback(self, tx):
         self._assert_valid_tx(tx)
         self.transactions.remove(tx)
-        self._delete("/db/data/transaction/%s" % tx)
+        r = self._delete("/db/data/transaction/%s" % tx)
+        assert r.status == 200  # TODO: other codes
+        rs = HTTPResponse.from_json(r.data.decode("utf-8"))
+        rs.audit()
 
     def run_in_tx(self, tx, cypher, parameters=None):
         r = self._post("/db/data/transaction/%s" % tx, cypher, parameters)
         assert r.status == 200  # TODO: other codes
-        data = json_loads(r.data.decode("utf-8"), object_hook=JSONHydrator.json_to_packstream)
-        result_data = data["results"][0] if data["results"] else {}
-        return HTTPResult(result_data, data.get("errors"), profile=self.profile)
+        rs = HTTPResponse.from_json(r.data.decode("utf-8"))
+        rs.audit()
+        return HTTPResult(rs.result(), profile=self.profile)
 
     def pull(self, result, n=-1):
         pass
@@ -170,10 +177,7 @@ class HTTP(Connection):
         pass
 
     def sync(self, result):
-        self._audit(result)
-
-    def _audit(self, result):
-        result.audit()
+        pass
 
     def fetch(self, result):
         record = result.take_record()
@@ -208,10 +212,13 @@ class HTTP(Connection):
                                       url=url,
                                       headers=dict(self.headers))
 
+    def default_hydrator(self, graph, entities):
+        return JSONHydrator("rest", graph, entities)
+
 
 class HTTPResult(Result):
 
-    def __init__(self, result, errors, profile=None):
+    def __init__(self, result, profile=None):
         super(Result, self).__init__()
         self._columns = result.get("columns", ())
         self._data = result.get("data", [])
@@ -220,14 +227,7 @@ class HTTPResult(Result):
             self._summary["stats"] = result["stats"]
         if profile:
             self._summary["connection"] = profile.to_dict()
-        self._errors = errors
         self._cursor = 0
-
-    def audit(self):
-        if self._errors:
-            from py2neo.database import GraphError
-            failure = GraphError.hydrate(self._errors.pop(0))
-            raise failure
 
     def buffer(self):
         pass
@@ -252,3 +252,39 @@ class HTTPResult(Result):
         else:
             self._cursor += 1
             return record
+
+
+class HTTPResponse(object):
+
+    @classmethod
+    def from_json(cls, data):
+        return cls(json_loads(data, object_hook=JSONHydrator.json_to_packstream))
+
+    def __init__(self, content):
+        self._content = content
+
+    def columns(self):
+        return tuple(self._content.get("columns", ()))
+
+    def result(self, index=0):
+        try:
+            results = self._content["results"]
+        except KeyError:
+            return {}  # TODO return None, somehow
+        else:
+            try:
+                return results[index]
+            except IndexError:
+                return {}  # TODO return None, somehow
+
+    def stats(self):
+        return self._content.get("stats", {})
+
+    def errors(self):
+        return self._content.get("errors", [])
+
+    def audit(self):
+        if self.errors():
+            from py2neo.database import GraphError
+            failure = GraphError.hydrate(self.errors().pop(0))
+            raise failure

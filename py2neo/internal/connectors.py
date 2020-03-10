@@ -73,7 +73,7 @@ class BoltConnector(Connector):
 
     def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
         cx = self.pool.reacquire(tx)
-        hydrator = PackStreamHydrator(cx.protocol_version, graph, entities)
+        hydrator = cx.default_hydrator(graph, entities)
         if tx is None:
             result = cx.auto_run(statement, hydrator.dehydrate(parameters))
         else:
@@ -103,7 +103,7 @@ class HTTPConnector(Connector):
 
     def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
         cx = self.pool.reacquire(tx)
-        hydrator = JSONHydrator("rest", graph, entities)
+        hydrator = cx.default_hydrator(graph, entities)
         if tx is None:
             result = cx.auto_run(statement, hydrator.dehydrate(parameters))
         else:

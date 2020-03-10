@@ -309,6 +309,9 @@ class Connection(object):
     def fetch(self, result):
         pass
 
+    def default_hydrator(self, graph, entities):
+        raise NotImplementedError
+
 
 # TODO: fix the docstring
 class ConnectionPool(object):

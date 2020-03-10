@@ -23,7 +23,7 @@ from socket import socket
 from py2neo.meta import bolt_user_agent
 from py2neo.net import Connection, Transaction, TransactionError, Result, \
     Task, ItemizedTask, Failure
-from py2neo.net.packstream import MessageReader, MessageWriter
+from py2neo.net.packstream import MessageReader, MessageWriter, PackStreamHydrator
 from py2neo.net.wire import Wire
 
 
@@ -31,6 +31,8 @@ log = getLogger(__name__)
 
 
 class Bolt(Connection):
+
+    protocol_version = ()
 
     __local_port = 0
 
@@ -115,6 +117,9 @@ class Bolt(Connection):
             raise RuntimeError("Connection has been closed")
         if self.broken:
             raise RuntimeError("Connection is broken")
+
+    def default_hydrator(self, graph, entities):
+        return PackStreamHydrator(self.protocol_version, graph, entities)
 
 
 class Bolt1(Bolt):
