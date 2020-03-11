@@ -28,8 +28,7 @@ from py2neo.admin.dist import Distribution, minor_versions
 from py2neo.admin.install import Warehouse
 from py2neo.database import GraphService
 from py2neo.internal.compat import SocketError
-from py2neo.internal.connectors import Connector
-from py2neo.net import ConnectionProfile
+from py2neo.net import Connector, ConnectionProfile
 
 
 NEO4J_EDITION = "enterprise"
@@ -101,7 +100,7 @@ def connection_profile(uri):
 
 @fixture(scope="session")
 def connector(connection_profile):
-    return Connector(connection_profile)
+    return Connector.open(connection_profile)
 
 
 @fixture(scope="session")
@@ -137,11 +136,10 @@ def check_bolt_connections_released(connector):
     yield
     if connector.profile.protocol == "bolt":
         try:
-            assert connector.pool.in_use == 0
+            assert connector.in_use == 0
         except AttributeError:
-            address = connector.connection_data["host"], connector.connection_data["port"]
             # print(connector.pool.in_use_connection_count(address), "/", len(connector.pool.connections.get(address, [])))
-            assert connector.pool.in_use_connection_count(address) == 0
+            assert connector.in_use_connection_count(connector.profile.address) == 0
 
 
 def pytest_sessionfinish(session, exitstatus):

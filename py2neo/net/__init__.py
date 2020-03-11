@@ -319,13 +319,11 @@ class Connection(object):
             self.pool.release(self)
 
 
-# TODO: fix the docstring
-class ConnectionPool(object):
-    """ A pool of connections to a single address.
+class Connector(object):
+    """ A connection pool for a remote Neo4j service.
 
-    :param opener: a function to which an address can be passed that
-        returns an open and ready Bolt connection
-    :param address: the remote address for which this pool operates
+    :param profile: a :class:`.ConnectionProfile` describing how to
+        connect to the remote service for which this pool operates
     :param max_size: the maximum permitted number of simultaneous
         connections that may be owned by this pool, both in-use and
         free
@@ -370,11 +368,22 @@ class ConnectionPool(object):
             " " * (self.max_size - self.size),
         )
 
+    def __hash__(self):
+        return hash(self._profile)
+
     @property
     def profile(self):
         """ The connection profile for which this pool operates.
         """
         return self._profile
+
+    @property
+    def server_agent(self):
+        cx = self.acquire()
+        try:
+            return cx.server_agent
+        finally:
+            self.release(cx)
 
     @property
     def user_agent(self):
@@ -602,6 +611,26 @@ class ConnectionPool(object):
             del self._transactions[tx]
         except KeyError:
             raise TransactionError("Transaction not bound")
+
+    def begin(self):
+        return self.acquire().begin()
+
+    def commit(self, tx):
+        self.reacquire(tx).commit(tx)
+
+    def rollback(self, tx):
+        self.reacquire(tx).rollback(tx)
+
+    def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
+        cx = self.reacquire(tx)
+        hydrator = cx.default_hydrator(graph, entities)
+        if tx is None:
+            result = cx.auto_run(statement, hydrator.dehydrate(parameters))
+        else:
+            result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
+        cx.pull(result)
+        cx.sync(result)
+        return result, hydrator
 
 
 class WaitingList:
