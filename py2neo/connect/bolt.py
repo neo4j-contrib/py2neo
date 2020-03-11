@@ -23,7 +23,7 @@ from socket import socket
 from py2neo.meta import bolt_user_agent
 from py2neo.connect import Connection, Transaction, TransactionError, Result, \
     Task, ItemizedTask, Failure
-from py2neo.connect.packstream import MessageReader, MessageWriter, PackStreamHydrator
+from py2neo.connect.packstream import MessageReader, MessageWriter, PackStreamHydrant
 from py2neo.connect.wire import Wire
 
 
@@ -50,6 +50,10 @@ class Bolt(Connection):
             if subclass.protocol_version == protocol_version:
                 return subclass
         raise RuntimeError("Unsupported protocol version %r" % protocol_version)
+
+    @classmethod
+    def default_hydrant(cls, graph, entities):
+        return PackStreamHydrant(graph, entities)
 
     @classmethod
     def open(cls, profile, user_agent=None):
@@ -117,9 +121,6 @@ class Bolt(Connection):
             raise RuntimeError("Connection has been closed")
         if self.broken:
             raise RuntimeError("Connection is broken")
-
-    def default_hydrator(self, graph, entities):
-        return PackStreamHydrator(self.protocol_version, graph, entities)
 
 
 class Bolt1(Bolt):
@@ -451,6 +452,10 @@ class BoltResult(ItemizedTask, Result):
         self.__record_type = None
         self.__cx = cx
         self.append(response)
+
+    @property
+    def protocol_version(self):
+        return self.__cx.protocol_version
 
     def buffer(self):
         if not self.done():

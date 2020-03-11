@@ -838,10 +838,10 @@ class Transaction(object):
             entities = {}
 
         try:
-            result, hydrator = self.connector.run(cypher, dict(parameters or {}, **kwparameters),
-                                                  tx=self.transaction, graph=self.graph,
-                                                  entities=entities)
-            return Cursor(result, hydrator)
+            result, hydrant = self.connector.run(cypher, dict(parameters or {}, **kwparameters),
+                                                 tx=self.transaction, graph=self.graph,
+                                                 entities=entities)
+            return Cursor(result, hydrant)
         finally:
             if not self.transaction:
                 self.finish()
@@ -1191,13 +1191,14 @@ class Cursor(object):
         assert amount > 0
         amount = int(amount)
         moved = 0
+        v = self._result.protocol_version
         while moved != amount:
             values = self._result.fetch()
             if values is None:
                 break
             else:
                 keys = self._result.fields()  # TODO: don't do this for every record
-                self._current = Record(zip(keys, self._hydrator.hydrate(keys, values)))
+                self._current = Record(zip(keys, self._hydrator.hydrate(keys, values, version=v)))
                 moved += 1
         return moved
 

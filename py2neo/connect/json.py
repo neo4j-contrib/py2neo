@@ -21,6 +21,7 @@
 
 from collections import namedtuple
 
+from py2neo.connect import Hydrant
 from py2neo.internal.compat import Sequence, Mapping, integer_types, string_types
 from py2neo.matching import RelationshipMatcher
 
@@ -29,14 +30,12 @@ INT64_MIN = -(2 ** 63)
 INT64_MAX = 2 ** 63 - 1
 
 
-class JSONHydrator(object):
+class JSONHydrant(Hydrant):
 
     unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
-    def __init__(self, version, graph, entities=None):
+    def __init__(self, graph, entities=None):
         self.graph = graph
-        self.version = version
-        assert self.version == "rest"
         self.entities = entities or {}
         self.hydration_functions = {}
 
@@ -82,7 +81,7 @@ class JSONHydrator(object):
             #      "and may be unintentionally hydrated as graph objects")
             return data
 
-    def hydrate(self, keys, values):
+    def hydrate(self, keys, values, version=None):
         """ Convert JSON values into native values. This is the other half
         of the HTTP hydration process, and is basically a copy of the
         Bolt/PackStream hydration code. It needs to be combined with the
@@ -144,7 +143,7 @@ class JSONHydrator(object):
 
         return tuple(hydrate_object(value, entities.get(keys[i])) for i, value in enumerate(values))
 
-    def dehydrate(self, data):
+    def dehydrate(self, data, version=None):
         """ Dehydrate to JSON.
         """
         if data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):

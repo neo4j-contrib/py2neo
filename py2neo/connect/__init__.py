@@ -206,6 +206,8 @@ class Connection(object):
     :ivar user_agent:
     """
 
+    protocol_version = None
+
     server_agent = None
 
     connection_id = None
@@ -311,7 +313,8 @@ class Connection(object):
     def fetch(self, result):
         pass
 
-    def default_hydrator(self, graph, entities):
+    @classmethod
+    def default_hydrant(self, graph, entities):
         raise NotImplementedError
 
     def release(self):
@@ -623,14 +626,15 @@ class Connector(object):
 
     def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
         cx = self.reacquire(tx)
-        hydrator = cx.default_hydrator(graph, entities)
+        hydrant = cx.default_hydrant(graph, entities)
+        dehydrated = hydrant.dehydrate(parameters, version=cx.protocol_version)
         if tx is None:
-            result = cx.auto_run(statement, hydrator.dehydrate(parameters))
+            result = cx.auto_run(statement, dehydrated)
         else:
-            result = cx.run_in_tx(tx, statement, hydrator.dehydrate(parameters))
+            result = cx.run_in_tx(tx, statement, dehydrated)
         cx.pull(result)
         cx.sync(result)
-        return result, hydrator
+        return result, hydrant
 
 
 class WaitingList:
@@ -753,6 +757,10 @@ class Result(object):
     def __init__(self):
         super(Result, self).__init__()
 
+    @property
+    def protocol_version(self):
+        return None
+
     def buffer(self):
         raise NotImplementedError
 
@@ -790,3 +798,12 @@ class Failure(Exception):
     @property
     def message(self):
         return self.args[0]
+
+
+class Hydrant(object):
+
+    def hydrate(self, keys, values, version=None):
+        raise NotImplementedError
+
+    def dehydrate(self, data, version=None):
+        raise NotImplementedError

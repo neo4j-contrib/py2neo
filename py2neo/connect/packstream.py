@@ -23,6 +23,7 @@ from codecs import decode
 from collections import namedtuple
 from struct import pack as struct_pack, unpack as struct_unpack
 
+from py2neo.connect import Hydrant
 from py2neo.internal.compat import Sequence, Mapping, bytes_types, integer_types, string_types, bstr
 
 
@@ -644,96 +645,125 @@ class MessageWriter(object):
         return self._tx.send()
 
 
-class PackStreamHydrator(object):
+class PackStreamHydrant(Hydrant):
 
     unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
-    def __init__(self, version, graph, entities=None):
+    def __init__(self, graph, entities=None):
         self.graph = graph
-        self.version = version if isinstance(version, tuple) else (version, 0)
         self.entities = entities or {}
-        self.hydration_functions = {}
-        self.dehydration_functions = {}
-        if self.version >= (2, 0):
-            from py2neo.internal.hydration.spatial import (
-                hydration_functions as spatial_hydration_functions,
-                dehydration_functions as spatial_dehydration_functions,
-            )
-            from py2neo.internal.hydration.temporal import (
-                hydration_functions as temporal_hydration_functions,
-                dehydration_functions as temporal_dehydration_functions,
-            )
-            self.hydration_functions.update(temporal_hydration_functions())
-            self.hydration_functions.update(spatial_hydration_functions())
-            self.dehydration_functions.update(temporal_dehydration_functions())
-            self.dehydration_functions.update(spatial_dehydration_functions())
+        self.hydration_functions = {
+            (1, 0): {},
+            (2, 0): {},
+            (3, 0): {},
+            (4, 0): {},
+        }
+        self.dehydration_functions = {
+            (1, 0): {},
+            (2, 0): {},
+            (3, 0): {},
+            (4, 0): {},
+        }
+        from py2neo.internal.hydration.spatial import (
+            hydration_functions as spatial_hydration_functions,
+            dehydration_functions as spatial_dehydration_functions,
+        )
+        from py2neo.internal.hydration.temporal import (
+            hydration_functions as temporal_hydration_functions,
+            dehydration_functions as temporal_dehydration_functions,
+        )
+        for v in [(2, 0), (3, 0), (4, 0)]:
+            self.hydration_functions[v].update(temporal_hydration_functions())
+            self.hydration_functions[v].update(spatial_hydration_functions())
+            self.dehydration_functions[v].update(temporal_dehydration_functions())
+            self.dehydration_functions[v].update(spatial_dehydration_functions())
 
-    def hydrate(self, keys, values):
+    def hydrate(self, keys, values, version=None):
         """ Convert PackStream values into native values.
         """
-        return tuple(self._hydrate_object(value, self.entities.get(keys[i]))
+        if version is None:
+            v = (1, 0)
+        elif isinstance(version, tuple):
+            v = version
+        else:
+            v = (version, 0)
+        return tuple(self._hydrate_object(value, self.entities.get(keys[i]), v)
                      for i, value in enumerate(values))
 
-    def _hydrate_object(self, obj, inst=None):
-        from py2neo.data import Node, Relationship
-        if isinstance(obj, Structure):
-            tag = obj.tag if isinstance(obj.tag, bytes) else bytes(bytearray([obj.tag]))
-            fields = obj.fields
-            if tag == b"N":
-                return Node.hydrate(self.graph, fields[0], fields[1], self._hydrate_object(fields[2]), into=inst)
-            elif tag == b"R":
-                return Relationship.hydrate(self.graph, fields[0], fields[1], fields[2], fields[3],
-                                            self._hydrate_object(fields[4]), into=inst)
-            elif tag == b"P":
-                return self._hydrate_path(*fields)
-            else:
-                try:
-                    f = self.hydration_functions[tag]
-                except KeyError:
-                    # If we don't recognise the structure type, just return it as-is
-                    return obj
+    def _hydrate_object(self, obj, inst=None, version=None):
+
+        def h1(o):
+            from py2neo.data import Node, Relationship
+            if isinstance(o, Structure):
+                tag = o.tag if isinstance(o.tag, bytes) else bytes(bytearray([o.tag]))
+                fields = o.fields
+                if tag == b"N":
+                    return Node.hydrate(self.graph, fields[0], fields[1], h1(fields[2]), into=inst)
+                elif tag == b"R":
+                    return Relationship.hydrate(self.graph, fields[0], fields[1], fields[2], fields[3],
+                                                h1(fields[4]), into=inst)
+                elif tag == b"P":
+                    return _hydrate_path(*fields)
                 else:
-                    return f(*map(self._hydrate_object, obj.fields))
-        elif isinstance(obj, list):
-            return list(map(self._hydrate_object, obj))
-        elif isinstance(obj, dict):
-            return {key: self._hydrate_object(value) for key, value in obj.items()}
-        else:
-            return obj
+                    try:
+                        f = self.hydration_functions[version][tag]
+                    except KeyError:
+                        # If we don't recognise the structure type, just return it as-is
+                        return o
+                    else:
+                        return f(*map(h1, o.fields))
+            elif isinstance(o, list):
+                return list(map(h1, o))
+            elif isinstance(o, dict):
+                return {key: h1(value) for key, value in o.items()}
+            else:
+                return o
 
-    def _hydrate_path(self, nodes, relationships, sequence):
-        from py2neo.data import Node, Path
-        nodes = [Node.hydrate(self.graph, n_id, n_label, self._hydrate_object(n_properties))
-                 for n_id, n_label, n_properties in nodes]
-        u_rels = []
-        for r_id, r_type, r_properties in relationships:
-            u_rel = self.unbound_relationship(r_id, r_type, self._hydrate_object(r_properties))
-            u_rels.append(u_rel)
-        return Path.hydrate(self.graph, nodes, u_rels, sequence)
+        def _hydrate_path(nodes, relationships, sequence):
+            from py2neo.data import Node, Path
+            nodes = [Node.hydrate(self.graph, n_id, n_label, h1(n_properties))
+                     for n_id, n_label, n_properties in nodes]
+            u_rels = []
+            for r_id, r_type, r_properties in relationships:
+                u_rel = self.unbound_relationship(r_id, r_type, h1(r_properties))
+                u_rels.append(u_rel)
+            return Path.hydrate(self.graph, nodes, u_rels, sequence)
 
-    def dehydrate(self, data):
+        return h1(obj)
+
+    def dehydrate(self, data, version=None):
         """ Dehydrate to PackStream.
         """
-        t = type(data)
-        if t in self.dehydration_functions:
-            f = self.dehydration_functions[t]
-            return f(data)
-        elif data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):
-            return data
-        elif isinstance(data, integer_types):
-            if data < INT64_MIN or data > INT64_MAX:
-                raise ValueError("Integers must be within the signed 64-bit range")
-            return data
-        elif isinstance(data, bytearray):
-            return data
-        elif isinstance(data, Mapping):
-            d = {}
-            for key in data:
-                if not isinstance(key, string_types):
-                    raise TypeError("Dictionary keys must be strings")
-                d[key] = self.dehydrate(data[key])
-            return d
-        elif isinstance(data, Sequence):
-            return list(map(self.dehydrate, data))
+        if version is None:
+            v = (1, 0)
+        elif isinstance(version, tuple):
+            v = version
         else:
-            raise TypeError("Neo4j does not support PackStream parameters of type %s" % type(data).__name__)
+            v = (version, 0)
+
+        def d1(x):
+            t = type(x)
+            if t in self.dehydration_functions[v]:
+                f = self.dehydration_functions[v][t]
+                return f(x)
+            elif x is None or x is True or x is False or isinstance(x, float) or isinstance(x, string_types):
+                return x
+            elif isinstance(x, integer_types):
+                if x < INT64_MIN or x > INT64_MAX:
+                    raise ValueError("Integers must be within the signed 64-bit range")
+                return x
+            elif isinstance(x, bytearray):
+                return x
+            elif isinstance(x, Mapping):
+                d = {}
+                for key in x:
+                    if not isinstance(key, string_types):
+                        raise TypeError("Dictionary keys must be strings")
+                    d[key] = d1(x[key])
+                return d
+            elif isinstance(x, Sequence):
+                return list(map(d1, x))
+            else:
+                raise TypeError("Neo4j does not support PackStream parameters of type %s" % type(x).__name__)
+
+        return d1(data)

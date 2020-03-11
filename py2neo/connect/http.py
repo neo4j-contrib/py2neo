@@ -28,13 +28,17 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 from py2neo import http_user_agent
 from py2neo.internal.compat import urlsplit
 from py2neo.connect import Connection, Result
-from py2neo.connect.json import JSONHydrator
+from py2neo.connect.json import JSONHydrant
 
 
 log = getLogger(__name__)
 
 
 class HTTP(Connection):
+
+    @classmethod
+    def default_hydrant(cls, graph, entities):
+        return JSONHydrant(graph, entities)
 
     @classmethod
     def open(cls, profile, user_agent=None):
@@ -217,9 +221,6 @@ class HTTP(Connection):
                                       url=url,
                                       headers=dict(self.headers))
 
-    def default_hydrator(self, graph, entities):
-        return JSONHydrator("rest", graph, entities)
-
 
 class HTTPResult(Result):
 
@@ -263,7 +264,7 @@ class HTTPResponse(object):
 
     @classmethod
     def from_json(cls, data):
-        return cls(json_loads(data, object_hook=JSONHydrator.json_to_packstream))
+        return cls(json_loads(data, object_hook=JSONHydrant.json_to_packstream))
 
     def __init__(self, content):
         self._content = content
