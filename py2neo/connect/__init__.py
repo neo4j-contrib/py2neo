@@ -31,7 +31,7 @@ from py2neo.meta import (
     bolt_user_agent,
     http_user_agent,
 )
-from py2neo.net.addressing import Address
+from py2neo.connect.addressing import Address
 
 
 DEFAULT_SCHEME = "bolt"
@@ -218,13 +218,13 @@ class Connection(object):
     def open(cls, profile, user_agent=None):
         # TODO: automatically via subclass sniffing
         if profile.scheme == "bolt":
-            from py2neo.net.bolt import Bolt
+            from py2neo.connect.bolt import Bolt
             return Bolt.open(profile, user_agent=user_agent)
         elif profile.scheme == "http":
-            from py2neo.net.http import HTTP
+            from py2neo.connect.http import HTTP
             return HTTP.open(profile, user_agent=user_agent)
         elif profile.scheme == "https":
-            from py2neo.net.http import HTTPS
+            from py2neo.connect.http import HTTPS
             return HTTPS.open(profile, user_agent=user_agent)
         else:
             raise ValueError("Unsupported scheme %r" % profile.scheme)

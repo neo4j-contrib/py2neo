@@ -20,7 +20,7 @@ from collections import deque
 
 from pytest import fixture, raises
 
-from py2neo.net.wire import Wire
+from py2neo.connect.wire import Wire
 
 
 class FakeSocket(object):

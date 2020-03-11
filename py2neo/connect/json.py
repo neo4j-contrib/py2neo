@@ -53,7 +53,7 @@ class JSONHydrator(object):
         proper hydration. This code needs to die horribly in a freak
         yachting accident.
         """
-        from py2neo.net.packstream import Structure
+        from py2neo.connect.packstream import Structure
         # TODO: other partial hydration
         if "self" in data:
             if "type" in data:
@@ -95,7 +95,7 @@ class JSONHydrator(object):
 
         def hydrate_object(obj, inst=None):
             from py2neo.data import Node, Relationship, Path
-            from py2neo.net.packstream import Structure
+            from py2neo.connect.packstream import Structure
             if isinstance(obj, Structure):
                 tag = obj.tag
                 fields = obj.fields

@@ -23,6 +23,7 @@ from datetime import datetime
 from time import sleep
 from warnings import warn
 
+from py2neo.connect import Connector, ConnectionProfile
 from py2neo.cypher import cypher_escape
 from py2neo.data import Record, Table
 from py2neo.internal.caching import ThreadLocalEntityCache
@@ -31,7 +32,6 @@ from py2neo.internal.operations import OperationError
 from py2neo.internal.text import Words
 from py2neo.internal.versioning import Version
 from py2neo.matching import NodeMatcher, RelationshipMatcher
-from py2neo.net import Connector, ConnectionProfile
 
 
 update_stats_keys = [

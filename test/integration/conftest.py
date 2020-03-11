@@ -26,9 +26,9 @@ from pytest import fixture
 from py2neo import Graph
 from py2neo.admin.dist import Distribution, minor_versions
 from py2neo.admin.install import Warehouse
+from py2neo.connect import Connector, ConnectionProfile
 from py2neo.database import GraphService
 from py2neo.internal.compat import SocketError
-from py2neo.net import Connector, ConnectionProfile
 
 
 NEO4J_EDITION = "enterprise"

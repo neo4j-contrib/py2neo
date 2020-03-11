@@ -18,8 +18,8 @@
 
 from unittest import TestCase
 
-from py2neo.net import ConnectionProfile
-from py2neo.net.addressing import IPv4Address
+from py2neo.connect import ConnectionProfile
+from py2neo.connect.addressing import IPv4Address
 
 
 class AddressingTestCase(TestCase):

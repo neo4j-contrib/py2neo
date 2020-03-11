@@ -21,10 +21,10 @@ from logging import getLogger
 from socket import socket
 
 from py2neo.meta import bolt_user_agent
-from py2neo.net import Connection, Transaction, TransactionError, Result, \
+from py2neo.connect import Connection, Transaction, TransactionError, Result, \
     Task, ItemizedTask, Failure
-from py2neo.net.packstream import MessageReader, MessageWriter, PackStreamHydrator
-from py2neo.net.wire import Wire
+from py2neo.connect.packstream import MessageReader, MessageWriter, PackStreamHydrator
+from py2neo.connect.wire import Wire
 
 
 log = getLogger(__name__)

@@ -21,7 +21,7 @@ This module defines spatial data types.
 """
 
 
-from py2neo.net.packstream import Structure
+from py2neo.connect.packstream import Structure
 from py2neo.spatial import Point
 
 
