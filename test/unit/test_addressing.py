@@ -35,7 +35,7 @@ class AddressingTestCase(TestCase):
             'port_number': 9999,
             'scheme': 'bolt',
             'secure': False,
-            'verified': False,
+            'verify': False,
             'uri': 'bolt://host:9999',
             'user': 'neo4j',
         })
@@ -51,7 +51,7 @@ class AddressingTestCase(TestCase):
             'port_number': 9999,
             'scheme': 'http',
             'secure': False,
-            'verified': False,
+            'verify': False,
             'uri': 'http://host:9999',
             'user': 'neo4j',
         })
@@ -67,13 +67,13 @@ class AddressingTestCase(TestCase):
             'port_number': 9999,
             'scheme': 'https',
             'secure': True,
-            'verified': False,
+            'verify': False,
             'uri': 'https://host:9999',
             'user': 'neo4j',
         })
 
-    def test_http_uri_wth_secure_and_verified(self):
-        data = ConnectionProfile("http://host:9999", secure=True, verified=True).to_dict()
+    def test_http_uri_wth_secure_and_verify(self):
+        data = ConnectionProfile("http://host:9999", secure=True, verify=True).to_dict()
         self.assertEqual(data, {
             'address': IPv4Address(('host', 9999)),
             'auth': ('neo4j', 'password'),
@@ -83,7 +83,7 @@ class AddressingTestCase(TestCase):
             'port_number': 9999,
             'scheme': 'https',
             'secure': True,
-            'verified': True,
+            'verify': True,
             'uri': 'https://host:9999',
             'user': 'neo4j',
         })
@@ -99,7 +99,7 @@ class AddressingTestCase(TestCase):
             'port_number': 9999,
             'scheme': 'https',
             'secure': True,
-            'verified': False,
+            'verify': False,
             'uri': 'https://host:9999',
             'user': 'neo4j',
         })
@@ -115,7 +115,7 @@ class AddressingTestCase(TestCase):
             'port_number': 9999,
             'scheme': 'http',
             'secure': False,
-            'verified': False,
+            'verify': False,
             'uri': 'http://host:9999',
             'user': 'neo4j',
         })
@@ -131,7 +131,7 @@ class AddressingTestCase(TestCase):
             'port_number': 9999,
             'scheme': 'http',
             'secure': False,
-            'verified': False,
+            'verify': False,
             'uri': 'http://host:9999',
             'user': 'neo4j',
         })
@@ -147,7 +147,7 @@ class AddressingTestCase(TestCase):
             'port_number': 9999,
             'scheme': 'bolt',
             'secure': False,
-            'verified': False,
+            'verify': False,
             'uri': 'bolt://other:9999',
             'user': 'neo4j',
         })
@@ -163,7 +163,7 @@ class AddressingTestCase(TestCase):
             'port_number': 8888,
             'scheme': 'bolt',
             'secure': False,
-            'verified': False,
+            'verify': False,
             'uri': 'bolt://host:8888',
             'user': 'neo4j',
         })

@@ -55,7 +55,7 @@ class ConnectionProfile(object):
     """
 
     secure = None
-    verified = None
+    verify = None
     scheme = None
     user = None
     password = None
@@ -93,7 +93,7 @@ class ConnectionProfile(object):
 
     def _apply_components(self, **settings):
         self.secure = self._coalesce(settings.get("secure"), self.secure, NEO4J_SECURE)
-        self.verified = self._coalesce(settings.get("verified"), self.verified, NEO4J_VERIFIED)
+        self.verify = self._coalesce(settings.get("verify"), self.verify, NEO4J_VERIFIED)
         self.scheme = self._coalesce(settings.get("scheme"), self.scheme)
         self.user = self._coalesce(settings.get("user"), self.user)
         self.password = self._coalesce(settings.get("password"), self.password)
@@ -115,16 +115,16 @@ class ConnectionProfile(object):
     def _apply_other_defaults(self):
         if self.secure is None:
             self.secure = DEFAULT_SECURE
-        if self.verified is None:
-            self.verified = DEFAULT_VERIFIED
+        if self.verify is None:
+            self.verify = DEFAULT_VERIFIED
         if not self.scheme:
             self.scheme = DEFAULT_SCHEME
             if self.scheme == "http":
                 self.secure = False
-                self.verified = False
+                self.verify = False
             if self.scheme == "https":
                 self.secure = True
-                self.verified = True
+                self.verify = True
         if not self.user:
             self.user = DEFAULT_USER
         if not self.password:
@@ -168,7 +168,7 @@ class ConnectionProfile(object):
     def uri(self):
         return "%s://%s:%s" % (self.scheme, self.host, self.port)
 
-    __hash_keys = ("secure", "verified", "scheme", "user", "password", "address")
+    __hash_keys = ("secure", "verify", "scheme", "user", "password", "address")
 
     def __hash__(self):
         values = tuple(getattr(self, key) for key in self.__hash_keys)
@@ -190,7 +190,7 @@ class ConnectionProfile(object):
         return None
 
     def to_dict(self):
-        keys = ["secure", "verified", "scheme", "user", "password", "address",
+        keys = ["secure", "verify", "scheme", "user", "password", "address",
                 "auth", "host", "port", "port_number", "uri"]
         d = {}
         for key in keys:
