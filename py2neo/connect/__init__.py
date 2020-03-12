@@ -310,13 +310,13 @@ class Connection(object):
         pass
 
     @classmethod
-    def default_hydrant(cls, profile, graph, entities):
+    def default_hydrant(cls, profile, graph):
         if profile.protocol == "bolt":
             from py2neo.connect.bolt import Bolt
-            return Bolt.default_hydrant(profile, graph, entities)
+            return Bolt.default_hydrant(profile, graph)
         elif profile.protocol == "http":
             from py2neo.connect.http import HTTP
-            return HTTP.default_hydrant(profile, graph, entities)
+            return HTTP.default_hydrant(profile, graph)
         else:
             raise ValueError("Unsupported scheme %r" % profile.scheme)
 
@@ -805,7 +805,7 @@ class Failure(Exception):
 
 class Hydrant(object):
 
-    def hydrate(self, keys, values, version=None):
+    def hydrate(self, keys, values, entities=None, version=None):
         raise NotImplementedError
 
     def dehydrate(self, data, version=None):

@@ -838,10 +838,10 @@ class Transaction(object):
             entities = {}
 
         try:
-            hydrant = Connection.default_hydrant(self.connector.profile, self.graph, entities)
+            hydrant = Connection.default_hydrant(self.connector.profile, self.graph)
             result = self.connector.run(cypher, dict(parameters or {}, **kwparameters),
                                         tx=self.transaction, hydrant=hydrant)
-            return Cursor(result, hydrant)
+            return Cursor(result, hydrant, entities)
         finally:
             if not self.transaction:
                 self.finish()
@@ -1081,9 +1081,10 @@ class Cursor(object):
 
     """
 
-    def __init__(self, result, hydrant=None):
+    def __init__(self, result, hydrant=None, entities=None):
         self._result = result
         self._hydrant = hydrant
+        self._entities = entities
         self._current = None
         self._closed = False
 
@@ -1198,7 +1199,7 @@ class Cursor(object):
             else:
                 keys = self._result.fields()  # TODO: don't do this for every record
                 if self._hydrant:
-                    values = self._hydrant.hydrate(keys, values, version=v)
+                    values = self._hydrant.hydrate(keys, values, entities=self._entities, version=v)
                 self._current = Record(zip(keys, values))
                 moved += 1
         return moved

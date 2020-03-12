@@ -649,9 +649,8 @@ class PackStreamHydrant(Hydrant):
 
     unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
-    def __init__(self, graph, entities=None):
+    def __init__(self, graph):
         self.graph = graph
-        self.entities = entities or {}
         self.hydration_functions = {
             (1, 0): {},
             (2, 0): {},
@@ -678,7 +677,7 @@ class PackStreamHydrant(Hydrant):
             self.dehydration_functions[v].update(temporal_dehydration_functions())
             self.dehydration_functions[v].update(spatial_dehydration_functions())
 
-    def hydrate(self, keys, values, version=None):
+    def hydrate(self, keys, values, entities=None, version=None):
         """ Convert PackStream values into native values.
         """
         if version is None:
@@ -687,7 +686,9 @@ class PackStreamHydrant(Hydrant):
             v = version
         else:
             v = (version, 0)
-        return tuple(self._hydrate_object(value, self.entities.get(keys[i]), v)
+        if entities is None:
+            entities = {}
+        return tuple(self._hydrate_object(value, entities.get(keys[i]), v)
                      for i, value in enumerate(values))
 
     def _hydrate_object(self, obj, inst=None, version=None):

@@ -34,9 +34,8 @@ class JSONHydrant(Hydrant):
 
     unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
-    def __init__(self, graph, entities=None):
+    def __init__(self, graph):
         self.graph = graph
-        self.entities = entities or {}
         self.hydration_functions = {}
 
     @classmethod
@@ -81,7 +80,7 @@ class JSONHydrant(Hydrant):
             #      "and may be unintentionally hydrated as graph objects")
             return data
 
-    def hydrate(self, keys, values, version=None):
+    def hydrate(self, keys, values, entities=None, version=None):
         """ Convert JSON values into native values. This is the other half
         of the HTTP hydration process, and is basically a copy of the
         Bolt/PackStream hydration code. It needs to be combined with the
@@ -90,7 +89,8 @@ class JSONHydrant(Hydrant):
         """
 
         graph = self.graph
-        entities = self.entities
+        if entities is None:
+            entities = {}
 
         def hydrate_object(obj, inst=None):
             from py2neo.data import Node, Relationship, Path
