@@ -23,7 +23,7 @@ from datetime import datetime
 from time import sleep
 from warnings import warn
 
-from py2neo.connect import Connector, ConnectionProfile
+from py2neo.connect import Connector, Connection, ConnectionProfile
 from py2neo.cypher import cypher_escape
 from py2neo.data import Record, Table
 from py2neo.internal.caching import ThreadLocalEntityCache
@@ -838,9 +838,9 @@ class Transaction(object):
             entities = {}
 
         try:
-            result, hydrant = self.connector.run(cypher, dict(parameters or {}, **kwparameters),
-                                                 tx=self.transaction, graph=self.graph,
-                                                 entities=entities)
+            hydrant = Connection.default_hydrant(self.connector.profile, self.graph, entities)
+            result = self.connector.run(cypher, dict(parameters or {}, **kwparameters),
+                                        tx=self.transaction, hydrant=hydrant)
             return Cursor(result, hydrant)
         finally:
             if not self.transaction:
@@ -1081,10 +1081,9 @@ class Cursor(object):
 
     """
 
-    def __init__(self, result, hydrator):
+    def __init__(self, result, hydrant=None):
         self._result = result
-        self._hydrator = hydrator
-        # self._hydrated_result = HydratedResult(result, hydrator)
+        self._hydrant = hydrant
         self._current = None
         self._closed = False
 
@@ -1198,7 +1197,9 @@ class Cursor(object):
                 break
             else:
                 keys = self._result.fields()  # TODO: don't do this for every record
-                self._current = Record(zip(keys, self._hydrator.hydrate(keys, values, version=v)))
+                if self._hydrant:
+                    values = self._hydrant.hydrate(keys, values, version=v)
+                self._current = Record(zip(keys, values))
                 moved += 1
         return moved
 

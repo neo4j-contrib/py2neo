@@ -52,7 +52,7 @@ class Bolt(Connection):
         raise RuntimeError("Unsupported protocol version %r" % protocol_version)
 
     @classmethod
-    def default_hydrant(cls, graph, entities):
+    def default_hydrant(cls, profile, graph, entities):
         return PackStreamHydrant(graph, entities)
 
     @classmethod

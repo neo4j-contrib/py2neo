@@ -107,14 +107,14 @@ def test_server_agent(connector, neo4j_version):
 
 
 def test_keys(connector):
-    cursor = Cursor(*connector.run("RETURN 'Alice' AS name, 33 AS age"))
+    cursor = Cursor(connector.run("RETURN 'Alice' AS name, 33 AS age"))
     expected = ["name", "age"]
     actual = cursor.keys()
     assert expected == actual
 
 
 def test_records(connector):
-    cursor = Cursor(*connector.run("UNWIND range(1, $x) AS n RETURN n, n * n AS n_sq", {"x": 3}))
+    cursor = Cursor(connector.run("UNWIND range(1, $x) AS n RETURN n, n * n AS n_sq", {"x": 3}))
     expected = deque([(1, 1), (2, 4), (3, 9)])
     for actual_record in cursor:
         expected_record = Record(zip(["n", "n_sq"], expected.popleft()))
@@ -122,7 +122,7 @@ def test_records(connector):
 
 
 def test_stats(connector):
-    cursor = Cursor(*connector.run("CREATE ()", {}))
+    cursor = Cursor(connector.run("CREATE ()", {}))
     expected = CypherStats(nodes_created=1)
     actual = cursor.stats()
     assert expected == actual

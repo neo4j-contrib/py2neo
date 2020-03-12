@@ -37,7 +37,7 @@ log = getLogger(__name__)
 class HTTP(Connection):
 
     @classmethod
-    def default_hydrant(cls, graph, entities):
+    def default_hydrant(cls, profile, graph, entities):
         return JSONHydrant(graph, entities)
 
     @classmethod

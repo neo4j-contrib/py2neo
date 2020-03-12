@@ -218,16 +218,12 @@ class Connection(object):
 
     @classmethod
     def open(cls, profile, user_agent=None):
-        # TODO: automatically via subclass sniffing
-        if profile.scheme == "bolt":
+        if profile.protocol == "bolt":
             from py2neo.connect.bolt import Bolt
             return Bolt.open(profile, user_agent=user_agent)
-        elif profile.scheme == "http":
+        elif profile.protocol == "http":
             from py2neo.connect.http import HTTP
             return HTTP.open(profile, user_agent=user_agent)
-        elif profile.scheme == "https":
-            from py2neo.connect.http import HTTPS
-            return HTTPS.open(profile, user_agent=user_agent)
         else:
             raise ValueError("Unsupported scheme %r" % profile.scheme)
 
@@ -314,8 +310,15 @@ class Connection(object):
         pass
 
     @classmethod
-    def default_hydrant(self, graph, entities):
-        raise NotImplementedError
+    def default_hydrant(cls, profile, graph, entities):
+        if profile.protocol == "bolt":
+            from py2neo.connect.bolt import Bolt
+            return Bolt.default_hydrant(profile, graph, entities)
+        elif profile.protocol == "http":
+            from py2neo.connect.http import HTTP
+            return HTTP.default_hydrant(profile, graph, entities)
+        else:
+            raise ValueError("Unsupported scheme %r" % profile.scheme)
 
     def release(self):
         if self.pool is not None:
@@ -624,17 +627,17 @@ class Connector(object):
     def rollback(self, tx):
         self.reacquire(tx).rollback(tx)
 
-    def run(self, statement, parameters=None, tx=None, graph=None, entities=None):
+    def run(self, statement, parameters=None, tx=None, hydrant=None):
         cx = self.reacquire(tx)
-        hydrant = cx.default_hydrant(graph, entities)
-        dehydrated = hydrant.dehydrate(parameters, version=cx.protocol_version)
+        if hydrant:
+            parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
         if tx is None:
-            result = cx.auto_run(statement, dehydrated)
+            result = cx.auto_run(statement, parameters)
         else:
-            result = cx.run_in_tx(tx, statement, dehydrated)
+            result = cx.run_in_tx(tx, statement, parameters)
         cx.pull(result)
         cx.sync(result)
-        return result, hydrant
+        return result
 
 
 class WaitingList:
