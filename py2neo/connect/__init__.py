@@ -21,22 +21,19 @@ from hashlib import new as hashlib_new
 from logging import getLogger
 from threading import Event
 
-from py2neo.internal.compat import bstr, urlsplit, string_types, perf_counter
+from py2neo.internal.compat import urlsplit, string_types, perf_counter
 from py2neo.meta import (
     NEO4J_URI,
     NEO4J_AUTH,
-    NEO4J_USER_AGENT,
     NEO4J_SECURE,
-    NEO4J_VERIFIED,
-    bolt_user_agent,
-    http_user_agent,
+    NEO4J_VERIFY,
 )
 from py2neo.connect.addressing import Address
 
 
 DEFAULT_SCHEME = "bolt"
 DEFAULT_SECURE = False
-DEFAULT_VERIFIED = False
+DEFAULT_VERIFY = True
 DEFAULT_USER = "neo4j"
 DEFAULT_PASSWORD = "password"
 DEFAULT_HOST = "localhost"
@@ -68,10 +65,14 @@ class ConnectionProfile(object):
             parsed = urlsplit(uri)
             if parsed.scheme is not None:
                 self.scheme = parsed.scheme
-                if self.scheme in ["https"]:
+                if self.scheme in ["bolt+s", "bolt+ssc", "https", "http+s", "http+ssc"]:
                     self.secure = True
-                elif self.scheme in ["http"]:
+                elif self.scheme in ["bolt", "http"]:
                     self.secure = False
+                if self.scheme in ["bolt+s", "https", "http+s"]:
+                    self.verify = True
+                elif self.scheme in ["bolt+ssc", "http+ssc"]:
+                    self.verify = False
             self.user = self._coalesce(parsed.username, self.user)
             self.password = self._coalesce(parsed.password, self.password)
             self.address = Address.parse(parsed.netloc)
@@ -93,7 +94,7 @@ class ConnectionProfile(object):
 
     def _apply_components(self, **settings):
         self.secure = self._coalesce(settings.get("secure"), self.secure, NEO4J_SECURE)
-        self.verify = self._coalesce(settings.get("verify"), self.verify, NEO4J_VERIFIED)
+        self.verify = self._coalesce(settings.get("verify"), self.verify, NEO4J_VERIFY)
         self.scheme = self._coalesce(settings.get("scheme"), self.scheme)
         self.user = self._coalesce(settings.get("user"), self.user)
         self.password = self._coalesce(settings.get("password"), self.password)
@@ -109,22 +110,25 @@ class ConnectionProfile(object):
     def _apply_correct_scheme_for_security(self):
         if self.secure is True and self.scheme == "http":
             self.scheme = "https"
-        if self.secure is False and self.scheme == "https":
+        if self.secure is False and self.scheme in ("https", "http+s", "http+ssc"):
             self.scheme = "http"
 
     def _apply_other_defaults(self):
         if self.secure is None:
             self.secure = DEFAULT_SECURE
         if self.verify is None:
-            self.verify = DEFAULT_VERIFIED
+            self.verify = DEFAULT_VERIFY
         if not self.scheme:
             self.scheme = DEFAULT_SCHEME
-            if self.scheme == "http":
+            if self.scheme in ("bolt", "http"):
                 self.secure = False
                 self.verify = False
-            if self.scheme == "https":
+            if self.scheme in ("bolt+s", "https", "http+s"):
                 self.secure = True
                 self.verify = True
+            if self.scheme in ("bolt+ssc", "http+ssc"):
+                self.secure = True
+                self.verify = False
         if not self.user:
             self.user = DEFAULT_USER
         if not self.password:
@@ -133,7 +137,7 @@ class ConnectionProfile(object):
             bits = list(self.address)
             if self.scheme == "http":
                 bits[1] = DEFAULT_HTTP_PORT
-            elif self.scheme == "https":
+            elif self.scheme in ("https", "http+s", "http+ssc"):
                 bits[1] = DEFAULT_HTTPS_PORT
             else:
                 bits[1] = DEFAULT_BOLT_PORT
@@ -157,9 +161,10 @@ class ConnectionProfile(object):
 
     @property
     def protocol(self):
-        if self.scheme in ("neo4j", "bolt", "bolt+routing"):
+        if self.scheme in ("neo4j", "bolt", "bolt+routing", "bolt+s",
+                           "bolt+ssc", "neo4j+s", "neo4j+ssc"):
             return "bolt"
-        elif self.scheme in ("http", "https"):
+        elif self.scheme in ("http", "https", "http+s", "http+ssc"):
             return "http"
         else:
             return None
@@ -338,12 +343,13 @@ class Connector(object):
     """
 
     @classmethod
-    def open(cls, profile=None, user_agent=None, init_size=1, max_size=100, max_age=3600):
+    def open(cls, profile=None, user_agent=None, init_size=None, max_size=None, max_age=None):
         """ Create a new connection pool, with an option to seed one
         or more initial connections.
         """
         pool = cls(profile, user_agent, max_size, max_age)
-        seeds = [pool.acquire() for _ in range(init_size)]
+        # TODO: configurable default for init_size
+        seeds = [pool.acquire() for _ in range(init_size or 1)]
         for seed in seeds:
             pool.release(seed)
         return pool
@@ -351,8 +357,8 @@ class Connector(object):
     def __init__(self, profile, user_agent, max_size, max_age):
         self._profile = profile
         self._user_agent = user_agent
-        self._max_size = max_size
-        self._max_age = max_age
+        self._max_size = max_size or 100  # TODO: configurable default
+        self._max_age = max_age or 3600   # TODO: configurable default
         self._in_use_list = deque()
         self._quarantine = deque()
         self._free_list = deque()

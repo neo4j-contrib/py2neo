@@ -24,6 +24,18 @@ class Wire:
 
     __broken = False
 
+    @classmethod
+    def secure(cls, s, verify=True, hostname=None):
+        from ssl import SSLContext, CERT_NONE, CERT_REQUIRED
+        context = SSLContext()
+        if verify:
+            context.verify_mode = CERT_REQUIRED
+            context.check_hostname = bool(hostname)
+        else:
+            context.verify_mode = CERT_NONE
+        context.load_default_certs()
+        return cls(context.wrap_socket(s, server_hostname=hostname))
+
     def __init__(self, s):
         self.__socket = s
         self.__input = bytearray()

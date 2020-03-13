@@ -24,26 +24,103 @@ from uuid import uuid4
 from pytest import fixture
 
 from py2neo import Graph
-from py2neo.admin.dist import Distribution, minor_versions
+from py2neo.admin.dist import Distribution
 from py2neo.admin.install import Warehouse
 from py2neo.connect import Connector, ConnectionProfile
 from py2neo.database import GraphService
 from py2neo.internal.compat import SocketError
 
 
-NEO4J_EDITION = "enterprise"
-NEO4J_VERSION = getenv("NEO4J_VERSION", minor_versions[-1])
-NEO4J_PROTOCOLS = ["bolt", "http"]  # TODO: https/cert
 NEO4J_HOST = "localhost"
 NEO4J_PORTS = {
     "bolt": 7687,
+    "bolt+s": 7687,
+    "bolt+ssc": 7687,
     "http": 7474,
     "https": 7473,
+    "http+s": 7473,
+    "http+ssc": 7473,
 }
 NEO4J_USER = "neo4j"
 NEO4J_PASSWORD = "password"
 NEO4J_DEBUG = getenv("NEO4J_DEBUG", "")
 NEO4J_PROCESS = {}
+
+
+class ServiceProfile(object):
+
+    def __init__(self, release=None, topology=None, cert=None, schemes=None):
+        self.release = release
+        self.topology = topology   # "CE|EE-SI|EE-C3|EE-C3-R2"
+        self.cert = cert
+        self.schemes = schemes
+
+    def __str__(self):
+        server = "%s.%s %s" % (self.release[0], self.release[1], self.topology)
+        if self.cert:
+            server += " %s" % (self.cert,)
+        schemes = " ".join(self.schemes)
+        return "[%s]-[%s]" % (server, schemes)
+
+
+class ServiceConnectionProfile(object):
+
+    def __init__(self, release=None, topology=None, cert=None, scheme=None):
+        self.release = release
+        self.topology = topology   # "CE|EE-SI|EE-C3|EE-C3-R2"
+        self.cert = cert
+        self.scheme = scheme
+
+    def __str__(self):
+        extra = "%s" % (self.topology,)
+        if self.cert:
+            extra += "; %s" % (self.cert,)
+        bits = [
+            "Neo4j/%s.%s (%s)" % (self.release[0], self.release[1], extra),
+            "over",
+            "'%s'" % self.scheme,
+        ]
+        return " ".join(bits)
+
+    @property
+    def edition(self):
+        if self.topology.startswith("CE"):
+            return "community"
+        elif self.topology.startswith("EE"):
+            return "enterprise"
+        else:
+            return None
+
+    @property
+    def release_str(self):
+        return ".".join(map(str, self.release))
+
+
+UNSECURED_SCHEMES = ["bolt", "http"]
+ALL_SCHEMES = ["bolt", "bolt+s", "bolt+ssc", "http", "https", "http+s", "http+ssc"]
+SSC_SCHEMES = ["bolt", "bolt+ssc", "http", "http+ssc"]
+SERVICE_PROFILES = {
+    11: [
+        ServiceProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
+        ServiceProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+        # # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),
+        ServiceProfile(release=(3, 5), topology="CE", schemes=SSC_SCHEMES),
+        # # ServiceProfile(release=(3, 5), topology="CE", cert="full", schemes=ALL_SCHEMES),
+    ],
+    8: [
+        ServiceProfile(release=(3, 4), topology="CE", schemes=SSC_SCHEMES),
+        # # ServiceProfile(release=(3, 4), topology="CE", cert="full", schemes=ALL_SCHEMES),
+        ServiceProfile(release=(3, 3), topology="CE", schemes=SSC_SCHEMES),
+        # # ServiceProfile(release=(3, 3), topology="CE", cert="full", schemes=ALL_SCHEMES),
+        ServiceProfile(release=(3, 2), topology="CE", schemes=SSC_SCHEMES),
+        # # ServiceProfile(release=(3, 2), topology="CE", cert="full", schemes=ALL_SCHEMES),
+    ],
+}
+SERVICE_CONNECTION_PROFILES = [
+    ServiceConnectionProfile(release=sp.release, topology=sp.topology, cert=sp.cert, scheme=s)
+    for sp in SERVICE_PROFILES[int(getenv("JAVA_VERSION"))]
+    for s in sp.schemes
+]
 
 
 def is_server_running():
@@ -59,9 +136,16 @@ def is_server_running():
         return True
 
 
+@fixture(scope="session", params=SERVICE_CONNECTION_PROFILES,
+         ids=list(map(str, SERVICE_CONNECTION_PROFILES)))
+def service_connection_profile(request):
+    sc_profile = request.param
+    yield sc_profile
+
+
 @fixture(scope="session")
-def neo4j_version():
-    return Distribution(version=NEO4J_VERSION).version
+def neo4j_version(service_connection_profile):
+    return Distribution(version=service_connection_profile.release_str).version
 
 
 @fixture(scope="session")
@@ -69,15 +153,25 @@ def neo4j_minor_version(neo4j_version):
     return ".".join(neo4j_version.split(".")[:2])
 
 
-@fixture(scope="session", params=NEO4J_PROTOCOLS)
-def uri(request):
-    protocol = request.param
-    uri = "{}://{}:{}".format(protocol, NEO4J_HOST, NEO4J_PORTS[protocol])
+@fixture(scope="session")
+def uri(service_connection_profile):
+    scp = service_connection_profile
+    port = NEO4J_PORTS[scp.scheme]
+    uri = "{}://{}:{}".format(scp.scheme, NEO4J_HOST, port)
     if not is_server_running():
         warehouse = Warehouse()
         name = uuid4().hex
-        installation = warehouse.install(name, NEO4J_EDITION, NEO4J_VERSION)
-        print("Installed Neo4j %s %s to %s" % (NEO4J_EDITION, NEO4J_VERSION, installation.home))
+        installation = warehouse.install(name, scp.edition, scp.release_str)
+        print("Installed Neo4j %s %s to %s" % (scp.edition, scp.release_str, installation.home))
+        if scp.cert == "full":
+            assert False
+        elif scp.cert == "ssc":
+            print("Installing self-signed certificate")
+            installation.install_self_signed_certificate()
+            installation.set_config("dbms.ssl.policy.bolt.enabled", True)
+            installation.set_config("dbms.ssl.policy.https.enabled", True)
+            installation.set_config("dbms.connector.bolt.tls_level", "OPTIONAL")
+            installation.set_config("dbms.connector.https.enabled", True)
         installation.auth.update(NEO4J_USER, NEO4J_PASSWORD)
         pid = installation.server.start()
         print("Started Neo4j server with PID %d" % pid)
@@ -90,7 +184,8 @@ def uri(request):
     if NEO4J_DEBUG:
         from py2neo.diagnostics import watch
         watch("py2neo")
-    return uri
+    yield uri
+    stop_neo4j()
 
 
 @fixture(scope="session")
@@ -145,6 +240,10 @@ def check_bolt_connections_released(connector):
 def pytest_sessionfinish(session, exitstatus):
     """ Called after the entire session to ensure Neo4j is shut down.
     """
+    stop_neo4j()
+
+
+def stop_neo4j():
     if NEO4J_PROCESS:
         print("Stopping Neo4j server with PID %d" % NEO4J_PROCESS["pid"])
         NEO4J_PROCESS["installation"].server.stop()

@@ -153,6 +153,39 @@ class Installation(object):
         return path_join(self.home, "data", "databases",
                          self.get_config("dbms.active_database", "graph.db"))
 
+    def install_self_signed_certificate(self):
+        from OpenSSL import crypto
+        from socket import gethostname
+
+        # create a key pair
+        k = crypto.PKey()
+        k.generate_key(crypto.TYPE_RSA, 1024)
+
+        # create a self-signed cert
+        cert = crypto.X509()
+        cert.get_subject().C = "UK"
+        cert.get_subject().ST = "London"
+        cert.get_subject().L = "London"
+        cert.get_subject().O = "Neo4j"
+        cert.get_subject().OU = "Engineering"
+        cert.get_subject().CN = gethostname()
+        cert.set_serial_number(1000)
+        cert.gmtime_adj_notBefore(0)
+        cert.gmtime_adj_notAfter(10*365*24*60*60)
+        cert.set_issuer(cert.get_subject())
+        cert.set_pubkey(k)
+        cert.sign(k, 'sha1')
+
+        cert_dir = path_join(self.home, "certificates")
+        for subdir in ("bolt", "https"):
+            makedirs(path_join(cert_dir, subdir), exist_ok=True)
+            cert_file = path_join(cert_dir, subdir, "public.crt")
+            key_file = path_join(cert_dir, subdir, "private.key")
+            open(cert_file, "wb").write(
+                crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+            open(key_file, "wb").write(
+                crypto.dump_privatekey(crypto.FILETYPE_PEM, k))
+
     def get_config(self, key, default=None):
         """ Retrieve the value of a configuration item.
 

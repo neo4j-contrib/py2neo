@@ -91,7 +91,13 @@ class GraphService(object):
             inst = cls._instances[profile]
         except KeyError:
             inst = super(GraphService, cls).__new__(cls)
-            inst._connector = Connector.open(profile, **settings)
+            connector_settings = {
+                "user_agent": settings.get("user_agent"),
+                "init_size": settings.get("init_size"),
+                "max_size": settings.get("max_size"),
+                "max_age": settings.get("max_age"),
+            }
+            inst._connector = Connector.open(profile, **connector_settings)
             inst._graphs = {}
             cls._instances[profile] = inst
         return inst

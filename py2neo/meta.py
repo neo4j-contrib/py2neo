@@ -17,7 +17,7 @@
 
 
 __all__ = ["__author__", "__copyright__", "__email__", "__license__", "__package__", "__version__",
-           "NEO4J_URI", "NEO4J_AUTH", "NEO4J_USER_AGENT", "NEO4J_SECURE", "NEO4J_VERIFIED",
+           "NEO4J_URI", "NEO4J_AUTH", "NEO4J_USER_AGENT", "NEO4J_SECURE", "NEO4J_VERIFY",
            "bolt_user_agent", "http_user_agent"]
 
 __author__ = "Nigel Small <technige@nige.tech>"
@@ -35,7 +35,7 @@ NEO4J_URI = getenv("NEO4J_URI")
 NEO4J_AUTH = getenv("NEO4J_AUTH")
 NEO4J_USER_AGENT = getenv("NEO4J_USER_AGENT")
 NEO4J_SECURE = True if getenv("NEO4J_SECURE") == "1" else False if getenv("NEO4J_SECURE") == "0" else None
-NEO4J_VERIFIED = True if getenv("NEO4J_VERIFIED") == "1" else False if getenv("NEO4J_VERIFIED") == "0" else None
+NEO4J_VERIFY = True if getenv("NEO4J_VERIFY") == "1" else False if getenv("NEO4J_VERIFY") == "0" else None
 
 
 def bolt_user_agent():

@@ -64,9 +64,11 @@ class Bolt(Connection):
         local_port = s.getsockname()[1]
         log.debug("[#%04X] S: <ACCEPT>", local_port)
 
-        # TODO: secure socket
-
-        wire = Wire(s)
+        if profile.secure:
+            log.debug("[#%04X] C: <SECURE>", local_port)
+            wire = Wire.secure(s, verify=profile.verify, hostname=profile.host)
+        else:
+            wire = Wire(s)
 
         def handshake():
             # TODO

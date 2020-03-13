@@ -22,7 +22,6 @@ from collections import OrderedDict
 from logging import getLogger
 from json import dumps as json_dumps, loads as json_loads
 
-from certifi import where
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo import http_user_agent
@@ -56,14 +55,15 @@ class HTTP(Connection):
 
     def _make_pool(self, profile):
         if profile.secure:
-            cert_reqs = None  # TODO: expose this through service
+            from ssl import CERT_NONE, CERT_REQUIRED
+            from certifi import where as cert_where
             self.http_pool = HTTPSConnectionPool(
                 host=profile.host,
                 port=profile.port_number,
                 maxsize=1,
                 block=True,
-                cert_reqs=(cert_reqs or "CERT_NONE"),
-                ca_certs=where()
+                cert_reqs=CERT_REQUIRED if profile.verify else CERT_NONE,
+                ca_certs=cert_where()
             )
         else:
             self.http_pool = HTTPConnectionPool(
