@@ -96,6 +96,7 @@ class ServiceConnectionProfile(object):
         return ".".join(map(str, self.release))
 
 
+# TODO: test with full certificates
 UNSECURED_SCHEMES = ["bolt", "http"]
 ALL_SCHEMES = ["bolt", "bolt+s", "bolt+ssc", "http", "https", "http+s", "http+ssc"]
 SSC_SCHEMES = ["bolt", "bolt+ssc", "http", "http+ssc"]
