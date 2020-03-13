@@ -26,8 +26,8 @@ class Wire:
 
     @classmethod
     def secure(cls, s, verify=True, hostname=None):
-        from ssl import SSLContext, CERT_NONE, CERT_REQUIRED
-        context = SSLContext()
+        from ssl import SSLContext, PROTOCOL_TLS, CERT_NONE, CERT_REQUIRED
+        context = SSLContext(PROTOCOL_TLS)
         if verify:
             context.verify_mode = CERT_REQUIRED
             context.check_hostname = bool(hostname)

@@ -178,7 +178,10 @@ class Installation(object):
 
         cert_dir = path_join(self.home, "certificates")
         for subdir in ("bolt", "https"):
-            makedirs(path_join(cert_dir, subdir), exist_ok=True)
+            try:
+                makedirs(path_join(cert_dir, subdir))
+            except OSError:
+                pass
             cert_file = path_join(cert_dir, subdir, "public.crt")
             key_file = path_join(cert_dir, subdir, "private.key")
             open(cert_file, "wb").write(
