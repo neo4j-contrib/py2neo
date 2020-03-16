@@ -342,14 +342,19 @@ class Connector(object):
         connections to be retained in this pool
     """
 
+    default_init_size = 1
+
+    default_max_size = 100
+
+    default_max_age = 3600
+
     @classmethod
     def open(cls, profile=None, user_agent=None, init_size=None, max_size=None, max_age=None):
         """ Create a new connection pool, with an option to seed one
         or more initial connections.
         """
         pool = cls(profile, user_agent, max_size, max_age)
-        # TODO: configurable default for init_size
-        seeds = [pool.acquire() for _ in range(init_size or 1)]
+        seeds = [pool.acquire() for _ in range(init_size or cls.default_init_size)]
         for seed in seeds:
             pool.release(seed)
         return pool
@@ -357,8 +362,8 @@ class Connector(object):
     def __init__(self, profile, user_agent, max_size, max_age):
         self._profile = profile
         self._user_agent = user_agent
-        self._max_size = max_size or 100  # TODO: configurable default
-        self._max_age = max_age or 3600   # TODO: configurable default
+        self._max_size = max_size or self.default_max_size
+        self._max_age = max_age or self.default_max_age
         self._in_use_list = deque()
         self._quarantine = deque()
         self._free_list = deque()
