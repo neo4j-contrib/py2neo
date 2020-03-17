@@ -56,6 +56,10 @@ class Bolt(Connection):
         return PackStreamHydrant(graph)
 
     @classmethod
+    def supported_protocol_versions(cls):
+        return [bolt.protocol_version for bolt in Bolt._walk_subclasses()]
+
+    @classmethod
     def open(cls, profile, user_agent=None):
         # TODO
         s = socket(family=profile.address.family)
@@ -71,14 +75,13 @@ class Bolt(Connection):
             wire = Wire(s)
 
         def handshake():
-            # TODO
             log.debug("[#%04X] C: <BOLT>", local_port)
             wire.write(b"\x60\x60\xB0\x17")
-            log.debug("[#%04X] C: <PROTOCOL> 4.0 | 3.0 | 2.0 | 1.0", local_port)
-            wire.write(b"\x00\x00\x00\x03"
-                       b"\x00\x00\x00\x02"
-                       b"\x00\x00\x00\x01"
-                       b"\x00\x00\x00\x00")
+            versions = list(reversed(cls.supported_protocol_versions()))[:4]
+            log.debug("[#%04X] C: <PROTOCOL> %s",
+                      local_port, " | ".join("%d.%d" % v for v in versions))
+            wire.write(b"".join(bytearray([0, 0, minor, major])
+                                for major, minor in versions).ljust(16, b"\x00"))
             wire.send()
             v = bytearray(wire.read(4))
             log.debug("[#%04X] S: <PROTOCOL> %d.%d", local_port, v[-1], v[-2])
@@ -434,9 +437,9 @@ class Bolt3(Bolt2):
         return result
 
 
-class Bolt4x0(Bolt3):
-
-    protocol_version = (4, 0)
+# class Bolt4x0(Bolt3):
+#
+#     protocol_version = (4, 0)
 
 
 class BoltResult(ItemizedTask, Result):
