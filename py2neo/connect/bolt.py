@@ -18,7 +18,7 @@
 
 from collections import deque
 from logging import getLogger
-from socket import socket
+from socket import socket, SOL_SOCKET, SO_KEEPALIVE
 
 from py2neo.meta import bolt_user_agent
 from py2neo.connect import Connection, Transaction, TransactionError, Result, \
@@ -61,8 +61,8 @@ class Bolt(Connection):
 
     @classmethod
     def open(cls, profile, user_agent=None):
-        # TODO
         s = socket(family=profile.address.family)
+        s.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
         log.debug("[#%04X] C: <DIAL> '%s'", 0, profile.address)
         s.connect(profile.address)
         local_port = s.getsockname()[1]
