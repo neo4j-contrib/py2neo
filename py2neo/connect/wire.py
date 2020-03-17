@@ -16,6 +16,9 @@
 # limitations under the License.
 
 
+from py2neo.connect import Address
+
+
 class Wire:
     """ Socket wrapper for reading and writing bytes.
     """
@@ -24,8 +27,12 @@ class Wire:
 
     __broken = False
 
-    @classmethod
-    def secure(cls, s, verify=True, hostname=None):
+    def __init__(self, s):
+        self.__socket = s
+        self.__input = bytearray()
+        self.__output = bytearray()
+
+    def secure(self, verify=True, hostname=None):
         from ssl import SSLContext, PROTOCOL_TLS, CERT_NONE, CERT_REQUIRED
         context = SSLContext(PROTOCOL_TLS)
         if verify:
@@ -34,12 +41,7 @@ class Wire:
         else:
             context.verify_mode = CERT_NONE
         context.load_default_certs()
-        return cls(context.wrap_socket(s, server_hostname=hostname))
-
-    def __init__(self, s):
-        self.__socket = s
-        self.__input = bytearray()
-        self.__output = bytearray()
+        self.__socket = context.wrap_socket(self.__socket, server_hostname=hostname)
 
     def read(self, n):
         while len(self.__input) < n:
@@ -94,3 +96,11 @@ class Wire:
     @property
     def broken(self):
         return self.__broken
+
+    @property
+    def local_address(self):
+        return Address(self.__socket.getsockname())
+
+    @property
+    def remote_address(self):
+        return Address(self.__socket.getpeername())

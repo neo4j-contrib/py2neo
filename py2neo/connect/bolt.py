@@ -56,54 +56,58 @@ class Bolt(Connection):
         return PackStreamHydrant(graph)
 
     @classmethod
-    def supported_protocol_versions(cls):
+    def protocol_catalogue(cls):
         return [bolt.protocol_version for bolt in Bolt._walk_subclasses()]
 
     @classmethod
     def open(cls, profile, user_agent=None):
+        wire = cls._connect(profile)
+        protocol_version = cls._handshake(wire)
+        subclass = cls._get_subclass(protocol_version)
+        if subclass is None:
+            raise RuntimeError("Unable to agree supported protocol version")
+        bolt = subclass(wire, profile, (user_agent or bolt_user_agent()))
+        bolt._hello()
+        bolt.__local_port = wire.local_address.port_number
+        return bolt
+
+    @classmethod
+    def _connect(cls, profile):
         s = socket(family=profile.address.family)
         s.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
         log.debug("[#%04X] C: <DIAL> '%s'", 0, profile.address)
         s.connect(profile.address)
-        local_port = s.getsockname()[1]
+        wire = Wire(s)
+        local_port = wire.local_address.port_number
         log.debug("[#%04X] S: <ACCEPT>", local_port)
-
         if profile.secure:
             log.debug("[#%04X] C: <SECURE>", local_port)
-            wire = Wire.secure(s, verify=profile.verify, hostname=profile.host)
-        else:
-            wire = Wire(s)
+            wire.secure(verify=profile.verify, hostname=profile.host)
+        return wire
 
-        def handshake():
-            log.debug("[#%04X] C: <BOLT>", local_port)
-            wire.write(b"\x60\x60\xB0\x17")
-            versions = list(reversed(cls.supported_protocol_versions()))[:4]
-            log.debug("[#%04X] C: <PROTOCOL> %s",
-                      local_port, " | ".join("%d.%d" % v for v in versions))
-            wire.write(b"".join(bytearray([0, 0, minor, major])
-                                for major, minor in versions).ljust(16, b"\x00"))
-            wire.send()
-            v = bytearray(wire.read(4))
-            log.debug("[#%04X] S: <PROTOCOL> %d.%d", local_port, v[-1], v[-2])
-            return v[-1], v[-2]
+    @classmethod
+    def _handshake(cls, wire):
+        local_port = wire.local_address.port_number
+        log.debug("[#%04X] C: <BOLT>", local_port)
+        wire.write(b"\x60\x60\xB0\x17")
+        versions = list(reversed(cls.protocol_catalogue()))[:4]
+        log.debug("[#%04X] C: <PROTOCOL> %s",
+                  local_port, " | ".join("%d.%d" % v for v in versions))
+        wire.write(b"".join(bytearray([0, 0, minor, major])
+                            for major, minor in versions).ljust(16, b"\x00"))
+        wire.send()
+        v = bytearray(wire.read(4))
+        log.debug("[#%04X] S: <PROTOCOL> %d.%d", local_port, v[-1], v[-2])
+        return v[-1], v[-2]
 
-        protocol_version = handshake()
-        subclass = cls._get_subclass(protocol_version)
-        if subclass is None:
-            raise RuntimeError("Unable to agree supported protocol version")
-        bolt = subclass(profile, (user_agent or bolt_user_agent()), wire)
-        bolt.__local_port = local_port
-        bolt.hello()
-        return bolt
-
-    def __init__(self, profile, user_agent, wire):
+    def __init__(self, wire, profile, user_agent):
         super(Bolt, self).__init__(profile, user_agent)
         self._wire = wire
 
     def close(self):
         if self.closed or self.broken:
             return
-        self.goodbye()
+        self._goodbye()
         self._wire.close()
         log.debug("[#%04X] C: <HANGUP>", self.local_port)
 
@@ -132,8 +136,8 @@ class Bolt1(Bolt):
 
     protocol_version = (1, 0)
 
-    def __init__(self, profile, user_agent, wire):
-        super(Bolt1, self).__init__(profile, user_agent, wire)
+    def __init__(self, wire, profile, user_agent):
+        super(Bolt1, self).__init__(wire, profile, user_agent)
         self.reader = MessageReader(wire)
         self.writer = MessageWriter(wire)
         self.responses = deque()
@@ -142,7 +146,7 @@ class Bolt1(Bolt):
     def bookmark(self):
         return self.metadata.get("bookmark")
 
-    def hello(self):
+    def _hello(self):
         self._assert_open()
         extra = {"scheme": "basic",
                  "principal": self.profile.user,
@@ -367,7 +371,7 @@ class Bolt3(Bolt2):
 
     protocol_version = (3, 0)
 
-    def hello(self):
+    def _hello(self):
         self._assert_open()
         extra = {"user_agent": self.user_agent,
                  "scheme": "basic",
@@ -382,7 +386,7 @@ class Bolt3(Bolt2):
         self.server_agent = response.metadata.get("server")
         self.connection_id = response.metadata.get("connection_id")
 
-    def goodbye(self):
+    def _goodbye(self):
         log.debug("[#%04X] C: GOODBYE", self.local_port)
         self._write_request(0x02)
         self._send()

@@ -221,6 +221,8 @@ class Connection(object):
 
     transaction = None
 
+    # TODO: ping method
+
     @classmethod
     def open(cls, profile, user_agent=None):
         if profile.protocol == "bolt":
@@ -266,10 +268,10 @@ class Connection(object):
         """
         return perf_counter() - self.__t_opened
 
-    def hello(self):
+    def _hello(self):
         pass
 
-    def goodbye(self):
+    def _goodbye(self):
         pass
 
     def reset(self, force=False):

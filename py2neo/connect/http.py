@@ -42,7 +42,7 @@ class HTTP(Connection):
     @classmethod
     def open(cls, profile, user_agent=None):
         http = cls(profile, (user_agent or http_user_agent()))
-        http.hello()
+        http._hello()
         return http
 
     def __init__(self, profile, user_agent):
@@ -89,7 +89,7 @@ class HTTP(Connection):
     def local_port(self):
         raise NotImplementedError
 
-    def hello(self):
+    def _hello(self):
         r = self.http_pool.request(method="GET",
                                    url="/",
                                    headers=dict(self.headers))
