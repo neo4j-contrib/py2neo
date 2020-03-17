@@ -437,6 +437,7 @@ class Bolt3(Bolt2):
         return result
 
 
+# TODO: Bolt 4.0
 # class Bolt4x0(Bolt3):
 #
 #     protocol_version = (4, 0)
