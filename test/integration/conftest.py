@@ -119,7 +119,7 @@ SERVICE_PROFILES = {
 }
 SERVICE_CONNECTION_PROFILES = [
     ServiceConnectionProfile(release=sp.release, topology=sp.topology, cert=sp.cert, scheme=s)
-    for sp in SERVICE_PROFILES[int(getenv("JAVA_VERSION"))]
+    for sp in SERVICE_PROFILES[int(getenv("JAVA_VERSION", max(SERVICE_PROFILES.keys())))]
     for s in sp.schemes
 ]
 
