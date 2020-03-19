@@ -647,35 +647,8 @@ class MessageWriter(object):
 
 class PackStreamHydrant(Hydrant):
 
-    unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
-
     def __init__(self, graph):
         self.graph = graph
-        self.hydration_functions = {
-            (1, 0): {},
-            (2, 0): {},
-            (3, 0): {},
-            (4, 0): {},
-        }
-        self.dehydration_functions = {
-            (1, 0): {},
-            (2, 0): {},
-            (3, 0): {},
-            (4, 0): {},
-        }
-        from py2neo.internal.hydration.spatial import (
-            hydration_functions as spatial_hydration_functions,
-            dehydration_functions as spatial_dehydration_functions,
-        )
-        from py2neo.internal.hydration.temporal import (
-            hydration_functions as temporal_hydration_functions,
-            dehydration_functions as temporal_dehydration_functions,
-        )
-        for v in [(2, 0), (3, 0), (4, 0)]:
-            self.hydration_functions[v].update(temporal_hydration_functions())
-            self.hydration_functions[v].update(spatial_hydration_functions())
-            self.dehydration_functions[v].update(temporal_dehydration_functions())
-            self.dehydration_functions[v].update(spatial_dehydration_functions())
 
     def hydrate(self, keys, values, entities=None, version=None):
         """ Convert PackStream values into native values.
@@ -688,53 +661,158 @@ class PackStreamHydrant(Hydrant):
             v = (version, 0)
         if entities is None:
             entities = {}
-        return tuple(self._hydrate_object(value, entities.get(keys[i]), v)
+        return tuple(self._hydrate(value, entities.get(keys[i]), v)
                      for i, value in enumerate(values))
 
-    def _hydrate_object(self, obj, inst=None, version=None):
+    def _hydrate(self, obj, inst=None, version=None):
+        from neotime import Duration, Date, Time, DateTime
+        from pytz import FixedOffset, timezone
+        from py2neo.data import Node, Relationship, Path
+        from py2neo.spatial import Point
 
-        def h1(o):
-            from py2neo.data import Node, Relationship
+        unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
+        unix_epoch_date = Date(1970, 1, 1)
+        unix_epoch_date_ordinal = unix_epoch_date.to_ordinal()
+
+        def hydrate_object(o):
             if isinstance(o, Structure):
                 tag = o.tag if isinstance(o.tag, bytes) else bytes(bytearray([o.tag]))
-                fields = o.fields
-                if tag == b"N":
-                    return Node.hydrate(self.graph, fields[0], fields[1], h1(fields[2]), into=inst)
-                elif tag == b"R":
-                    return Relationship.hydrate(self.graph, fields[0], fields[1], fields[2], fields[3],
-                                                h1(fields[4]), into=inst)
-                elif tag == b"P":
-                    return _hydrate_path(*fields)
+                try:
+                    f = functions[tag]
+                except KeyError:
+                    # If we don't recognise the structure type, just return it as-is
+                    return o
                 else:
-                    try:
-                        f = self.hydration_functions[version][tag]
-                    except KeyError:
-                        # If we don't recognise the structure type, just return it as-is
-                        return o
-                    else:
-                        return f(*map(h1, o.fields))
+                    return f(*o.fields)
             elif isinstance(o, list):
-                return list(map(h1, o))
+                return list(map(hydrate_object, o))
             elif isinstance(o, dict):
-                return {key: h1(value) for key, value in o.items()}
+                return {key: hydrate_object(value) for key, value in o.items()}
             else:
                 return o
 
-        def _hydrate_path(nodes, relationships, sequence):
-            from py2neo.data import Node, Path
-            nodes = [Node.hydrate(self.graph, n_id, n_label, h1(n_properties))
+        def hydrate_node(identity, labels, properties):
+            return Node.hydrate(self.graph, identity, labels, hydrate_object(properties), into=inst)
+
+        def hydrate_relationship(identity, start_node_id, end_node_id, r_type, properties):
+            return Relationship.hydrate(self.graph, identity, start_node_id, end_node_id,
+                                        r_type, hydrate_object(properties), into=inst)
+
+        def hydrate_path(nodes, relationships, sequence):
+            nodes = [Node.hydrate(self.graph, n_id, n_label, hydrate_object(n_properties))
                      for n_id, n_label, n_properties in nodes]
             u_rels = []
             for r_id, r_type, r_properties in relationships:
-                u_rel = self.unbound_relationship(r_id, r_type, h1(r_properties))
+                u_rel = unbound_relationship(r_id, r_type, hydrate_object(r_properties))
                 u_rels.append(u_rel)
             return Path.hydrate(self.graph, nodes, u_rels, sequence)
 
-        return h1(obj)
+        def hydrate_date(days):
+            """ Hydrator for `Date` values.
+
+            :param days:
+            :return: Date
+            """
+            return Date.from_ordinal(unix_epoch_date_ordinal + days)
+
+        def hydrate_time(nanoseconds, tz=None):
+            """ Hydrator for `Time` and `LocalTime` values.
+
+            :param nanoseconds:
+            :param tz:
+            :return: Time
+            """
+            seconds, nanoseconds = map(int, divmod(nanoseconds, 1000000000))
+            minutes, seconds = map(int, divmod(seconds, 60))
+            hours, minutes = map(int, divmod(minutes, 60))
+            seconds = (1000000000 * seconds + nanoseconds) / 1000000000
+            t = Time(hours, minutes, seconds)
+            if tz is None:
+                return t
+            tz_offset_minutes, tz_offset_seconds = divmod(tz, 60)
+            zone = FixedOffset(tz_offset_minutes)
+            return zone.localize(t)
+
+        def hydrate_datetime(seconds, nanoseconds, tz=None):
+            """ Hydrator for `DateTime` and `LocalDateTime` values.
+
+            :param seconds:
+            :param nanoseconds:
+            :param tz:
+            :return: datetime
+            """
+            minutes, seconds = map(int, divmod(seconds, 60))
+            hours, minutes = map(int, divmod(minutes, 60))
+            days, hours = map(int, divmod(hours, 24))
+            seconds = (1000000000 * seconds + nanoseconds) / 1000000000
+            t = DateTime.combine(Date.from_ordinal(unix_epoch_date_ordinal + days), Time(hours, minutes, seconds))
+            if tz is None:
+                return t
+            if isinstance(tz, int):
+                tz_offset_minutes, tz_offset_seconds = divmod(tz, 60)
+                zone = FixedOffset(tz_offset_minutes)
+            else:
+                zone = timezone(tz)
+            return zone.localize(t)
+
+        def hydrate_duration(months, days, seconds, nanoseconds):
+            """ Hydrator for `Duration` values.
+
+            :param months:
+            :param days:
+            :param seconds:
+            :param nanoseconds:
+            :return: `duration` namedtuple
+            """
+            return Duration(months=months, days=days, seconds=seconds, nanoseconds=nanoseconds)
+
+        def hydrate_point(srid, *coordinates):
+            """ Create a new instance of a Point subclass from a raw
+            set of fields. The subclass chosen is determined by the
+            given SRID; a ValueError will be raised if no such
+            subclass can be found.
+            """
+            try:
+                point_class, dim = Point.class_for_srid(srid)
+            except KeyError:
+                point = Point(coordinates)
+                point.srid = srid
+                return point
+            else:
+                if len(coordinates) != dim:
+                    raise ValueError("SRID %d requires %d coordinates (%d provided)" % (srid, dim, len(coordinates)))
+                return point_class(coordinates)
+
+        functions = {
+            b"N": hydrate_node,
+            b"R": hydrate_relationship,
+            b"P": hydrate_path,
+        }
+        if version >= (2, 0):
+            functions.update({
+                b"D": hydrate_date,
+                b"T": hydrate_time,         # time zone offset
+                b"t": hydrate_time,         # no time zone
+                b"F": hydrate_datetime,     # time zone offset
+                b"f": hydrate_datetime,     # time zone name
+                b"d": hydrate_datetime,     # no time zone
+                b"E": hydrate_duration,
+                b"X": hydrate_point,
+                b"Y": hydrate_point,
+            })
+
+        return hydrate_object(obj)
 
     def dehydrate(self, data, version=None):
         """ Dehydrate to PackStream.
         """
+        from datetime import date, time, datetime, timedelta
+        from neotime import Duration, Date, Time, DateTime
+        from pytz import utc
+        from py2neo.spatial import Point
+
+        unix_epoch_date = Date(1970, 1, 1)
+
         if version is None:
             v = (1, 0)
         elif isinstance(version, tuple):
@@ -742,10 +820,10 @@ class PackStreamHydrant(Hydrant):
         else:
             v = (version, 0)
 
-        def d1(x):
+        def dehydrate_object(x):
             t = type(x)
-            if t in self.dehydration_functions[v]:
-                f = self.dehydration_functions[v][t]
+            if t in functions:
+                f = functions[t]
                 return f(x)
             elif x is None or x is True or x is False or isinstance(x, float) or isinstance(x, string_types):
                 return x
@@ -760,11 +838,124 @@ class PackStreamHydrant(Hydrant):
                 for key in x:
                     if not isinstance(key, string_types):
                         raise TypeError("Dictionary keys must be strings")
-                    d[key] = d1(x[key])
+                    d[key] = dehydrate_object(x[key])
                 return d
             elif isinstance(x, Sequence):
-                return list(map(d1, x))
+                return list(map(dehydrate_object, x))
             else:
-                raise TypeError("Neo4j does not support PackStream parameters of type %s" % type(x).__name__)
+                raise TypeError("PackStream parameters of type %s are not supported" % type(x).__name__)
 
-        return d1(data)
+        def dehydrate_date(value):
+            """ Dehydrator for `date` values.
+
+            :param value:
+            :type value: Date
+            :return:
+            """
+            return Structure(b"D", value.toordinal() - unix_epoch_date.toordinal())
+
+        def dehydrate_time(value):
+            """ Dehydrator for `time` values.
+
+            :param value:
+            :type value: Time
+            :return:
+            """
+            if isinstance(value, Time):
+                nanoseconds = int(value.ticks * 1000000000)
+            elif isinstance(value, time):
+                nanoseconds = (3600000000000 * value.hour + 60000000000 * value.minute +
+                               1000000000 * value.second + 1000 * value.microsecond)
+            else:
+                raise TypeError("Value must be a neotime.Time or a datetime.time")
+            if value.tzinfo:
+                return Structure(b"T", nanoseconds, value.tzinfo.utcoffset(value).seconds)
+            else:
+                return Structure(b"t", nanoseconds)
+
+        def dehydrate_datetime(value):
+            """ Dehydrator for `datetime` values.
+
+            :param value:
+            :type value: datetime
+            :return:
+            """
+
+            def seconds_and_nanoseconds(dt):
+                if isinstance(dt, datetime):
+                    dt = DateTime.from_native(dt)
+                zone_epoch = DateTime(1970, 1, 1, tzinfo=dt.tzinfo)
+                t = dt.to_clock_time() - zone_epoch.to_clock_time()
+                return t.seconds, t.nanoseconds
+
+            tz = value.tzinfo
+            if tz is None:
+                # without time zone
+                value = utc.localize(value)
+                seconds, nanoseconds = seconds_and_nanoseconds(value)
+                return Structure(b"d", seconds, nanoseconds)
+            elif hasattr(tz, "zone") and tz.zone:
+                # with named time zone
+                seconds, nanoseconds = seconds_and_nanoseconds(value)
+                return Structure(b"f", seconds, nanoseconds, tz.zone)
+            else:
+                # with time offset
+                seconds, nanoseconds = seconds_and_nanoseconds(value)
+                return Structure(b"F", seconds, nanoseconds, tz.utcoffset(value).seconds)
+
+        def dehydrate_duration(value):
+            """ Dehydrator for `duration` values.
+
+            :param value:
+            :type value: Duration
+            :return:
+            """
+            return Structure(b"E", value.months, value.days, value.seconds, int(1000000000 * value.subseconds))
+
+        def dehydrate_timedelta(value):
+            """ Dehydrator for `timedelta` values.
+
+            :param value:
+            :type value: timedelta
+            :return:
+            """
+            months = 0
+            days = value.days
+            seconds = value.seconds
+            nanoseconds = 1000 * value.microseconds
+            return Structure(b"E", months, days, seconds, nanoseconds)
+
+        def dehydrate_point(value):
+            """ Dehydrator for Point data.
+
+            :param value:
+            :type value: Point
+            :return:
+            """
+            dim = len(value)
+            if dim == 2:
+                return Structure(b"X", value.srid, *value)
+            elif dim == 3:
+                return Structure(b"Y", value.srid, *value)
+            else:
+                raise ValueError("Cannot dehydrate Point with %d dimensions" % dim)
+
+        functions = {}  # graph types cannot be used as parameters
+        if v >= (2, 0):
+            functions.update({
+                Date: dehydrate_date,
+                date: dehydrate_date,
+                Time: dehydrate_time,
+                time: dehydrate_time,
+                DateTime: dehydrate_datetime,
+                datetime: dehydrate_datetime,
+                Duration: dehydrate_duration,
+                timedelta: dehydrate_timedelta,
+                Point: dehydrate_point,
+            })
+            functions.update({
+                cls: dehydrate_point
+                for cls in Point.__subclasses__()
+            })
+
+        return dehydrate_object(data)
