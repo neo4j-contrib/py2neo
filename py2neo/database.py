@@ -347,16 +347,16 @@ class Graph(object):
     __nonzero__ = __bool__
 
     def begin(self, autocommit=False):
-        """ Begin a new :class:`.Transaction`.
+        """ Begin a new :class:`.GraphTransaction`.
 
         :param autocommit: if :py:const:`True`, the transaction will
                          automatically commit after the first operation
         """
-        return Transaction(self, autocommit)
+        return GraphTransaction(self, autocommit)
 
     def create(self, subgraph):
-        """ Run a :meth:`.Transaction.create` operation within a
-        :class:`.Transaction`.
+        """ Run a :meth:`.GraphTransaction.create` operation within a
+        :class:`.GraphTransaction`.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
@@ -365,8 +365,8 @@ class Graph(object):
             tx.create(subgraph)
 
     def delete(self, subgraph):
-        """ Run a :meth:`.Transaction.delete` operation within an
-        `autocommit` :class:`.Transaction`. To delete only the
+        """ Run a :meth:`.GraphTransaction.delete` operation within an
+        `autocommit` :class:`.GraphTransaction`. To delete only the
         relationships, use the :meth:`.separate` method.
 
         Note that only entities which are bound to corresponding
@@ -390,8 +390,8 @@ class Graph(object):
         self.relationship_cache.clear()
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
-        """ Run a :meth:`.Transaction.evaluate` operation within an
-        `autocommit` :class:`.Transaction`.
+        """ Run a :meth:`.GraphTransaction.evaluate` operation within an
+        `autocommit` :class:`.GraphTransaction`.
 
         :param cypher: Cypher statement
         :param parameters: dictionary of parameters
@@ -401,8 +401,8 @@ class Graph(object):
         return self.begin(autocommit=True).evaluate(cypher, parameters, **kwparameters)
 
     def exists(self, subgraph):
-        """ Run a :meth:`.Transaction.exists` operation within an
-        `autocommit` :class:`.Transaction`.
+        """ Run a :meth:`.GraphTransaction.exists` operation within an
+        `autocommit` :class:`.GraphTransaction`.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
@@ -440,8 +440,8 @@ class Graph(object):
             return None
 
     def merge(self, subgraph, label=None, *property_keys):
-        """ Run a :meth:`.Transaction.merge` operation within an
-        `autocommit` :class:`.Transaction`.
+        """ Run a :meth:`.GraphTransaction.merge` operation within an
+        `autocommit` :class:`.GraphTransaction`.
 
         The example code below shows a simple merge for a new relationship
         between two new nodes:
@@ -463,7 +463,7 @@ class Graph(object):
             >>> g.merge(WORKS_FOR(a, c) | WORKS_FOR(b, c))
 
         For details of how the merge algorithm works, see the
-        :meth:`.Transaction.merge` method. Note that this is different
+        :meth:`.GraphTransaction.merge` method. Note that this is different
         to a Cypher MERGE.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
@@ -528,8 +528,8 @@ class Graph(object):
         return RelationshipMatcher(self)
 
     def run(self, cypher, parameters=None, **kwparameters):
-        """ Run a :meth:`.Transaction.run` operation within an
-        `autocommit` :class:`.Transaction`.
+        """ Run a :meth:`.GraphTransaction.run` operation within an
+        `autocommit` :class:`.GraphTransaction`.
 
         :param cypher: Cypher statement
         :param parameters: dictionary of parameters
@@ -539,8 +539,8 @@ class Graph(object):
         return self.begin(autocommit=True).run(cypher, parameters, **kwparameters)
 
     def separate(self, subgraph):
-        """ Run a :meth:`.Transaction.separate` operation within an
-        `autocommit` :class:`.Transaction`.
+        """ Run a :meth:`.GraphTransaction.separate` operation within an
+        `autocommit` :class:`.GraphTransaction`.
 
         Note that only relationships which are bound to corresponding
         remote relationships though the ``graph`` and ``identity``
@@ -788,27 +788,27 @@ class TransientError(GraphError):
     """
 
 
-class TransactionError(GraphError):
-    """ Raised when actions are attempted against a :class:`.Transaction`
+class GraphTransactionError(GraphError):
+    """ Raised when actions are attempted against a :class:`.GraphTransaction`
     that is no longer available for use, or a transaction is otherwise invalid.
     """
 
 
-class Transaction(object):
-    """ A transaction is a logical container for multiple Cypher statements.
+class GraphTransaction(object):
+    """ A logical context for one or more graph operations.
     """
 
     _finished = False
 
     def __init__(self, graph, autocommit=False):
-        self.graph = graph
-        self.autocommit = autocommit
-        self.entities = deque()
-        self.connector = self.graph.service.connector
+        self._graph = graph
+        self._autocommit = autocommit
+        self._entities = deque()
+        self._connector = self.graph.service.connector
         if autocommit:
-            self.transaction = None
+            self._transaction = None
         else:
-            self.transaction = self.connector.begin()
+            self._transaction = self._connector.begin()
 
     def __enter__(self):
         return self
@@ -817,11 +817,15 @@ class Transaction(object):
         if exc_type is None:
             self.commit()
         else:
-            self._rollback()
+            self.rollback()
 
     def _assert_unfinished(self):
         if self._finished:
-            raise TransactionError(self)
+            raise GraphTransactionError(self)
+
+    @property
+    def graph(self):
+        return self._graph
 
     def finished(self):
         """ Indicates whether or not this transaction has been completed
@@ -839,17 +843,17 @@ class Transaction(object):
         """
         self._assert_unfinished()
         try:
-            entities = self.entities.popleft()
+            entities = self._entities.popleft()
         except IndexError:
             entities = {}
 
         try:
-            hydrant = Connection.default_hydrant(self.connector.profile, self.graph)
-            result = self.connector.run(cypher, dict(parameters or {}, **kwparameters),
-                                        tx=self.transaction, hydrant=hydrant)
+            hydrant = Connection.default_hydrant(self._connector.profile, self.graph)
+            result = self._connector.run(cypher, dict(parameters or {}, **kwparameters),
+                                         tx=self._transaction, hydrant=hydrant)
             return Cursor(result, hydrant, entities)
         finally:
-            if not self.transaction:
+            if not self._transaction:
                 self.finish()
 
     def finish(self):
@@ -860,20 +864,14 @@ class Transaction(object):
         """ Commit the transaction.
         """
         self._assert_unfinished()
-        self.connector.commit(self.transaction)
-        self._finished = True
-
-    def _rollback(self):
-        """ Implicit rollback.
-        """
-        self.connector.rollback(self.transaction)
+        self._connector.commit(self._transaction)
         self._finished = True
 
     def rollback(self):
         """ Roll back the current transaction, undoing all actions previously taken.
         """
         self._assert_unfinished()
-        self.connector.rollback(self.transaction)
+        self._connector.rollback(self._transaction)
         self._finished = True
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
@@ -986,7 +984,7 @@ class Transaction(object):
             try:
                 merge(self, primary_label, primary_key)
             except OperationError as e0:
-                e1 = TransactionError("Failed to merge %r" % (subgraph,))
+                e1 = GraphTransactionError("Failed to merge %r" % (subgraph,))
                 e1.__cause__ = e0
                 raise e1
 

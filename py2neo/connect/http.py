@@ -26,7 +26,7 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo import http_user_agent
 from py2neo.internal.compat import urlsplit
-from py2neo.connect import Connection, Transaction, Result
+from py2neo.connect import Connection, Transaction, TransactionError, Result
 from py2neo.connect.json import JSONHydrant
 
 
@@ -193,7 +193,6 @@ class HTTP(Connection):
         return record
 
     def _assert_valid_tx(self, tx):
-        from py2neo.database import TransactionError
         if not tx:
             raise TransactionError("No transaction")
         if tx not in self._transactions:

@@ -43,7 +43,7 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
     Construct a new node object with the labels and properties specified.
     In its initial state, a node is `unbound`.
     This means that it exists only on the client and does not reference a corresponding server node.
-    A node is typically `bound` by :meth:`creating <.Transaction.create>` it in a Neo4j database.
+    A node is typically `bound` by :meth:`creating <.GraphTransaction.create>` it in a Neo4j database.
 
     .. describe:: node == other
 

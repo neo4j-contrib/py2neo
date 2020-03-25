@@ -39,7 +39,7 @@ The :class:`.Graph`
 Transactions
 ============
 
-.. autoclass:: Transaction(autocommit=False)
+.. autoclass:: GraphTransaction(autocommit=False)
    :members:
 
 
@@ -68,5 +68,5 @@ Errors & Warnings
 .. autoclass:: TransientError
    :members:
 
-.. autoclass:: TransactionError
+.. autoclass:: GraphTransactionError
    :members:
