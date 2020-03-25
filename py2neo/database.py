@@ -23,7 +23,7 @@ from datetime import datetime
 from time import sleep
 from warnings import warn
 
-from py2neo.connect import Connector, Connection, ConnectionProfile
+from py2neo.connect import Connector, Connection, ConnectionProfile, TransactionError
 from py2neo.cypher import cypher_escape
 from py2neo.data import Record, Table
 from py2neo.internal.caching import ThreadLocalEntityCache
@@ -827,6 +827,10 @@ class GraphTransaction(object):
     def graph(self):
         return self._graph
 
+    @property
+    def entities(self):
+        return self._entities
+
     def finished(self):
         """ Indicates whether or not this transaction has been completed
         or is still open.
@@ -864,15 +868,25 @@ class GraphTransaction(object):
         """ Commit the transaction.
         """
         self._assert_unfinished()
-        self._connector.commit(self._transaction)
-        self._finished = True
+        try:
+            self._connector.commit(self._transaction)
+        except TransactionError as error:
+            error.__class__ = GraphTransactionError
+            raise error
+        finally:
+            self._finished = True
 
     def rollback(self):
         """ Roll back the current transaction, undoing all actions previously taken.
         """
         self._assert_unfinished()
-        self._connector.rollback(self._transaction)
-        self._finished = True
+        try:
+            self._connector.rollback(self._transaction)
+        except TransactionError as error:
+            error.__class__ = GraphTransactionError
+            raise error
+        finally:
+            self._finished = True
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
