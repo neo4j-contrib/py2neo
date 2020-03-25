@@ -26,7 +26,7 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo import http_user_agent
 from py2neo.internal.compat import urlsplit
-from py2neo.connect import Connection, Result
+from py2neo.connect import Connection, Transaction, Result
 from py2neo.connect.json import JSONHydrant
 
 
@@ -49,7 +49,7 @@ class HTTP(Connection):
         super(HTTP, self).__init__(profile, user_agent)
         self.http_pool = None
         self.headers = make_headers(basic_auth=":".join(profile.auth))
-        self.transactions = set()
+        self._transactions = set()
         self.__closed = False
         self._make_pool(profile)
 
@@ -134,7 +134,7 @@ class HTTP(Connection):
 
     def auto_run(self, cypher, parameters=None,
                  db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
-        r = self._post("/db/data/transaction/commit", cypher, parameters)
+        r = self._post(HTTPTransaction.autocommit_uri(db), cypher, parameters)
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
@@ -142,21 +142,21 @@ class HTTP(Connection):
         return HTTPResult(rs.result())
 
     def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
-        r = self._post("/db/data/transaction")
+        r = self._post(HTTPTransaction.begin_uri(db))
         if r.status != 201:
             raise RuntimeError("Can't begin a new transaction")
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
         location_path = urlsplit(r.headers["Location"]).path
-        tx = location_path.rpartition("/")[-1]
-        self.transactions.add(tx)
+        tx = HTTPTransaction(db, location_path.rpartition("/")[-1])
+        self._transactions.add(tx)
         self.release()
         return tx
 
     def commit(self, tx):
         self._assert_valid_tx(tx)
-        self.transactions.remove(tx)
-        r = self._post("/db/data/transaction/%s/commit" % tx)
+        self._transactions.remove(tx)
+        r = self._post(tx.commit_uri())
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
@@ -164,15 +164,15 @@ class HTTP(Connection):
 
     def rollback(self, tx):
         self._assert_valid_tx(tx)
-        self.transactions.remove(tx)
-        r = self._delete("/db/data/transaction/%s" % tx)
+        self._transactions.remove(tx)
+        r = self._delete(tx.uri())
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
         self.release()
 
     def run_in_tx(self, tx, cypher, parameters=None):
-        r = self._post("/db/data/transaction/%s" % tx, cypher, parameters)
+        r = self._post(tx.uri(), cypher, parameters)
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
@@ -196,7 +196,7 @@ class HTTP(Connection):
         from py2neo.database import TransactionError
         if not tx:
             raise TransactionError("No transaction")
-        if tx not in self.transactions:
+        if tx not in self._transactions:
             raise TransactionError("Invalid transaction")
 
     def _post(self, url, statement=None, parameters=None):
@@ -220,6 +220,27 @@ class HTTP(Connection):
         return self.http_pool.request(method="DELETE",
                                       url=url,
                                       headers=dict(self.headers))
+
+
+class HTTPTransaction(Transaction):
+
+    @classmethod
+    def autocommit_uri(cls, db):
+        assert db is None  # TODO: multidb
+        return "/db/data/transaction/commit"
+
+    @classmethod
+    def begin_uri(cls, db):
+        assert db is None  # TODO: multidb
+        return "/db/data/transaction"
+
+    def uri(self):
+        assert self.db is None  # TODO: multidb
+        return "/db/data/transaction/%s" % self.txid
+
+    def commit_uri(self):
+        assert self.db is None  # TODO: multidb
+        return "/db/data/transaction/%s/commit" % self.txid
 
 
 class HTTPResult(Result):

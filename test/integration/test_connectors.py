@@ -200,3 +200,16 @@ def test_stats(connector):
 #         },
 #     )
 #     assert expected == actual
+
+
+# def skip_if_no_multidb_support(graph):
+#     if graph.service.kernel_version < (4, 0):
+#         skip("MultiDB tests are only valid for Neo4j 4.0+")
+#
+#
+# def test_db_extra(graph, connector):
+#     skip_if_no_multidb_support(graph)
+#     cursor = Cursor(connector.run("RETURN 1", {}, db="system"))
+#     expected = CypherStats(nodes_created=1)
+#     actual = cursor.stats()
+#     assert expected == actual

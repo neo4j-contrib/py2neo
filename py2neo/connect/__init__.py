@@ -17,9 +17,9 @@
 
 
 from collections import deque
-from hashlib import new as hashlib_new
 from logging import getLogger
 from threading import Event
+from uuid import uuid4
 
 from py2neo.internal.compat import urlsplit, string_types, perf_counter
 from py2neo.meta import (
@@ -218,8 +218,6 @@ class Connection(object):
     connection_id = None
 
     pool = None
-
-    transaction = None
 
     # TODO: ping method
 
@@ -640,14 +638,14 @@ class Connector(object):
     def rollback(self, tx):
         self.reacquire(tx).rollback(tx)
 
-    def run(self, statement, parameters=None, tx=None, hydrant=None):
+    def run(self, cypher, parameters=None, tx=None, hydrant=None):
         cx = self.reacquire(tx)
         if hydrant:
             parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
         if tx is None:
-            result = cx.auto_run(statement, parameters)
+            result = cx.auto_run(cypher, parameters)
         else:
-            result = cx.run_in_tx(tx, statement, parameters)
+            result = cx.run_in_tx(tx, cypher, parameters)
         cx.pull(result)
         cx.sync(result)
         return result
@@ -672,100 +670,20 @@ class WaitingList:
             event.set()
 
 
-class Task(object):
+class Transaction(object):
 
-    def done(self):
-        raise NotImplementedError
+    def __init__(self, db, txid=None):
+        self.db = db
+        self.txid = txid or uuid4()
 
-    def failed(self):
-        raise NotImplementedError
+    def __hash__(self):
+        return hash((self.db, self.txid))
 
-    def audit(self):
-        raise NotImplementedError
-
-
-class ItemizedTask(Task):
-    """ This class represents a form of dynamic checklist. Items may
-    be added, up to a "final" item which marks the list as complete.
-    Each item may then be marked as done.
-    """
-
-    def __init__(self):
-        super(ItemizedTask, self).__init__()
-        self._items = deque()
-        self._complete = False
-
-    def __bool__(self):
-        return not self.done() and not self.failed()
-
-    __nonzero__ = __bool__
-
-    def items(self):
-        return iter(self._items)
-
-    def append(self, item, final=False):
-        self._items.append(item)
-        if final:
-            self.set_complete()
-
-    def set_complete(self):
-        self._complete = True
-
-    def complete(self):
-        """ Flag to indicate whether all items have been appended to
-        this task, whether or not they are done.
-        """
-        return self._complete
-
-    def first(self):
-        try:
-            return self._items[0]
-        except IndexError:
-            return None
-
-    def last(self):
-        try:
-            return self._items[-1]
-        except IndexError:
-            return None
-
-    def done(self):
-        """ Flag to indicate whether the list of items is complete and
-        all items are done.
-        """
-        if self.complete():
-            last = self.last()
-            return (last and last.done()) or not last
+    def __eq__(self, other):
+        if isinstance(other, Transaction):
+            return self.db == other.db and self.txid == other.txid
         else:
             return False
-
-    def failed(self):
-        return any(item.failed() for item in self._items)
-
-    def audit(self):
-        for item in self._items:
-            item.audit()
-
-
-class Transaction(ItemizedTask):
-
-    def __init__(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
-        super(Transaction, self).__init__()
-        self.db = db
-        self.readonly = readonly
-        self.bookmarks = bookmarks
-        self.metadata = metadata
-        self.timeout = timeout
-
-    @property
-    def extra(self):
-        extra = {}
-        if self.db:
-            extra["db"] = self.db
-        if self.readonly:
-            extra["mode"] = "r"
-        # TODO: other extras
-        return extra
 
 
 class Result(object):

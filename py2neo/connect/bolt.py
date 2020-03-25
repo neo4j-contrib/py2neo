@@ -21,8 +21,7 @@ from logging import getLogger
 from socket import socket, SOL_SOCKET, SO_KEEPALIVE
 
 from py2neo.meta import bolt_user_agent
-from py2neo.connect import Connection, Transaction, TransactionError, Result, \
-    Task, ItemizedTask, Failure
+from py2neo.connect import Connection, Transaction, TransactionError, Result, Failure
 from py2neo.connect.packstream import MessageReader, MessageWriter, PackStreamHydrant
 from py2neo.connect.wire import Wire
 
@@ -138,13 +137,14 @@ class Bolt1(Bolt):
 
     def __init__(self, wire, profile, user_agent):
         super(Bolt1, self).__init__(wire, profile, user_agent)
-        self.reader = MessageReader(wire)
-        self.writer = MessageWriter(wire)
-        self.responses = deque()
-        self.metadata = {}
+        self._reader = MessageReader(wire)
+        self._writer = MessageWriter(wire)
+        self._responses = deque()
+        self._transaction = None
+        self._metadata = {}
 
     def bookmark(self):
-        return self.metadata.get("bookmark")
+        return self._metadata.get("bookmark")
 
     def _hello(self):
         self._assert_open()
@@ -162,7 +162,7 @@ class Bolt1(Bolt):
 
     def reset(self, force=False):
         self._assert_open()
-        if force or self.transaction is not None:
+        if force or self._transaction is not None:
             log.debug("[#%04X] C: RESET", self.local_port)
             response = self._write_request(0x0F, vital=True)
             self._sync(response)
@@ -175,7 +175,7 @@ class Bolt1(Bolt):
             raise TransactionError("Transaction metadata not supported until Bolt v3")
         if timeout:
             raise TransactionError("Transaction timeout not supported until Bolt v3")
-        self.transaction = Transaction(db, readonly, bookmarks)
+        self._transaction = BoltTransaction(db, readonly, bookmarks)
 
     def auto_run(self, cypher, parameters=None,
                  db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
@@ -184,36 +184,36 @@ class Bolt1(Bolt):
 
     def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         self._begin()
-        log.debug("[#%04X] C: RUN 'BEGIN' %r", self.local_port, self.transaction.extra)
+        log.debug("[#%04X] C: RUN 'BEGIN' %r", self.local_port, self._transaction.extra)
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
-        responses = (self._write_request(0x10, "BEGIN", self.transaction.extra),
+        responses = (self._write_request(0x10, "BEGIN", self._transaction.extra),
                      self._write_request(0x2F))
         if bookmarks:
             self._sync(*responses)
-            self._audit(self.transaction)
+            self._audit(self._transaction)
         self._bind()
-        return self.transaction
+        return self._transaction
 
     def commit(self, tx):
         self._assert_open()
         self._assert_open_transaction(tx)
-        self.transaction.set_complete()
+        self._transaction.set_complete()
         log.debug("[#%04X] C: RUN 'COMMIT' {}", self.local_port)
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
         self._sync(self._write_request(0x10, "COMMIT", {}),
                    self._write_request(0x2F))
-        self._audit(self.transaction)
+        self._audit(self._transaction)
         self._unbind()
 
     def rollback(self, tx):
         self._assert_open()
         self._assert_open_transaction(tx)
-        self.transaction.set_complete()
+        self._transaction.set_complete()
         log.debug("[#%04X] C: RUN 'ROLLBACK' {}", self.local_port)
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
         self._sync(self._write_request(0x10, "ROLLBACK", {}),
                    self._write_request(0x2F))
-        self._audit(self.transaction)
+        self._audit(self._transaction)
         self._unbind()
 
     def run_in_tx(self, tx, cypher, parameters=None):
@@ -225,7 +225,7 @@ class Bolt1(Bolt):
         log.debug("[#%04X] C: RUN %r %r", self.local_port, cypher, parameters)
         response = self._write_request(0x10, cypher, parameters)  # TODO: dehydrate parameters
         result = BoltResult(self, response)
-        self.transaction.append(result, final=final)
+        self._transaction.append(result, final=final)
         return result
 
     def pull(self, result, n=-1, capacity=-1):
@@ -255,37 +255,37 @@ class Bolt1(Bolt):
 
     def fetch(self, result):
         if not result.has_records() and not result.done():
-            while self.responses[0] is not result.last():
-                self._wait(self.responses[0])
+            while self._responses[0] is not result.last():
+                self._wait(self._responses[0])
             self._wait(result.last())
             self._audit(result)
         record = result.take_record()
         return record
 
     def _assert_no_transaction(self):
-        if self.transaction:
-            raise TransactionError("Bolt connection already holds transaction %r", self.transaction)
+        if self._transaction:
+            raise TransactionError("Bolt connection already holds transaction %r", self._transaction)
 
     def _assert_open_transaction(self, tx):
-        if self.transaction is not tx:
-            raise TransactionError("Transaction %r is not open on this connection", self.transaction)
+        if self._transaction is not tx:
+            raise TransactionError("Transaction %r is not open on this connection", self._transaction)
 
     def _assert_open_query(self, query):
-        if not self.transaction:
+        if not self._transaction:
             raise TransactionError("No active transaction")
-        if query is not self.transaction.last():
+        if query is not self._transaction.last():
             raise TransactionError("Random query access is not supported before Bolt 4.0")
 
     def _write_request(self, tag, *fields, **kwargs):
         # capacity denotes the preferred max number of records that a response can hold
         # vital responses close on failure and cannot be ignored
         response = BoltResponse(**kwargs)
-        self.writer.write_message(tag, *fields)
-        self.responses.append(response)
+        self._writer.write_message(tag, *fields)
+        self._responses.append(response)
         return response
 
     def _send(self):
-        sent = self.writer.send()
+        sent = self._writer.send()
         if sent:
             log.debug("[#%04X] C: <SENT %r bytes>", self.local_port, sent)
 
@@ -306,26 +306,26 @@ class Bolt1(Bolt):
             state. It is the responsibility of the caller to convert this
             failed state into an exception.
             """
-            rs = self.responses[0]
-            tag, fields = self.reader.read_message()
+            rs = self._responses[0]
+            tag, fields = self._reader.read_message()
             if tag == 0x70:
                 log.debug("[#%04X] S: SUCCESS %s", self.local_port, " ".join(map(repr, fields)))
                 rs.set_success(**fields[0])
-                self.responses.popleft()
-                self.metadata.update(fields[0])
+                self._responses.popleft()
+                self._metadata.update(fields[0])
             elif tag == 0x71:
                 log.debug("[#%04X] S: RECORD %s", self.local_port, " ".join(map(repr, fields)))
                 rs.add_record(fields[0])
             elif tag == 0x7F:
                 log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
                 rs.set_failure(**fields[0])
-                self.responses.popleft()
+                self._responses.popleft()
                 if rs.vital:
                     self._wire.close()
             elif tag == 0x7E and not rs.vital:
                 log.debug("[#%04X] S: IGNORED", self.local_port)
                 rs.set_ignored()
-                self.responses.popleft()
+                self._responses.popleft()
             else:
                 log.debug("[#%04X] S: <ERROR>", self.local_port)
                 self._wire.close()
@@ -333,7 +333,7 @@ class Bolt1(Bolt):
 
         while not response.full() and not response.done():
             fetch()
-            if not self.transaction:
+            if not self._transaction:
                 self.release()
 
     def _sync(self, *responses):
@@ -355,11 +355,11 @@ class Bolt1(Bolt):
 
     def _bind(self):
         if self.pool:
-            self.pool.bind(self.transaction, self)
+            self.pool.bind(self._transaction, self)
 
     def _unbind(self):
         if self.pool:
-            self.pool.unbind(self.transaction)
+            self.pool.unbind(self._transaction)
 
 
 class Bolt2(Bolt1):
@@ -395,49 +395,49 @@ class Bolt3(Bolt2):
                  db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         self._assert_open()
         self._assert_no_transaction()
-        self.transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
-        return self._run(cypher, parameters or {}, self.transaction.extra, final=True)
+        self._transaction = BoltTransaction(db, readonly, bookmarks, metadata, timeout)
+        return self._run(cypher, parameters or {}, self._transaction.extra, final=True)
 
     def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
         self._assert_open()
         self._assert_no_transaction()
-        self.transaction = Transaction(db, readonly, bookmarks, metadata, timeout)
-        log.debug("[#%04X] C: BEGIN %r", self.local_port, self.transaction.extra)
-        response = self._write_request(0x11, self.transaction.extra)
+        self._transaction = BoltTransaction(db, readonly, bookmarks, metadata, timeout)
+        log.debug("[#%04X] C: BEGIN %r", self.local_port, self._transaction.extra)
+        response = self._write_request(0x11, self._transaction.extra)
         if bookmarks:
             self._sync(response)
-            self._audit(self.transaction)
+            self._audit(self._transaction)
         self._bind()
-        return self.transaction
+        return self._transaction
 
     def commit(self, tx):
         self._assert_open()
         self._assert_open_transaction(tx)
-        self.transaction.set_complete()
+        self._transaction.set_complete()
         log.debug("[#%04X] C: COMMIT", self.local_port)
         self._sync(self._write_request(0x12))
-        self._audit(self.transaction)
+        self._audit(self._transaction)
         self._unbind()
 
     def rollback(self, tx):
         self._assert_open()
         self._assert_open_transaction(tx)
-        self.transaction.set_complete()
+        self._transaction.set_complete()
         log.debug("[#%04X] C: ROLLBACK", self.local_port)
         self._sync(self._write_request(0x13))
-        self._audit(self.transaction)
+        self._audit(self._transaction)
         self._unbind()
 
     def run(self, tx, cypher, parameters=None):
         self._assert_open()
         self._assert_open_transaction(tx)
-        return self._run(cypher, parameters or {}, self.transaction.extra)
+        return self._run(cypher, parameters or {}, self._transaction.extra)
 
     def _run(self, cypher, parameters, extra=None, final=False):
         log.debug("[#%04X] C: RUN %r %r %r", self.local_port, cypher, parameters, extra or {})
         response = self._write_request(0x10, cypher, parameters, extra or {})  # TODO: dehydrate parameters
         result = BoltResult(self, response)
-        self.transaction.append(result, final=final)
+        self._transaction.append(result, final=final)
         return result
 
 
@@ -445,6 +445,106 @@ class Bolt3(Bolt2):
 # class Bolt4x0(Bolt3):
 #
 #     protocol_version = (4, 0)
+
+
+class Task(object):
+
+    def done(self):
+        raise NotImplementedError
+
+    def failed(self):
+        raise NotImplementedError
+
+    def audit(self):
+        raise NotImplementedError
+
+
+class ItemizedTask(Task):
+    """ This class represents a form of dynamic checklist. Items may
+    be added, up to a "final" item which marks the list as complete.
+    Each item may then be marked as done.
+    """
+
+    def __init__(self):
+        self._items = deque()
+        self._complete = False
+
+    def __bool__(self):
+        return not self.done() and not self.failed()
+
+    __nonzero__ = __bool__
+
+    def items(self):
+        return iter(self._items)
+
+    def append(self, item, final=False):
+        self._items.append(item)
+        if final:
+            self.set_complete()
+
+    def set_complete(self):
+        self._complete = True
+
+    def complete(self):
+        """ Flag to indicate whether all items have been appended to
+        this task, whether or not they are done.
+        """
+        return self._complete
+
+    def first(self):
+        try:
+            return self._items[0]
+        except IndexError:
+            return None
+
+    def last(self):
+        try:
+            return self._items[-1]
+        except IndexError:
+            return None
+
+    def done(self):
+        """ Flag to indicate whether the list of items is complete and
+        all items are done.
+        """
+        if self.complete():
+            last = self.last()
+            return (last and last.done()) or not last
+        else:
+            return False
+
+    def failed(self):
+        return any(item.failed() for item in self._items)
+
+    def audit(self):
+        for item in self._items:
+            item.audit()
+
+
+class BoltTransaction(ItemizedTask, Transaction):
+
+    def __init__(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
+        ItemizedTask.__init__(self)
+        Transaction.__init__(self, db)
+        self.readonly = readonly
+        self.bookmarks = bookmarks
+        self.metadata = metadata
+        self.timeout = timeout
+
+    @property
+    def extra(self):
+        extra = {}
+        if self.db:
+            extra["db"] = self.db
+        if self.readonly:
+            extra["mode"] = "r"
+        if self.bookmarks:
+            extra["bookmarks"] = self.bookmarks
+        if self.metadata:
+            extra["metadata"] = self.metadata
+        if self.timeout:
+            extra["timeout"] = self.timeout
+        return extra
 
 
 class BoltResult(ItemizedTask, Result):
@@ -457,8 +557,8 @@ class BoltResult(ItemizedTask, Result):
     """
 
     def __init__(self, cx, response):
-        Result.__init__(self)
         ItemizedTask.__init__(self)
+        Result.__init__(self)
         self.__record_type = None
         self.__cx = cx
         self.append(response)
