@@ -92,7 +92,7 @@ class Bolt(Connection):
         versions = list(reversed(cls.protocol_catalogue()))[:4]
         log.debug("[#%04X] C: <PROTOCOL> %s",
                   local_port, " | ".join("%d.%d" % v for v in versions))
-        wire.write(b"".join(bytearray([0, 0, minor, major])
+        wire.write(b"".join(bytes(bytearray([0, 0, minor, major]))
                             for major, minor in versions).ljust(16, b"\x00"))
         wire.send()
         v = bytearray(wire.read(4))

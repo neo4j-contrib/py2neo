@@ -19,6 +19,8 @@
 # limitations under the License.
 
 
+from __future__ import division
+
 from codecs import decode
 from collections import namedtuple
 from struct import pack as struct_pack, unpack as struct_unpack
