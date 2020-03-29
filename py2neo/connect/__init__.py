@@ -491,6 +491,7 @@ class Connector(object):
             if the connection is not already in a clean state
         :return: a Bolt connection object
         """
+        # TODO: use graph_name and readonly
         log.debug("Acquiring connection from pool %r", self)
         cx = None
         while cx is None or cx.broken or cx.closed:
