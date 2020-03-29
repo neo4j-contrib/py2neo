@@ -22,7 +22,7 @@ from py2neo import GraphService, Graph
 
 
 def test_can_generate_graph(graph_service):
-    graph = graph_service["data"]
+    graph = graph_service[None]
     assert isinstance(graph, Graph)
 
 
@@ -62,13 +62,6 @@ def test_graph_service_metadata(graph_service):
         skip("JMX data not available in this version of Neo4j")
 
 
-def test_graph_service_name(graph_service):
-    if graph_service.name is None:
-        skip("Graph service name not available in this version of Neo4j")
-    else:
-        assert graph_service.name == "graph.db"
-
-
 def test_kernel_version(graph_service):
     try:
         version = graph_service.kernel_version
@@ -83,10 +76,10 @@ def test_kernel_version(graph_service):
 
 
 def test_can_get_set_of_graphs_in_service(graph_service):
-    assert set(graph_service) == {"data"}
+    assert set(graph_service) == {None}
 
 
 def test_can_get_dictionary_of_graphs(graph_service):
     graphs = dict(graph_service)
     assert len(graphs) == 1
-    assert graphs["data"] is graph_service.default_graph
+    assert graphs[None] is graph_service.default_graph

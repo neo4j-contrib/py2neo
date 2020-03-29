@@ -124,7 +124,7 @@ class GraphService(object):
         return graph_name in self._graphs
 
     def __getitem__(self, graph_name):
-        if graph_name == "data" and graph_name not in self._graphs:
+        if graph_name is None and graph_name not in self._graphs:
             self._graphs[graph_name] = Graph(**self._connector.profile.to_dict())
         return self._graphs[graph_name]
 
@@ -132,7 +132,7 @@ class GraphService(object):
         self._graphs[graph_name] = graph
 
     def __iter__(self):
-        yield "data"
+        yield None
 
     @property
     def connector(self):
@@ -150,7 +150,7 @@ class GraphService(object):
 
         :rtype: :class:`.Graph`
         """
-        return self["data"]
+        return self[None]
 
     def keys(self):
         return list(self)
@@ -187,13 +187,6 @@ class GraphService(object):
                     except (TypeError, ValueError):
                         d[attr_name] = attr_value
         return d
-
-    @property
-    def name(self):
-        """ Return the name of the active Neo4j database.
-        """
-        info = self.query_jmx("org.neo4j", name="Kernel")
-        return info.get("DatabaseName")
 
     @property
     def kernel_start_time(self):
@@ -312,7 +305,7 @@ class Graph(object):
     schema = None
 
     def __new__(cls, uri=None, **settings):
-        name = settings.pop("name", "data")
+        name = settings.pop("name", None)
         gs = GraphService(uri, **settings)
         if name in gs:
             inst = gs[name]
@@ -346,13 +339,31 @@ class Graph(object):
 
     __nonzero__ = __bool__
 
-    def begin(self, autocommit=False):
+    def auto(self, readonly=False, after=None, metadata=None, timeout=None):
+        """ Begin a new auto-commit :class:`.GraphTransaction`.
+
+        :param readonly:
+        :param after:
+        :param metadata:
+        :param timeout:
+        """
+        return GraphTransaction(self, True, readonly, after, metadata, timeout)
+
+    def begin(self, autocommit=False, readonly=False,
+              after=None, metadata=None, timeout=None):
         """ Begin a new :class:`.GraphTransaction`.
 
         :param autocommit: if :py:const:`True`, the transaction will
                          automatically commit after the first operation
+        :param readonly:
+        :param after:
+        :param metadata:
+        :param timeout:
         """
-        return GraphTransaction(self, autocommit)
+        if autocommit:
+            warn("Graph.begin(autocommit=True) is deprecated, "
+                 "use Graph.auto() instead", category=DeprecationWarning, stacklevel=2)
+        return GraphTransaction(self, autocommit, readonly, after, metadata, timeout)
 
     def create(self, subgraph):
         """ Run a :meth:`.GraphTransaction.create` operation within a
@@ -376,7 +387,7 @@ class Graph(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
         """
-        self.begin(autocommit=True).delete(subgraph)
+        self.auto().delete(subgraph)
 
     def delete_all(self):
         """ Delete all nodes and relationships from this :class:`.Graph`.
@@ -398,7 +409,7 @@ class Graph(object):
         :return: first value from the first record returned or
                  :py:const:`None`.
         """
-        return self.begin(autocommit=True).evaluate(cypher, parameters, **kwparameters)
+        return self.auto().evaluate(cypher, parameters, **kwparameters)
 
     def exists(self, subgraph):
         """ Run a :meth:`.GraphTransaction.exists` operation within an
@@ -408,7 +419,7 @@ class Graph(object):
                        :class:`.Subgraph` object
         :return:
         """
-        return self.begin(autocommit=True).exists(subgraph)
+        return self.auto(readonly=True).exists(subgraph)
 
     def match(self, nodes=None, r_type=None, limit=None):
         """ Match and return all relationships with specific criteria.
@@ -507,7 +518,7 @@ class Graph(object):
 
         :param subgraph: the collection of nodes and relationships to pull
         """
-        with self.begin() as tx:
+        with self.begin(readonly=True) as tx:
             tx.pull(subgraph)
 
     def push(self, subgraph):
@@ -536,7 +547,7 @@ class Graph(object):
         :param kwparameters: extra keyword parameters
         :return:
         """
-        return self.begin(autocommit=True).run(cypher, parameters, **kwparameters)
+        return self.auto().run(cypher, parameters, **kwparameters)
 
     def separate(self, subgraph):
         """ Run a :meth:`.GraphTransaction.separate` operation within an
@@ -549,7 +560,7 @@ class Graph(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
-        self.begin(autocommit=True).separate(subgraph)
+        self.auto().separate(subgraph)
 
 
 class Schema(object):
@@ -800,7 +811,8 @@ class GraphTransaction(object):
 
     _finished = False
 
-    def __init__(self, graph, autocommit=False):
+    def __init__(self, graph, autocommit=False, readonly=False,
+                 after=None, metadata=None, timeout=None):
         self._graph = graph
         self._autocommit = autocommit
         self._entities = deque()
@@ -808,7 +820,8 @@ class GraphTransaction(object):
         if autocommit:
             self._transaction = None
         else:
-            self._transaction = self._connector.begin()
+            self._transaction = self._connector.begin(self._graph.name,
+                                                      readonly, after, metadata, timeout)
 
     def __enter__(self):
         return self

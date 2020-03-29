@@ -275,16 +275,16 @@ class Connection(object):
     def reset(self, force=False):
         pass
 
-    def auto_run(self, cypher, parameters=None,
-                 db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+    def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
+                 after=None, metadata=None, timeout=None):
         pass
 
-    def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+    def begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
         """ Begin a transaction
 
-        :param db:
+        :param graph_name:
         :param readonly:
-        :param bookmarks:
+        :param after:
         :param metadata:
         :param timeout:
         :return: new :class:`.Transaction` object
@@ -470,7 +470,7 @@ class Connector(object):
         self._quarantine.remove(cx)
         return cx
 
-    def acquire(self, force_reset=False):
+    def acquire(self, graph_name=None, readonly=False, force_reset=False):
         """ Acquire a connection from the pool.
 
         In the simplest case, this will return an existing open
@@ -484,6 +484,8 @@ class Connector(object):
         amount of waiting would result in the acquisition of a
         connection. This will be the case if the pool has been closed.
 
+        :param graph_name:
+        :param readonly:
         :param force_reset: if true, the connection will be forcibly
             reset before being returned; if false, this will only occur
             if the connection is not already in a clean state
@@ -629,8 +631,9 @@ class Connector(object):
         except KeyError:
             raise TransactionError("Transaction not bound")
 
-    def begin(self):
-        return self.acquire().begin()
+    def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
+        cx = self.acquire(graph_name, readonly=readonly)
+        return cx.begin(after=after, metadata=metadata, timeout=timeout)
 
     def commit(self, tx):
         self.reacquire(tx).commit(tx)
@@ -672,16 +675,16 @@ class WaitingList:
 
 class Transaction(object):
 
-    def __init__(self, db, txid=None):
-        self.db = db
+    def __init__(self, graph_name, txid=None):
+        self.graph_name = graph_name
         self.txid = txid or uuid4()
 
     def __hash__(self):
-        return hash((self.db, self.txid))
+        return hash((self.graph_name, self.txid))
 
     def __eq__(self, other):
         if isinstance(other, Transaction):
-            return self.db == other.db and self.txid == other.txid
+            return self.graph_name == other.graph_name and self.txid == other.txid
         else:
             return False
 

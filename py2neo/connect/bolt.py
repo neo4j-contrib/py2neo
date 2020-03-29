@@ -168,27 +168,27 @@ class Bolt1(Bolt):
             self._sync(response)
             self._audit(response)
 
-    def _begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+    def _begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
         self._assert_open()
         self._assert_no_transaction()
         if metadata:
             raise TransactionError("Transaction metadata not supported until Bolt v3")
         if timeout:
             raise TransactionError("Transaction timeout not supported until Bolt v3")
-        self._transaction = BoltTransaction(db, readonly, bookmarks)
+        self._transaction = BoltTransaction(graph_name, readonly, after)
 
-    def auto_run(self, cypher, parameters=None,
-                 db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
-        self._begin()
+    def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
+                 after=None, metadata=None, timeout=None):
+        self._begin(graph_name, readonly, after, metadata, timeout)
         return self._run(cypher, parameters or {}, final=True)
 
-    def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
-        self._begin()
+    def begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
+        self._begin(graph_name, readonly, after, metadata, timeout)
         log.debug("[#%04X] C: RUN 'BEGIN' %r", self.local_port, self._transaction.extra)
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
         responses = (self._write_request(0x10, "BEGIN", self._transaction.extra),
                      self._write_request(0x2F))
-        if bookmarks:
+        if after:
             self._sync(*responses)
             self._audit(self._transaction)
         self._bind()
@@ -391,20 +391,20 @@ class Bolt3(Bolt2):
         self._write_request(0x02)
         self._send()
 
-    def auto_run(self, cypher, parameters=None,
-                 db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+    def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
+                 after=None, metadata=None, timeout=None):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransaction(db, readonly, bookmarks, metadata, timeout)
+        self._transaction = BoltTransaction(graph_name, readonly, after, metadata, timeout)
         return self._run(cypher, parameters or {}, self._transaction.extra, final=True)
 
-    def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
+    def begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransaction(db, readonly, bookmarks, metadata, timeout)
+        self._transaction = BoltTransaction(graph_name, readonly, after, metadata, timeout)
         log.debug("[#%04X] C: BEGIN %r", self.local_port, self._transaction.extra)
         response = self._write_request(0x11, self._transaction.extra)
-        if bookmarks:
+        if after:
             self._sync(response)
             self._audit(self._transaction)
         self._bind()
@@ -523,23 +523,23 @@ class ItemizedTask(Task):
 
 class BoltTransaction(ItemizedTask, Transaction):
 
-    def __init__(self, db, readonly=False, bookmarks=None, metadata=None, timeout=None):
+    def __init__(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
         ItemizedTask.__init__(self)
-        Transaction.__init__(self, db)
+        Transaction.__init__(self, graph_name)
         self.readonly = readonly
-        self.bookmarks = bookmarks
+        self.after = after
         self.metadata = metadata
         self.timeout = timeout
 
     @property
     def extra(self):
         extra = {}
-        if self.db:
-            extra["db"] = self.db
+        if self.graph_name:
+            extra["db"] = self.graph_name
         if self.readonly:
             extra["mode"] = "r"
-        if self.bookmarks:
-            extra["bookmarks"] = self.bookmarks
+        if self.after:
+            extra["bookmarks"] = self.after
         if self.metadata:
             extra["metadata"] = self.metadata
         if self.timeout:

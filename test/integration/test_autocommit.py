@@ -17,7 +17,7 @@
 
 
 def test_can_autocommit(graph):
-    tx = graph.begin(autocommit=True)
+    tx = graph.auto()
     assert not tx.finished()
     tx.run("RETURN 1")
     assert tx.finished()

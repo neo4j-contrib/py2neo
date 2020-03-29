@@ -133,22 +133,22 @@ class HTTP(Connection):
         self.server_agent = "Neo4j/{}".format(neo4j_version)
 
     def auto_run(self, cypher, parameters=None,
-                 db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
-        r = self._post(HTTPTransaction.autocommit_uri(db), cypher, parameters)
+                 graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
+        r = self._post(HTTPTransaction.autocommit_uri(graph_name), cypher, parameters)
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
         self.release()
         return HTTPResult(rs.result())
 
-    def begin(self, db=None, readonly=False, bookmarks=None, metadata=None, timeout=None):
-        r = self._post(HTTPTransaction.begin_uri(db))
+    def begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
+        r = self._post(HTTPTransaction.begin_uri(graph_name))
         if r.status != 201:
             raise RuntimeError("Can't begin a new transaction")
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
         location_path = urlsplit(r.headers["Location"]).path
-        tx = HTTPTransaction(db, location_path.rpartition("/")[-1])
+        tx = HTTPTransaction(graph_name, location_path.rpartition("/")[-1])
         self._transactions.add(tx)
         self.release()
         return tx
@@ -224,21 +224,21 @@ class HTTP(Connection):
 class HTTPTransaction(Transaction):
 
     @classmethod
-    def autocommit_uri(cls, db):
-        assert db is None  # TODO: multidb
+    def autocommit_uri(cls, graph_name):
+        assert graph_name is None  # TODO: multidb
         return "/db/data/transaction/commit"
 
     @classmethod
-    def begin_uri(cls, db):
-        assert db is None  # TODO: multidb
+    def begin_uri(cls, graph_name):
+        assert graph_name is None  # TODO: multidb
         return "/db/data/transaction"
 
     def uri(self):
-        assert self.db is None  # TODO: multidb
+        assert self.graph_name is None  # TODO: multidb
         return "/db/data/transaction/%s" % self.txid
 
     def commit_uri(self):
-        assert self.db is None  # TODO: multidb
+        assert self.graph_name is None  # TODO: multidb
         return "/db/data/transaction/%s/commit" % self.txid
 
 
