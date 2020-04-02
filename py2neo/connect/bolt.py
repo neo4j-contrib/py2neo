@@ -21,7 +21,7 @@ from logging import getLogger
 from socket import socket, SOL_SOCKET, SO_KEEPALIVE
 
 from py2neo.meta import bolt_user_agent
-from py2neo.connect import Connection, Transaction, TransactionError, Result, Failure
+from py2neo.connect import Connection, Transaction, TransactionError, Result, Failure, Bookmark
 from py2neo.connect.packstream import MessageReader, MessageWriter, PackStreamHydrant
 from py2neo.connect.wire import Wire
 
@@ -172,9 +172,9 @@ class Bolt1(Bolt):
         self._assert_open()
         self._assert_no_transaction()
         if metadata:
-            raise TransactionError("Transaction metadata not supported until Bolt v3")
+            raise TypeError("Transaction metadata not supported until Bolt v3")
         if timeout:
-            raise TransactionError("Transaction timeout not supported until Bolt v3")
+            raise TypeError("Transaction timeout not supported until Bolt v3")
         self._transaction = BoltTransaction(graph_name, readonly, after)
 
     def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
@@ -204,6 +204,7 @@ class Bolt1(Bolt):
                    self._write_request(0x2F))
         self._audit(self._transaction)
         self._unbind()
+        return Bookmark()
 
     def rollback(self, tx):
         self._assert_open()
@@ -215,6 +216,7 @@ class Bolt1(Bolt):
                    self._write_request(0x2F))
         self._audit(self._transaction)
         self._unbind()
+        return Bookmark()
 
     def run_in_tx(self, tx, cypher, parameters=None):
         self._assert_open()
@@ -232,7 +234,7 @@ class Bolt1(Bolt):
         self._assert_open()
         self._assert_open_query(result)
         if n != -1:
-            raise TransactionError("Flow control is not supported before Bolt 4.0")
+            raise TypeError("Flow control is not supported before Bolt 4.0")
         log.debug("[#%04X] C: PULL_ALL", self.local_port)
         response = self._write_request(0x3F, capacity=capacity)
         result.append(response, final=True)
@@ -242,7 +244,7 @@ class Bolt1(Bolt):
         self._assert_open()
         self._assert_open_query(result)
         if n != -1:
-            raise TransactionError("Flow control is not supported before Bolt 4.0")
+            raise TypeError("Flow control is not supported before Bolt 4.0")
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
         response = self._write_request(0x2F)
         result.append(response, final=True)
@@ -268,13 +270,13 @@ class Bolt1(Bolt):
 
     def _assert_open_transaction(self, tx):
         if self._transaction is not tx:
-            raise TransactionError("Transaction %r is not open on this connection", self._transaction)
+            raise TypeError("Transaction %r is not open on this connection", self._transaction)
 
     def _assert_open_query(self, query):
         if not self._transaction:
             raise TransactionError("No active transaction")
         if query is not self._transaction.last():
-            raise TransactionError("Random query access is not supported before Bolt 4.0")
+            raise TypeError("Random query access is not supported before Bolt 4.0")
 
     def _write_request(self, tag, *fields, **kwargs):
         # capacity denotes the preferred max number of records that a response can hold
@@ -415,18 +417,22 @@ class Bolt3(Bolt2):
         self._assert_open_transaction(tx)
         self._transaction.set_complete()
         log.debug("[#%04X] C: COMMIT", self.local_port)
-        self._sync(self._write_request(0x12))
+        response = self._write_request(0x12)
+        self._sync(response)
         self._audit(self._transaction)
         self._unbind()
+        return Bookmark(response.metadata.get("bookmark"))
 
     def rollback(self, tx):
         self._assert_open()
         self._assert_open_transaction(tx)
         self._transaction.set_complete()
         log.debug("[#%04X] C: ROLLBACK", self.local_port)
-        self._sync(self._write_request(0x13))
+        response = self._write_request(0x13)
+        self._sync(response)
         self._audit(self._transaction)
         self._unbind()
+        return Bookmark(response.metadata.get("bookmark"))
 
     def run(self, tx, cypher, parameters=None):
         self._assert_open()
@@ -539,7 +545,7 @@ class BoltTransaction(ItemizedTask, Transaction):
         if self.readonly:
             extra["mode"] = "r"
         if self.after:
-            extra["bookmarks"] = self.after
+            extra["bookmarks"] = list(Bookmark(self.after))
         if self.metadata:
             extra["metadata"] = self.metadata
         if self.timeout:

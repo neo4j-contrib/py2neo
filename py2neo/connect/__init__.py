@@ -47,6 +47,43 @@ DEFAULT_MAX_CONNECTIONS = 40
 log = getLogger(__name__)
 
 
+class Bookmark(object):
+
+    def __init__(self, *values):
+        value_list = []
+
+        def add_values(v):
+            for value in v:
+                if not value:
+                    continue
+                elif isinstance(value, Bookmark):
+                    value_list.extend(value.__values)
+                elif isinstance(value, tuple):
+                    add_values(value)
+                elif isinstance(value, string_types):
+                    value_list.append(value)
+                else:
+                    raise TypeError("Unusable bookmark value {!r}".format(value))
+
+        add_values(values)
+        self.__values = frozenset(value_list)
+
+    def __hash__(self):
+        return hash(self.__values)
+
+    def __eq__(self, other):
+        if isinstance(other, Bookmark):
+            return self.__values == other.__values
+        else:
+            return False
+
+    def __iter__(self):
+        return iter(self.__values)
+
+    def __repr__(self):
+        return "<Bookmark %s>" % " ".join(map(repr, self.__values))
+
+
 class ConnectionProfile(object):
     """ Connection details for a Neo4j service.
     """
@@ -230,7 +267,7 @@ class Connection(object):
             from py2neo.connect.http import HTTP
             return HTTP.open(profile, user_agent=user_agent)
         else:
-            raise ValueError("Unsupported scheme %r" % profile.scheme)
+            raise ValueError("Unknown scheme %r" % profile.scheme)
 
     def __init__(self, profile, user_agent):
         self.profile = profile
@@ -323,7 +360,7 @@ class Connection(object):
             from py2neo.connect.http import HTTP
             return HTTP.default_hydrant(profile, graph)
         else:
-            raise ValueError("Unsupported scheme %r" % profile.scheme)
+            raise ValueError("Unknown scheme %r" % profile.scheme)
 
     def release(self):
         if self.pool is not None:
@@ -637,10 +674,10 @@ class Connector(object):
         return cx.begin(after=after, metadata=metadata, timeout=timeout)
 
     def commit(self, tx):
-        self.reacquire(tx).commit(tx)
+        return self.reacquire(tx).commit(tx)
 
     def rollback(self, tx):
-        self.reacquire(tx).rollback(tx)
+        return self.reacquire(tx).rollback(tx)
 
     def run(self, cypher, parameters=None, tx=None, hydrant=None):
         cx = self.reacquire(tx)

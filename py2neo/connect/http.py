@@ -26,7 +26,7 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo import http_user_agent
 from py2neo.internal.compat import urlsplit
-from py2neo.connect import Connection, Transaction, TransactionError, Result
+from py2neo.connect import Connection, Transaction, TransactionError, Result, Bookmark
 from py2neo.connect.json import JSONHydrant
 
 
@@ -142,6 +142,14 @@ class HTTP(Connection):
         return HTTPResult(rs.result())
 
     def begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
+        if readonly:
+            raise TypeError("Readonly transactions are not supported over HTTP")
+        if after:
+            raise TypeError("Bookmarks are not supported over HTTP")
+        if metadata:
+            raise TypeError("Transaction metadata is not supported over HTTP")
+        if timeout:
+            raise TypeError("Transaction timeouts are not supported over HTTP")
         r = self._post(HTTPTransaction.begin_uri(graph_name))
         if r.status != 201:
             raise RuntimeError("Can't begin a new transaction")
@@ -161,6 +169,7 @@ class HTTP(Connection):
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
         self.release()
+        return Bookmark()
 
     def rollback(self, tx):
         self._assert_valid_tx(tx)
@@ -170,6 +179,7 @@ class HTTP(Connection):
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
         self.release()
+        return Bookmark()
 
     def run_in_tx(self, tx, cypher, parameters=None):
         r = self._post(tx.uri(), cypher, parameters)

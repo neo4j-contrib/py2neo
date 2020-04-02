@@ -513,6 +513,48 @@ class Graph(object):
         """
         return NodeMatcher(self)
 
+    def play(self, work, args=None, kwargs=None, after=None, metadata=None, timeout=None):
+        """ Play a function representing a transactional unit of work.
+
+        The function must always accept a :class:`.GraphTransaction`
+        object as its first argument. Additional arguments can be
+        passed though the `args` and `kwargs` arguments of this method.
+
+        If the function has a `readonly` attribute, and this is set to
+        a truthy value, then it will be executed in a read-only
+        environment, if possible.
+
+        If the function has a `timeout` attribute, and no `timeout`
+        argument is passed to this method call, then the value of the
+        function attribute will be used instead for setting the
+        timeout.
+
+        :param work: function containing the unit of work
+        :param args: sequence of additional positional arguments to
+            pass into the function
+        :param kwargs: mapping of additional keyword arguments to
+            pass into the function
+        :param after: :class:`.Bookmark` or tuple of :class:`.Bookmark`
+            objects marking the point in transactional history after
+            which this unit of work should be played
+        :param metadata: user metadata to attach to this transaction
+        :param timeout: timeout for transaction execution
+        """
+        if not callable(work):
+            raise TypeError("Unit of work is not callable")
+        kwargs = dict(kwargs or {})
+        readonly = getattr(work, "readonly", False)
+        if not timeout:
+            timeout = getattr(work, "timeout", None)
+        tx = self.begin(readonly=readonly, after=after, metadata=metadata, timeout=timeout)
+        try:
+            work(tx, *args or (), **kwargs or {})
+        except Exception:  # TODO: catch transient and retry, if within limit
+            tx.rollback()
+            raise
+        else:
+            return tx.commit()
+
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
 
@@ -882,7 +924,7 @@ class GraphTransaction(object):
         """
         self._assert_unfinished()
         try:
-            self._connector.commit(self._transaction)
+            return self._connector.commit(self._transaction)
         except TransactionError as error:
             error.__class__ = GraphTransactionError
             raise error
@@ -894,7 +936,7 @@ class GraphTransaction(object):
         """
         self._assert_unfinished()
         try:
-            self._connector.rollback(self._transaction)
+            return self._connector.rollback(self._transaction)
         except TransactionError as error:
             error.__class__ = GraphTransactionError
             raise error

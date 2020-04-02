@@ -154,7 +154,7 @@ class Packer:
 
         # Other
         else:
-            raise ValueError("Values of type %s are not supported" % type(value))
+            raise TypeError("Values of type %s are not supported" % type(value))
 
     def pack_bytes_header(self, size):
         write = self._write
