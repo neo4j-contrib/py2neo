@@ -35,7 +35,7 @@ def test_can_play_parameterised_function(graph):
     def work(tx, x):
         collected.append(tx.evaluate("RETURN $x", x=x))
 
-    graph.play(work, 1)
+    graph.play(work, args=[1])
     assert collected == [1]
 
 
@@ -45,13 +45,13 @@ def test_can_play_chained_functions(graph):
     def work(tx, x):
         collected.append(tx.evaluate("RETURN $x", x=x))
 
-    first = graph.play(work, 1)
+    first = graph.play(work, args=[1])
     if graph.service.connector.profile.protocol == "bolt":
-        graph.play(work, 2, after=first)
+        graph.play(work, args=[2], after=first)
         assert collected == [1, 2]
     else:
         with raises(TypeError):
-            graph.play(work, 2, after=first)
+            graph.play(work, args=[2], after=first)
         assert collected == [1]
 
 
@@ -61,12 +61,12 @@ def test_can_play_multi_chained_functions(graph):
     def work(tx, x):
         collected.append(tx.evaluate("RETURN $x", x=x))
 
-    first = graph.play(work, 1)
-    second = graph.play(work, 2)
+    first = graph.play(work, args=[1])
+    second = graph.play(work, args=[2])
     if graph.service.connector.profile.protocol == "bolt":
-        graph.play(work, 3, after=(first, second))
+        graph.play(work, args=[3], after=(first, second))
         assert collected == [1, 2, 3]
     else:
         with raises(TypeError):
-            graph.play(work, 3, after=(first, second))
+            graph.play(work, args=[3], after=(first, second))
         assert collected == [1, 2]
