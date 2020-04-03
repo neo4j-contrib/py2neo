@@ -226,7 +226,7 @@ class Bolt1(Bolt):
 
     def _run(self, cypher, parameters, extra=None, final=False):
         log.debug("[#%04X] C: RUN %r %r", self.local_port, cypher, parameters)
-        response = self._write_request(0x10, cypher, parameters)  # TODO: dehydrate parameters
+        response = self._write_request(0x10, cypher, parameters)
         result = BoltResult(self, response)
         self._transaction.append(result, final=final)
         return result
@@ -444,7 +444,7 @@ class Bolt3(Bolt2):
 
     def _run(self, cypher, parameters, extra=None, final=False):
         log.debug("[#%04X] C: RUN %r %r %r", self.local_port, cypher, parameters, extra or {})
-        response = self._write_request(0x10, cypher, parameters, extra or {})  # TODO: dehydrate parameters
+        response = self._write_request(0x10, cypher, parameters, extra or {})
         result = BoltResult(self, response)
         self._transaction.append(result, final=final)
         return result
