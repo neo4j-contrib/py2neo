@@ -739,7 +739,13 @@ class Result(object):
     def buffer(self):
         raise NotImplementedError
 
+    def header(self):
+        raise NotImplementedError
+
     def fields(self):
+        raise NotImplementedError
+
+    def query_id(self):
         raise NotImplementedError
 
     def summary(self):

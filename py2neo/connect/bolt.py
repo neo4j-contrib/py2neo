@@ -175,7 +175,8 @@ class Bolt1(Bolt):
             raise TypeError("Transaction metadata not supported until Bolt v3")
         if timeout:
             raise TypeError("Transaction timeout not supported until Bolt v3")
-        self._transaction = BoltTransaction(graph_name, readonly, after)
+        self._transaction = BoltTransaction(graph_name, self.protocol_version,
+                                            readonly, after)
 
     def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
                  after=None, metadata=None, timeout=None):
@@ -397,13 +398,15 @@ class Bolt3(Bolt2):
                  after=None, metadata=None, timeout=None):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransaction(graph_name, readonly, after, metadata, timeout)
+        self._transaction = BoltTransaction(graph_name, self.protocol_version,
+                                            readonly, after, metadata, timeout)
         return self._run(cypher, parameters or {}, self._transaction.extra, final=True)
 
     def begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransaction(graph_name, readonly, after, metadata, timeout)
+        self._transaction = BoltTransaction(graph_name, self.protocol_version,
+                                            readonly, after, metadata, timeout)
         log.debug("[#%04X] C: BEGIN %r", self.local_port, self._transaction.extra)
         response = self._write_request(0x11, self._transaction.extra)
         if after:
@@ -448,6 +451,15 @@ class Bolt3(Bolt2):
 
 
 # TODO: Bolt 4.0
+#   Replace PULL_ALL request with PULL {"n": … "qid": …}
+#   Replace DISCARD_ALL request with DISCARD {"n": … "qid": …}
+#   Add db to RUN request extras (in auto-commit mode)
+#   Add qid to RUN success response extras
+#   Add db to BEGIN request extras
+#   Add db to DISCARD success response extras
+#   Add has_more to PULL success response extras
+#   Add db to PULL success response extras (when has_more=false)
+#
 # class Bolt4x0(Bolt3):
 #
 #     protocol_version = (4, 0)
@@ -529,7 +541,11 @@ class ItemizedTask(Task):
 
 class BoltTransaction(ItemizedTask, Transaction):
 
-    def __init__(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
+    def __init__(self, graph_name, protocol_version, readonly=False,
+                 after=None, metadata=None, timeout=None):
+        if graph_name and protocol_version < (4, 0):
+            raise TypeError("Database selection is not supported "
+                            "prior to Neo4j 4.0")
         ItemizedTask.__init__(self)
         Transaction.__init__(self, graph_name)
         self.readonly = readonly
@@ -541,6 +557,7 @@ class BoltTransaction(ItemizedTask, Transaction):
     def extra(self):
         extra = {}
         if self.graph_name:
+            # TODO: error if not Bolt 4.0 or upwards
             extra["db"] = self.graph_name
         if self.readonly:
             extra["mode"] = "r"
@@ -577,9 +594,15 @@ class BoltResult(ItemizedTask, Result):
         if not self.done():
             self.__cx.sync(self)
 
-    def fields(self):
+    def header(self):
         self.__cx.sync(self)
-        return self._items[0].metadata.get("fields")
+        return self._items[0]
+
+    def fields(self):
+        return self.header().metadata.get("fields")
+
+    def query_id(self):
+        return self.header().metadata.get("qid")
 
     def summary(self):
         return dict(self._items[-1].metadata,
