@@ -41,7 +41,11 @@ class Wire:
         else:
             context.verify_mode = CERT_NONE
         context.load_default_certs()
-        self.__socket = context.wrap_socket(self.__socket, server_hostname=hostname)
+        try:
+            self.__socket = context.wrap_socket(self.__socket, server_hostname=hostname)
+        except OSError:
+            # TODO: add connection failure/diagnostic callback
+            raise OSError("Unable to establish secure connection with remote peer")
 
     def read(self, n):
         while len(self.__input) < n:
