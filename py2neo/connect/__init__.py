@@ -385,6 +385,8 @@ class Connector(object):
 
     default_max_age = 3600
 
+    default_acquire_wait_timeout = 30
+
     @classmethod
     def open(cls, profile=None, user_agent=None, init_size=None, max_size=None, max_age=None):
         """ Create a new connection pool, with an option to seed one
@@ -470,6 +472,11 @@ class Connector(object):
         return self._max_age
 
     @property
+    def acquire_wait_timeout(self):
+        # TODO: make this configurable
+        return self.default_acquire_wait_timeout
+
+    @property
     def in_use(self):
         """ The number of connections in this pool that are currently
         in use.
@@ -547,7 +554,7 @@ class Connector(object):
                     # Plan C: wait for more capacity to become
                     # available, then try again
                     log.debug("Joining waiting list")
-                    if not self._waiting_list.wait():
+                    if not self._waiting_list.wait(self.acquire_wait_timeout):
                         raise RuntimeError("Unable to acquire connection")
             else:
                 cx = self._sanitize(cx, force_reset=force_reset)
@@ -697,10 +704,10 @@ class WaitingList:
     def __init__(self):
         self._wait_list = deque()
 
-    def wait(self):
+    def wait(self, timeout=None):
         event = Event()
         self._wait_list.append(event)
-        return event.wait(3)  # TODO: make this configurable
+        return event.wait(timeout)
 
     def notify(self):
         try:
