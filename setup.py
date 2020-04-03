@@ -57,7 +57,7 @@ package_metadata = {
         "prompt_toolkit~=2.0.7",
         "pygments~=2.3.1",
         "pytz",
-        "urllib3<1.25,>=1.23",
+        "urllib3",
     ],
     "extras_require": {
     },
