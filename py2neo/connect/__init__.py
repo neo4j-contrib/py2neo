@@ -136,7 +136,11 @@ class ConnectionProfile(object):
         self.user = self._coalesce(settings.get("user"), self.user)
         self.password = self._coalesce(settings.get("password"), self.password)
         if "address" in settings:
-            self.address = Address.parse(settings.get("address"))
+            address = settings.get("address")
+            if isinstance(address, tuple):
+                self.address = Address(address)
+            else:
+                self.address = Address.parse(settings.get("address"))
         if "host" in settings and "port" in settings:
             self.address = Address.parse("%s:%s" % (settings.get("host"), settings.get("port")))
         elif "host" in settings:
@@ -250,6 +254,8 @@ class Connection(object):
 
     protocol_version = None
 
+    neo4j_version = None
+
     server_agent = None
 
     connection_id = None
@@ -312,11 +318,11 @@ class Connection(object):
     def reset(self, force=False):
         pass
 
-    def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
-                 after=None, metadata=None, timeout=None):
+    def auto_run(self, graph_name, cypher, parameters=None,
+                 readonly=False, after=None, metadata=None, timeout=None):
         pass
 
-    def begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
+    def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
         """ Begin a transaction
 
         :param graph_name:
@@ -365,6 +371,9 @@ class Connection(object):
     def release(self):
         if self.pool is not None:
             self.pool.release(self)
+
+    def supports_multi(self):
+        return self.neo4j_version.major_minor >= (4, 0)
 
 
 class Connector(object):
@@ -678,7 +687,7 @@ class Connector(object):
 
     def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
         cx = self.acquire(graph_name, readonly=readonly)
-        return cx.begin(after=after, metadata=metadata, timeout=timeout)
+        return cx.begin(graph_name, after=after, metadata=metadata, timeout=timeout)
 
     def commit(self, tx):
         return self.reacquire(tx).commit(tx)
@@ -686,17 +695,56 @@ class Connector(object):
     def rollback(self, tx):
         return self.reacquire(tx).rollback(tx)
 
-    def run(self, cypher, parameters=None, tx=None, hydrant=None):
-        cx = self.reacquire(tx)
+    def auto_run(self, graph_name, cypher, parameters=None, hydrant=None):
+        cx = self.acquire(graph_name)
         if hydrant:
             parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
-        if tx is None:
-            result = cx.auto_run(cypher, parameters)
-        else:
-            result = cx.run_in_tx(tx, cypher, parameters)
+        result = cx.auto_run(graph_name, cypher, parameters)
         cx.pull(result)
         cx.sync(result)
         return result
+
+    def run_in_tx(self, tx, cypher, parameters=None, hydrant=None):
+        cx = self.reacquire(tx)
+        if hydrant:
+            parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
+        result = cx.run_in_tx(tx, cypher, parameters)
+        cx.pull(result)
+        cx.sync(result)  # TODO: avoid sync on every tx.run
+        return result
+
+    def _show_databases(self):
+        cx = self.acquire("system")
+        result = cx.auto_run("system", "SHOW DATABASES")
+        cx.pull(result)
+        cx.sync(result)
+        return result
+
+    def graph_names(self):
+        try:
+            result = self._show_databases()
+        except TypeError:
+            return []
+        else:
+            value = []
+            while result.has_records():
+                (name, address, role, requested_status,
+                 current_status, error, default) = result.fetch()
+                value.append(name)
+            return value
+
+    def default_graph_name(self):
+        try:
+            result = self._show_databases()
+        except TypeError:
+            return None
+        else:
+            while result.has_records():
+                (name, address, role, requested_status,
+                 current_status, error, default) = result.fetch()
+                if default:
+                    return name
+            return None
 
 
 class WaitingList:

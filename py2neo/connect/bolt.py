@@ -24,6 +24,7 @@ from py2neo.meta import bolt_user_agent
 from py2neo.connect import Connection, Transaction, TransactionError, Result, Failure, Bookmark
 from py2neo.connect.packstream import MessageReader, MessageWriter, PackStreamHydrant
 from py2neo.connect.wire import Wire
+from py2neo.internal.versioning import Version
 
 
 log = getLogger(__name__)
@@ -157,8 +158,12 @@ class Bolt1(Bolt):
         response = self._write_request(0x01, self.user_agent, extra, vital=True)
         self._sync(response)
         self._audit(response)
-        self.server_agent = response.metadata.get("server")
         self.connection_id = response.metadata.get("connection_id")
+        self.server_agent = response.metadata.get("server")
+        if self.server_agent.startswith("Neo4j/"):
+            self.neo4j_version = Version.parse(self.server_agent[6:])
+        else:
+            raise RuntimeError("Unexpected server agent {!r}".format(self.server_agent))
 
     def reset(self, force=False):
         self._assert_open()
@@ -171,6 +176,9 @@ class Bolt1(Bolt):
     def _begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
         self._assert_open()
         self._assert_no_transaction()
+        if graph_name and not self.supports_multi():
+            raise TypeError("Neo4j {}.{} does not support "
+                            "named graphs".format(*self.neo4j_version.major_minor))
         if metadata:
             raise TypeError("Transaction metadata not supported until Bolt v3")
         if timeout:
@@ -178,12 +186,12 @@ class Bolt1(Bolt):
         self._transaction = BoltTransaction(graph_name, self.protocol_version,
                                             readonly, after)
 
-    def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
-                 after=None, metadata=None, timeout=None):
+    def auto_run(self, graph_name, cypher, parameters=None,
+                 readonly=False, after=None, metadata=None, timeout=None):
         self._begin(graph_name, readonly, after, metadata, timeout)
         return self._run(cypher, parameters or {}, final=True)
 
-    def begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
+    def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
         self._begin(graph_name, readonly, after, metadata, timeout)
         log.debug("[#%04X] C: RUN 'BEGIN' %r", self.local_port, self._transaction.extra)
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
@@ -394,15 +402,15 @@ class Bolt3(Bolt2):
         self._write_request(0x02)
         self._send()
 
-    def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
-                 after=None, metadata=None, timeout=None):
+    def auto_run(self, graph_name, cypher, parameters=None,
+                 readonly=False, after=None, metadata=None, timeout=None):
         self._assert_open()
         self._assert_no_transaction()
         self._transaction = BoltTransaction(graph_name, self.protocol_version,
                                             readonly, after, metadata, timeout)
         return self._run(cypher, parameters or {}, self._transaction.extra, final=True)
 
-    def begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
+    def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
         self._assert_open()
         self._assert_no_transaction()
         self._transaction = BoltTransaction(graph_name, self.protocol_version,
@@ -450,19 +458,31 @@ class Bolt3(Bolt2):
         return result
 
 
-# TODO: Bolt 4.0
-#   Replace PULL_ALL request with PULL {"n": … "qid": …}
-#   Replace DISCARD_ALL request with DISCARD {"n": … "qid": …}
-#   Add db to RUN request extras (in auto-commit mode)
-#   Add qid to RUN success response extras
-#   Add db to BEGIN request extras
-#   Add db to DISCARD success response extras
-#   Add has_more to PULL success response extras
-#   Add db to PULL success response extras (when has_more=false)
-#
-# class Bolt4x0(Bolt3):
-#
-#     protocol_version = (4, 0)
+class Bolt4x0(Bolt3):
+
+    protocol_version = (4, 0)
+
+    # TODO: Replace PULL_ALL request with PULL {"n": … "qid": …}
+    def pull(self, result, n=-1, capacity=-1):
+        self._assert_open()
+        self._assert_open_query(result)
+        log.debug("[#%04X] C: PULL", self.local_port)
+        args = {"n": n}
+        # TODO: qid
+        response = self._write_request(0x3F, args, capacity=capacity)
+        result.append(response, final=(n == -1))
+        return response
+
+    # TODO: Replace DISCARD_ALL request with DISCARD {"n": … "qid": …}
+    def discard(self, result, n=-1):
+        self._assert_open()
+        self._assert_open_query(result)
+        log.debug("[#%04X] C: DISCARD", self.local_port)
+        args = {"n": n}
+        # TODO: qid
+        response = self._write_request(0x2F, args)
+        result.append(response, final=(n == -1))
+        return response
 
 
 class Task(object):
@@ -557,7 +577,6 @@ class BoltTransaction(ItemizedTask, Transaction):
     def extra(self):
         extra = {}
         if self.graph_name:
-            # TODO: error if not Bolt 4.0 or upwards
             extra["db"] = self.graph_name
         if self.readonly:
             extra["mode"] = "r"
@@ -570,6 +589,11 @@ class BoltTransaction(ItemizedTask, Transaction):
         return extra
 
 
+# TODO: Bolt 4.0
+#   Add db to DISCARD success response extras
+#   Add has_more to PULL success response extras
+#   Add db to PULL success response extras (when has_more=false)
+#
 class BoltResult(ItemizedTask, Result):
     """ A query carried out over a Bolt connection.
 
@@ -601,6 +625,7 @@ class BoltResult(ItemizedTask, Result):
     def fields(self):
         return self.header().metadata.get("fields")
 
+    # TODO: Add qid to RUN success response extras (is this enough?)
     def query_id(self):
         return self.header().metadata.get("qid")
 

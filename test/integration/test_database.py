@@ -76,10 +76,6 @@ def test_kernel_version(graph_service):
 
 
 def test_can_get_set_of_graphs_in_service(graph_service):
-    assert set(graph_service) == {None}
-
-
-def test_can_get_dictionary_of_graphs(graph_service):
-    graphs = dict(graph_service)
-    assert len(graphs) == 1
-    assert graphs[None] is graph_service.default_graph
+    graph_names = set(graph_service)
+    assert (graph_names == set() or                 # Neo4j 3.x
+            graph_names == {"neo4j", "system"})     # Neo4j 4.x+

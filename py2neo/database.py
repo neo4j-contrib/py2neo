@@ -120,19 +120,31 @@ class GraphService(object):
     def __hash__(self):
         return hash(self._connector)
 
-    def __contains__(self, graph_name):
-        return graph_name in self._graphs
-
     def __getitem__(self, graph_name):
-        if graph_name is None and graph_name not in self._graphs:
-            self._graphs[graph_name] = Graph(**self._connector.profile.to_dict())
+        if graph_name is None:
+            graph_name = self._connector.default_graph_name()
+        elif graph_name not in self._connector.graph_names():
+            raise KeyError("Graph {!r} does not exist for "
+                           "service {!r}".format(graph_name, self._connector.profile.uri))
+        if graph_name not in self._graphs:
+            inst = object.__new__(Graph)
+            inst.service = self
+            inst.__name__ = graph_name
+            inst.schema = Schema(self)
+            inst.node_cache = ThreadLocalEntityCache()
+            inst.relationship_cache = ThreadLocalEntityCache()
+            self._graphs[graph_name] = inst
         return self._graphs[graph_name]
 
-    def __setitem__(self, graph_name, graph):
-        self._graphs[graph_name] = graph
-
     def __iter__(self):
-        yield None
+        """ Yield all named graphs.
+
+        For Neo4j 4.0 and above, this yields the names returned by a
+        SHOW DATABASES query. For earlier versions, this yields no
+        entries, since the one and only graph in these versions is not
+        named.
+        """
+        return iter(self._connector.graph_names())
 
     @property
     def connector(self):
@@ -151,6 +163,14 @@ class GraphService(object):
         :rtype: :class:`.Graph`
         """
         return self[None]
+
+    @property
+    def system_graph(self):
+        """ The system graph exposed by this graph service.
+
+        :rtype: :class:`.Graph`
+        """
+        return self["system"]
 
     def keys(self):
         return list(self)
@@ -307,17 +327,7 @@ class Graph(object):
     def __new__(cls, uri=None, **settings):
         name = settings.pop("name", None)
         gs = GraphService(uri, **settings)
-        if name in gs:
-            inst = gs[name]
-        else:
-            inst = object.__new__(cls)
-            inst.service = gs
-            inst.schema = Schema(inst)
-            inst.node_cache = ThreadLocalEntityCache()
-            inst.relationship_cache = ThreadLocalEntityCache()
-            inst.__name__ = name
-            gs[name] = inst
-        return inst
+        return gs[name]
 
     def __repr__(self):
         return "<Graph service=%r name=%r>" % (self.service, self.__name__)
@@ -605,6 +615,14 @@ class Graph(object):
         self.auto().separate(subgraph)
 
 
+class SystemGraph(Graph):
+
+    def __new__(cls, uri=None, **settings):
+        if "name" in settings:
+            raise TypeError("The system graph is always called 'system'")
+        return super(SystemGraph, cls).__new__(uri, name="system", **settings)
+
+
 class Schema(object):
     """ The schema resource attached to a `Graph` instance.
     """
@@ -860,7 +878,7 @@ class GraphTransaction(object):
         self._entities = deque()
         self._connector = self.graph.service.connector
         if autocommit:
-            self._transaction = None
+            self._transaction = None  # TODO: this loses the graph name
         else:
             self._transaction = self._connector.begin(self._graph.name,
                                                       readonly, after, metadata, timeout)
@@ -908,8 +926,11 @@ class GraphTransaction(object):
 
         try:
             hydrant = Connection.default_hydrant(self._connector.profile, self.graph)
-            result = self._connector.run(cypher, dict(parameters or {}, **kwparameters),
-                                         tx=self._transaction, hydrant=hydrant)
+            parameters = dict(parameters or {}, **kwparameters)
+            if self._transaction:
+                result = self._connector.run_in_tx(self._transaction, cypher, parameters, hydrant)
+            else:
+                result = self._connector.auto_run(self.graph.name, cypher, parameters, hydrant)
             return Cursor(result, hydrant, entities)
         finally:
             if not self._transaction:

@@ -26,6 +26,7 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo import http_user_agent
 from py2neo.internal.compat import urlsplit
+from py2neo.internal.versioning import Version
 from py2neo.connect import Connection, Transaction, TransactionError, Result, Bookmark
 from py2neo.connect.json import JSONHydrant
 
@@ -94,7 +95,7 @@ class HTTP(Connection):
                                    url="/",
                                    headers=dict(self.headers))
         metadata = json_loads(r.data.decode("utf-8"))
-        if "neo4j_version" in metadata:     # Neo4j 4.x
+        if "neo4j_version" in metadata:
             # {
             #   "bolt_routing" : "neo4j://localhost:7687",
             #   "transaction" : "http://localhost:7474/db/{databaseName}/tx",
@@ -102,7 +103,7 @@ class HTTP(Connection):
             #   "neo4j_version" : "4.0.0",
             #   "neo4j_edition" : "community"
             # }
-            neo4j_version = metadata["neo4j_version"]
+            self.neo4j_version = Version.parse(metadata["neo4j_version"])  # Neo4j 4.x
         else:                               # Neo4j 3.x
             # {
             #   "data" : "http://localhost:7474/db/data/",
@@ -129,11 +130,14 @@ class HTTP(Connection):
             #   "node_labels" : "http://localhost:7474/db/data/labels",
             #   "neo4j_version" : "3.5.12"
             # }
-            neo4j_version = metadata["neo4j_version"]
-        self.server_agent = "Neo4j/{}".format(neo4j_version)
+            self.neo4j_version = Version.parse(metadata["neo4j_version"])  # Neo4j 3.x
+        self.server_agent = "Neo4j/{}.{}.{}".format(*self.neo4j_version.major_minor_patch)
 
-    def auto_run(self, cypher, parameters=None,
-                 graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
+    def auto_run(self, graph_name, cypher, parameters=None,
+                 readonly=False, after=None, metadata=None, timeout=None):
+        if graph_name and not self.supports_multi():
+            raise TypeError("Neo4j {}.{} does not support "
+                            "named graphs".format(*self.neo4j_version.major_minor))
         r = self._post(HTTPTransaction.autocommit_uri(graph_name), cypher, parameters)
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
@@ -141,7 +145,10 @@ class HTTP(Connection):
         self.release()
         return HTTPResult(rs.result())
 
-    def begin(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
+    def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
+        if graph_name and not self.supports_multi():
+            raise TypeError("Neo4j {}.{} does not support "
+                            "named graphs".format(*self.neo4j_version.major_minor))
         if readonly:
             raise TypeError("Readonly transactions are not supported over HTTP")
         if after:
@@ -152,7 +159,7 @@ class HTTP(Connection):
             raise TypeError("Transaction timeouts are not supported over HTTP")
         r = self._post(HTTPTransaction.begin_uri(graph_name))
         if r.status != 201:
-            raise RuntimeError("Can't begin a new transaction")
+            raise RuntimeError("Can't begin a new transaction")  # TODO: better error
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
         location_path = urlsplit(r.headers["Location"]).path
@@ -235,21 +242,29 @@ class HTTPTransaction(Transaction):
 
     @classmethod
     def autocommit_uri(cls, graph_name):
-        assert graph_name is None  # TODO: multidb
-        return "/db/data/transaction/commit"
+        if graph_name:
+            return "/db/{}/tx/commit".format(graph_name)
+        else:
+            return "/db/data/transaction/commit"
 
     @classmethod
     def begin_uri(cls, graph_name):
-        assert graph_name is None  # TODO: multidb
-        return "/db/data/transaction"
+        if graph_name:
+            return "/db/{}/tx".format(graph_name)
+        else:
+            return "/db/data/transaction"
 
     def uri(self):
-        assert self.graph_name is None  # TODO: multidb
-        return "/db/data/transaction/%s" % self.txid
+        if self.graph_name:
+            return "/db/{}/tx/{}".format(self.graph_name, self.txid)
+        else:
+            return "/db/data/transaction/{}".format(self.txid)
 
     def commit_uri(self):
-        assert self.graph_name is None  # TODO: multidb
-        return "/db/data/transaction/%s/commit" % self.txid
+        if self.graph_name:
+            return "/db/{}/tx/{}/commit".format(self.graph_name, self.txid)
+        else:
+            return "/db/data/transaction/{}/commit".format(self.txid)
 
 
 class HTTPResult(Result):
