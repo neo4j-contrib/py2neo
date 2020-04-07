@@ -22,7 +22,6 @@ try:
 except ImportError:
     from distutils.core import setup, find_packages
 
-__SETUP = True
 from py2neo.meta import __author__, __email__, __license__, __package__, __version__
 
 
