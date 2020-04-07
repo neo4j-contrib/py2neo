@@ -26,10 +26,6 @@ def test_can_generate_graph(graph_service):
     assert isinstance(graph, Graph)
 
 
-def test_repr(graph_service):
-    assert repr(graph_service).startswith("<GraphService uri=")
-
-
 def test_same_uri_gives_same_instance(graph_service):
     uri = graph_service.uri
     gs1 = GraphService(uri)
@@ -49,17 +45,16 @@ def test_graph_service_is_not_equal_to_non_graph_service(graph_service):
     assert graph_service != object()
 
 
-def test_graph_service_metadata(graph_service):
-    try:
-        assert graph_service.kernel_start_time
-        assert graph_service.kernel_version
-        assert graph_service.store_creation_time
-        assert graph_service.store_id
-        assert graph_service.primitive_counts
-        assert graph_service.store_file_sizes
-        assert graph_service.config
-    except NotImplementedError:
-        skip("JMX data not available in this version of Neo4j")
+def test_graph_service_kernel_version(graph_service):
+    assert graph_service.kernel_version
+
+
+def test_graph_service_product(graph_service):
+    assert graph_service.product
+
+
+def test_graph_service_config(graph_service):
+    assert graph_service.config
 
 
 def test_kernel_version(graph_service):
