@@ -119,10 +119,6 @@ def test_node_cache_is_thread_local(graph):
     assert node.identity not in other_cache_keys
 
 
-def test_graph_repr(graph):
-    assert repr(graph).startswith("<")
-
-
 def test_can_get_same_instance(graph):
     graph_1 = Graph()
     graph_2 = Graph()

@@ -304,6 +304,15 @@ class HTTPResult(Result):
             self._cursor += 1
             return record
 
+    def peek_records(self, limit):
+        records = []
+        for i in range(limit):
+            try:
+                records.append(self._data[self._cursor + i]["rest"])
+            except IndexError:
+                break
+        return records
+
 
 class HTTPResponse(object):
 

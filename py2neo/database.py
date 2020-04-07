@@ -53,8 +53,10 @@ class GraphService(object):
     """ Accessor for an entire Neo4j graph database installation over
     Bolt or HTTP. Within the py2neo object hierarchy, a
     :class:`.GraphService` contains a :class:`.Graph` in which most
-    activity occurs. Currently, Neo4j only supports one `Graph` per
-    `GraphService`.
+    activity occurs.
+
+    .. note ::
+        In earlier versions, this class was known as `Database`.
 
     An explicit URI can be passed to the constructor::
 
@@ -126,8 +128,9 @@ class GraphService(object):
         elif graph_name not in self._connector.graph_names():
             raise KeyError("Graph {!r} does not exist for "
                            "service {!r}".format(graph_name, self._connector.profile.uri))
+        graph_class = SystemGraph if graph_name == "system" else Graph
         if graph_name not in self._graphs:
-            inst = object.__new__(Graph)
+            inst = object.__new__(graph_class)
             inst.service = self
             inst.__name__ = graph_name
             inst.schema = Schema(self)
@@ -168,63 +171,18 @@ class GraphService(object):
     def system_graph(self):
         """ The system graph exposed by this graph service.
 
-        :rtype: :class:`.Graph`
+        :rtype: :class:`.SystemGraph`
         """
         return self["system"]
 
     def keys(self):
         return list(self)
 
-    def query_jmx(self, namespace, instance=None, name=None, type=None):
-        """ Query the JMX service attached to this graph service.
-        """
-        d = {}
-        for nom, _, attributes in self.default_graph.run("CALL dbms.queryJmx('')"):
-            ns, _, terms = nom.partition(":")
-            if ns != namespace:
-                continue
-            terms = dict(tuple(term.partition("=")[0::2]) for term in terms.split(","))
-            if instance is not None and instance != terms["instance"]:
-                continue
-            if name is not None and name != terms["name"]:
-                continue
-            if type is not None and type != terms["type"]:
-                continue
-            for attr_name, attr_data in attributes.items():
-                attr_value = attr_data.get("value")
-                if attr_value == "true":
-                    d[attr_name] = True
-                elif attr_value == "false":
-                    d[attr_name] = False
-                elif isinstance(attr_value, string_types) and "." in attr_value:
-                    try:
-                        d[attr_name] = float(attr_value)
-                    except (TypeError, ValueError):
-                        d[attr_name] = attr_value
-                else:
-                    try:
-                        d[attr_name] = int(attr_value)
-                    except (TypeError, ValueError):
-                        d[attr_name] = attr_value
-        return d
-
-    @property
-    def kernel_start_time(self):
-        """ Return the time from which this Neo4j instance was in operational mode.
-        """
-        info = self.query_jmx("org.neo4j", name="Kernel")
-        try:
-            kernel_start_time = info["KernelStartTime"]
-        except KeyError:
-            raise NotImplementedError
-        else:
-            return datetime.fromtimestamp(kernel_start_time / 1000.0)
-
     @property
     def kernel_version(self):
         """ Return the version of Neo4j.
         """
-        components = self.default_graph.run("CALL dbms.components").data()
+        components = self.default_graph.call("dbms.components").data()
         kernel_component = [component for component in components
                             if component["name"] == "Neo4j Kernel"][0]
         version_string = kernel_component["versions"][0]
@@ -234,44 +192,16 @@ class GraphService(object):
     def product(self):
         """ Return the product name.
         """
-        info = self.query_jmx("org.neo4j", name="Kernel")
-        return info["KernelVersion"]
-
-    @property
-    def store_creation_time(self):
-        """ Return the time when this Neo4j graph store was created.
-        """
-        info = self.query_jmx("org.neo4j", name="Kernel")
-        return datetime.fromtimestamp(info["StoreCreationDate"] / 1000.0)
-
-    @property
-    def store_id(self):
-        """ Return an identifier that, together with store creation time,
-        uniquely identifies this Neo4j graph store.
-        """
-        info = self.query_jmx("org.neo4j", name="Kernel")
-        return info["StoreId"]
-
-    @property
-    def primitive_counts(self):
-        """ Return a dictionary of estimates of the numbers of different
-        kinds of Neo4j primitives.
-        """
-        return self.query_jmx("org.neo4j", name="Primitive count")
-
-    @property
-    def store_file_sizes(self):
-        """ Return a dictionary of file sizes for each file in the Neo4j
-        graph store.
-        """
-        return self.query_jmx("org.neo4j", name="Store file sizes")
+        record = next(self.default_graph.call("dbms.components"))
+        return "%s %s (%s)" % (record[0], " ".join(record[1]), record[2].title())
 
     @property
     def config(self):
         """ Return a dictionary of the configuration parameters used to
         configure Neo4j.
         """
-        return self.query_jmx("org.neo4j", name="Configuration")
+        return {record["name"]: record["value"]
+                for record in self.default_graph.call("dbms.listConfig")}
 
 
 class Graph(object):
@@ -279,31 +209,46 @@ class Graph(object):
     a Neo4j graph database. Connection details are provided using URIs
     and/or individual settings.
 
+    The `name` argument allows selection of a graph database by name.
+    When working with Neo4j 4.0 and above, this can be any name defined
+    in the system catalogue, a full list of which can be obtained
+    through the Cypher ``SHOW DATABASES`` command. Passing `None` here
+    will select the default database, as defined on the server. For
+    earlier versions of Neo4j, the `name` must be set to `None`.
+
+    The `system graph`, which is available in all 4.x+ product editions,
+    can also be accessed via the :class:`.SystemGraph` class.
+
     Supported URI schemes are:
 
-    - ``http``
-    - ``https``
-    - ``bolt``
+    - ``bolt`` - Bolt (unsecured)
+    - ``bolt+s`` - Bolt (secured with full certificate checks)
+    - ``bolt+ssc`` - Bolt (secured with no certificate checks)
+    - ``http`` - HTTP (unsecured)
+    - ``https`` - HTTP (secured with full certificate checks)
+    - ``http+s`` - HTTP (secured with full certificate checks)
+    - ``http+ssc`` - HTTP (secured with no certificate checks)
 
     The full set of supported `settings` are:
 
     ===================  ========================================================  ==============  =========================
     Keyword              Description                                               Type            Default
     ===================  ========================================================  ==============  =========================
-    ``auth``             A 2-tuple of (user, password)                             tuple           ``('neo4j', 'password')``
-    ``host``             Database server host name                                 str             ``'localhost'``
-    ``password``         Password to use for authentication                        str             ``'password'``
-    ``port``             Database server port                                      int             ``7687``
     ``scheme``           Use a specific URI scheme                                 str             ``'bolt'``
     ``secure``           Use a secure connection (TLS)                             bool            ``False``
+    ``verify``           Verify the server certificate (if secure)                 bool            ``True``
+    ``host``             Database server host name                                 str             ``'localhost'``
+    ``port``             Database server port                                      int             ``7687``
+    ``address``          Colon-separated host and port string                      str             ``'localhost:7687'``
     ``user``             User to authenticate as                                   str             ``'neo4j'``
+    ``password``         Password to use for authentication                        str             ``'password'``
+    ``auth``             A 2-tuple of (user, password)                             tuple           ``('neo4j', 'password')``
     ``user_agent``       User agent to send for all connections                    str             `(depends on URI scheme)`
     ``max_connections``  The maximum number of simultaneous connections permitted  int             40
     ===================  ========================================================  ==============  =========================
 
     Each setting can be provided as a keyword argument or as part of
-    an ``http:``, ``https:`` or ``bolt:`` URI. Therefore, the examples
-    below are equivalent::
+    an URI. Therefore, the three examples below are all equivalent::
 
         >>> from py2neo import Graph
         >>> graph_1 = Graph()
@@ -324,13 +269,15 @@ class Graph(object):
     #: The :class:`.Schema` resource for this :class:`.Graph`.
     schema = None
 
-    def __new__(cls, uri=None, **settings):
-        name = settings.pop("name", None)
+    def __new__(cls, uri=None, name=None, **settings):
         gs = GraphService(uri, **settings)
         return gs[name]
 
     def __repr__(self):
-        return "<Graph service=%r name=%r>" % (self.service, self.__name__)
+        if self.name is None:
+            return "%s(%r)" % (self.__class__.__name__, self.service.uri)
+        else:
+            return "%s(%r, name=%r)" % (self.__class__.__name__, self.service.uri, self.name)
 
     def __eq__(self, other):
         try:
@@ -374,6 +321,26 @@ class Graph(object):
             warn("Graph.begin(autocommit=True) is deprecated, "
                  "use Graph.auto() instead", category=DeprecationWarning, stacklevel=2)
         return GraphTransaction(self, autocommit, readonly, after, metadata, timeout)
+
+    def call(self, procedure, *args):
+        """ Call a procedure by name.
+
+        For example:
+            >>> from py2neo import Graph
+            >>> g = Graph()
+            >>> g.call("dbms.components")
+             name         | versions  | edition
+            --------------|-----------|-----------
+             Neo4j Kernel | ['4.0.2'] | community
+
+        :param procedure: fully qualified procedure name
+        :param args: positional arguments to pass to the procedure
+        :returns: :class:`.Cursor` object wrapping the result
+        """
+        procedure_name = ".".join(cypher_escape(part) for part in procedure.split("."))
+        arg_list = [(str(i), arg) for i, arg in enumerate(args)]
+        cypher = "CALL %s(%s)" % (procedure_name, ", ".join("$" + a[0] for a in arg_list))
+        return self.run(cypher, dict(arg_list))
 
     def create(self, subgraph):
         """ Run a :meth:`.GraphTransaction.create` operation within a
@@ -524,7 +491,7 @@ class Graph(object):
         return NodeMatcher(self)
 
     def play(self, work, args=None, kwargs=None, after=None, metadata=None, timeout=None):
-        """ Play a function representing a transactional unit of work.
+        """ Call a function representing a transactional unit of work.
 
         The function must always accept a :class:`.GraphTransaction`
         object as its first argument. Additional arguments can be
@@ -616,11 +583,16 @@ class Graph(object):
 
 
 class SystemGraph(Graph):
+    """ A subclass of :class:`.Graph` that provides access to the
+    system database for the remote DBMS. This is only available in
+    Neo4j 4.0 and above.
+    """
 
     def __new__(cls, uri=None, **settings):
-        if "name" in settings:
-            raise TypeError("The system graph is always called 'system'")
         return super(SystemGraph, cls).__new__(uri, name="system", **settings)
+
+    def __repr__(self):
+        return "%s(%r)" % (self.__class__.__name__, self.service.uri)
 
 
 class Schema(object):
@@ -1188,6 +1160,9 @@ class Cursor(object):
         except OSError:
             pass
 
+    def __repr__(self):
+        return repr(self.preview(3))
+
     def __next__(self):
         if self.forward():
             return self._current
@@ -1282,7 +1257,8 @@ class Cursor(object):
         """
         if amount == 0:
             return 0
-        assert amount > 0
+        if amount < 0:
+            raise ValueError("Cursor can only move forwards")
         amount = int(amount)
         moved = 0
         v = self._result.protocol_version
@@ -1297,6 +1273,25 @@ class Cursor(object):
                 self._current = Record(zip(keys, values))
                 moved += 1
         return moved
+
+    def preview(self, limit=1):
+        """ Construct a :class:`.Table` containing a preview of
+        upcoming records, including no more than the given `limit`.
+
+        :param limit: maximum number of records to include in the
+            preview
+        :returns: :class:`.Table` containing the previewed records
+        """
+        if limit < 0:
+            raise ValueError("Illegal preview size")
+        v = self._result.protocol_version
+        records = []
+        keys = self._result.fields()
+        for values in self._result.peek_records(int(limit)):
+            if self._hydrant:
+                values = self._hydrant.hydrate(keys, values, entities=self._entities, version=v)
+            records.append(values)
+        return Table(records, keys)
 
     def evaluate(self, field=0):
         """ Return the value of the first field from the next record

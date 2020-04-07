@@ -1,4 +1,4 @@
-Py2neo v4
+Py2neo v5
 =========
 .. image:: https://img.shields.io/github/license/technige/py2neo.svg
    :target: https://www.apache.org/licenses/LICENSE-2.0
@@ -20,12 +20,12 @@ Installation
    :target: https://pypi.python.org/pypi/py2neo
    :alt: PyPI version
 
-.. image:: https://img.shields.io/travis/technige/py2neo/v4.svg
+.. image:: https://img.shields.io/travis/technige/py2neo/v5.svg
    :target: https://travis-ci.org/technige/py2neo
    :alt: Build Status
 
-.. image:: https://img.shields.io/coveralls/github/technige/py2neo/v4.svg
-   :target: https://coveralls.io/github/technige/py2neo?branch=v4
+.. image:: https://img.shields.io/coveralls/github/technige/py2neo/v5.svg
+   :target: https://coveralls.io/github/technige/py2neo?branch=v5
    :alt: Coverage Status
 
 To install the latest stable version of py2neo, simply use pip:
@@ -70,4 +70,4 @@ While other operating systems and Python distributions may work, support for the
 Contact
 -------
 
-For more information, read the `handbook <http://py2neo.org/v4>`_.
+For more information, read the `handbook <http://py2neo.org/v5>`_.

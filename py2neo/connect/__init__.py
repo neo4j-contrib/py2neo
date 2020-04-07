@@ -20,6 +20,7 @@ from collections import deque
 from logging import getLogger
 from threading import Event
 from uuid import uuid4
+from warnings import warn
 
 from py2neo.internal.compat import urlsplit, string_types, perf_counter
 from py2neo.meta import (
@@ -112,7 +113,11 @@ class ConnectionProfile(object):
                     self.verify = False
             self.user = self._coalesce(parsed.username, self.user)
             self.password = self._coalesce(parsed.password, self.password)
-            self.address = Address.parse(parsed.netloc)
+            netloc = parsed.netloc
+            if "@" in netloc:
+                self.address = Address.parse(netloc.partition("@")[-1])
+            else:
+                self.address = Address.parse(netloc)
         else:
             self.address = Address.parse("")
         self._apply_auth(**settings)
@@ -149,16 +154,22 @@ class ConnectionProfile(object):
             self.address = Address.parse("%s:%s" % (self.host, settings.get("port")))
 
     def _apply_correct_scheme_for_security(self):
-        if self.secure is True and self.scheme == "http":
-            self.scheme = "https"
-        if self.secure is False and self.scheme in ("https", "http+s", "http+ssc"):
-            self.scheme = "http"
-
-    def _apply_other_defaults(self):
         if self.secure is None:
             self.secure = DEFAULT_SECURE
         if self.verify is None:
             self.verify = DEFAULT_VERIFY
+        if self.protocol == "bolt":
+            if self.secure:
+                self.scheme = "bolt+s" if self.verify else "bolt+ssc"
+            else:
+                self.scheme = "bolt"
+        elif self.protocol == "http":
+            if self.secure:
+                self.scheme = "https" if self.verify else "http+ssc"
+            else:
+                self.scheme = "http"
+
+    def _apply_other_defaults(self):
         if not self.scheme:
             self.scheme = DEFAULT_SCHEME
             if self.scheme in ("bolt", "http"):
@@ -212,7 +223,7 @@ class ConnectionProfile(object):
 
     @property
     def uri(self):
-        return "%s://%s:%s" % (self.scheme, self.host, self.port)
+        return "%s://%s@%s:%s" % (self.scheme, self.user, self.host, self.port)
 
     __hash_keys = ("secure", "verify", "scheme", "user", "password", "address")
 
@@ -545,6 +556,9 @@ class Connector(object):
         :return: a Bolt connection object
         """
         # TODO: use graph_name and readonly
+        if readonly:
+            warn("Acquisition of readonly connections is not yet supported; "
+                 "a read-write connection will be used instead")
         log.debug("Acquiring connection from pool %r", self)
         cx = None
         while cx is None or cx.broken or cx.closed:
@@ -816,6 +830,9 @@ class Result(object):
         raise NotImplementedError
 
     def take_record(self):
+        raise NotImplementedError
+
+    def peek_records(self, limit):
         raise NotImplementedError
 
 

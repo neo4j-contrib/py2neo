@@ -36,7 +36,7 @@ class AddressingTestCase(TestCase):
             'scheme': 'bolt',
             'secure': False,
             'verify': True,
-            'uri': 'bolt://host:9999',
+            'uri': 'bolt://neo4j@host:9999',
             'user': 'neo4j',
         })
 
@@ -52,7 +52,7 @@ class AddressingTestCase(TestCase):
             'scheme': 'http',
             'secure': False,
             'verify': True,
-            'uri': 'http://host:9999',
+            'uri': 'http://neo4j@host:9999',
             'user': 'neo4j',
         })
 
@@ -68,7 +68,7 @@ class AddressingTestCase(TestCase):
             'scheme': 'https',
             'secure': True,
             'verify': True,
-            'uri': 'https://host:9999',
+            'uri': 'https://neo4j@host:9999',
             'user': 'neo4j',
         })
 
@@ -81,10 +81,10 @@ class AddressingTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
-            'scheme': 'https',
+            'scheme': 'http+ssc',
             'secure': True,
             'verify': False,
-            'uri': 'https://host:9999',
+            'uri': 'http+ssc://neo4j@host:9999',
             'user': 'neo4j',
         })
 
@@ -100,7 +100,7 @@ class AddressingTestCase(TestCase):
             'scheme': 'https',
             'secure': True,
             'verify': True,
-            'uri': 'https://host:9999',
+            'uri': 'https://neo4j@host:9999',
             'user': 'neo4j',
         })
 
@@ -116,7 +116,7 @@ class AddressingTestCase(TestCase):
             'scheme': 'http',
             'secure': False,
             'verify': True,
-            'uri': 'http://host:9999',
+            'uri': 'http://neo4j@host:9999',
             'user': 'neo4j',
         })
 
@@ -132,7 +132,7 @@ class AddressingTestCase(TestCase):
             'scheme': 'http',
             'secure': False,
             'verify': True,
-            'uri': 'http://host:9999',
+            'uri': 'http://neo4j@host:9999',
             'user': 'neo4j',
         })
 
@@ -148,7 +148,7 @@ class AddressingTestCase(TestCase):
             'scheme': 'bolt',
             'secure': False,
             'verify': True,
-            'uri': 'bolt://other:9999',
+            'uri': 'bolt://neo4j@other:9999',
             'user': 'neo4j',
         })
 
@@ -164,6 +164,6 @@ class AddressingTestCase(TestCase):
             'scheme': 'bolt',
             'secure': False,
             'verify': True,
-            'uri': 'bolt://host:8888',
+            'uri': 'bolt://neo4j@host:8888',
             'user': 'neo4j',
         })

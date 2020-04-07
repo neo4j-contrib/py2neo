@@ -17,6 +17,7 @@
 
 
 from collections import deque
+from itertools import islice
 from logging import getLogger
 from socket import socket, SOL_SOCKET, SO_KEEPALIVE
 
@@ -650,6 +651,14 @@ class BoltResult(ItemizedTask, Result):
             return record
         return None
 
+    def peek_records(self, limit):
+        records = []
+        for response in self._items:
+            records.extend(response.peek_records(limit - len(records)))
+            if len(records) == limit:
+                break
+        return records
+
 
 class BoltResponse(Task):
 
@@ -689,6 +698,9 @@ class BoltResponse(Task):
             return self._records.popleft()
         except IndexError:
             return None
+
+    def peek_records(self, n):
+        return islice(self._records, 0, n)
 
     def set_success(self, **metadata):
         self._status = 1

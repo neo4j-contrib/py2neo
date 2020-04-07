@@ -1,5 +1,5 @@
 **********************
-The Py2neo v4 Handbook
+The Py2neo v5 Handbook
 **********************
 
 **Py2neo** is a client library and toolkit for working with Neo4j_ from within Python_ applications and from the command line.
@@ -36,7 +36,7 @@ The following versions of Python and Neo4j are supported:
 - Python 2.7 / 3.5 / 3.6 / 3.7 / 3.8
 - Neo4j 3.2 / 3.3 / 3.4 / 3.5 / 4.0 (the latest point release of each version is recommended)
 
-While either Neo4j Community or Enterprise edition may be used, py2neo offers no direct support for Enterprise-only features, such as `Causal Clustering`_.
+While either Neo4j Community or Enterprise edition may be used, py2neo does not yet fully support all Enterprise-only features, such as `Causal Clustering`_.
 
 Note also that Py2neo is developed and tested under **Linux** using standard CPython distributions.
 While other operating systems and Python distributions may work, support for these is not available.
