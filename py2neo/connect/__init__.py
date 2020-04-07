@@ -784,8 +784,17 @@ class Transaction(object):
 
 class Result(object):
 
-    def __init__(self):
+    def __init__(self, graph_name):
         super(Result, self).__init__()
+        self._graph_name = graph_name
+
+    @property
+    def graph_name(self):
+        return self._graph_name
+
+    @property
+    def query_id(self):
+        return None
 
     @property
     def protocol_version(self):
@@ -794,13 +803,7 @@ class Result(object):
     def buffer(self):
         raise NotImplementedError
 
-    def header(self):
-        raise NotImplementedError
-
     def fields(self):
-        raise NotImplementedError
-
-    def query_id(self):
         raise NotImplementedError
 
     def summary(self):

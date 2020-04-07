@@ -143,7 +143,7 @@ class HTTP(Connection):
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
         self.release()
-        return HTTPResult(rs.result())
+        return HTTPResult(graph_name, rs.result())
 
     def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
         if graph_name and not self.supports_multi():
@@ -194,7 +194,7 @@ class HTTP(Connection):
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
         rs.audit()
         self.release()
-        return HTTPResult(rs.result(), profile=self.profile)
+        return HTTPResult(tx.graph_name, rs.result(), profile=self.profile)
 
     def pull(self, result, n=-1):
         pass
@@ -269,8 +269,8 @@ class HTTPTransaction(Transaction):
 
 class HTTPResult(Result):
 
-    def __init__(self, result, profile=None):
-        super(Result, self).__init__()
+    def __init__(self, graph_name, result, profile=None):
+        Result.__init__(self, graph_name)
         self._columns = result.get("columns", ())
         self._data = result.get("data", [])
         self._summary = {}

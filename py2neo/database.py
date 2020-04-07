@@ -878,7 +878,7 @@ class GraphTransaction(object):
         self._entities = deque()
         self._connector = self.graph.service.connector
         if autocommit:
-            self._transaction = None  # TODO: this loses the graph name
+            self._transaction = None
         else:
             self._transaction = self._connector.begin(self._graph.name,
                                                       readonly, after, metadata, timeout)

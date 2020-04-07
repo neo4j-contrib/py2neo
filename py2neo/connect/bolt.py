@@ -189,7 +189,7 @@ class Bolt1(Bolt):
     def auto_run(self, graph_name, cypher, parameters=None,
                  readonly=False, after=None, metadata=None, timeout=None):
         self._begin(graph_name, readonly, after, metadata, timeout)
-        return self._run(cypher, parameters or {}, final=True)
+        return self._run(graph_name, cypher, parameters or {}, final=True)
 
     def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
         self._begin(graph_name, readonly, after, metadata, timeout)
@@ -230,18 +230,18 @@ class Bolt1(Bolt):
     def run_in_tx(self, tx, cypher, parameters=None):
         self._assert_open()
         self._assert_open_transaction(tx)
-        return self._run(cypher, parameters or {})
+        return self._run(tx.graph_name, cypher, parameters or {})
 
-    def _run(self, cypher, parameters, extra=None, final=False):
+    def _run(self, graph_name, cypher, parameters, extra=None, final=False):
         log.debug("[#%04X] C: RUN %r %r", self.local_port, cypher, parameters)
         response = self._write_request(0x10, cypher, parameters)
-        result = BoltResult(self, response)
+        result = BoltResult(graph_name, self, response)
         self._transaction.append(result, final=final)
         return result
 
     def pull(self, result, n=-1, capacity=-1):
         self._assert_open()
-        self._assert_open_query(result)
+        self._assert_is_last_result(result)
         if n != -1:
             raise TypeError("Flow control is not supported before Bolt 4.0")
         log.debug("[#%04X] C: PULL_ALL", self.local_port)
@@ -251,7 +251,7 @@ class Bolt1(Bolt):
 
     def discard(self, result, n=-1):
         self._assert_open()
-        self._assert_open_query(result)
+        self._assert_is_last_result(result)
         if n != -1:
             raise TypeError("Flow control is not supported before Bolt 4.0")
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
@@ -281,10 +281,10 @@ class Bolt1(Bolt):
         if self._transaction is not tx:
             raise TypeError("Transaction %r is not open on this connection", self._transaction)
 
-    def _assert_open_query(self, query):
+    def _assert_is_last_result(self, result):
         if not self._transaction:
             raise TransactionError("No active transaction")
-        if query is not self._transaction.last():
+        if result is not self._transaction.last():
             raise TypeError("Random query access is not supported before Bolt 4.0")
 
     def _write_request(self, tag, *fields, **kwargs):
@@ -408,7 +408,7 @@ class Bolt3(Bolt2):
         self._assert_no_transaction()
         self._transaction = BoltTransaction(graph_name, self.protocol_version,
                                             readonly, after, metadata, timeout)
-        return self._run(cypher, parameters or {}, self._transaction.extra, final=True)
+        return self._run(graph_name, cypher, parameters or {}, self._transaction.extra, final=True)
 
     def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
         self._assert_open()
@@ -448,12 +448,12 @@ class Bolt3(Bolt2):
     def run(self, tx, cypher, parameters=None):
         self._assert_open()
         self._assert_open_transaction(tx)
-        return self._run(cypher, parameters or {}, self._transaction.extra)
+        return self._run(tx.graph_name, cypher, parameters or {}, self._transaction.extra)
 
-    def _run(self, cypher, parameters, extra=None, final=False):
+    def _run(self, graph_name, cypher, parameters, extra=None, final=False):
         log.debug("[#%04X] C: RUN %r %r %r", self.local_port, cypher, parameters, extra or {})
         response = self._write_request(0x10, cypher, parameters, extra or {})
-        result = BoltResult(self, response)
+        result = BoltResult(graph_name, self, response)
         self._transaction.append(result, final=final)
         return result
 
@@ -462,24 +462,26 @@ class Bolt4x0(Bolt3):
 
     protocol_version = (4, 0)
 
-    # TODO: Replace PULL_ALL request with PULL {"n": … "qid": …}
+    def _assert_is_last_result(self, result):
+        if not self._transaction:
+            raise TransactionError("No active transaction")
+        if result is not self._transaction.last():
+            raise NotImplementedError("Random query access is not yet supported")
+
     def pull(self, result, n=-1, capacity=-1):
         self._assert_open()
-        self._assert_open_query(result)
-        log.debug("[#%04X] C: PULL", self.local_port)
+        self._assert_is_last_result(result)  # TODO: random query access (qid)
         args = {"n": n}
-        # TODO: qid
+        log.debug("[#%04X] C: PULL %r", self.local_port, args)
         response = self._write_request(0x3F, args, capacity=capacity)
         result.append(response, final=(n == -1))
         return response
 
-    # TODO: Replace DISCARD_ALL request with DISCARD {"n": … "qid": …}
     def discard(self, result, n=-1):
         self._assert_open()
-        self._assert_open_query(result)
-        log.debug("[#%04X] C: DISCARD", self.local_port)
+        self._assert_is_last_result(result)  # TODO: random query access (qid)
         args = {"n": n}
-        # TODO: qid
+        log.debug("[#%04X] C: DISCARD %r", self.local_port, args)
         response = self._write_request(0x2F, args)
         result.append(response, final=(n == -1))
         return response
@@ -589,11 +591,7 @@ class BoltTransaction(ItemizedTask, Transaction):
         return extra
 
 
-# TODO: Bolt 4.0
-#   Add db to DISCARD success response extras
-#   Add has_more to PULL success response extras
-#   Add db to PULL success response extras (when has_more=false)
-#
+# TODO: use 'has_more' metadata from PULL success response
 class BoltResult(ItemizedTask, Result):
     """ A query carried out over a Bolt connection.
 
@@ -603,12 +601,20 @@ class BoltResult(ItemizedTask, Result):
     failure of the query.
     """
 
-    def __init__(self, cx, response):
+    def __init__(self, graph_name, cx, response):
         ItemizedTask.__init__(self)
-        Result.__init__(self)
+        Result.__init__(self, graph_name)
         self.__record_type = None
         self.__cx = cx
         self.append(response)
+
+    @property
+    def graph_name(self):
+        return self._items[-1].metadata.get("db", super(BoltResult, self).graph_name)
+
+    @property
+    def query_id(self):
+        return self.header().metadata.get("qid")
 
     @property
     def protocol_version(self):
@@ -624,10 +630,6 @@ class BoltResult(ItemizedTask, Result):
 
     def fields(self):
         return self.header().metadata.get("fields")
-
-    # TODO: Add qid to RUN success response extras (is this enough?)
-    def query_id(self):
-        return self.header().metadata.get("qid")
 
     def summary(self):
         return dict(self._items[-1].metadata,
@@ -651,10 +653,11 @@ class BoltResult(ItemizedTask, Result):
 
 class BoltResponse(Task):
 
-    # 0 = not done
-    # 1 = success
-    # 2 = failure
-    # 3 = ignored
+    # status values:
+    #   0 = not done
+    #   1 = success
+    #   2 = failure
+    #   3 = ignored
 
     def __init__(self, capacity=-1, vital=False):
         super(BoltResponse, self).__init__()
@@ -693,7 +696,6 @@ class BoltResponse(Task):
 
     def set_failure(self, **metadata):
         self._status = 2
-        # self._failure = Failure(**metadata)
         # TODO: tidy up where these errors live
         from py2neo.database import GraphError
         self._failure = GraphError.hydrate(metadata)
