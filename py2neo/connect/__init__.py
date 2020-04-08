@@ -20,7 +20,6 @@ from collections import deque
 from logging import getLogger
 from threading import Event
 from uuid import uuid4
-from warnings import warn
 
 from py2neo.internal.compat import urlsplit, string_types, perf_counter
 from py2neo.meta import (
@@ -556,9 +555,6 @@ class Connector(object):
         :return: a Bolt connection object
         """
         # TODO: use graph_name and readonly
-        if readonly:
-            warn("Acquisition of readonly connections is not yet supported; "
-                 "a read-write connection will be used instead")
         log.debug("Acquiring connection from pool %r", self)
         cx = None
         while cx is None or cx.broken or cx.closed:

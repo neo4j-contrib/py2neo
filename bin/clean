@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+BIN="$(dirname "$0")"
+ROOT="${BIN}/.."
+
+find . -name "__pycache__" -print0 | xargs -0 rm -rf
+find . -name "*.py[co]" -delete
+find . -name "*.so" -delete
+
+rm -rf \
+  "${ROOT}/build" \
+  "${ROOT}/dist" \
+  "${ROOT}/docs/_build" \
+  "${ROOT}/test/.coverage" \
+  "${ROOT}/*.egg-info" \
+  "${ROOT}/.tox" \
+  "${ROOT}/.cache" \
+  "${ROOT}/.pytest_cache" \
+  "${ROOT}/.benchmarks" \
+  "${ROOT}/.vscode"

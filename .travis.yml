@@ -22,6 +22,6 @@ install:
 
 script:
   - source jdk_switcher.sh
-  - ./check_legal.sh
+  - bin/check-legal
   - ./run_tests.sh
-  - ./check_install.sh
+  - bin/check_install

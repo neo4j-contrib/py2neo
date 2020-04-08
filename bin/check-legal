@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 
+BIN="$(dirname "$0")"
+ROOT="${BIN}/.."
 
 function check_license {
-    find py2neo -name '*.py' | xargs grep -L "http://www.apache.org/licenses/LICENSE-2.0"
+    find "${ROOT}/py2neo" -name '*.py' -print0 | xargs -0 grep -L "http://www.apache.org/licenses/LICENSE-2.0"
 }
 
 
 function check_copyright {
     YEAR=$(date +%Y)
-    find py2neo -name '*.py' | xargs grep -L -e "Copyright.* 20[0-9][0-9]-${YEAR}"
+    find "${ROOT}/py2neo" -name '*.py' -print0 | xargs -0 grep -L -e "Copyright.* 20[0-9][0-9]-${YEAR}"
 }
 
 

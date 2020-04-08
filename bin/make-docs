@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 
-HOME=$(dirname $0)
+BIN="$(dirname "$0")"
+ROOT="${BIN}/.."
+DOCS="${ROOT}/docs"
+
 OFFLINE=$(ping -n -c 1 -W 1 8.8.8.8 > /dev/null ; echo $?)
 
 if [[ "${OFFLINE}" == "0" ]]
 then
     pip install --quiet --upgrade sphinx
 fi
-make -C ${HOME}/docs html
+make -C "${DOCS}" html
 
 echo ""
-INDEX_FILE="${HOME}/docs/_build/html/index.html"
+INDEX_FILE="${DOCS}/_build/html/index.html"
 echo "Documentation index file can be found at file://$(cd "$(dirname "${INDEX_FILE}")"; pwd)/$(basename "${INDEX_FILE}")"

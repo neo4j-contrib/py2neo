@@ -521,6 +521,10 @@ class Graph(object):
             raise TypeError("Unit of work is not callable")
         kwargs = dict(kwargs or {})
         readonly = getattr(work, "readonly", False)
+        if readonly:
+            # TODO: remove this warning when readonly is implemented
+            warn("Acquisition of readonly connections is not yet supported; "
+                 "a read-write connection will be used instead")
         if not timeout:
             timeout = getattr(work, "timeout", None)
         tx = self.begin(readonly=readonly, after=after, metadata=metadata, timeout=timeout)

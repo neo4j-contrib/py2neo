@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+SCRIPT=$(basename "$0")
+BIN="$(dirname "$0")"
+
+VERSION="$1"
+if [ "${VERSION}" == "" ]
+then
+    echo "usage: ${SCRIPT} VERSION"
+    exit 1
+else
+    source "${BIN}/dist-functions"
+    setup "${VERSION}" sdist upload -r pypi --show-response
+fi

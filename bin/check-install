@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 
-ROOT=$(dirname $0)
+BIN="$(dirname "$0")"
+ROOT="${BIN}/.."
+DIST="${ROOT}/dist"
 ENV=venv
 
-cd ${ROOT}
-rm -r dist
+rm -r "${DIST}"
+
+cd "${ROOT}"
 python setup.py sdist
 
-cd ${ROOT}/dist
+cd "${DIST}"
 pip install --upgrade virtualenv
 virtualenv ${ENV}
 source ${ENV}/bin/activate
@@ -16,5 +19,8 @@ if [ "$?" != "0" ]
 then
     exit 1
 fi
+
+python -c "from py2neo.meta import __package__, __version__; print(__package__ + ' ' + __version__)"
+
 deactivate
 rm -r ${ENV}

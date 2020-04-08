@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
 
+BIN="$(dirname "$0")"
+ROOT="${BIN}/.."
+TEST="${ROOT}/test"
+COVERAGERC="${TEST}/.coveragerc"
+
 ARGS=$*
 
 
 function run_unit_tests
 {
     echo "Running unit tests"
-    coverage run --append --module pytest -v ${ARGS} test/unit
+    coverage run --append --rcfile="${COVERAGERC}" \
+             --module pytest -v ${ARGS} "${TEST}/unit"
     STATUS="$?"
     if [[ ${STATUS} -eq 5 ]]
     then
@@ -22,7 +28,8 @@ function run_unit_tests
 function run_integration_tests
 {
     echo "Using Java ${JAVA_VERSION} installation at ${JAVA_HOME}"
-    coverage run --append --module pytest -v ${ARGS} test/integration
+    coverage run --append --rcfile="${COVERAGERC}" \
+             --module pytest -v ${ARGS} "${TEST}/integration"
     STATUS="$?"
     if [[ ${STATUS} -ne 0 ]]
     then
@@ -35,20 +42,21 @@ function run_integration_tests
 }
 
 
-pip install --upgrade coverage pytest
-pip install --upgrade -r requirements.txt -r test_requirements.txt
-coverage erase
+pip install --upgrade \
+  -r "${ROOT}/requirements.txt" \
+  -r "${TEST}/requirements.txt"
+coverage erase --rcfile="${COVERAGERC}"
 
 run_unit_tests
 
 JAVA_VERSION=11
-JAVA_HOME="$(./where-is-java.sh $JAVA_VERSION)"
+JAVA_HOME="$("${BIN}/where-is-java" $JAVA_VERSION)"
 export JAVA_VERSION JAVA_HOME
 run_integration_tests
 
 JAVA_VERSION=8
-JAVA_HOME="$(./where-is-java.sh $JAVA_VERSION)"
+JAVA_HOME="$("${BIN}/where-is-java" $JAVA_VERSION)"
 export JAVA_VERSION JAVA_HOME
 run_integration_tests
 
-coverage report
+coverage report --rcfile="${COVERAGERC}"
