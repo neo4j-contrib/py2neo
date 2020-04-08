@@ -37,8 +37,10 @@ The following versions of Python and Neo4j are supported:
 - Neo4j 3.2 / 3.3 / 3.4 / 3.5 / 4.0 (the latest point release of each version is recommended)
 
 While either Neo4j Community or Enterprise edition may be used, py2neo does not yet fully support all Enterprise-only features, such as `Causal Clustering`_.
+Py2neo does however provide support for the multi-database functionality added in Neo4j 4.0.
+More about this can be found in the documentation for the :class:`.Graph` class.
 
-Note also that Py2neo is developed and tested under **Linux** using standard CPython distributions.
+Note that Py2neo is developed and tested under **Linux** using standard CPython distributions.
 While other operating systems and Python distributions may work, support for these is not available.
 
 

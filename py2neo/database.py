@@ -216,8 +216,24 @@ class Graph(object):
     will select the default database, as defined on the server. For
     earlier versions of Neo4j, the `name` must be set to `None`.
 
+        >>> from py2neo import Graph
+        >>> sales = Graph("bolt+s://g.example.com:7687", name="sales")
+        >>> sales.run("MATCH (c:Customer) RETURN c.name")
+         c.name
+        ---------------
+         John Smith
+         Amy Pond
+         Rory Williams
+
     The `system graph`, which is available in all 4.x+ product editions,
     can also be accessed via the :class:`.SystemGraph` class.
+
+        >>> from py2neo import SystemGraph
+        >>> sg = SystemGraph("bolt+s://g.example.com:7687")
+        >>> sg.call("dbms.security.listUsers")
+         username | roles | flags
+        ----------|-------|-------
+         neo4j    |  null | []
 
     Supported URI schemes are:
 
