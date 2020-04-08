@@ -173,6 +173,8 @@ class RelatedObjects(object):
         return len(self._related_objects)
 
     def __contains__(self, obj):
+        if not isinstance(obj, GraphObject):
+            raise TypeError("Related objects must be GraphObject instances")
         for related_object, _ in self._related_objects:
             if related_object == obj:
                 return True
@@ -194,6 +196,8 @@ class RelatedObjects(object):
         :param properties: dictionary of properties to attach to the relationship (optional)
         :param kwproperties: additional keyword properties (optional)
         """
+        if not isinstance(obj, GraphObject):
+            raise TypeError("Related objects must be GraphObject instances")
         related_objects = self._related_objects
         properties = PropertyDict(properties or {}, **kwproperties)
         added = False
@@ -217,6 +221,8 @@ class RelatedObjects(object):
         :param default: default value, in case the key is not found
         :return: property value
         """
+        if not isinstance(obj, GraphObject):
+            raise TypeError("Related objects must be GraphObject instances")
         for related_object, properties in self._related_objects:
             if related_object == obj:
                 return properties.get(key, default)
@@ -227,6 +233,8 @@ class RelatedObjects(object):
 
         :param obj: the :py:class:`.GraphObject` to separate
         """
+        if not isinstance(obj, GraphObject):
+            raise TypeError("Related objects must be GraphObject instances")
         related_objects = self._related_objects
         related_objects[:] = [(related_object, properties)
                               for related_object, properties in related_objects
@@ -239,6 +247,8 @@ class RelatedObjects(object):
         :param properties: dictionary of properties to attach to the relationship (optional)
         :param kwproperties: additional keyword properties (optional)
         """
+        if not isinstance(obj, GraphObject):
+            raise TypeError("Related objects must be GraphObject instances")
         related_objects = self._related_objects
         properties = dict(properties or {}, **kwproperties)
         added = False
