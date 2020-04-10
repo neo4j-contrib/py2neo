@@ -89,6 +89,8 @@ class GraphService(object):
 
     def __new__(cls, uri=None, **settings):
         profile = ConnectionProfile(uri, **settings)
+        if profile.routing:
+            raise NotImplementedError("Routing is not yet supported")
         try:
             inst = cls._instances[profile]
         except KeyError:
@@ -237,13 +239,16 @@ class Graph(object):
 
     Supported URI schemes are:
 
-    - ``bolt`` - Bolt (unsecured)
-    - ``bolt+s`` - Bolt (secured with full certificate checks)
-    - ``bolt+ssc`` - Bolt (secured with no certificate checks)
-    - ``http`` - HTTP (unsecured)
-    - ``https`` - HTTP (secured with full certificate checks)
-    - ``http+s`` - HTTP (secured with full certificate checks)
-    - ``http+ssc`` - HTTP (secured with no certificate checks)
+    - ``neo4j`` - Bolt with routing (unsecured)
+    - ``neo4j+s`` - Bolt with routing (secured with full certificate checks)
+    - ``neo4j+ssc`` - Bolt with routing (secured with no certificate checks)
+    - ``bolt`` - Bolt direct (unsecured)
+    - ``bolt+s`` - Bolt direct (secured with full certificate checks)
+    - ``bolt+ssc`` - Bolt direct (secured with no certificate checks)
+    - ``http`` - HTTP direct (unsecured)
+    - ``https`` - HTTP direct (secured with full certificate checks)
+    - ``http+s`` - HTTP direct (secured with full certificate checks)
+    - ``http+ssc`` - HTTP direct (secured with no certificate checks)
 
     The full set of supported `settings` are:
 
@@ -251,6 +256,7 @@ class Graph(object):
     Keyword              Description                                               Type            Default
     ===================  ========================================================  ==============  =========================
     ``scheme``           Use a specific URI scheme                                 str             ``'bolt'``
+    ``routing``          Route connections across all available servers            bool            ``False``
     ``secure``           Use a secure connection (TLS)                             bool            ``False``
     ``verify``           Verify the server certificate (if secure)                 bool            ``True``
     ``host``             Database server host name                                 str             ``'localhost'``

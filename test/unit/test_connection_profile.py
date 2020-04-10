@@ -22,7 +22,41 @@ from py2neo.connect import ConnectionProfile
 from py2neo.connect.addressing import IPv4Address
 
 
-class AddressingTestCase(TestCase):
+class ConnectionProfileTestCase(TestCase):
+
+    def test_default_profile(self):
+        data = ConnectionProfile().to_dict()
+        self.assertEqual(data, {
+            'address': IPv4Address(('localhost', 7687)),
+            'auth': ('neo4j', 'password'),
+            'host': 'localhost',
+            'password': 'password',
+            'port': 7687,
+            'port_number': 7687,
+            'routing': False,
+            'scheme': 'bolt',
+            'secure': False,
+            'verify': True,
+            'uri': 'bolt://neo4j@localhost:7687',
+            'user': 'neo4j',
+        })
+
+    def test_neo4j_uri_only(self):
+        data = ConnectionProfile("neo4j://host:9999").to_dict()
+        self.assertEqual(data, {
+            'address': IPv4Address(('host', 9999)),
+            'auth': ('neo4j', 'password'),
+            'host': 'host',
+            'password': 'password',
+            'port': 9999,
+            'port_number': 9999,
+            'routing': True,
+            'scheme': 'neo4j',
+            'secure': False,
+            'verify': True,
+            'uri': 'neo4j://neo4j@host:9999',
+            'user': 'neo4j',
+        })
 
     def test_bolt_uri_only(self):
         data = ConnectionProfile("bolt://host:9999").to_dict()
@@ -33,6 +67,7 @@ class AddressingTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
+            'routing': False,
             'scheme': 'bolt',
             'secure': False,
             'verify': True,
@@ -49,6 +84,7 @@ class AddressingTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
+            'routing': False,
             'scheme': 'http',
             'secure': False,
             'verify': True,
@@ -65,6 +101,7 @@ class AddressingTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
+            'routing': False,
             'scheme': 'https',
             'secure': True,
             'verify': True,
@@ -81,6 +118,7 @@ class AddressingTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
+            'routing': False,
             'scheme': 'http+ssc',
             'secure': True,
             'verify': False,
@@ -97,6 +135,7 @@ class AddressingTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
+            'routing': False,
             'scheme': 'https',
             'secure': True,
             'verify': True,
@@ -113,6 +152,7 @@ class AddressingTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
+            'routing': False,
             'scheme': 'http',
             'secure': False,
             'verify': True,
@@ -129,6 +169,7 @@ class AddressingTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
+            'routing': False,
             'scheme': 'http',
             'secure': False,
             'verify': True,
@@ -145,6 +186,7 @@ class AddressingTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
+            'routing': False,
             'scheme': 'bolt',
             'secure': False,
             'verify': True,
@@ -161,9 +203,61 @@ class AddressingTestCase(TestCase):
             'password': 'password',
             'port': 8888,
             'port_number': 8888,
+            'routing': False,
             'scheme': 'bolt',
             'secure': False,
             'verify': True,
             'uri': 'bolt://neo4j@host:8888',
+            'user': 'neo4j',
+        })
+
+    def test_bolt_uri_with_ssc(self):
+        data = ConnectionProfile("bolt+ssc://host:9999").to_dict()
+        self.assertEqual(data, {
+            'address': IPv4Address(('host', 9999)),
+            'auth': ('neo4j', 'password'),
+            'host': 'host',
+            'password': 'password',
+            'port': 9999,
+            'port_number': 9999,
+            'routing': False,
+            'scheme': 'bolt+ssc',
+            'secure': True,
+            'verify': False,
+            'uri': 'bolt+ssc://neo4j@host:9999',
+            'user': 'neo4j',
+        })
+
+    def test_bolt_uri_with_user(self):
+        data = ConnectionProfile("bolt://bob@host:9999").to_dict()
+        self.assertEqual(data, {
+            'address': IPv4Address(('host', 9999)),
+            'auth': ('bob', 'password'),
+            'host': 'host',
+            'password': 'password',
+            'port': 9999,
+            'port_number': 9999,
+            'routing': False,
+            'scheme': 'bolt',
+            'secure': False,
+            'verify': True,
+            'uri': 'bolt://bob@host:9999',
+            'user': 'bob',
+        })
+
+    def test_routing_secure_and_verify(self):
+        data = ConnectionProfile(routing=True, secure=True, verify=True).to_dict()
+        self.assertEqual(data, {
+            'address': IPv4Address(('localhost', 7687)),
+            'auth': ('neo4j', 'password'),
+            'host': 'localhost',
+            'password': 'password',
+            'port': 7687,
+            'port_number': 7687,
+            'routing': True,
+            'scheme': 'neo4j+s',
+            'secure': True,
+            'verify': True,
+            'uri': 'neo4j+s://neo4j@localhost:7687',
             'user': 'neo4j',
         })
