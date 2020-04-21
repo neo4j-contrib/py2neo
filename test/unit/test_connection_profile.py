@@ -33,28 +33,10 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 7687,
             'port_number': 7687,
-            'routing': False,
             'scheme': 'bolt',
             'secure': False,
             'verify': True,
             'uri': 'bolt://neo4j@localhost:7687',
-            'user': 'neo4j',
-        })
-
-    def test_neo4j_uri_only(self):
-        data = ConnectionProfile("neo4j://host:9999").to_dict()
-        self.assertEqual(data, {
-            'address': IPv4Address(('host', 9999)),
-            'auth': ('neo4j', 'password'),
-            'host': 'host',
-            'password': 'password',
-            'port': 9999,
-            'port_number': 9999,
-            'routing': True,
-            'scheme': 'neo4j',
-            'secure': False,
-            'verify': True,
-            'uri': 'neo4j://neo4j@host:9999',
             'user': 'neo4j',
         })
 
@@ -67,7 +49,6 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
-            'routing': False,
             'scheme': 'bolt',
             'secure': False,
             'verify': True,
@@ -84,7 +65,6 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
-            'routing': False,
             'scheme': 'http',
             'secure': False,
             'verify': True,
@@ -101,7 +81,6 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
-            'routing': False,
             'scheme': 'https',
             'secure': True,
             'verify': True,
@@ -118,7 +97,6 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
-            'routing': False,
             'scheme': 'http+ssc',
             'secure': True,
             'verify': False,
@@ -135,7 +113,6 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
-            'routing': False,
             'scheme': 'https',
             'secure': True,
             'verify': True,
@@ -152,7 +129,6 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
-            'routing': False,
             'scheme': 'http',
             'secure': False,
             'verify': True,
@@ -169,7 +145,6 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
-            'routing': False,
             'scheme': 'http',
             'secure': False,
             'verify': True,
@@ -186,7 +161,6 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
-            'routing': False,
             'scheme': 'bolt',
             'secure': False,
             'verify': True,
@@ -203,7 +177,6 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 8888,
             'port_number': 8888,
-            'routing': False,
             'scheme': 'bolt',
             'secure': False,
             'verify': True,
@@ -220,7 +193,6 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
-            'routing': False,
             'scheme': 'bolt+ssc',
             'secure': True,
             'verify': False,
@@ -237,7 +209,6 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 9999,
             'port_number': 9999,
-            'routing': False,
             'scheme': 'bolt',
             'secure': False,
             'verify': True,
@@ -245,8 +216,8 @@ class ConnectionProfileTestCase(TestCase):
             'user': 'bob',
         })
 
-    def test_routing_secure_and_verify(self):
-        data = ConnectionProfile(routing=True, secure=True, verify=True).to_dict()
+    def test_secure_and_verify(self):
+        data = ConnectionProfile(secure=True, verify=True).to_dict()
         self.assertEqual(data, {
             'address': IPv4Address(('localhost', 7687)),
             'auth': ('neo4j', 'password'),
@@ -254,10 +225,9 @@ class ConnectionProfileTestCase(TestCase):
             'password': 'password',
             'port': 7687,
             'port_number': 7687,
-            'routing': True,
-            'scheme': 'neo4j+s',
+            'scheme': 'bolt+s',
             'secure': True,
             'verify': True,
-            'uri': 'neo4j+s://neo4j@localhost:7687',
+            'uri': 'bolt+s://neo4j@localhost:7687',
             'user': 'neo4j',
         })

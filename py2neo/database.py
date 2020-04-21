@@ -89,8 +89,6 @@ class GraphService(object):
 
     def __new__(cls, uri=None, **settings):
         profile = ConnectionProfile(uri, **settings)
-        if profile.routing:
-            raise NotImplementedError("Routing is not yet supported")
         try:
             inst = cls._instances[profile]
         except KeyError:
@@ -239,9 +237,6 @@ class Graph(object):
 
     Supported URI schemes are:
 
-    - ``neo4j`` - Bolt with routing (unsecured)
-    - ``neo4j+s`` - Bolt with routing (secured with full certificate checks)
-    - ``neo4j+ssc`` - Bolt with routing (secured with no certificate checks)
     - ``bolt`` - Bolt direct (unsecured)
     - ``bolt+s`` - Bolt direct (secured with full certificate checks)
     - ``bolt+ssc`` - Bolt direct (secured with no certificate checks)
@@ -256,7 +251,6 @@ class Graph(object):
     Keyword              Description                                               Type            Default
     ===================  ========================================================  ==============  =========================
     ``scheme``           Use a specific URI scheme                                 str             ``'bolt'``
-    ``routing``          Route connections across all available servers            bool            ``False``
     ``secure``           Use a secure connection (TLS)                             bool            ``False``
     ``verify``           Verify the server certificate (if secure)                 bool            ``True``
     ``host``             Database server host name                                 str             ``'localhost'``
@@ -280,8 +274,8 @@ class Graph(object):
     Once obtained, the `Graph` instance provides direct or indirect
     access to most of the functionality available within py2neo.
 
-    Note that py2neo does not support routing with a Neo4j causal cluster
-    (bolt+routing). For this functionality, please use the official Neo4j
+    Note that py2neo does not support routing with a Neo4j causal
+    cluster. For this functionality, please use the official Neo4j
     Driver for Python.
     """
 

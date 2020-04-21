@@ -25,7 +25,6 @@ from py2neo.internal.compat import urlsplit, string_types, perf_counter
 from py2neo.meta import (
     NEO4J_URI,
     NEO4J_AUTH,
-    NEO4J_ROUTING,
     NEO4J_SECURE,
     NEO4J_VERIFY,
 )
@@ -33,7 +32,6 @@ from py2neo.connect.addressing import Address
 
 
 DEFAULT_PROTOCOL = "bolt"
-DEFAULT_ROUTING = False
 DEFAULT_SECURE = False
 DEFAULT_VERIFY = True
 DEFAULT_USER = "neo4j"
@@ -90,7 +88,6 @@ class ConnectionProfile(object):
     """ Connection details for a Neo4j service.
     """
 
-    routing = None
     secure = None
     verify = None
     scheme = None
@@ -105,17 +102,12 @@ class ConnectionProfile(object):
             parsed = urlsplit(uri)
             if parsed.scheme is not None:
                 self.scheme = parsed.scheme
-                if self.scheme in ["neo4j", "neo4j+s", "neo4j+ssc"]:
-                    self.routing = True
-                else:
-                    self.routing = False
-                if self.scheme in ["neo4j+s", "neo4j+ssc",
-                                   "bolt+s", "bolt+ssc",
+                if self.scheme in ["bolt+s", "bolt+ssc",
                                    "https", "http+s", "http+ssc"]:
                     self.secure = True
-                elif self.scheme in ["neo4j", "bolt", "http"]:
+                elif self.scheme in ["bolt", "http"]:
                     self.secure = False
-                if self.scheme in ["neo4j+ssc", "bolt+ssc", "http+ssc"]:
+                if self.scheme in ["bolt+ssc", "http+ssc"]:
                     self.verify = False
                 else:
                     self.verify = True
@@ -143,7 +135,6 @@ class ConnectionProfile(object):
             self.user, _, self.password = NEO4J_AUTH.partition(":")
 
     def _apply_components(self, **settings):
-        self.routing = self._coalesce(settings.get("routing"), self.routing, NEO4J_ROUTING)
         self.secure = self._coalesce(settings.get("secure"), self.secure, NEO4J_SECURE)
         self.verify = self._coalesce(settings.get("verify"), self.verify, NEO4J_VERIFY)
         self.scheme = self._coalesce(settings.get("scheme"), self.scheme)
@@ -163,23 +154,15 @@ class ConnectionProfile(object):
             self.address = Address.parse("%s:%s" % (self.host, settings.get("port")))
 
     def _apply_correct_scheme_for_security(self):
-        if self.routing is None:
-            self.routing = DEFAULT_ROUTING
         if self.secure is None:
             self.secure = DEFAULT_SECURE
         if self.verify is None:
             self.verify = DEFAULT_VERIFY
         if self.protocol == "bolt":
-            if self.routing:
-                if self.secure:
-                    self.scheme = "neo4j+s" if self.verify else "neo4j+ssc"
-                else:
-                    self.scheme = "neo4j"
+            if self.secure:
+                self.scheme = "bolt+s" if self.verify else "bolt+ssc"
             else:
-                if self.secure:
-                    self.scheme = "bolt+s" if self.verify else "bolt+ssc"
-                else:
-                    self.scheme = "bolt"
+                self.scheme = "bolt"
         elif self.protocol == "http":
             if self.secure:
                 self.scheme = "https" if self.verify else "http+ssc"
@@ -219,8 +202,7 @@ class ConnectionProfile(object):
 
     @property
     def protocol(self):
-        if self.scheme in ("neo4j", "neo4j+s", "neo4j+ssc",
-                           "bolt", "bolt+s", "bolt+ssc"):
+        if self.scheme in ("bolt", "bolt+s", "bolt+ssc"):
             return "bolt"
         elif self.scheme in ("http", "https", "http+s", "http+ssc"):
             return "http"
@@ -231,7 +213,7 @@ class ConnectionProfile(object):
     def uri(self):
         return "%s://%s@%s:%s" % (self.scheme, self.user, self.host, self.port)
 
-    __hash_keys = ("routing", "secure", "verify", "scheme", "user", "password", "address")
+    __hash_keys = ("secure", "verify", "scheme", "user", "password", "address")
 
     def __hash__(self):
         values = tuple(getattr(self, key) for key in self.__hash_keys)
@@ -253,8 +235,8 @@ class ConnectionProfile(object):
         return None
 
     def to_dict(self):
-        keys = ["routing", "secure", "verify", "scheme", "user", "password",
-                "address", "auth", "host", "port", "port_number", "uri"]
+        keys = ["secure", "verify", "scheme", "user", "password", "address",
+                "auth", "host", "port", "port_number", "uri"]
         d = {}
         for key in keys:
             d[key] = getattr(self, key)

@@ -26,7 +26,6 @@ __all__ = [
     "NEO4J_URI",
     "NEO4J_AUTH",
     "NEO4J_USER_AGENT",
-    "NEO4J_ROUTING",
     "NEO4J_SECURE",
     "NEO4J_VERIFY",
     "bolt_user_agent",
@@ -47,7 +46,6 @@ from os import getenv
 NEO4J_URI = getenv("NEO4J_URI")
 NEO4J_AUTH = getenv("NEO4J_AUTH")
 NEO4J_USER_AGENT = getenv("NEO4J_USER_AGENT")
-NEO4J_ROUTING = True if getenv("NEO4J_ROUTING") == "1" else False if getenv("NEO4J_ROUTING") == "0" else None
 NEO4J_SECURE = True if getenv("NEO4J_SECURE") == "1" else False if getenv("NEO4J_SECURE") == "0" else None
 NEO4J_VERIFY = True if getenv("NEO4J_VERIFY") == "1" else False if getenv("NEO4J_VERIFY") == "0" else None
 
