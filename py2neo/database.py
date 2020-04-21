@@ -237,13 +237,13 @@ class Graph(object):
 
     Supported URI schemes are:
 
-    - ``bolt`` - Bolt direct (unsecured)
-    - ``bolt+s`` - Bolt direct (secured with full certificate checks)
-    - ``bolt+ssc`` - Bolt direct (secured with no certificate checks)
-    - ``http`` - HTTP direct (unsecured)
-    - ``https`` - HTTP direct (secured with full certificate checks)
-    - ``http+s`` - HTTP direct (secured with full certificate checks)
-    - ``http+ssc`` - HTTP direct (secured with no certificate checks)
+    - ``bolt`` - Bolt (unsecured)
+    - ``bolt+s`` - Bolt (secured with full certificate checks)
+    - ``bolt+ssc`` - Bolt (secured with no certificate checks)
+    - ``http`` - HTTP (unsecured)
+    - ``https`` - HTTP (secured with full certificate checks)
+    - ``http+s`` - HTTP (secured with full certificate checks)
+    - ``http+ssc`` - HTTP (secured with no certificate checks)
 
     The full set of supported `settings` are:
 
