@@ -274,8 +274,8 @@ class Graph(object):
     Once obtained, the `Graph` instance provides direct or indirect
     access to most of the functionality available within py2neo.
 
-    Note that py2neo does not support routing with a Neo4j causal cluster
-    (bolt+routing). For this functionality, please use the official Neo4j
+    Note that py2neo does not support routing with a Neo4j causal
+    cluster. For this functionality, please use the official Neo4j
     Driver for Python.
     """
 

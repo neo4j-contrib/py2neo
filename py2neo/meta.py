@@ -16,9 +16,21 @@
 # limitations under the License.
 
 
-__all__ = ["__author__", "__copyright__", "__email__", "__license__", "__package__", "__version__",
-           "NEO4J_URI", "NEO4J_AUTH", "NEO4J_USER_AGENT", "NEO4J_SECURE", "NEO4J_VERIFY",
-           "bolt_user_agent", "http_user_agent"]
+__all__ = [
+    "__author__",
+    "__copyright__",
+    "__email__",
+    "__license__",
+    "__package__",
+    "__version__",
+    "NEO4J_URI",
+    "NEO4J_AUTH",
+    "NEO4J_USER_AGENT",
+    "NEO4J_SECURE",
+    "NEO4J_VERIFY",
+    "bolt_user_agent",
+    "http_user_agent",
+]
 
 __author__ = "Nigel Small <technige@nige.tech>"
 __copyright__ = "2011-2020, Nigel Small"

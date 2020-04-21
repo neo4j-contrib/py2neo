@@ -31,7 +31,7 @@ from py2neo.meta import (
 from py2neo.connect.addressing import Address
 
 
-DEFAULT_SCHEME = "bolt"
+DEFAULT_PROTOCOL = "bolt"
 DEFAULT_SECURE = False
 DEFAULT_VERIFY = True
 DEFAULT_USER = "neo4j"
@@ -102,14 +102,15 @@ class ConnectionProfile(object):
             parsed = urlsplit(uri)
             if parsed.scheme is not None:
                 self.scheme = parsed.scheme
-                if self.scheme in ["bolt+s", "bolt+ssc", "https", "http+s", "http+ssc"]:
+                if self.scheme in ["bolt+s", "bolt+ssc",
+                                   "https", "http+s", "http+ssc"]:
                     self.secure = True
                 elif self.scheme in ["bolt", "http"]:
                     self.secure = False
-                if self.scheme in ["bolt+s", "https", "http+s"]:
-                    self.verify = True
-                elif self.scheme in ["bolt+ssc", "http+ssc"]:
+                if self.scheme in ["bolt+ssc", "http+ssc"]:
                     self.verify = False
+                else:
+                    self.verify = True
             self.user = self._coalesce(parsed.username, self.user)
             self.password = self._coalesce(parsed.password, self.password)
             netloc = parsed.netloc
@@ -169,17 +170,6 @@ class ConnectionProfile(object):
                 self.scheme = "http"
 
     def _apply_other_defaults(self):
-        if not self.scheme:
-            self.scheme = DEFAULT_SCHEME
-            if self.scheme in ("bolt", "http"):
-                self.secure = False
-                self.verify = False
-            if self.scheme in ("bolt+s", "https", "http+s"):
-                self.secure = True
-                self.verify = True
-            if self.scheme in ("bolt+ssc", "http+ssc"):
-                self.secure = True
-                self.verify = False
         if not self.user:
             self.user = DEFAULT_USER
         if not self.password:
@@ -212,13 +202,12 @@ class ConnectionProfile(object):
 
     @property
     def protocol(self):
-        if self.scheme in ("neo4j", "bolt", "bolt+routing", "bolt+s",
-                           "bolt+ssc", "neo4j+s", "neo4j+ssc"):
+        if self.scheme in ("bolt", "bolt+s", "bolt+ssc"):
             return "bolt"
         elif self.scheme in ("http", "https", "http+s", "http+ssc"):
             return "http"
         else:
-            return None
+            return DEFAULT_PROTOCOL
 
     @property
     def uri(self):
