@@ -570,8 +570,7 @@ class BoltTransaction(ItemizedTask, Transaction):
             raise TypeError("Database selection is not supported "
                             "prior to Neo4j 4.0")
         ItemizedTask.__init__(self)
-        Transaction.__init__(self, graph_name)
-        self.readonly = readonly
+        Transaction.__init__(self, graph_name, readonly=readonly)
         self.after = after
         self.metadata = metadata
         self.timeout = timeout
