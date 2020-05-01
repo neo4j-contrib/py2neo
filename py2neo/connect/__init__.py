@@ -416,7 +416,7 @@ class ConnectionPool(object):
             connections to be retained in this pool
         """
         pool = cls(connector, profile, user_agent, max_size, max_age)
-        seeds = [pool.acquire() for _ in range(init_size or cls.default_init_size)]
+        seeds = [pool.acquire(timeout=None) for _ in range(init_size or cls.default_init_size)]
         for seed in seeds:
             pool.release(seed)
         return pool
@@ -430,7 +430,7 @@ class ConnectionPool(object):
         self._in_use_list = deque()
         self._quarantine = deque()
         self._free_list = deque()
-        self._waiting_list = WaitingList()
+        self._waiting_list = WaitingList()  # TODO: consider moving this to Connector
 
     def __del__(self):
         try:
@@ -530,7 +530,7 @@ class ConnectionPool(object):
         self._quarantine.remove(cx)
         return cx
 
-    def acquire(self, graph_name=None, readonly=False, force_reset=False, timeout=None):
+    def acquire(self, timeout, force_reset=False):
         """ Acquire a connection from the pool.
 
         In the simplest case, this will return an existing open
@@ -544,12 +544,10 @@ class ConnectionPool(object):
         amount of waiting would result in the acquisition of a
         connection. This will be the case if the pool has been closed.
 
-        :param graph_name:
-        :param readonly:
+        :param timeout:
         :param force_reset: if true, the connection will be forcibly
             reset before being returned; if false, this will only occur
             if the connection is not already in a clean state
-        :param timeout:
         :return: a Bolt connection object
         """
         from monotonic import monotonic
@@ -562,7 +560,6 @@ class ConnectionPool(object):
                 t1 = monotonic()
                 return timeout - (t1 - t0)
 
-        # TODO: use graph_name and readonly
         log.debug("Acquiring connection from pool %r", self)
         cx = None
         while cx is None or cx.broken or cx.closed:
@@ -675,6 +672,35 @@ class ConnectionPool(object):
             closer()
 
 
+class ConnectionRing(object):
+    """ Collection of :class:`.ConnectionPool` objects, together
+    representing a system of interconnected machines.
+    """
+
+    def __init__(self):
+        self._router_pools = {}
+        self._runner_pools = {}
+        self._reader_pools = {}
+
+    def get_pool(self, graph_name=None, readonly=False):
+        # TODO: readonly
+        # TODO: least connected
+        from random import choice
+        pool_dict = self._runner_pools.get(graph_name, {})
+        try:
+            pool = choice(list(pool_dict.values()))
+        except IndexError:
+            raise TypeError("No connection profile available "
+                            "for database %r" % graph_name)
+        else:
+            return pool
+
+    def set_runner_pool(self, pool, graph_name=None):
+        if graph_name not in self._runner_pools:
+            self._runner_pools[graph_name] = {}
+        self._runner_pools[graph_name][pool.profile] = pool
+
+
 class Connector(object):
     """ A transaction manager and collection of connection pools linked
     to a remote Neo4j service.
@@ -709,9 +735,8 @@ class Connector(object):
         self._pools = {
             profile: ConnectionPool.open(self, profile, user_agent, init_size, max_size, max_age),
         }
-        # TODO: self._router_pools = {}
-        # TODO: self._runner_pools = {}
-        # TODO: self._reader_pools = {}
+        self._ring = ConnectionRing()
+        self._ring.set_runner_pool(self._pools[profile])
         self._transactions = {}
 
     def __repr__(self):
@@ -787,14 +812,16 @@ class Connector(object):
         connection. This will be the case if the pool has been closed.
 
         :param graph_name:
-        :param readonly:
+        :param readonly: if true, a readonly server will be selected,
+            if available; if no such servers are available, a regular
+            server will be used instead
         :param force_reset: if true, the connection will be forcibly
             reset before being returned; if false, this will only occur
             if the connection is not already in a clean state
         :return: a Bolt connection object
         """
-        pool = self._pools[self._profile]  # TODO: select a pool more cleverly
-        return pool.acquire(graph_name, readonly, force_reset, self.acquire_timeout)
+        pool = self._ring.get_pool(graph_name, readonly=readonly)
+        return pool.acquire(self.acquire_timeout, force_reset=force_reset)
 
     def prune(self):
         """ Close all free connections.
