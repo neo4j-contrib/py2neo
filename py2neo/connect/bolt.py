@@ -367,11 +367,11 @@ class Bolt1(Bolt):
 
     def _bind(self):
         if self.pool:
-            self.pool.bind(self._transaction, self)
+            self.pool.connector.bind(self._transaction, self)
 
     def _unbind(self):
         if self.pool:
-            self.pool.unbind(self._transaction)
+            self.pool.connector.unbind(self._transaction)
 
 
 class Bolt2(Bolt1):

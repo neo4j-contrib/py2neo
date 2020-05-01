@@ -100,12 +100,6 @@ def test_bolt_connection_pool_usage_for_begin_rollback(connector):
     assert pool.in_use_connection_count(address) == 0
 
 
-def test_server_agent(connector, neo4j_version):
-    expected = "Neo4j/{}".format(neo4j_version)
-    actual = connector.server_agent
-    assert expected == actual
-
-
 def test_keys(connector):
     cursor = Cursor(connector.auto_run(None, "RETURN 'Alice' AS name, 33 AS age"))
     expected = ["name", "age"]
