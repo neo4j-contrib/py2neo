@@ -6,7 +6,9 @@ The Py2neo v4 Handbook
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
 Unlike previous releases, Py2neo v4 no longer requires an HTTP-enabled server and can work entirely through Bolt.
 
-.. note:: Documentation for Py2neo v3 is available `here <http://py2neo.org/v3>`_.
+.. note::
+   Py2neo v5 pre-releases are now available.
+   Look `here <http://py2neo.org/v5>`_ for the new documentation.
 
 
 Installation
