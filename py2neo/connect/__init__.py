@@ -397,12 +397,12 @@ class ConnectionPool(object):
     default_max_age = 3600
 
     @classmethod
-    def open(cls, connector=None, profile=None, user_agent=None,
+    def open(cls, ring=None, profile=None, user_agent=None,
              init_size=None, max_size=None, max_age=None):
         """ Create a new connection pool, with an option to seed one
         or more initial connections.
 
-        :param connector: the :class:`.Connector` to which this pool
+        :param ring: the :class:`.ConnectionRing` to which this pool
             belongs
         :param profile: a :class:`.ConnectionProfile` describing how to
             connect to the remote service for which this pool operates
@@ -415,14 +415,14 @@ class ConnectionPool(object):
         :param max_age: the maximum permitted age, in seconds, for
             connections to be retained in this pool
         """
-        pool = cls(connector, profile, user_agent, max_size, max_age)
+        pool = cls(ring, profile, user_agent, max_size, max_age)
         seeds = [pool.acquire(timeout=None) for _ in range(init_size or cls.default_init_size)]
         for seed in seeds:
             pool.release(seed)
         return pool
 
-    def __init__(self, connector, profile, user_agent, max_size, max_age):
-        self._connector = connector
+    def __init__(self, ring, profile, user_agent, max_size, max_age):
+        self._ring = ring
         self._profile = profile
         self._user_agent = user_agent
         self._max_size = max_size or self.default_max_size
@@ -451,10 +451,16 @@ class ConnectionPool(object):
         return hash(self._profile)
 
     @property
-    def connector(self):
-        """ The connector to which this pool belongs.
+    def ring(self):
+        """ The :class:`.ConnectionRing` to which this pool belongs.
         """
-        return self._connector
+        return self._ring
+
+    @property
+    def connector(self):
+        """ The :class:`.Connector` to which this pool belongs.
+        """
+        return self.ring.connector
 
     @property
     def profile(self):
@@ -677,10 +683,126 @@ class ConnectionRing(object):
     representing a system of interconnected machines.
     """
 
-    def __init__(self):
+    # TODO: routing table
+    """
+    
+    Bolt 1 (< Neo4j 3.2) (Clusters only)
+        cx.run("CALL dbms.cluster.routing.getServers"
+    
+    
+    Bolt 1 (>= Neo4j 3.2) / Bolt 2 / Bolt 3 (Clusters only)
+        cx.run("CALL dbms.cluster.routing.getRoutingTable($context)",
+       {"context": self.routing_context}
+    
+    Bolt 4 (All topologies)
+    Default database:
+        "CALL dbms.routing.getRoutingTable($context)",
+        {"context": self.routing_context},
+        SYSTEM,
+    Named database:
+        "CALL dbms.routing.getRoutingTable($context, $database)",
+        {"context": self.routing_context, "database": database},
+        SYSTEM,
+    
+    """
+
+    def __init__(self, connector, profile, user_agent, init_size, max_size, max_age):
+        self._connector = connector
+        self._profile = profile
+        self._user_agent = user_agent
+        self._max_size = max_size
+        self._max_age = max_age
+        self._pools = {
+            profile: ConnectionPool.open(self, profile, user_agent, init_size, max_size, max_age),
+        }
         self._router_pools = {}
         self._runner_pools = {}
         self._reader_pools = {}
+        self.set_runner_pool(self._pools[profile])
+
+    @property
+    def connector(self):
+        """ The :class:`.Connector` to which this ring belongs.
+        """
+        return self._connector
+
+    @property
+    def profile(self):
+        """ The initial connection profile for this connector.
+        """
+        return self._profile
+
+    @property
+    def user_agent(self):
+        """ The user agent for connections attached to this connector.
+        """
+        return self._user_agent
+
+    @property
+    def max_size(self):
+        """ The maximum permitted number of simultaneous connections
+        that may be owned by this pools attached to this connector,
+        both in-use and free.
+        """
+        return self._max_size
+
+    @max_size.setter
+    def max_size(self, value):
+        self._max_size = value
+        for pool in self._pools.values():
+            pool.max_size = value
+
+    @property
+    def max_age(self):
+        """ The maximum permitted age, in seconds, for connections to
+        be retained in this pool.
+        """
+        return self._max_age
+
+    @property
+    def in_use(self):
+        """ The number of connections attached to this connector that
+        are currently in use.
+        """
+        return sum(pool.in_use for pool in self._pools.values())
+
+    @property
+    def size(self):
+        """ The total number of connections (both in-use and free)
+        currently attached to this connector.
+        """
+        return sum(pool.size for pool in self._pools.values())
+
+    def prune(self):
+        """ Close all free connections.
+        """
+        for pool in self._pools.values():
+            pool.prune()
+
+    def close(self):
+        """ Close all connections immediately.
+
+        This does not permanently disable the connection pool. Instead,
+        it sets the maximum pool size to zero before shutting down all
+        open connections, including those in use.
+
+        To reuse the pool, the maximum size will need to be set to a
+        a value greater than zero before connections can once again be
+        acquired.
+
+        To close gracefully, allowing work in progress to continue
+        until connections are released, use the following sequence
+        instead:
+
+            pool.max_size = 0
+            pool.prune()
+
+        This will force all future connection acquisitions to be
+        rejected, and released connections will be closed instead
+        of being returned to the pool.
+        """
+        for pool in self._pools.values():
+            pool.close()
 
     def get_pool(self, graph_name=None, readonly=False):
         # TODO: readonly
@@ -728,34 +850,26 @@ class Connector(object):
         return cls(profile, user_agent, init_size, max_size, max_age)
 
     def __init__(self, profile, user_agent, init_size, max_size, max_age):
-        self._profile = profile
-        self._user_agent = user_agent
-        self._max_size = max_size
-        self._max_age = max_age
-        self._pools = {
-            profile: ConnectionPool.open(self, profile, user_agent, init_size, max_size, max_age),
-        }
-        self._ring = ConnectionRing()
-        self._ring.set_runner_pool(self._pools[profile])
+        self._ring = ConnectionRing(self, profile, user_agent, init_size, max_size, max_age)
         self._transactions = {}
 
     def __repr__(self):
-        return "<Connector profile={!r}>".format(self._profile)
+        return "<Connector profile={!r}>".format(self.profile)
 
     def __hash__(self):
-        return hash(self._profile)
+        return hash(self.profile)
 
     @property
     def profile(self):
         """ The initial connection profile for this connector.
         """
-        return self._profile
+        return self._ring.profile
 
     @property
     def user_agent(self):
         """ The user agent for connections attached to this connector.
         """
-        return self._user_agent
+        return self._ring.user_agent
 
     @property
     def max_size(self):
@@ -763,20 +877,18 @@ class Connector(object):
         that may be owned by this pools attached to this connector,
         both in-use and free.
         """
-        return self._max_size
+        return self._ring.max_size
 
     @max_size.setter
     def max_size(self, value):
-        self._max_size = value
-        for pool in self._pools.values():
-            pool.max_size = value
+        self._ring.max_size = value
 
     @property
     def max_age(self):
         """ The maximum permitted age, in seconds, for connections to
         be retained in this pool.
         """
-        return self._max_age
+        return self._ring.max_age
 
     @property
     def acquire_timeout(self):
@@ -788,14 +900,14 @@ class Connector(object):
         """ The number of connections attached to this connector that
         are currently in use.
         """
-        return sum(pool.in_use for pool in self._pools.values())
+        return self._ring.in_use
 
     @property
     def size(self):
         """ The total number of connections (both in-use and free)
         currently attached to this connector.
         """
-        return sum(pool.size for pool in self._pools.values())
+        return self._ring.size
 
     def acquire(self, graph_name=None, readonly=False, force_reset=False):
         """ Acquire a connection from the pool.
@@ -826,8 +938,7 @@ class Connector(object):
     def prune(self):
         """ Close all free connections.
         """
-        for pool in self._pools.values():
-            pool.prune()
+        self._ring.prune()
 
     def close(self):
         """ Close all connections immediately.
@@ -851,8 +962,7 @@ class Connector(object):
         rejected, and released connections will be closed instead
         of being returned to the pool.
         """
-        for pool in self._pools.values():
-            pool.close()
+        self._ring.close()
 
     def reacquire(self, tx):
         """ Lookup and return the connection bound to this
