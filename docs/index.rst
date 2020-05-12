@@ -6,25 +6,18 @@ The Py2neo v4 Handbook
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
 Unlike previous releases, Py2neo v4 no longer requires an HTTP-enabled server and can work entirely through Bolt.
 
-.. note::
-   Py2neo v5 pre-releases are now available.
-   Look `here <http://py2neo.org/v5>`_ for the new documentation.
-
 
 Installation
 ============
 
-To install the latest stable version of py2neo, simply use pip_::
+To install the latest stable release of py2neo, simply use pip_::
 
-    $ pip install py2neo
+    $ pip install --upgrade py2neo
 
 
-To install the latest bleeding edge code directly from GitHub, use::
+To install the latest pre-release of py2neo, use pip_ with the ``--pre`` flag::
 
-    $ pip install git+https://github.com/technige/py2neo.git#egg=py2neo
-
-Note that code installed directly from GitHub is likely to be unstable.
-Your mileage may vary.
+    $ pip install --upgrade --pre py2neo
 
 
 Requirements

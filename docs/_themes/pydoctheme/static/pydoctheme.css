@@ -195,3 +195,9 @@ div.footer a:hover {
 p.logo {
     margin: 0;
 }
+
+div.versionwarning {
+    border-radius: 3px;
+    background-color: #ffff99;
+    border: 1px solid #dddd66;
+}
