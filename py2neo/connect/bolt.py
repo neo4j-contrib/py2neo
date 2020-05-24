@@ -61,13 +61,14 @@ class Bolt(Connection):
         return [bolt.protocol_version for bolt in Bolt._walk_subclasses()]
 
     @classmethod
-    def open(cls, profile, user_agent=None):
+    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None, on_release=None):
         wire = cls._connect(profile)
         protocol_version = cls._handshake(wire)
         subclass = cls._get_subclass(protocol_version)
         if subclass is None:
             raise RuntimeError("Unable to agree supported protocol version")
-        bolt = subclass(wire, profile, (user_agent or bolt_user_agent()))
+        bolt = subclass(wire, profile, (user_agent or bolt_user_agent()),
+                        on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         bolt._hello()
         bolt.__local_port = wire.local_address.port_number
         return bolt
@@ -101,8 +102,9 @@ class Bolt(Connection):
         log.debug("[#%04X] S: <PROTOCOL> %d.%d", local_port, v[-1], v[-2])
         return v[-1], v[-2]
 
-    def __init__(self, wire, profile, user_agent):
-        super(Bolt, self).__init__(profile, user_agent)
+    def __init__(self, wire, profile, user_agent, on_bind=None, on_unbind=None, on_release=None):
+        super(Bolt, self).__init__(profile, user_agent,
+                                   on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         self._wire = wire
 
     def close(self):
@@ -137,8 +139,9 @@ class Bolt1(Bolt):
 
     protocol_version = (1, 0)
 
-    def __init__(self, wire, profile, user_agent):
-        super(Bolt1, self).__init__(wire, profile, user_agent)
+    def __init__(self, wire, profile, user_agent, on_bind=None, on_unbind=None, on_release=None):
+        super(Bolt1, self).__init__(wire, profile, user_agent,
+                                    on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         self._reader = MessageReader(wire)
         self._writer = MessageWriter(wire)
         self._responses = deque()
@@ -157,7 +160,8 @@ class Bolt1(Bolt):
         clean_extra.update({"credentials": "*******"})
         log.debug("[#%04X] C: INIT %r %r", self.local_port, self.user_agent, clean_extra)
         response = self._write_request(0x01, self.user_agent, extra, vital=True)
-        self._sync(response)
+        self._send()
+        self._fetch()
         self._audit(response)
         self.connection_id = response.metadata.get("connection_id")
         self.server_agent = response.metadata.get("server")
@@ -201,7 +205,8 @@ class Bolt1(Bolt):
         if after:
             self._sync(*responses)
             self._audit(self._transaction)
-        self._bind()
+        if callable(self._on_bind):
+            self._on_bind(self._transaction, self)
         return self._transaction
 
     def commit(self, tx):
@@ -213,7 +218,8 @@ class Bolt1(Bolt):
         self._sync(self._write_request(0x10, "COMMIT", {}),
                    self._write_request(0x2F))
         self._audit(self._transaction)
-        self._unbind()
+        if callable(self._on_unbind):
+            self._on_unbind(self._transaction)
         return Bookmark()
 
     def rollback(self, tx):
@@ -225,7 +231,8 @@ class Bolt1(Bolt):
         self._sync(self._write_request(0x10, "ROLLBACK", {}),
                    self._write_request(0x2F))
         self._audit(self._transaction)
-        self._unbind()
+        if callable(self._on_unbind):
+            self._on_unbind(self._transaction)
         return Bookmark()
 
     def run_in_tx(self, tx, cypher, parameters=None):
@@ -301,6 +308,40 @@ class Bolt1(Bolt):
         if sent:
             log.debug("[#%04X] C: <SENT %r bytes>", self.local_port, sent)
 
+    def _fetch(self):
+        """ Fetch and process the next incoming message.
+
+        This method does not raise an exception on receipt of a
+        FAILURE message. Instead, it sets the response (and
+        consequently the parent query and transaction) to a failed
+        state. It is the responsibility of the caller to convert this
+        failed state into an exception.
+        """
+        rs = self._responses[0]
+        tag, fields = self._reader.read_message()
+        if tag == 0x70:
+            log.debug("[#%04X] S: SUCCESS %s", self.local_port, " ".join(map(repr, fields)))
+            rs.set_success(**fields[0])
+            self._responses.popleft()
+            self._metadata.update(fields[0])
+        elif tag == 0x71:
+            log.debug("[#%04X] S: RECORD %s", self.local_port, " ".join(map(repr, fields)))
+            rs.add_record(fields[0])
+        elif tag == 0x7F:
+            log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
+            rs.set_failure(**fields[0])
+            self._responses.popleft()
+            if rs.vital:
+                self._wire.close()
+        elif tag == 0x7E and not rs.vital:
+            log.debug("[#%04X] S: IGNORED", self.local_port)
+            rs.set_ignored()
+            self._responses.popleft()
+        else:
+            log.debug("[#%04X] S: <ERROR>", self.local_port)
+            self._wire.close()
+            raise RuntimeError("Unexpected protocol message #%02X", tag)
+
     def _wait(self, response):
         """ Read all incoming responses up to and including a
         particular response.
@@ -308,43 +349,8 @@ class Bolt1(Bolt):
         This method calls fetch, but does not raise an exception on
         FAILURE.
         """
-
-        def fetch():
-            """ Fetch and process the next incoming message.
-
-            This method does not raise an exception on receipt of a
-            FAILURE message. Instead, it sets the response (and
-            consequently the parent query and transaction) to a failed
-            state. It is the responsibility of the caller to convert this
-            failed state into an exception.
-            """
-            rs = self._responses[0]
-            tag, fields = self._reader.read_message()
-            if tag == 0x70:
-                log.debug("[#%04X] S: SUCCESS %s", self.local_port, " ".join(map(repr, fields)))
-                rs.set_success(**fields[0])
-                self._responses.popleft()
-                self._metadata.update(fields[0])
-            elif tag == 0x71:
-                log.debug("[#%04X] S: RECORD %s", self.local_port, " ".join(map(repr, fields)))
-                rs.add_record(fields[0])
-            elif tag == 0x7F:
-                log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
-                rs.set_failure(**fields[0])
-                self._responses.popleft()
-                if rs.vital:
-                    self._wire.close()
-            elif tag == 0x7E and not rs.vital:
-                log.debug("[#%04X] S: IGNORED", self.local_port)
-                rs.set_ignored()
-                self._responses.popleft()
-            else:
-                log.debug("[#%04X] S: <ERROR>", self.local_port)
-                self._wire.close()
-                raise RuntimeError("Unexpected protocol message #%02X", tag)
-
         while not response.full() and not response.done():
-            fetch()
+            self._fetch()
             if not self._transaction:
                 self.release()
 
@@ -364,14 +370,6 @@ class Bolt1(Bolt):
         except Failure:
             self.reset(force=True)
             raise
-
-    def _bind(self):
-        if self.pool:
-            self.pool.connector.bind(self._transaction, self)
-
-    def _unbind(self):
-        if self.pool:
-            self.pool.connector.unbind(self._transaction)
 
 
 class Bolt2(Bolt1):
@@ -393,7 +391,8 @@ class Bolt3(Bolt2):
         clean_extra.update({"credentials": "*******"})
         log.debug("[#%04X] C: HELLO %r", self.local_port, clean_extra)
         response = self._write_request(0x01, extra, vital=True)
-        self._sync(response)
+        self._send()
+        self._fetch()
         self._audit(response)
         self.server_agent = response.metadata.get("server")
         self.connection_id = response.metadata.get("connection_id")
@@ -421,7 +420,8 @@ class Bolt3(Bolt2):
         if after:
             self._sync(response)
             self._audit(self._transaction)
-        self._bind()
+        if callable(self._on_bind):
+            self._on_bind(self._transaction, self)
         return self._transaction
 
     def commit(self, tx):
@@ -432,7 +432,8 @@ class Bolt3(Bolt2):
         response = self._write_request(0x12)
         self._sync(response)
         self._audit(self._transaction)
-        self._unbind()
+        if callable(self._on_unbind):
+            self._on_unbind(self._transaction)
         return Bookmark(response.metadata.get("bookmark"))
 
     def rollback(self, tx):
@@ -443,7 +444,8 @@ class Bolt3(Bolt2):
         response = self._write_request(0x13)
         self._sync(response)
         self._audit(self._transaction)
-        self._unbind()
+        if callable(self._on_unbind):
+            self._on_unbind(self._transaction)
         return Bookmark(response.metadata.get("bookmark"))
 
     def run(self, tx, cypher, parameters=None):

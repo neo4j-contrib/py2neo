@@ -41,13 +41,15 @@ class HTTP(Connection):
         return JSONHydrant(graph)
 
     @classmethod
-    def open(cls, profile, user_agent=None):
-        http = cls(profile, (user_agent or http_user_agent()))
+    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None, on_release=None):
+        http = cls(profile, (user_agent or http_user_agent()),
+                   on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         http._hello()
         return http
 
-    def __init__(self, profile, user_agent):
-        super(HTTP, self).__init__(profile, user_agent)
+    def __init__(self, profile, user_agent, on_bind=None, on_unbind=None, on_release=None):
+        super(HTTP, self).__init__(profile, user_agent,
+                                   on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         self.http_pool = None
         self.headers = make_headers(basic_auth=":".join(profile.auth))
         self._transactions = set()

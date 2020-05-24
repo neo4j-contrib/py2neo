@@ -43,11 +43,24 @@ try:
 except ImportError:
     from time import time as perf_counter
 
+from abc import ABCMeta
 from io import StringIO
 import os
 from socket import error as SocketError
 from sys import version_info
 from warnings import warn
+
+
+ABC = ABCMeta('ABC', (object,), {})  # compatible with Python 2 *and* 3
+
+
+def abstractproperty(f):
+    if version_info >= (3, 3):
+        from abc import abstractmethod
+        return property(abstractmethod(f))
+    else:
+        from abc import abstractproperty
+        return abstractproperty(f)
 
 
 if version_info >= (3,):
