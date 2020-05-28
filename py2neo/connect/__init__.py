@@ -126,6 +126,9 @@ class ConnectionProfile(object):
         self._apply_correct_scheme_for_security()
         self._apply_other_defaults()
 
+    def __repr__(self):
+        return "%s(%r)" % (self.__class__.__name__, self.uri)
+
     def _apply_auth(self, **settings):
         if "auth" in settings and settings["auth"] is not None:
             if isinstance(settings["auth"], string_types):
@@ -237,7 +240,7 @@ class ConnectionProfile(object):
 
     def to_dict(self):
         keys = ["secure", "verify", "scheme", "user", "password", "address",
-                "auth", "host", "port", "port_number", "uri"]
+                "auth", "host", "port", "port_number", "protocol", "uri"]
         d = {}
         for key in keys:
             d[key] = getattr(self, key)
@@ -381,24 +384,26 @@ class Connection(object):
         return self.neo4j_version.major_minor >= (4, 0)
 
 
-class ConnectionContainer(ABC):
+class ConnectionPool(ABC):
+    """ Abstract connection pool interface.
+    """
 
     @abstractproperty
     def profile(self):
-        """ The initial connection profile for these connections.
+        """ The initial connection profile for connections in this pool.
         """
         raise NotImplementedError
 
     @abstractproperty
     def user_agent(self):
-        """ The user agent for these connections.
+        """ The user agent for connections in this pool.
         """
         raise NotImplementedError
 
     @abstractproperty
     def max_size(self):
         """ The maximum permitted number of simultaneous connections
-        that may be owned by this pools, both in-use and free.
+        that may be owned by this pool, both in-use and free.
         """
         raise NotImplementedError
 
@@ -409,25 +414,27 @@ class ConnectionContainer(ABC):
     @abstractproperty
     def max_age(self):
         """ The maximum permitted age, in seconds, for connections to
-        be retained.
+        be retained in this pool.
         """
         raise NotImplementedError
 
     @abstractproperty
     def in_use(self):
-        """ The number of connections that are currently in use.
+        """ The number of connections that are currently in use in
+        this pool.
         """
         raise NotImplementedError
 
     @abstractproperty
     def size(self):
-        """ The total number of connections (both in-use and free).
+        """ The total number of connections in this pool, both in-use
+        and free.
         """
         raise NotImplementedError
 
     @abstractmethod
     def prune(self):
-        """ Close all free connections.
+        """ Close all free connections in this pool.
         """
         raise NotImplementedError
 
@@ -485,11 +492,13 @@ class ConnectionContainer(ABC):
 
     @abstractmethod
     def release(self, cx, force_reset=False):
+        """ Release a connection back into the pool.
+        """
         raise NotImplementedError
 
 
-class ConnectionPool(ConnectionContainer):
-    """ A connection pool for a remote Neo4j service.
+class DirectConnectionPool(ConnectionPool):
+    """ A connection pool targeting a single Neo4j server.
     """
 
     default_init_size = 1
@@ -529,7 +538,7 @@ class ConnectionPool(ConnectionContainer):
         return pool
 
     def __init__(self, profile, user_agent, max_size, max_age, on_bind, on_unbind):
-        self._profile = profile
+        self._profile = profile or ConnectionProfile()
         self._user_agent = user_agent
         self._max_size = max_size or self.default_max_size
         self._max_age = max_age or self.default_max_age
@@ -777,9 +786,9 @@ class ConnectionPool(ConnectionContainer):
             closer()
 
 
-class ConnectionRouter(ConnectionContainer):
-    """ Collection of :class:`.ConnectionPool` objects, together
-    representing a system of interconnected machines.
+class RoutingConnectionPool(ConnectionPool):
+    """ A connection pool targeting a system of interconnected machines
+    bound by a routing table.
     """
 
     # TODO: routing table
@@ -815,8 +824,8 @@ class ConnectionRouter(ConnectionContainer):
         self._on_bind = on_bind
         self._on_unbind = on_unbind
         self._pools = {
-            profile: ConnectionPool.open(profile, user_agent, init_size,
-                                         max_size, max_age, on_bind, on_unbind),
+            profile: DirectConnectionPool.open(profile, user_agent, init_size,
+                                               max_size, max_age, on_bind, on_unbind),
         }
         self._router_pools = {}
         self._runner_pools = {}
@@ -928,9 +937,10 @@ class ConnectionRouter(ConnectionContainer):
         raise NotImplementedError
 
 
-class Connector(ConnectionContainer):
-    """ A transaction manager and collection of connection pools linked
-    to a remote Neo4j service.
+class Connector(ConnectionPool):
+    """ A connection pool abstraction that uses an appropriate
+    connection pool implementation and is coupled with a transaction
+    manager.
     """
 
     default_acquire_timeout = 30
@@ -955,12 +965,14 @@ class Connector(ConnectionContainer):
         return cls(profile, user_agent, init_size, max_size, max_age)
 
     def __init__(self, profile, user_agent, init_size, max_size, max_age):
-        self._connections = ConnectionPool.open(profile, user_agent, init_size, max_size, max_age,
-                                                on_bind=self._bind, on_unbind=self._unbind)
+        self._connections = DirectConnectionPool.open(
+            profile, user_agent, init_size, max_size, max_age,
+            on_bind=self._bind_connection,
+            on_unbind=self._unbind_connection)
         self._transactions = {}
 
     def __repr__(self):
-        return "<Connector profile={!r}>".format(self.profile)
+        return "<{} to {!r}>".format(self.__class__.__name__, self.profile)
 
     def __hash__(self):
         return hash(self.profile)
@@ -1043,6 +1055,8 @@ class Connector(ConnectionContainer):
                                          timeout=self.acquire_timeout, force_reset=force_reset)
 
     def release(self, cx, force_reset=False):
+        """ Release a connection back into the pool.
+        """
         self._connections.release(cx, force_reset=force_reset)
 
     def prune(self):
@@ -1074,46 +1088,69 @@ class Connector(ConnectionContainer):
         """
         self._connections.close()
 
-    def reacquire(self, tx):
+    def _get_connection(self, tx):
         """ Lookup and return the connection bound to this
-        transaction. If this transaction is not bound, acquire
-        a connection via the regular acquire method.
+        transaction, if any, otherwise acquire a new connection.
+
+        :param tx: a bound transaction
+        :raise TypeError: if the given transaction is invalid or not bound
         """
         try:
             return self._transactions[tx]
         except KeyError:
             return self.acquire(tx.graph_name, tx.readonly)
 
-    def is_bound(self, tx):
-        """ Return true if the given transaction is bound
-        within this pool.
-        """
-        return tx in self._transactions
-
-    def _bind(self, tx, cx):
+    def _bind_connection(self, tx, cx):
         """ Bind a transaction to a connection.
-        """
-        self._transactions[tx] = cx
 
-    def _unbind(self, tx):
+        :param tx: an unbound transaction
+        :param tx: an connection to which to bind the transaction
+        :raise TypeError: if the given transaction is already bound
+        """
+        try:
+            cx0 = self._transactions[tx]
+        except KeyError:
+            self._transactions[tx] = cx
+        else:
+            raise TypeError("Transaction {!r} already bound to connection {!r}".format(tx, cx0))
+
+    def _unbind_connection(self, tx):
         """ Unbind a transaction from a connection.
+
+        :param tx: a bound transaction
+        :raise TypeError: if the given transaction is invalid or not bound
         """
         try:
             del self._transactions[tx]
         except KeyError:
-            raise TransactionError("Transaction not bound")
+            raise TypeError("Invalid or unbound transaction {!r}".format(tx))
 
     def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
+        """ Begin a new explicit transaction.
+        """
         cx = self.acquire(graph_name, readonly=readonly)
         return cx.begin(graph_name, after=after, metadata=metadata, timeout=timeout)
 
     def commit(self, tx):
-        return self.reacquire(tx).commit(tx)
+        """ Commit a transaction.
+
+        :param tx: the transaction to commit
+        :return: a :class:`.Bookmark` representing the point in
+            transactional history immediately after this transaction
+        :raise TypeError: if the transaction is invalid
+        """
+        cx = self._get_connection(tx)
+        return cx.commit(tx)
 
     def rollback(self, tx):
-        return self.reacquire(tx).rollback(tx)
+        """ Roll back a transaction.
+        """
+        cx = self._get_connection(tx)
+        return cx.rollback(tx)
 
     def auto_run(self, graph_name, cypher, parameters=None, hydrant=None, readonly=False):
+        """ Run a Cypher query within a new auto-commit transaction.
+        """
         cx = self.acquire(graph_name, readonly)
         if hydrant:
             parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
@@ -1123,7 +1160,9 @@ class Connector(ConnectionContainer):
         return result
 
     def run_in_tx(self, tx, cypher, parameters=None, hydrant=None):
-        cx = self.reacquire(tx)
+        """ Run a Cypher query within an open explicit transaction.
+        """
+        cx = self._get_connection(tx)
         if hydrant:
             parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
         result = cx.run_in_tx(tx, cypher, parameters)
@@ -1139,6 +1178,8 @@ class Connector(ConnectionContainer):
         return result
 
     def graph_names(self):
+        """ Fetch a list of available graph database names.
+        """
         try:
             result = self._show_databases()
         except TypeError:
@@ -1152,6 +1193,8 @@ class Connector(ConnectionContainer):
             return value
 
     def default_graph_name(self):
+        """ Fetch the default graph database name for the service.
+        """
         try:
             result = self._show_databases()
         except TypeError:

@@ -19,7 +19,6 @@
 from __future__ import absolute_import
 
 from collections import deque, OrderedDict
-from datetime import datetime
 from time import sleep
 from warnings import warn
 
@@ -27,7 +26,7 @@ from py2neo.connect import Connector, Connection, ConnectionProfile, Transaction
 from py2neo.cypher import cypher_escape
 from py2neo.data import Record, Table
 from py2neo.internal.caching import ThreadLocalEntityCache
-from py2neo.internal.compat import Mapping, string_types, xstr
+from py2neo.internal.compat import Mapping, xstr
 from py2neo.internal.operations import OperationError
 from py2neo.internal.text import Words
 from py2neo.internal.versioning import Version
