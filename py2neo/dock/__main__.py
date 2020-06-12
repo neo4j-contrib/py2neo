@@ -18,15 +18,12 @@
 
 import sys
 from logging import INFO, DEBUG
-from shlex import quote as shlex_quote
-from subprocess import run
 
 import click
 
 from py2neo.connect.addressing import Address
 from py2neo.diagnostics import watch
-from py2neo.dock import Neo4jService
-from py2neo.dock.auth import AuthParamType
+from py2neo.dock import Neo4jService, make_auth
 
 
 class AddressParamType(click.ParamType):
@@ -42,6 +39,24 @@ class AddressParamType(click.ParamType):
 
     def __repr__(self):
         return 'HOST:PORT'
+
+
+class AuthParamType(click.ParamType):
+
+    name = "auth"
+
+    def __init__(self, default_user=None, default_password=None):
+        self.default_user = default_user
+        self.default_password = default_password
+
+    def convert(self, value, param, ctx):
+        try:
+            return make_auth(value, self.default_user, self.default_password)
+        except ValueError as e:
+            self.fail(e.args[0], param, ctx)
+
+    def __repr__(self):
+        return 'USER:PASSWORD'
 
 
 class ConfigParamType(click.ParamType):

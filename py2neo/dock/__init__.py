@@ -16,20 +16,68 @@
 # limitations under the License.
 
 
+from collections import namedtuple
 from logging import getLogger
 from random import choice
 from threading import Thread
 from time import sleep
+from uuid import uuid4
 
 from py2neo.connect.addressing import Address
 from py2neo.connect.wire import Wire
-from py2neo.dock.auth import Auth, make_auth
 from py2neo.dock.console import Neo4jConsole
-from py2neo.dock.images import resolve_image
 from py2neo.internal.compat import perf_counter
 
 
 log = getLogger(__name__)
+
+
+Auth = namedtuple("Auth", ["user", "password"])
+
+
+def make_auth(value=None, default_user=None, default_password=None):
+    try:
+        user, _, password = str(value or "").partition(":")
+    except AttributeError:
+        raise ValueError("Invalid auth string {!r}".format(value))
+    else:
+        return Auth(user or default_user or "neo4j",
+                    password or default_password or uuid4().hex)
+
+
+def resolve_image(image):
+    """ Resolve an informal image tag into a full Docker image tag. Any tag
+    available on Docker Hub for Neo4j can be used, and if no 'neo4j:' prefix
+    exists, this will be added automatically. The default edition is
+    Community, unless a cluster is being created in which case Enterprise
+    edition is selected instead. Explicit selection of Enterprise edition can
+    be made by adding an '-enterprise' suffix to the image tag.
+
+    If a 'file:' URI is passed in here instead of an image tag, the Docker
+    image will be loaded from that file instead.
+
+    Examples of valid tags:
+    - 3.4.6
+    - neo4j:3.4.6
+    - latest
+    - file:/home/me/image.tar
+
+    """
+    resolved = image
+    if resolved.startswith("file:"):
+        return load_image_from_file(resolved[5:])
+    if ":" not in resolved:
+        resolved = "neo4j:" + image
+    return resolved
+
+
+def load_image_from_file(name):
+    from docker import DockerClient
+    docker = DockerClient.from_env(version="auto")
+    with open(name, "rb") as f:
+        images = docker.images.load(f.read())
+        image = images[0]
+        return image.tags[0]
 
 
 class Neo4jInstanceProfile(object):
