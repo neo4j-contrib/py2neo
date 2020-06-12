@@ -80,8 +80,12 @@ def load_image_from_file(name):
         return image.tags[0]
 
 
-class Neo4jInstanceProfile(object):
-    # Base config for all machines. This can be overridden by
+def random_name(size):
+    return "".join(choice("bcdfghjklmnpqrstvwxz") for _ in range(size))
+
+
+class InstanceProfile(object):
+    # Base config for all instances. This can be overridden by
     # individual instances.
     config = {
         "dbms.backup.enabled": "false",
@@ -141,7 +145,7 @@ class Neo4jInstanceProfile(object):
         pass
 
 
-class Neo4jInstance(object):
+class Instance(object):
     """ A single Neo4j server instance, potentially part of a cluster.
     """
 
@@ -151,10 +155,10 @@ class Neo4jInstance(object):
 
     ready = 0
 
-    def __init__(self, spec, image, auth):
+    def __init__(self, profile, image, auth):
         from docker import DockerClient
         from docker.errors import ImageNotFound
-        self.spec = spec
+        self.profile = profile
         self.image = image
         self.address = self.addresses["bolt"]
         self.auth = auth
@@ -163,15 +167,15 @@ class Neo4jInstance(object):
         if self.auth:
             environment["NEO4J_AUTH"] = "/".join(self.auth)
         environment["NEO4J_ACCEPT_LICENSE_AGREEMENT"] = "yes"
-        for key, value in self.spec.config.items():
+        for key, value in self.profile.config.items():
             fixed_key = "NEO4J_" + key.replace("_", "__").replace(".", "_")
             environment[fixed_key] = value
-        for key, value in self.spec.env.items():
+        for key, value in self.profile.env.items():
             environment[key] = value
         ports = {
-                    "7474/tcp": self.spec.http_port,
-                    "7473/tcp": self.spec.https_port,
-                    "7687/tcp": self.spec.bolt_port,
+                    "7474/tcp": self.profile.http_port,
+                    "7473/tcp": self.profile.https_port,
+                    "7687/tcp": self.profile.bolt_port,
                 }
 
         def create_container(img):
@@ -179,9 +183,9 @@ class Neo4jInstance(object):
                 img,
                 detach=True,
                 environment=environment,
-                hostname=self.spec.fq_name,
-                name=self.spec.fq_name,
-                network=self.spec.service_name,
+                hostname=self.profile.fq_name,
+                name=self.profile.fq_name,
+                network=self.profile.service_name,
                 ports=ports,
             )
 
@@ -197,27 +201,27 @@ class Neo4jInstance(object):
 
     def __repr__(self):
         return "%s(fq_name={!r}, image={!r}, address={!r})".format(
-            self.__class__.__name__, self.spec.fq_name,
+            self.__class__.__name__, self.profile.fq_name,
             self.image, self.address)
 
     @property
     def addresses(self):
-        return self.spec.addresses
+        return self.profile.addresses
 
     def start(self):
         from docker.errors import APIError
-        log.info("Starting machine %r at "
-                 "«%s»", self.spec.fq_name, self.address)
+        log.info("Starting instance %r at "
+                 "«%s»", self.profile.fq_name, self.address)
         try:
             self.container.start()
             self.container.reload()
             self.ip_address = (self.container.attrs["NetworkSettings"]
-                               ["Networks"][self.spec.service_name]["IPAddress"])
+                               ["Networks"][self.profile.service_name]["IPAddress"])
         except APIError as e:
             log.info(e)
 
         log.debug("Machine %r has internal IP address "
-                  "«%s»", self.spec.fq_name, self.ip_address)
+                  "«%s»", self.profile.fq_name, self.ip_address)
 
     def _poll_bolt_address(self, count=240, interval=0.5):
         address = self.addresses["bolt"]
@@ -239,7 +243,7 @@ class Neo4jInstance(object):
                 t1 = perf_counter() - t0
                 log.info("Machine {!r} available "
                          "for Bolt traffic "
-                         "after {:.02f}s".format(self.spec.fq_name, t1))
+                         "after {:.02f}s".format(self.profile.fq_name, t1))
                 return True
             finally:
                 if wire:
@@ -263,7 +267,7 @@ class Neo4jInstance(object):
                 t1 = perf_counter() - t0
                 log.info("Machine {!r} available "
                          "for HTTP traffic "
-                         "after {:.02f}s".format(self.spec.fq_name, t1))
+                         "after {:.02f}s".format(self.profile.fq_name, t1))
                 return True
             finally:
                 if wire:
@@ -297,27 +301,27 @@ class Neo4jInstance(object):
                 if state["Status"] == "exited":
                     self.ready = -1
                     log.error("Machine %r exited with code %r",
-                              self.spec.fq_name, state["ExitCode"])
+                              self.profile.fq_name, state["ExitCode"])
                     for line in self.container.logs().splitlines():
                         log.error("> %s" % line.decode("utf-8"))
                 else:
                     log.error("Machine %r did not "
-                              "become available", self.spec.fq_name)
+                              "become available", self.profile.fq_name)
             else:
                 self.ready = 1
         else:
             log.error("Machine %r is not running (status=%r)",
-                      self.spec.fq_name, self.container.status)
+                      self.profile.fq_name, self.container.status)
             for line in self.container.logs().splitlines():
                 log.error("> %s" % line.decode("utf-8"))
 
     def stop(self):
-        log.info("Stopping machine %r", self.spec.fq_name)
+        log.info("Stopping instance %r", self.profile.fq_name)
         self.container.stop()
         self.container.remove(force=True)
 
 
-class Neo4jService:
+class Service(object):
     """ A Neo4j database management service.
     """
 
@@ -330,7 +334,7 @@ class Neo4jService:
     @classmethod
     def single_instance(cls, name, image, auth, config, env):
         service = cls(name, image, auth)
-        spec = Neo4jInstanceProfile(
+        profile = InstanceProfile(
             name="a",
             service_name=service.name,
             bolt_port=7687,
@@ -339,27 +343,22 @@ class Neo4jService:
             config=config,
             env=env,
         )
-        service.machines[spec] = Neo4jInstance(
-            spec,
+        service.instances[profile] = Instance(
+            profile,
             service.image,
             auth=service.auth,
         )
         return service
 
-    @classmethod
-    def _random_name(cls):
-        return "".join(choice("bcdfghjklmnpqrstvwxz") for _ in range(7))
-
-    # noinspection PyUnusedLocal
     def __init__(self, name, image, auth):
         from docker import DockerClient
-        self.name = name or self._random_name()
+        self.name = name or random_name(7)
         self.image = resolve_image(image or self.default_image)
         self.auth = Auth(*auth) if auth else make_auth()
         if self.auth.user != "neo4j":
             raise ValueError("Auth user must be 'neo4j' or empty")
         self.docker = DockerClient.from_env(version="auto")
-        self.machines = {}
+        self.instances = {}
         self.network = None
         self.console = None
 
@@ -375,16 +374,16 @@ class Neo4jService:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    def _get_machine_by_address(self, address):
+    def _get_instance_by_address(self, address):
         address = Address((address.host, address.port_number))
-        for spec, machine in self.machines.items():
-            if spec.bolt_address == address:
-                return machine
+        for profile, instance in self.instances.items():
+            if profile.bolt_address == address:
+                return instance
 
-    def _for_each_machine(self, f):
+    def _for_each_instance(self, f):
         threads = []
-        for spec, machine in self.machines.items():
-            thread = Thread(target=f(machine))
+        for profile, instance in self.instances.items():
+            thread = Thread(target=f(instance))
             thread.daemon = True
             thread.start()
             threads.append(thread)
@@ -394,28 +393,28 @@ class Neo4jService:
     def start(self):
         log.info("Starting service %r with image %r", self.name, self.image)
         self.network = self.docker.networks.create(self.name)
-        self._for_each_machine(lambda machine: machine.start)
+        self._for_each_instance(lambda instance: instance.start)
         self.await_started()
 
     def await_started(self):
 
-        def wait(machine):
-            machine.await_started()
+        def wait(instance):
+            instance.await_started()
 
-        self._for_each_machine(wait)
-        if all(machine.ready == 1 for spec, machine in self.machines.items()):
+        self._for_each_instance(wait)
+        if all(instance.ready == 1 for profile, instance in self.instances.items()):
             log.info("Service %r available", self.name)
         else:
             raise RuntimeError("Service %r unavailable - "
-                               "some machines failed", self.name)
+                               "some instances failed", self.name)
 
     def stop(self):
         log.info("Stopping service %r", self.name)
 
-        def _stop(machine):
-            machine.stop()
+        def _stop(instance):
+            instance.stop()
 
-        self._for_each_machine(_stop)
+        self._for_each_instance(_stop)
         if self.network:
             self.network.remove()
 
@@ -435,7 +434,7 @@ class Neo4jService:
         self.console.run()
 
     def env(self):
-        addresses = [machine.address for spec, machine in self.machines.items()]
+        addresses = [instance.address for profile, instance in self.instances.items()]
         auth = "{}:{}".format(self.auth.user, self.auth.password)
         return {
             "BOLT_SERVER_ADDR": " ".join(map(str, addresses)),
@@ -497,11 +496,11 @@ class ServiceConnectionProfile(object):
         from py2neo.diagnostics import watch
         from logging import DEBUG
         watch("py2neo.dock", DEBUG)
-        service = Neo4jService.single_instance(None, self.release_str, ("neo4j", "password"), None, None)
+        service = Service.single_instance(None, self.release_str, ("neo4j", "password"), None, None)
         service.start()
         try:
-            addresses = [machine.addresses[self.scheme]
-                         for spec, machine in service.machines.items()]
+            addresses = [instance.addresses[self.scheme]
+                         for profile, instance in service.instances.items()]
             uris = ["{}://{}:{}".format(self.scheme, address.host, address.port)
                     for address in addresses]
             yield uris[0]

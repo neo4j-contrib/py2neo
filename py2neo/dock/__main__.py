@@ -23,7 +23,7 @@ import click
 
 from py2neo.connect.addressing import Address
 from py2neo.diagnostics import watch
-from py2neo.dock import Neo4jService, make_auth
+from py2neo.dock import Service, make_auth
 
 
 class AddressParamType(click.ParamType):
@@ -114,7 +114,7 @@ def main(name, image, auth, env, config):
     try:
         config_dict = dict(item.partition("=")[::2] for item in config)
         env_dict = dict(item.partition("=")[::2] for item in env)
-        with Neo4jService.single_instance(name, image, auth, config, env) as neo4j:
+        with Service.single_instance(name, image, auth, config, env) as neo4j:
             neo4j.run_console()
     except KeyboardInterrupt:
         sys.exit(130)
