@@ -16,7 +16,9 @@
 # limitations under the License.
 
 
-from py2neo.connect import Address
+from socket import socket, SOL_SOCKET, SO_KEEPALIVE
+
+from py2neo.connect.addressing import Address
 
 
 class Wire:
@@ -27,7 +29,17 @@ class Wire:
 
     __broken = False
 
+    @classmethod
+    def open(cls, address, timeout=None, keep_alive=False):
+        s = socket(family=address.family)
+        if keep_alive:
+            s.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
+        s.settimeout(timeout)
+        s.connect(address)
+        return cls(s)
+
     def __init__(self, s):
+        s.settimeout(None)  # ensure wrapped socket is in blocking mode
         self.__socket = s
         self.__input = bytearray()
         self.__output = bytearray()
@@ -50,7 +62,7 @@ class Wire:
     def read(self, n):
         while len(self.__input) < n:
             try:
-                received = self.__socket.recv(n)
+                received = self.__socket.recv(n - len(self.__input))
             except OSError:
                 self.__broken = True
                 raise

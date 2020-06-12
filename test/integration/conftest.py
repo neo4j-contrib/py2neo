@@ -47,53 +47,56 @@ NEO4J_DEBUG = getenv("NEO4J_DEBUG", "")
 NEO4J_PROCESS = {}
 
 
-class ServiceProfile(object):
+#class ServiceProfile(object):
 
-    def __init__(self, release=None, topology=None, cert=None, schemes=None):
-        self.release = release
-        self.topology = topology   # "CE|EE-SI|EE-C3|EE-C3-R2"
-        self.cert = cert
-        self.schemes = schemes
+#    def __init__(self, release=None, topology=None, cert=None, schemes=None):
+#        self.release = release
+#        self.topology = topology   # "CE|EE-SI|EE-C3|EE-C3-R2"
+#        self.cert = cert
+#        self.schemes = schemes
 
-    def __str__(self):
-        server = "%s.%s %s" % (self.release[0], self.release[1], self.topology)
-        if self.cert:
-            server += " %s" % (self.cert,)
-        schemes = " ".join(self.schemes)
-        return "[%s]-[%s]" % (server, schemes)
+#    def __str__(self):
+#        server = "%s.%s %s" % (self.release[0], self.release[1], self.topology)
+#        if self.cert:
+#            server += " %s" % (self.cert,)
+#        schemes = " ".join(self.schemes)
+#        return "[%s]-[%s]" % (server, schemes)
 
 
-class ServiceConnectionProfile(object):
+#class ServiceConnectionProfile(object):
 
-    def __init__(self, release=None, topology=None, cert=None, scheme=None):
-        self.release = release
-        self.topology = topology   # "CE|EE-SI|EE-C3|EE-C3-R2"
-        self.cert = cert
-        self.scheme = scheme
+#    def __init__(self, release=None, topology=None, cert=None, scheme=None):
+#        self.release = release
+#        self.topology = topology   # "CE|EE-SI|EE-C3|EE-C3-R2"
+#        self.cert = cert
+#        self.scheme = scheme
 
-    def __str__(self):
-        extra = "%s" % (self.topology,)
-        if self.cert:
-            extra += "; %s" % (self.cert,)
-        bits = [
-            "Neo4j/%s.%s (%s)" % (self.release[0], self.release[1], extra),
-            "over",
-            "'%s'" % self.scheme,
-        ]
-        return " ".join(bits)
+#    def __str__(self):
+#        extra = "%s" % (self.topology,)
+#        if self.cert:
+#            extra += "; %s" % (self.cert,)
+#        bits = [
+#            "Neo4j/%s.%s (%s)" % (self.release[0], self.release[1], extra),
+#            "over",
+#            "'%s'" % self.scheme,
+#        ]
+#        return " ".join(bits)
 
-    @property
-    def edition(self):
-        if self.topology.startswith("CE"):
-            return "community"
-        elif self.topology.startswith("EE"):
-            return "enterprise"
-        else:
-            return None
+#    @property
+#    def edition(self):
+#        if self.topology.startswith("CE"):
+#            return "community"
+#        elif self.topology.startswith("EE"):
+#            return "enterprise"
+#        else:
+#            return None
 
-    @property
-    def release_str(self):
-        return ".".join(map(str, self.release))
+#    @property
+#    def release_str(self):
+#        return ".".join(map(str, self.release))
+
+
+from py2neo.dock import ServiceProfile, ServiceConnectionProfile
 
 
 # TODO: test with full certificates
@@ -156,6 +159,10 @@ def neo4j_minor_version(neo4j_version):
 
 @fixture(scope="session")
 def uri(service_connection_profile):
+    for uri in service_connection_profile.yield_uri():
+        yield uri
+    return
+
     scp = service_connection_profile
     port = NEO4J_PORTS[scp.scheme]
     uri = "{}://{}:{}".format(scp.scheme, NEO4J_HOST, port)

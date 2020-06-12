@@ -31,6 +31,9 @@ class FakeSocket(object):
         self._out_packets = out_packets
         self._closed = False
 
+    def settimeout(self, value):
+        pass
+
     def recv(self, n_bytes, flags=None):
         while not self._in_buffer:
             try:

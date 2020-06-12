@@ -247,10 +247,14 @@ class Console(object):
         result = runner(statement, parameters)
         record_count = self.write_result(result)
         summary = result.summary()
+        if summary.connection:
+            uri = summary.connection["uri"]
+        else:
+            uri = self.graph.service.uri
         status = u"{} record{} from {} in {:.3f}s".format(
             record_count,
             "" if record_count == 1 else "s",
-            summary.connection["uri"],
+            uri,
             timer() - t0,
         )
         if line_no:

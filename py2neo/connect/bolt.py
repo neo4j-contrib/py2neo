@@ -19,7 +19,6 @@
 from collections import deque
 from itertools import islice
 from logging import getLogger
-from socket import socket, SOL_SOCKET, SO_KEEPALIVE
 
 from py2neo.meta import bolt_user_agent
 from py2neo.connect import Connection, Transaction, TransactionError, Result, Failure, Bookmark
@@ -75,11 +74,8 @@ class Bolt(Connection):
 
     @classmethod
     def _connect(cls, profile):
-        s = socket(family=profile.address.family)
-        s.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
         log.debug("[#%04X] C: <DIAL> '%s'", 0, profile.address)
-        s.connect(profile.address)
-        wire = Wire(s)
+        wire = Wire.open(profile.address, keep_alive=True)
         local_port = wire.local_address.port_number
         log.debug("[#%04X] S: <ACCEPT>", local_port)
         if profile.secure:
