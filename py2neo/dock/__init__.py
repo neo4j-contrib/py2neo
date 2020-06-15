@@ -17,8 +17,11 @@
 
 
 from collections import namedtuple
-from logging import getLogger
+from logging import getLogger, DEBUG
+from os import chmod, path
 from random import choice
+from shutil import rmtree
+from tempfile import mkdtemp
 from threading import Thread
 from time import sleep
 from uuid import uuid4
@@ -27,6 +30,7 @@ from py2neo.connect.addressing import Address
 from py2neo.connect.wire import Wire
 from py2neo.dock.console import Neo4jConsole
 from py2neo.internal.compat import perf_counter
+from py2neo.security import install_certificate, install_private_key
 
 
 log = getLogger(__name__)
@@ -99,50 +103,60 @@ class InstanceProfile(object):
             self,
             name,
             service_name,
-            bolt_port,
-            http_port,
-            https_port,
-            config,
-            env
+            bolt_port=None,
+            http_port=None,
+            https_port=None,
+            cert=None,
+            key=None,
+            config=None,
+            env=None
     ):
         self.name = name
         self.service_name = service_name
-        self.bolt_port = bolt_port
-        self.http_port = http_port
-        self.https_port = https_port
-        self.env = dict(env or {})
-        self.config = dict()
-        self.config["dbms.connector.bolt.advertised_address"] = \
-            "localhost:{}".format(self.bolt_port)
+        self.bolt_port = bolt_port or 7687
+        self.http_port = http_port or 7474
+        self.https_port = https_port or 7473
+        self.cert = cert
+        self.key = key
+        advertised_address = "localhost:{}".format(self.bolt_port)
+        self.config = {
+            "dbms.connector.bolt.advertised_address": advertised_address,
+        }
+        if self.secured:
+            self.config.update({
+                "dbms.ssl.policy.bolt.enabled": True,
+                "dbms.ssl.policy.https.enabled": True,
+                "dbms.connector.bolt.tls_level": "OPTIONAL",
+                "dbms.connector.https.enabled": True,
+            })
         if config:
             self.config.update(**config)
+        self.env = dict(env or {})
 
     def __hash__(self):
         return hash(self.fq_name)
+
+    @property
+    def secured(self):
+        return bool(self.cert)
 
     @property
     def fq_name(self):
         return "{}.{}".format(self.name, self.service_name)
 
     @property
-    def http_uri(self):
-        return "http://localhost:{}".format(self.http_port)
-
-    @property
-    def bolt_address(self):
-        return Address(("localhost", self.bolt_port))
-
-    @property
     def addresses(self):
-        # TODO: include only those that are configured
-        return {
+        addresses = {
             "bolt": Address(("localhost", self.bolt_port)),
             "http": Address(("localhost", self.http_port)),
-            "https": Address(("localhost", self.https_port)),
         }
-
-    def connection_profile(self, protocol):
-        pass
+        if self.secured:
+            addresses["bolt+s"] = Address(("localhost", self.bolt_port))
+            addresses["bolt+ssc"] = Address(("localhost", self.bolt_port))
+            addresses["https"] = Address(("localhost", self.https_port))
+            addresses["http+s"] = Address(("localhost", self.https_port))
+            addresses["http+ssc"] = Address(("localhost", self.https_port))
+        return addresses
 
 
 class Instance(object):
@@ -163,6 +177,7 @@ class Instance(object):
         self.address = self.addresses["bolt"]
         self.auth = auth
         self.docker = DockerClient.from_env(version="auto")
+        self.cert_volume_dir = None
         environment = {}
         if self.auth:
             environment["NEO4J_AUTH"] = "/".join(self.auth)
@@ -172,11 +187,23 @@ class Instance(object):
             environment[fixed_key] = value
         for key, value in self.profile.env.items():
             environment[key] = value
-        ports = {
-                    "7474/tcp": self.profile.http_port,
-                    "7473/tcp": self.profile.https_port,
-                    "7687/tcp": self.profile.bolt_port,
-                }
+        ports = {"7687/tcp": self.profile.bolt_port,
+                 "7474/tcp": self.profile.http_port}
+        volumes = {}
+        if self.profile.secured:
+            ports["7473/tcp"] = self.profile.https_port
+            self.cert_volume_dir = mkdtemp()
+            chmod(self.cert_volume_dir, 0o755)
+            log.info("Using directory %r as shared certificate volume", self.cert_volume_dir)
+            # TODO: earlier than 4.0 versions
+            subdirectories = [path.join(self.cert_volume_dir, subdir)
+                              for subdir in ["bolt", "https"]]
+            install_certificate(self.profile.cert, *subdirectories)
+            install_private_key(self.profile.key, *subdirectories)
+            volumes[self.cert_volume_dir] = {
+                "bind": "/var/lib/neo4j/certificates",
+                "mode": "ro",
+            }
 
         def create_container(img):
             return self.docker.containers.create(
@@ -187,6 +214,7 @@ class Instance(object):
                 name=self.profile.fq_name,
                 network=self.profile.service_name,
                 ports=ports,
+                volumes=volumes,
             )
 
         try:
@@ -210,8 +238,8 @@ class Instance(object):
 
     def start(self):
         from docker.errors import APIError
-        log.info("Starting instance %r at "
-                 "«%s»", self.profile.fq_name, self.address)
+        log.info("Starting instance %r at bolt://%s",
+                 self.profile.fq_name, self.address)
         try:
             self.container.start()
             self.container.reload()
@@ -220,13 +248,15 @@ class Instance(object):
         except APIError as e:
             log.info(e)
 
-        log.debug("Machine %r has internal IP address "
-                  "«%s»", self.profile.fq_name, self.ip_address)
+        log.info("Machine %r is bound to internal IP address %s",
+                 self.profile.fq_name, self.ip_address)
 
-    def _poll_bolt_address(self, count=240, interval=0.5):
+    def _poll_bolt_address(self, count=240, interval=0.5, is_running=None):
         address = self.addresses["bolt"]
         t0 = perf_counter()
         for _ in range(count):
+            if callable(is_running) and not is_running():
+                break
             wire = None
             try:
                 wire = Wire.open(address, keep_alive=True)
@@ -250,10 +280,12 @@ class Instance(object):
                     wire.close()
         return False
 
-    def _poll_http_address(self, count=240, interval=0.5):
+    def _poll_http_address(self, count=240, interval=0.5, is_running=None):
         address = self.addresses["http"]
         t0 = perf_counter()
         for _ in range(count):
+            if callable(is_running) and not is_running():
+                break
             wire = None
             try:
                 wire = Wire.open(address, keep_alive=True)
@@ -276,16 +308,20 @@ class Instance(object):
 
     def await_started(self):
         sleep(1)
-        self.container.reload()
-        if self.container.status == "running":
+
+        def is_running():
+            self.container.reload()
+            return self.container.status == "running"
+
+        if is_running():
 
             result = {}
 
             def poll_bolt_address():
-                result["bolt"] = self._poll_bolt_address()
+                result["bolt"] = self._poll_bolt_address(is_running=is_running)
 
             def poll_http_address():
-                result["http"] = self._poll_http_address()
+                result["http"] = self._poll_http_address(is_running=is_running)
 
             threads = [
                 Thread(target=poll_bolt_address),
@@ -319,6 +355,9 @@ class Instance(object):
         log.info("Stopping instance %r", self.profile.fq_name)
         self.container.stop()
         self.container.remove(force=True)
+        if self.cert_volume_dir:
+            log.info("Removing directory %r", self.cert_volume_dir)
+            rmtree(self.cert_volume_dir)
 
 
 class Service(object):
@@ -332,7 +371,7 @@ class Service(object):
     default_https_port = 7473
 
     @classmethod
-    def single_instance(cls, name, image, auth, config, env):
+    def single_instance(cls, name, image, auth, cert=None, key=None):
         service = cls(name, image, auth)
         profile = InstanceProfile(
             name="a",
@@ -340,8 +379,8 @@ class Service(object):
             bolt_port=7687,
             http_port=7474,
             https_port=7473,
-            config=config,
-            env=env,
+            cert=cert,
+            key=key,
         )
         service.instances[profile] = Instance(
             profile,
@@ -377,7 +416,7 @@ class Service(object):
     def _get_instance_by_address(self, address):
         address = Address((address.host, address.port_number))
         for profile, instance in self.instances.items():
-            if profile.bolt_address == address:
+            if profile.addresses["bolt"] == address:
                 return instance
 
     def _for_each_instance(self, f):
@@ -391,6 +430,9 @@ class Service(object):
             thread.join()
 
     def start(self):
+        # TODO: detect verbosity level
+        from py2neo.diagnostics import watch
+        watch("py2neo.dock", DEBUG)
         log.info("Starting service %r with image %r", self.name, self.image)
         self.network = self.docker.networks.create(self.name)
         self._for_each_instance(lambda instance: instance.start)
@@ -406,7 +448,7 @@ class Service(object):
             log.info("Service %r available", self.name)
         else:
             raise RuntimeError("Service %r unavailable - "
-                               "some instances failed", self.name)
+                               "some instances failed" % self.name)
 
     def stop(self):
         log.info("Stopping service %r", self.name)
@@ -456,53 +498,3 @@ class ServiceProfile(object):
             server += " %s" % (self.cert,)
         schemes = " ".join(self.schemes)
         return "[%s]-[%s]" % (server, schemes)
-
-
-class ServiceConnectionProfile(object):
-
-    def __init__(self, release=None, topology=None, cert=None, scheme=None):
-        assert topology == "CE"
-        self.release = release
-        self.topology = topology   # "CE|EE-SI|EE-C3|EE-C3-R2"
-        self.cert = cert
-        self.scheme = scheme
-
-    def __str__(self):
-        extra = "%s" % (self.topology,)
-        if self.cert:
-            extra += "; %s" % (self.cert,)
-        bits = [
-            "Neo4j/%s.%s (%s)" % (self.release[0], self.release[1], extra),
-            "over",
-            "'%s'" % self.scheme,
-        ]
-        return " ".join(bits)
-
-    @property
-    def edition(self):
-        if self.topology.startswith("CE"):
-            return "community"
-        elif self.topology.startswith("EE"):
-            return "enterprise"
-        else:
-            return None
-
-    @property
-    def release_str(self):
-        return ".".join(map(str, self.release))
-
-    def yield_uri(self):
-        assert self.cert is None
-        from py2neo.diagnostics import watch
-        from logging import DEBUG
-        watch("py2neo.dock", DEBUG)
-        service = Service.single_instance(None, self.release_str, ("neo4j", "password"), None, None)
-        service.start()
-        try:
-            addresses = [instance.addresses[self.scheme]
-                         for profile, instance in service.instances.items()]
-            uris = ["{}://{}:{}".format(self.scheme, address.host, address.port)
-                    for address in addresses]
-            yield uris[0]
-        finally:
-            service.stop()

@@ -18,17 +18,16 @@
 
 from os import getenv
 from os.path import dirname, join as path_join
-from socket import create_connection
 from uuid import uuid4
 
 from pytest import fixture
 
 from py2neo import Graph
 from py2neo.admin.dist import Distribution
-from py2neo.admin.install import Warehouse
 from py2neo.connect import Connector, ConnectionProfile
 from py2neo.database import GraphService
-from py2neo.internal.compat import SocketError
+from py2neo.dock import ServiceProfile, Service
+from py2neo.security import make_self_signed_certificate
 
 
 NEO4J_HOST = "localhost"
@@ -47,109 +46,96 @@ NEO4J_DEBUG = getenv("NEO4J_DEBUG", "")
 NEO4J_PROCESS = {}
 
 
-#class ServiceProfile(object):
-
-#    def __init__(self, release=None, topology=None, cert=None, schemes=None):
-#        self.release = release
-#        self.topology = topology   # "CE|EE-SI|EE-C3|EE-C3-R2"
-#        self.cert = cert
-#        self.schemes = schemes
-
-#    def __str__(self):
-#        server = "%s.%s %s" % (self.release[0], self.release[1], self.topology)
-#        if self.cert:
-#            server += " %s" % (self.cert,)
-#        schemes = " ".join(self.schemes)
-#        return "[%s]-[%s]" % (server, schemes)
-
-
-#class ServiceConnectionProfile(object):
-
-#    def __init__(self, release=None, topology=None, cert=None, scheme=None):
-#        self.release = release
-#        self.topology = topology   # "CE|EE-SI|EE-C3|EE-C3-R2"
-#        self.cert = cert
-#        self.scheme = scheme
-
-#    def __str__(self):
-#        extra = "%s" % (self.topology,)
-#        if self.cert:
-#            extra += "; %s" % (self.cert,)
-#        bits = [
-#            "Neo4j/%s.%s (%s)" % (self.release[0], self.release[1], extra),
-#            "over",
-#            "'%s'" % self.scheme,
-#        ]
-#        return " ".join(bits)
-
-#    @property
-#    def edition(self):
-#        if self.topology.startswith("CE"):
-#            return "community"
-#        elif self.topology.startswith("EE"):
-#            return "enterprise"
-#        else:
-#            return None
-
-#    @property
-#    def release_str(self):
-#        return ".".join(map(str, self.release))
-
-
-from py2neo.dock import ServiceProfile, ServiceConnectionProfile
-
-
-# TODO: test with full certificates
 UNSECURED_SCHEMES = ["bolt", "http"]
 ALL_SCHEMES = ["bolt", "bolt+s", "bolt+ssc", "http", "https", "http+s", "http+ssc"]
 SSC_SCHEMES = ["bolt", "bolt+ssc", "http", "http+ssc"]
-SERVICE_PROFILES = {
-    11: [
-        ServiceProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
-        ServiceProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
-        # # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),
-        ServiceProfile(release=(3, 5), topology="CE", schemes=SSC_SCHEMES),
-        # # ServiceProfile(release=(3, 5), topology="CE", cert="full", schemes=ALL_SCHEMES),
-    ],
-    8: [
-        ServiceProfile(release=(3, 4), topology="CE", schemes=SSC_SCHEMES),
-        # # ServiceProfile(release=(3, 4), topology="CE", cert="full", schemes=ALL_SCHEMES),
-        ServiceProfile(release=(3, 3), topology="CE", schemes=SSC_SCHEMES),
-        # # ServiceProfile(release=(3, 3), topology="CE", cert="full", schemes=ALL_SCHEMES),
-        ServiceProfile(release=(3, 2), topology="CE", schemes=SSC_SCHEMES),
-        # # ServiceProfile(release=(3, 2), topology="CE", cert="full", schemes=ALL_SCHEMES),
-    ],
-}
-SERVICE_CONNECTION_PROFILES = [
-    ServiceConnectionProfile(release=sp.release, topology=sp.topology, cert=sp.cert, scheme=s)
-    for sp in SERVICE_PROFILES[int(getenv("JAVA_VERSION", max(SERVICE_PROFILES.keys())))]
-    for s in sp.schemes
+
+
+class TestProfile(object):
+
+    def __init__(self, service_profile=None, scheme=None):
+        self.service_profile = service_profile
+        self.scheme = scheme
+        assert self.topology == "CE"
+
+    def __str__(self):
+        extra = "%s" % (self.topology,)
+        if self.cert:
+            extra += "; %s" % (self.cert,)
+        bits = [
+            "Neo4j/%s.%s (%s)" % (self.release[0], self.release[1], extra),
+            "over",
+            "'%s'" % self.scheme,
+        ]
+        return " ".join(bits)
+
+    @property
+    def release(self):
+        return self.service_profile.release
+
+    @property
+    def topology(self):
+        return self.service_profile.topology
+
+    @property
+    def cert(self):
+        return self.service_profile.cert
+
+    @property
+    def release_str(self):
+        return ".".join(map(str, self.release))
+
+    def generate_uri(self, service_name=None):
+        if self.cert == "full":
+            raise NotImplementedError("Full certificates are not yet supported")
+        elif self.cert == "ssc":
+            cert, key = make_self_signed_certificate()
+        else:
+            cert = None
+            key = None
+        service = Service.single_instance(name=service_name,
+                                          image=self.release_str,
+                                          auth=("neo4j", "password"),
+                                          cert=cert,
+                                          key=key)
+        service.start()
+        try:
+            addresses = [instance.addresses[self.scheme]
+                         for profile, instance in service.instances.items()]
+            uris = ["{}://{}:{}".format(self.scheme, address.host, address.port)
+                    for address in addresses]
+            yield uris[0]
+        finally:
+            service.stop()
+
+
+# TODO: test with full certificates
+neo4j_service_profiles = [
+    ServiceProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
+    ServiceProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+    # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),
+    ServiceProfile(release=(3, 5), topology="CE", schemes=SSC_SCHEMES),
+    # ServiceProfile(release=(3, 5), topology="CE", cert="full", schemes=ALL_SCHEMES),
+    ServiceProfile(release=(3, 4), topology="CE", schemes=SSC_SCHEMES),
+    # ServiceProfile(release=(3, 4), topology="CE", cert="full", schemes=ALL_SCHEMES),
 ]
+neo4j_test_profiles = [TestProfile(sp, scheme=s)
+                       for sp in neo4j_service_profiles
+                       for s in sp.schemes]
 
 
-def is_server_running():
-    host = NEO4J_HOST
-    port = NEO4J_PORTS["bolt"]
-    try:
-        s = create_connection((host, port))
-    except SocketError:
-        return False
-    else:
-        # TODO: ensure version is correct
-        s.close()
-        return True
-
-
-@fixture(scope="session", params=SERVICE_CONNECTION_PROFILES,
-         ids=list(map(str, SERVICE_CONNECTION_PROFILES)))
-def service_connection_profile(request):
-    sc_profile = request.param
-    yield sc_profile
+@fixture(scope="session",
+         params=neo4j_test_profiles,
+         ids=list(map(str, neo4j_test_profiles)))
+def test_profile(request):
+    GraphService.forget_all()
+    test_profile = request.param
+    yield test_profile
 
 
 @fixture(scope="session")
-def neo4j_version(service_connection_profile):
-    return Distribution(version=service_connection_profile.release_str).version
+def neo4j_version(test_profile):
+    return Distribution(version=test_profile.release_str).version
 
 
 @fixture(scope="session")
@@ -158,42 +144,10 @@ def neo4j_minor_version(neo4j_version):
 
 
 @fixture(scope="session")
-def uri(service_connection_profile):
-    for uri in service_connection_profile.yield_uri():
+def uri(test_profile):
+    for uri in test_profile.generate_uri("py2neo"):
         yield uri
     return
-
-    scp = service_connection_profile
-    port = NEO4J_PORTS[scp.scheme]
-    uri = "{}://{}:{}".format(scp.scheme, NEO4J_HOST, port)
-    if not is_server_running():
-        warehouse = Warehouse()
-        name = uuid4().hex
-        installation = warehouse.install(name, scp.edition, scp.release_str)
-        print("Installed Neo4j %s %s to %s" % (scp.edition, scp.release_str, installation.home))
-        if scp.cert == "full":
-            assert False
-        elif scp.cert == "ssc":
-            print("Installing self-signed certificate")
-            installation.install_self_signed_certificate()
-            installation.set_config("dbms.ssl.policy.bolt.enabled", True)
-            installation.set_config("dbms.ssl.policy.https.enabled", True)
-            installation.set_config("dbms.connector.bolt.tls_level", "OPTIONAL")
-            installation.set_config("dbms.connector.https.enabled", True)
-        installation.auth.update(NEO4J_USER, NEO4J_PASSWORD)
-        pid = installation.server.start()
-        print("Started Neo4j server with PID %d" % pid)
-        NEO4J_PROCESS.update({
-            "warehouse": warehouse,
-            "name": name,
-            "installation": installation,
-            "pid": pid,
-        })
-    if NEO4J_DEBUG:
-        from py2neo.diagnostics import watch
-        watch("py2neo")
-    yield uri
-    stop_neo4j()
 
 
 @fixture(scope="session")

@@ -63,17 +63,17 @@ class Neo4jConsole:
             else:
                 raise click.UsageError('No such command "%s".' % name)
 
-    def _iter_machines(self, name):
+    def _iter_instances(self, name):
         if not name:
             name = "a"
-        for spec in list(self.service.machines):
-            if name in (spec.name, spec.fq_name):
-                yield self.service.machines[spec]
+        for profile in list(self.service.instances):
+            if name in (profile.name, profile.fq_name):
+                yield self.service.instances[profile]
 
     def _for_each_machine(self, name, f):
         found = 0
-        for machine_obj in self._iter_machines(name):
-            f(machine_obj)
+        for instance_obj in self._iter_instances(name):
+            f(instance_obj)
             found += 1
         return found
 
@@ -121,9 +121,11 @@ class Neo4jConsole:
         """
 
         def f(m):
+            # TODO: HTTPS
+            http_uri = "http://" + str(m.profile.addresses["http"])
             click.echo("Opening web browser for machine {!r} at "
-                       "«{}»".format(m.spec.fq_name, m.spec.http_uri))
-            open_browser(m.spec.http_uri)
+                       "«{}»".format(m.profile.fq_name, http_uri))
+            open_browser(http_uri)
 
         if not self._for_each_machine(machine, f):
             raise RuntimeError("Machine {!r} not found".format(machine))
@@ -146,7 +148,7 @@ class Neo4jConsole:
     @click.command()
     @click.pass_obj
     def exit(self):
-        """ Shutdown all machines and exit the console.
+        """ Shutdown all instances and exit the console.
         """
         raise SystemExit()
 
@@ -201,15 +203,15 @@ class Neo4jConsole:
 
         """
         click.echo("CONTAINER   NAME        BOLT PORT   HTTP PORT   MODE")
-        for spec, machine in self.service.machines.items():
-            if spec is None or machine is None:
+        for profile, machine in self.service.instances.items():
+            if profile is None or machine is None:
                 continue
             click.echo("{:<12}{:<12}{:<12}{:<12}{:<15}".format(
                 machine.container.short_id,
-                spec.fq_name,
-                spec.bolt_port,
-                spec.http_port,
-                spec.config.get("dbms.mode", "SINGLE"),
+                profile.fq_name,
+                profile.bolt_port,
+                profile.http_port,
+                profile.config.get("dbms.mode", "SINGLE"),
             ))
 
     @click.command()
@@ -252,7 +254,7 @@ class Neo4jConsole:
         """
 
         def f(m):
-            log.info("Pausing machine {!r} for {}s".format(m.spec.fq_name,
+            log.info("Pausing machine {!r} for {}s".format(m.profile.fq_name,
                                                            time))
             m.container.pause()
             sleep(time)

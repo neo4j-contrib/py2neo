@@ -59,14 +59,6 @@ class AuthParamType(click.ParamType):
         return 'USER:PASSWORD'
 
 
-class ConfigParamType(click.ParamType):
-
-    name = "NAME=VALUE"
-
-    def __repr__(self):
-        return 'NAME=VALUE'
-
-
 def watch_log(ctx, param, value):
     watch("py2neo.dock", DEBUG if value >= 1 else INFO)
     watch("urllib3", DEBUG if value >= 1 else INFO)
@@ -96,12 +88,6 @@ passed. These are:
                    "alternatively be supplied via the NEO4J_AUTH environment "
                    "variable. These credentials will also be exported to any "
                    "COMMAND executed during the service run.")
-@click.option("-C", "--config", type=ConfigParamType(), multiple=True,
-              help="Pass a configuration value into neo4j.conf. This can be "
-                   "used multiple times.")
-@click.option("-e", "--env", type=ConfigParamType(), multiple=True,
-              help="Pass an env value into neo4j docker containers. This can be "
-                   "used multiple times.")
 @click.option("-n", "--name",
               help="A Docker network name to which all servers will be "
                    "attached. If omitted, an auto-generated name will be "
@@ -110,11 +96,12 @@ passed. These are:
               expose_value=False, is_eager=True,
               help="Show more detail about the startup and shutdown process.")
 @click.argument("image")
-def main(name, image, auth, env, config):
+def main(name, image, auth):
     try:
-        config_dict = dict(item.partition("=")[::2] for item in config)
-        env_dict = dict(item.partition("=")[::2] for item in env)
-        with Service.single_instance(name, image, auth, config, env) as neo4j:
+        from py2neo.dock import make_self_signed_certificate
+        cert, key = None, None
+        cert, key = make_self_signed_certificate()
+        with Service.single_instance(name, image, auth, cert, key) as neo4j:
             neo4j.run_console()
     except KeyboardInterrupt:
         sys.exit(130)
