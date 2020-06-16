@@ -632,7 +632,8 @@ class RelationshipMatch(object):
         if self._r_type is None:
             relationship_detail = ""
         elif is_collection(self._r_type):
-            relationship_detail = ":" + "|:".join(cypher_escape(r_type_name(t)) for t in self._r_type)
+            relationship_detail = ":" + "|".join(cypher_escape(r_type_name(t))
+                                                 for t in self._r_type)
         else:
             relationship_detail = ":%s" % cypher_escape(r_type_name(self._r_type))
         if not self._nodes:
