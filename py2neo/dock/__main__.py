@@ -24,6 +24,7 @@ import click
 from py2neo.connect.addressing import Address
 from py2neo.diagnostics import watch
 from py2neo.dock import Service, make_auth
+from py2neo.security import make_self_signed_certificate
 
 
 class AddressParamType(click.ParamType):
@@ -98,10 +99,8 @@ passed. These are:
 @click.argument("image")
 def main(name, image, auth):
     try:
-        from py2neo.dock import make_self_signed_certificate
-        cert, key = None, None
-        cert, key = make_self_signed_certificate()
-        with Service.single_instance(name, image, auth, cert, key) as neo4j:
+        cert_key_pair = make_self_signed_certificate()
+        with Service.single_instance(name, image, auth, cert_key_pair) as neo4j:
             neo4j.run_console()
     except KeyboardInterrupt:
         sys.exit(130)

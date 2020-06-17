@@ -51,25 +51,25 @@ def make_self_signed_certificate():
     return cert, key
 
 
-def install_certificate(cert, *cert_dirs):
+def install_certificate(cert, name, *cert_dirs):
     for cert_dir in cert_dirs:
         try:
             makedirs(cert_dir, exist_ok=True)
         except OSError:
             pass
-        cert_file = path.join(cert_dir, "public.crt")
+        cert_file = path.join(cert_dir, name)
         log.info("Installing certificate to %r", cert_file)
         open(cert_file, "wb").write(
             crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
 
 
-def install_private_key(key, *key_dirs):
+def install_private_key(key, name, *key_dirs):
     for key_dir in key_dirs:
         try:
             makedirs(key_dir, exist_ok=True)
         except OSError:
             pass
-        key_file = path.join(key_dir, "private.key")
+        key_file = path.join(key_dir, name)
         log.info("Installing private key to %r", key_file)
         open(key_file, "wb").write(
             crypto.dump_privatekey(crypto.FILETYPE_PEM, key))

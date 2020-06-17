@@ -89,15 +89,13 @@ class TestProfile(object):
         if self.cert == "full":
             raise NotImplementedError("Full certificates are not yet supported")
         elif self.cert == "ssc":
-            cert, key = make_self_signed_certificate()
+            cert_key_pair = make_self_signed_certificate()
         else:
-            cert = None
-            key = None
+            cert_key_pair = None, None
         service = Service.single_instance(name=service_name,
-                                          image=self.release_str,
+                                          image_tag=self.release_str,
                                           auth=("neo4j", "password"),
-                                          cert=cert,
-                                          key=key)
+                                          cert_key_pair=cert_key_pair)
         service.start()
         try:
             addresses = [instance.addresses[self.scheme]
@@ -114,9 +112,9 @@ neo4j_service_profiles = [
     ServiceProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
     ServiceProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
     # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),
-    ServiceProfile(release=(3, 5), topology="CE", schemes=SSC_SCHEMES),
+    ServiceProfile(release=(3, 5), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
     # ServiceProfile(release=(3, 5), topology="CE", cert="full", schemes=ALL_SCHEMES),
-    ServiceProfile(release=(3, 4), topology="CE", schemes=SSC_SCHEMES),
+    ServiceProfile(release=(3, 4), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
     # ServiceProfile(release=(3, 4), topology="CE", cert="full", schemes=ALL_SCHEMES),
 ]
 neo4j_test_profiles = [TestProfile(sp, scheme=s)

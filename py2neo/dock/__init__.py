@@ -26,12 +26,18 @@ from threading import Thread
 from time import sleep
 from uuid import uuid4
 
+from docker import DockerClient
+from docker.errors import APIError, ImageNotFound
+
 from py2neo.connect.addressing import Address
 from py2neo.connect.wire import Wire
 from py2neo.dock.console import Neo4jConsole
 from py2neo.internal.compat import perf_counter
+from py2neo.internal.versioning import Version
 from py2neo.security import install_certificate, install_private_key
 
+
+docker = DockerClient.from_env(version="auto")
 
 log = getLogger(__name__)
 
@@ -47,41 +53,6 @@ def make_auth(value=None, default_user=None, default_password=None):
     else:
         return Auth(user or default_user or "neo4j",
                     password or default_password or uuid4().hex)
-
-
-def resolve_image(image):
-    """ Resolve an informal image tag into a full Docker image tag. Any tag
-    available on Docker Hub for Neo4j can be used, and if no 'neo4j:' prefix
-    exists, this will be added automatically. The default edition is
-    Community, unless a cluster is being created in which case Enterprise
-    edition is selected instead. Explicit selection of Enterprise edition can
-    be made by adding an '-enterprise' suffix to the image tag.
-
-    If a 'file:' URI is passed in here instead of an image tag, the Docker
-    image will be loaded from that file instead.
-
-    Examples of valid tags:
-    - 3.4.6
-    - neo4j:3.4.6
-    - latest
-    - file:/home/me/image.tar
-
-    """
-    resolved = image
-    if resolved.startswith("file:"):
-        return load_image_from_file(resolved[5:])
-    if ":" not in resolved:
-        resolved = "neo4j:" + image
-    return resolved
-
-
-def load_image_from_file(name):
-    from docker import DockerClient
-    docker = DockerClient.from_env(version="auto")
-    with open(name, "rb") as f:
-        images = docker.images.load(f.read())
-        image = images[0]
-        return image.tags[0]
 
 
 def random_name(size):
@@ -101,34 +72,23 @@ class InstanceProfile(object):
 
     def __init__(
             self,
+            service,
             name,
-            service_name,
             bolt_port=None,
             http_port=None,
             https_port=None,
-            cert=None,
-            key=None,
             config=None,
             env=None
     ):
+        self.service = service
         self.name = name
-        self.service_name = service_name
         self.bolt_port = bolt_port or 7687
         self.http_port = http_port or 7474
         self.https_port = https_port or 7473
-        self.cert = cert
-        self.key = key
         advertised_address = "localhost:{}".format(self.bolt_port)
         self.config = {
             "dbms.connector.bolt.advertised_address": advertised_address,
         }
-        if self.secured:
-            self.config.update({
-                "dbms.ssl.policy.bolt.enabled": True,
-                "dbms.ssl.policy.https.enabled": True,
-                "dbms.connector.bolt.tls_level": "OPTIONAL",
-                "dbms.connector.https.enabled": True,
-            })
         if config:
             self.config.update(**config)
         self.env = dict(env or {})
@@ -137,12 +97,8 @@ class InstanceProfile(object):
         return hash(self.fq_name)
 
     @property
-    def secured(self):
-        return bool(self.cert)
-
-    @property
     def fq_name(self):
-        return "{}.{}".format(self.name, self.service_name)
+        return "{}.{}".format(self.name, self.service.name)
 
     @property
     def addresses(self):
@@ -150,7 +106,7 @@ class InstanceProfile(object):
             "bolt": Address(("localhost", self.bolt_port)),
             "http": Address(("localhost", self.http_port)),
         }
-        if self.secured:
+        if self.service.secured:
             addresses["bolt+s"] = Address(("localhost", self.bolt_port))
             addresses["bolt+ssc"] = Address(("localhost", self.bolt_port))
             addresses["https"] = Address(("localhost", self.https_port))
@@ -169,60 +125,42 @@ class Instance(object):
 
     ready = 0
 
-    def __init__(self, profile, image, auth):
-        from docker import DockerClient
-        from docker.errors import ImageNotFound
+    def __init__(self, profile):
         self.profile = profile
-        self.image = image
         self.address = self.addresses["bolt"]
-        self.auth = auth
-        self.docker = DockerClient.from_env(version="auto")
         self.cert_volume_dir = None
-        environment = {}
-        if self.auth:
-            environment["NEO4J_AUTH"] = "/".join(self.auth)
-        environment["NEO4J_ACCEPT_LICENSE_AGREEMENT"] = "yes"
-        for key, value in self.profile.config.items():
-            fixed_key = "NEO4J_" + key.replace("_", "__").replace(".", "_")
-            environment[fixed_key] = value
-        for key, value in self.profile.env.items():
-            environment[key] = value
+        self.env = self._create_env(self.profile)
         ports = {"7687/tcp": self.profile.bolt_port,
                  "7474/tcp": self.profile.http_port}
         volumes = {}
-        if self.profile.secured:
+        if self.profile.service.secured:
+            cert, key = self.profile.service.cert_key_pair
             ports["7473/tcp"] = self.profile.https_port
             self.cert_volume_dir = mkdtemp()
             chmod(self.cert_volume_dir, 0o755)
             log.info("Using directory %r as shared certificate volume", self.cert_volume_dir)
-            # TODO: earlier than 4.0 versions
-            subdirectories = [path.join(self.cert_volume_dir, subdir)
-                              for subdir in ["bolt", "https"]]
-            install_certificate(self.profile.cert, *subdirectories)
-            install_private_key(self.profile.key, *subdirectories)
+            if self.profile.service.image.version >= Version.parse("4.0"):
+                subdirectories = [path.join(self.cert_volume_dir, subdir)
+                                  for subdir in ["bolt", "https"]]
+                install_certificate(cert, "public.crt", *subdirectories)
+                install_private_key(key, "private.key", *subdirectories)
+            else:
+                install_certificate(cert, "neo4j.cert", self.cert_volume_dir)
+                install_private_key(key, "neo4j.key", self.cert_volume_dir)
             volumes[self.cert_volume_dir] = {
                 "bind": "/var/lib/neo4j/certificates",
                 "mode": "ro",
             }
-
-        def create_container(img):
-            return self.docker.containers.create(
-                img,
-                detach=True,
-                environment=environment,
-                hostname=self.profile.fq_name,
-                name=self.profile.fq_name,
-                network=self.profile.service_name,
-                ports=ports,
-                volumes=volumes,
-            )
-
-        try:
-            self.container = create_container(self.image)
-        except ImageNotFound:
-            log.info("Downloading Docker image %r", self.image)
-            self.docker.images.pull(self.image)
-            self.container = create_container(self.image)
+        self.container = docker.containers.create(
+            self.image.id,
+            detach=True,
+            environment=self.env,
+            hostname=self.profile.fq_name,
+            name=self.profile.fq_name,
+            network=self.profile.service.name,
+            ports=ports,
+            volumes=volumes,
+        )
 
     def __hash__(self):
         return hash(self.container)
@@ -232,19 +170,59 @@ class Instance(object):
             self.__class__.__name__, self.profile.fq_name,
             self.image, self.address)
 
+    @classmethod
+    def _create_env(cls, profile):
+        env = {}
+
+        # Enterprise edition requires license agreement
+        # TODO: make this externally explicit, somehow
+        if profile.service.image.edition == "enterprise":
+            env["NEO4J_ACCEPT_LICENSE_AGREEMENT"] = "yes"
+
+        # Add initial auth details
+        if profile.service.auth:
+            env["NEO4J_AUTH"] = "/".join(profile.service.auth)
+
+        # General configuration
+        config = dict(profile.config)
+        if profile.service.secured:
+            if profile.service.image.version >= Version.parse("4.0"):
+                config.update({
+                    "dbms.ssl.policy.bolt.enabled": True,
+                    "dbms.ssl.policy.https.enabled": True,
+                    "dbms.connector.bolt.tls_level": "OPTIONAL",
+                    "dbms.connector.https.enabled": True,
+                })
+            else:
+                pass
+        for key, value in config.items():
+            fixed_key = "NEO4J_" + key.replace("_", "__").replace(".", "_")
+            env[fixed_key] = value
+
+        # Other environment variables
+        for key, value in profile.env.items():
+            env[key] = value
+
+        return env
+
+    @property
+    def image(self):
+        return self.profile.service.image
+
     @property
     def addresses(self):
         return self.profile.addresses
 
     def start(self):
-        from docker.errors import APIError
-        log.info("Starting instance %r at bolt://%s",
-                 self.profile.fq_name, self.address)
+        log.info("Starting instance %r with image %r",
+                 self.profile.fq_name, self.profile.service.image)
+        for scheme, address in self.addresses.items():
+            log.info("  at <%s://%s>", scheme, address)
         try:
             self.container.start()
             self.container.reload()
             self.ip_address = (self.container.attrs["NetworkSettings"]
-                               ["Networks"][self.profile.service_name]["IPAddress"])
+                               ["Networks"][self.profile.service.name]["IPAddress"])
         except APIError as e:
             log.info(e)
 
@@ -364,39 +342,30 @@ class Service(object):
     """ A Neo4j database management service.
     """
 
-    default_image = NotImplemented
-
     default_bolt_port = 7687
     default_http_port = 7474
     default_https_port = 7473
 
     @classmethod
-    def single_instance(cls, name, image, auth, cert=None, key=None):
-        service = cls(name, image, auth)
+    def single_instance(cls, name, image_tag, auth, cert_key_pair=None):
+        service = cls(name, image_tag, auth, cert_key_pair)
         profile = InstanceProfile(
+            service=service,
             name="a",
-            service_name=service.name,
             bolt_port=7687,
             http_port=7474,
             https_port=7473,
-            cert=cert,
-            key=key,
         )
-        service.instances[profile] = Instance(
-            profile,
-            service.image,
-            auth=service.auth,
-        )
+        service.instances[profile] = Instance(profile)
         return service
 
-    def __init__(self, name, image, auth):
-        from docker import DockerClient
+    def __init__(self, name, image_tag, auth, cert_key_pair):
         self.name = name or random_name(7)
-        self.image = resolve_image(image or self.default_image)
+        self.image = Neo4jImage(image_tag)
         self.auth = Auth(*auth) if auth else make_auth()
         if self.auth.user != "neo4j":
             raise ValueError("Auth user must be 'neo4j' or empty")
-        self.docker = DockerClient.from_env(version="auto")
+        self.cert_key_pair = cert_key_pair
         self.instances = {}
         self.network = None
         self.console = None
@@ -429,12 +398,18 @@ class Service(object):
         for thread in threads:
             thread.join()
 
+    @property
+    def secured(self):
+        if self.cert_key_pair is None or self.cert_key_pair == (None, None):
+            return False
+        else:
+            return True
+
     def start(self):
         # TODO: detect verbosity level
         from py2neo.diagnostics import watch
         watch("py2neo.dock", DEBUG)
-        log.info("Starting service %r with image %r", self.name, self.image)
-        self.network = self.docker.networks.create(self.name)
+        self.network = docker.networks.create(self.name)
         self._for_each_instance(lambda instance: instance.start)
         self.await_started()
 
@@ -445,7 +420,10 @@ class Service(object):
 
         self._for_each_instance(wait)
         if all(instance.ready == 1 for profile, instance in self.instances.items()):
-            log.info("Service %r available", self.name)
+            log.info("Neo4j %s %s service %r available",
+                     self.image.edition,
+                     ".".join(map(str, self.image.version.major_minor_patch)),
+                     self.name)
         else:
             raise RuntimeError("Service %r unavailable - "
                                "some instances failed" % self.name)
@@ -462,8 +440,6 @@ class Service(object):
 
     @classmethod
     def find_and_stop(cls, service_name):
-        from docker import DockerClient
-        docker = DockerClient.from_env(version="auto")
         for container in docker.containers.list(all=True):
             if container.name.endswith(".{}".format(service_name)):
                 container.stop()
@@ -498,3 +474,80 @@ class ServiceProfile(object):
             server += " %s" % (self.cert,)
         schemes = " ".join(self.schemes)
         return "[%s]-[%s]" % (server, schemes)
+
+
+class Neo4jImage(object):
+
+    def __init__(self, tag="latest"):
+        self._image_tag = self._resolve_image_tag(tag)
+        try:
+            self._image = docker.images.get(self._image_tag)
+        except ImageNotFound:
+            log.info("Downloading Docker image %r", self._image_tag)
+            self._image = docker.images.pull(self._image_tag)
+
+    def __repr__(self):
+        return "Neo4jImage(tag=%r)" % self._image_tag
+
+    @property
+    def id(self):
+        return self._image.id
+
+    @property
+    def tarball(self):
+        """ Name of the Neo4j tarball used to build the Docker image
+        used by this service.
+        """
+        for item in self._image.attrs["Config"]["Env"]:
+            name, _, value = item.partition("=")
+            if name == "NEO4J_TARBALL":
+                return value
+
+    @property
+    def edition(self):
+        """ Edition of Neo4j used to build the Docker image used by
+        this service.
+        """
+        _, edition, _, _ = self.tarball.split("-")
+        return edition
+
+    @property
+    def version(self):
+        """ Version of Neo4j used to build the Docker image used by
+        this service.
+        """
+        _, _, version, _ = self.tarball.split("-")
+        return Version.parse(version)
+
+    @classmethod
+    def _resolve_image_tag(cls, tag):
+        """ Resolve an informal image tag into a full Docker image tag. Any tag
+        available on Docker Hub for Neo4j can be used, and if no 'neo4j:' prefix
+        exists, this will be added automatically. The default edition is
+        Community, unless a cluster is being created in which case Enterprise
+        edition is selected instead. Explicit selection of Enterprise edition can
+        be made by adding an '-enterprise' suffix to the image tag.
+
+        If a 'file:' URI is passed in here instead of an image tag, the Docker
+        image will be loaded from that file instead.
+
+        Examples of valid tags:
+        - 3.4.6
+        - neo4j:3.4.6
+        - latest
+        - file:/home/me/image.tar
+
+        """
+        resolved = tag
+        if resolved.startswith("file:"):
+            return cls._load_image_from_file(resolved[5:])
+        if ":" not in resolved:
+            resolved = "neo4j:" + tag
+        return resolved
+
+    @classmethod
+    def _load_image_from_file(cls, name):
+        with open(name, "rb") as f:
+            images = docker.images.load(f.read())
+            image = images[0]
+            return image.tags[0]
