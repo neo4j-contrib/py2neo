@@ -566,7 +566,7 @@ class Subgraph(object):
     def __init__(self, nodes=None, relationships=None):
         self.__nodes = frozenset(nodes or [])
         self.__relationships = frozenset(relationships or [])
-        self.__nodes |= frozenset(chain(*(r.nodes for r in self.__relationships)))
+        self.__nodes |= frozenset(chain.from_iterable(r.nodes for r in self.__relationships))
         if not self.__nodes:
             raise ValueError("Subgraphs must contain at least one node")
 
@@ -661,7 +661,7 @@ class Subgraph(object):
     def labels(self):
         """ Set of all node labels.
         """
-        return frozenset(chain(*(node.labels for node in self.__nodes)))
+        return frozenset(chain.from_iterable(node.labels for node in self.__nodes))
 
     def types(self):
         """ Set of all relationship types.
@@ -671,8 +671,7 @@ class Subgraph(object):
     def keys(self):
         """ Set of all property keys.
         """
-        return (frozenset(chain(*(node.keys() for node in self.__nodes))) |
-                frozenset(chain(*(rel.keys() for rel in self.__relationships))))
+        return frozenset(chain(chain(self.__nodes, self.__relationships)))
 
 
 class Walkable(Subgraph):
