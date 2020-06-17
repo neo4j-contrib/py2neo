@@ -31,7 +31,7 @@ from docker.errors import APIError, ImageNotFound
 
 from py2neo.connect.addressing import Address
 from py2neo.connect.wire import Wire
-from py2neo.dock.console import Neo4jConsole
+from py2neo.server.console import Neo4jConsole
 from py2neo.internal.compat import perf_counter
 from py2neo.internal.versioning import Version
 from py2neo.security import install_certificate, install_private_key
@@ -368,7 +368,7 @@ class Neo4jService(object):
     def start(self):
         # TODO: detect verbosity level
         from py2neo.diagnostics import watch
-        watch("py2neo.dock", DEBUG)
+        watch("py2neo.server", DEBUG)
         self.network = docker.networks.create(self.name)
         self._for_each_instance(lambda instance: instance.start)
         self.await_started()

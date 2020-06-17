@@ -23,7 +23,7 @@ import click
 
 from py2neo.connect.addressing import Address
 from py2neo.diagnostics import watch
-from py2neo.dock import Neo4jService, make_auth
+from py2neo.server import Neo4jService, make_auth
 from py2neo.security import make_self_signed_certificate
 
 
@@ -61,7 +61,7 @@ class AuthParamType(click.ParamType):
 
 
 def watch_log(ctx, param, value):
-    watch("py2neo.dock", DEBUG if value >= 1 else INFO)
+    watch("py2neo.server", DEBUG if value >= 1 else INFO)
     watch("urllib3", DEBUG if value >= 1 else INFO)
 
 
