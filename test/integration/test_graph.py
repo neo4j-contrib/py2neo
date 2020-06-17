@@ -47,7 +47,6 @@ def test_graph_contains(graph):
 
 
 def test_graph_is_not_equal_to_non_graph(graph):
-    graph = Graph()
     assert graph != object()
 
 
@@ -119,9 +118,9 @@ def test_node_cache_is_thread_local(graph):
     assert node.identity not in other_cache_keys
 
 
-def test_can_get_same_instance(graph):
-    graph_1 = Graph()
-    graph_2 = Graph()
+def test_can_get_same_instance(uri):
+    graph_1 = Graph(uri)
+    graph_2 = Graph(uri)
     assert graph_1 is graph_2
 
 

@@ -40,8 +40,8 @@ class CapturedConsole(Console):
 
 
 @fixture()
-def console(graph):
-    return CapturedConsole()
+def console(uri):
+    return CapturedConsole(uri)
 
 
 def assert_prologue(console):

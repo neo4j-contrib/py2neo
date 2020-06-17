@@ -27,7 +27,7 @@ function run_unit_tests
 
 function run_integration_tests
 {
-    echo "Using Java ${JAVA_VERSION} installation at ${JAVA_HOME}"
+    echo "Running integration tests"
     coverage run --append --rcfile="${COVERAGERC}" \
              --module pytest -v ${ARGS} "${TEST}/integration"
     STATUS="$?"
@@ -48,15 +48,6 @@ pip install --upgrade \
 coverage erase --rcfile="${COVERAGERC}"
 
 run_unit_tests
-
-JAVA_VERSION=11
-JAVA_HOME="$("${BIN}/where-is-java" $JAVA_VERSION)"
-export JAVA_VERSION JAVA_HOME
-run_integration_tests
-
-JAVA_VERSION=8
-JAVA_HOME="$("${BIN}/where-is-java" $JAVA_VERSION)"
-export JAVA_VERSION JAVA_HOME
 run_integration_tests
 
 coverage report --rcfile="${COVERAGERC}"

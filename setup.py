@@ -52,6 +52,7 @@ package_metadata = {
         "certifi",
         "click==7.0",
         "colorama",
+        "docker",
         "monotonic",
         "neotime~=1.7.4",
         "prompt_toolkit~=2.0.7",
