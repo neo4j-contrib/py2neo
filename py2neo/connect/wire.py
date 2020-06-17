@@ -21,7 +21,7 @@ from socket import socket, SOL_SOCKET, SO_KEEPALIVE
 from py2neo.connect.addressing import Address
 
 
-class Wire:
+class Wire(object):
     """ Socket wrapper for reading and writing bytes.
     """
 
@@ -55,25 +55,25 @@ class Wire:
         context.load_default_certs()
         try:
             self.__socket = context.wrap_socket(self.__socket, server_hostname=hostname)
-        except OSError:
+        except (IOError, OSError):
             # TODO: add connection failure/diagnostic callback
-            raise OSError("Unable to establish secure connection with remote peer")
+            raise WireError("Unable to establish secure connection with remote peer")
 
     def read(self, n):
         while len(self.__input) < n:
             try:
                 received = self.__socket.recv(n - len(self.__input))
-            except OSError:
+            except (IOError, OSError):
                 self.__broken = True
-                raise
+                raise WireError("Broken")
             else:
                 if received:
                     self.__input.extend(received)
                 else:
                     self.__broken = True
-                    raise OSError("Network read incomplete "
-                                  "(received %d of %d bytes)" %
-                                  (len(self.__input), n))
+                    raise WireError("Network read incomplete "
+                                    "(received %d of %d bytes)" %
+                                    (len(self.__input), n))
         data = self.__input[:n]
         self.__input[:n] = []
         return data
@@ -83,14 +83,14 @@ class Wire:
 
     def send(self):
         if self.__closed:
-            raise OSError("Closed")
+            raise WireError("Closed")
         sent = 0
         while self.__output:
             try:
                 n = self.__socket.send(self.__output)
-            except OSError:
+            except (IOError, OSError):
                 self.__broken = True
-                raise
+                raise WireError("Broken")
             else:
                 self.__output[:n] = []
                 sent += n
@@ -99,9 +99,9 @@ class Wire:
     def close(self):
         try:
             self.__socket.close()
-        except OSError:
+        except (IOError, OSError):
             self.__broken = True
-            raise
+            raise WireError("Broken")
         else:
             self.__closed = True
 
@@ -120,3 +120,8 @@ class Wire:
     @property
     def remote_address(self):
         return Address(self.__socket.getpeername())
+
+
+class WireError(OSError):
+
+    pass

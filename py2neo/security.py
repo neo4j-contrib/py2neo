@@ -54,7 +54,7 @@ def make_self_signed_certificate():
 def install_certificate(cert, name, *cert_dirs):
     for cert_dir in cert_dirs:
         try:
-            makedirs(cert_dir, exist_ok=True)
+            makedirs(cert_dir)
         except OSError:
             pass
         cert_file = path.join(cert_dir, name)
@@ -66,7 +66,7 @@ def install_certificate(cert, name, *cert_dirs):
 def install_private_key(key, name, *key_dirs):
     for key_dir in key_dirs:
         try:
-            makedirs(key_dir, exist_ok=True)
+            makedirs(key_dir)
         except OSError:
             pass
         key_file = path.join(key_dir, name)

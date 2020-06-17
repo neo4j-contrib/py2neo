@@ -239,10 +239,10 @@ class Instance(object):
             try:
                 wire = Wire.open(address, keep_alive=True)
                 wire.write(b"\x60\x60\xB0\x17"
+                           b"\x00\x00\x01\x04"
                            b"\x00\x00\x00\x04"
                            b"\x00\x00\x00\x03"
-                           b"\x00\x00\x00\x02"
-                           b"\x00\x00\x00\x01")
+                           b"\x00\x00\x00\x02")
                 wire.send()
                 data = wire.read(4)
             except OSError:
