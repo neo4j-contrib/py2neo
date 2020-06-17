@@ -23,7 +23,7 @@ import click
 
 from py2neo.connect.addressing import Address
 from py2neo.diagnostics import watch
-from py2neo.dock import Service, make_auth
+from py2neo.dock import Neo4jService, make_auth
 from py2neo.security import make_self_signed_certificate
 
 
@@ -100,7 +100,7 @@ passed. These are:
 def main(name, image, auth):
     try:
         cert_key_pair = make_self_signed_certificate()
-        with Service.single_instance(name, image, auth, cert_key_pair) as neo4j:
+        with Neo4jService.single_instance(name, image, auth, cert_key_pair) as neo4j:
             neo4j.run_console()
     except KeyboardInterrupt:
         sys.exit(130)

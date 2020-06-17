@@ -26,7 +26,7 @@ from py2neo import Graph
 from py2neo.admin.dist import Distribution
 from py2neo.connect import Connector, ConnectionProfile
 from py2neo.database import GraphService
-from py2neo.dock import ServiceProfile, Service
+from py2neo.dock import Neo4jService
 from py2neo.security import make_self_signed_certificate
 
 
@@ -49,6 +49,22 @@ NEO4J_PROCESS = {}
 UNSECURED_SCHEMES = ["bolt", "http"]
 ALL_SCHEMES = ["bolt", "bolt+s", "bolt+ssc", "http", "https", "http+s", "http+ssc"]
 SSC_SCHEMES = ["bolt", "bolt+ssc", "http", "http+ssc"]
+
+
+class ServiceProfile(object):
+
+    def __init__(self, release=None, topology=None, cert=None, schemes=None):
+        self.release = release
+        self.topology = topology   # "CE|EE-SI|EE-C3|EE-C3-R2"
+        self.cert = cert
+        self.schemes = schemes
+
+    def __str__(self):
+        server = "%s.%s %s" % (self.release[0], self.release[1], self.topology)
+        if self.cert:
+            server += " %s" % (self.cert,)
+        schemes = " ".join(self.schemes)
+        return "[%s]-[%s]" % (server, schemes)
 
 
 class TestProfile(object):
@@ -92,14 +108,14 @@ class TestProfile(object):
             cert_key_pair = make_self_signed_certificate()
         else:
             cert_key_pair = None, None
-        service = Service.single_instance(name=service_name,
-                                          image_tag=self.release_str,
-                                          auth=("neo4j", "password"),
-                                          cert_key_pair=cert_key_pair)
+        service = Neo4jService.single_instance(name=service_name,
+                                               image_tag=self.release_str,
+                                               auth=("neo4j", "password"),
+                                               cert_key_pair=cert_key_pair)
         service.start()
         try:
             addresses = [instance.addresses[self.scheme]
-                         for profile, instance in service.instances.items()]
+                         for instance in service.instances]
             uris = ["{}://{}:{}".format(self.scheme, address.host, address.port)
                     for address in addresses]
             yield uris[0]

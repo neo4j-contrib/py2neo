@@ -122,9 +122,9 @@ class Neo4jConsole:
 
         def f(m):
             # TODO: HTTPS
-            http_uri = "http://" + str(m.profile.addresses["http"])
+            http_uri = "http://" + str(m.addresses["http"])
             click.echo("Opening web browser for machine {!r} at "
-                       "«{}»".format(m.profile.fq_name, http_uri))
+                       "«{}»".format(m.fq_name, http_uri))
             open_browser(http_uri)
 
         if not self._for_each_machine(machine, f):
