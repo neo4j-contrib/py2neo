@@ -671,7 +671,7 @@ class Subgraph(object):
     def keys(self):
         """ Set of all property keys.
         """
-        return frozenset(chain(chain(self.__nodes, self.__relationships)))
+        return frozenset(chain.from_iterable(chain(self.__nodes, self.__relationships)))
 
 
 class Walkable(Subgraph):
