@@ -110,7 +110,7 @@ def is_command(source):
     return source.startswith("/")
 
 
-class Console(object):
+class ClientConsole(object):
 
     def echo(self, text, file=None, nl=True, err=False, color=None, **styles):
         return click.secho(text, file=file, nl=nl, err=err, color=color, **styles)
@@ -133,7 +133,7 @@ class Console(object):
         try:
             self.graph = Graph(uri, **settings)
         except OSError as error:
-            raise ConsoleError("Could not connect to {} -- {}".format(profile.uri, error))
+            raise ClientConsoleError("Could not connect to {} -- {}".format(profile.uri, error))
         try:
             makedirs(HISTORY_FILE_DIR)
         except OSError:
@@ -433,6 +433,6 @@ class Console(object):
         Table(records, ["key", "value"]).write(auto_align=False, padding=0, separator=u" = ")
 
 
-class ConsoleError(Exception):
+class ClientConsoleError(Exception):
 
     pass

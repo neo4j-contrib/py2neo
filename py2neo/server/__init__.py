@@ -28,7 +28,7 @@ from docker import DockerClient
 from docker.errors import APIError, ImageNotFound
 
 from py2neo.wire import Address, Wire
-from py2neo.server.console import Neo4jConsole
+from py2neo.server.console import ServerConsole
 from py2neo.internal.compat import perf_counter
 from py2neo.internal.versioning import Version
 from py2neo.security import Auth, make_auth, install_certificate, install_private_key
@@ -398,7 +398,7 @@ class Neo4jService(object):
         docker.networks.get(service_name).remove()
 
     def run_console(self):
-        self.console = Neo4jConsole(self)
+        self.console = ServerConsole(self)
         self.console.invoke("env")
         self.console.run()
 

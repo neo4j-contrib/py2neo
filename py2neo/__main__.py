@@ -91,10 +91,10 @@ Interactive Cypher console
 @click.option("-v", "--verbose", is_flag=True, default=False,
               help="Show low level communication detail.")
 def py2neo_console(uri, auth=None, secure=None, verbose=None):
-    from py2neo.console import Console, ConsoleError
+    from py2neo.client.console import ClientConsole, ClientConsoleError
     try:
-        con = Console(uri, auth=auth, secure=secure, verbose=verbose)
-    except ConsoleError as error:
+        con = ClientConsole(uri, auth=auth, secure=secure, verbose=verbose)
+    except ClientConsoleError as error:
         click.echo(error)
         raise SystemExit(1)
     else:
@@ -114,10 +114,10 @@ Run a Cypher query
               help="Show low level communication detail.")
 @click.argument("cypher", nargs=-1)
 def py2neo_run(cypher, uri, auth=None, secure=None, verbose=None):
-    from py2neo.console import Console, ConsoleError
+    from py2neo.client.console import ClientConsole, ClientConsoleError
     try:
-        con = Console(uri, auth=auth, secure=secure, verbose=verbose)
-    except ConsoleError as error:
+        con = ClientConsole(uri, auth=auth, secure=secure, verbose=verbose)
+    except ClientConsoleError as error:
         click.echo(error)
         raise SystemExit(1)
     else:

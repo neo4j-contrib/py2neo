@@ -20,15 +20,15 @@ from io import StringIO
 
 from pytest import fixture, raises
 
-from py2neo.console import Console
+from py2neo.client.console import ClientConsole
 from py2neo.meta import __version__
 
 
-class CapturedConsole(Console):
+class CapturedClientConsole(ClientConsole):
 
     def __init__(self, *args, **kwargs):
         kwargs["file"] = StringIO()
-        super(CapturedConsole, self).__init__(*args, **kwargs)
+        super(CapturedClientConsole, self).__init__(*args, **kwargs)
         self.captured_output = []
         self.scripted_input = []
 
@@ -41,7 +41,7 @@ class CapturedConsole(Console):
 
 @fixture()
 def console(uri):
-    return CapturedConsole(uri)
+    return CapturedClientConsole(uri)
 
 
 def assert_prologue(console):

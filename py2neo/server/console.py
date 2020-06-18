@@ -38,7 +38,7 @@ except ModuleNotFoundError as e:
 log = getLogger(__name__)
 
 
-class Neo4jConsole:
+class ServerConsole:
 
     args = None
 
