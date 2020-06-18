@@ -25,7 +25,7 @@ from codecs import decode
 from collections import namedtuple
 from struct import pack as struct_pack, unpack as struct_unpack
 
-from py2neo.connect import Hydrant
+from py2neo.client import Hydrant
 from py2neo.internal.compat import Sequence, Mapping, bytes_types, integer_types, string_types, bstr
 
 

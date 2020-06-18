@@ -22,7 +22,7 @@ from collections import deque, OrderedDict
 from time import sleep
 from warnings import warn
 
-from py2neo.connect import Connector, Connection, ConnectionProfile, TransactionError
+from py2neo.client import Connector, Connection, ConnectionProfile, TransactionError
 from py2neo.cypher import cypher_escape
 from py2neo.data import Record, Table
 from py2neo.internal.caching import ThreadLocalEntityCache

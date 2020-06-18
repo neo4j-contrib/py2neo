@@ -21,7 +21,7 @@
 
 from collections import namedtuple
 
-from py2neo.connect import Hydrant
+from py2neo.client import Hydrant
 from py2neo.internal.compat import Sequence, Mapping, integer_types, string_types
 from py2neo.matching import RelationshipMatcher
 
@@ -51,7 +51,7 @@ class JSONHydrant(Hydrant):
         proper hydration. This code needs to die horribly in a freak
         yachting accident.
         """
-        from py2neo.connect.packstream import Structure
+        from py2neo.client.packstream import Structure
         # TODO: other partial hydration
         if "self" in data:
             if "type" in data:
@@ -94,7 +94,7 @@ class JSONHydrant(Hydrant):
 
         def hydrate_object(obj, inst=None):
             from py2neo.data import Node, Relationship, Path
-            from py2neo.connect.packstream import Structure
+            from py2neo.client.packstream import Structure
             if isinstance(obj, Structure):
                 tag = obj.tag
                 fields = obj.fields

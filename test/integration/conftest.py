@@ -23,7 +23,7 @@ from uuid import uuid4
 from pytest import fixture
 
 from py2neo import Graph
-from py2neo.connect import Connector, ConnectionProfile
+from py2neo.client import Connector, ConnectionProfile
 from py2neo.database import GraphService
 from py2neo.server import Neo4jService
 from py2neo.security import make_self_signed_certificate

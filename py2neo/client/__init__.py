@@ -268,11 +268,11 @@ class Connection(object):
     @classmethod
     def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None, on_release=None):
         if profile.protocol == "bolt":
-            from py2neo.connect.bolt import Bolt
+            from py2neo.client.bolt import Bolt
             return Bolt.open(profile, user_agent=user_agent,
                              on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         elif profile.protocol == "http":
-            from py2neo.connect.http import HTTP
+            from py2neo.client.http import HTTP
             return HTTP.open(profile, user_agent=user_agent,
                              on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         else:
@@ -366,10 +366,10 @@ class Connection(object):
     @classmethod
     def default_hydrant(cls, profile, graph):
         if profile.protocol == "bolt":
-            from py2neo.connect.bolt import Bolt
+            from py2neo.client.bolt import Bolt
             return Bolt.default_hydrant(profile, graph)
         elif profile.protocol == "http":
-            from py2neo.connect.http import HTTP
+            from py2neo.client.http import HTTP
             return HTTP.default_hydrant(profile, graph)
         else:
             raise ValueError("Unknown scheme %r" % profile.scheme)
