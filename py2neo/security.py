@@ -16,14 +16,29 @@
 # limitations under the License.
 
 
+from collections import namedtuple
 from logging import getLogger
 from os import makedirs, path
 from socket import gethostname
+from uuid import uuid4
 
 from OpenSSL import crypto
 
 
 log = getLogger(__name__)
+
+
+Auth = namedtuple("Auth", ["user", "password"])
+
+
+def make_auth(value=None, default_user=None, default_password=None):
+    try:
+        user, _, password = str(value or "").partition(":")
+    except AttributeError:
+        raise ValueError("Invalid auth string {!r}".format(value))
+    else:
+        return Auth(user or default_user or "neo4j",
+                    password or default_password or uuid4().hex)
 
 
 def make_self_signed_certificate():

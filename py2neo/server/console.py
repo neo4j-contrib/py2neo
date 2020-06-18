@@ -35,14 +35,12 @@ except ModuleNotFoundError as e:
     from pyreadline import Readline
     readline = Readline()
 
-log = getLogger("grolt")
+log = getLogger(__name__)
 
 
 class Neo4jConsole:
 
     args = None
-
-    tx_context = "system"
 
     def __init__(self, service):
         self.service = service
@@ -66,11 +64,11 @@ class Neo4jConsole:
     def _iter_instances(self, name):
         if not name:
             name = "a"
-        for profile in list(self.service.instances):
-            if name in (profile.name, profile.fq_name):
-                yield self.service.instances[profile]
+        for instance in self.service.instances:
+            if name in (instance.name, instance.fq_name):
+                yield instance
 
-    def _for_each_machine(self, name, f):
+    def _for_each_instance(self, name, f):
         found = 0
         for instance_obj in self._iter_instances(name):
             f(instance_obj)
@@ -82,8 +80,7 @@ class Neo4jConsole:
         # nicely with readline. Instead, we use click.echo for the main prompt
         # text and a raw input call to read from stdin.
         text = "".join([
-            click.style(self.tx_context, fg="cyan"),
-            click.style(">", fg="bright_black"),
+            click.style(">"),
         ])
         prompt_suffix = " "
         click.echo(text, nl=False)
@@ -112,7 +109,7 @@ class Neo4jConsole:
     @click.command()
     @click.argument("machine", required=False)
     @click.pass_obj
-    def browser(self, machine):
+    def browser(self, instance):
         """ Start the Neo4j browser.
 
         A machine name may optionally be passed, which denotes the server to
@@ -120,15 +117,17 @@ class Neo4jConsole:
         assumed.
         """
 
-        def f(m):
-            # TODO: HTTPS
-            http_uri = "http://" + str(m.addresses["http"])
+        def f(i):
+            try:
+                uri = "https://{}".format(i.addresses["https"])
+            except KeyError:
+                uri = "http://{}".format(i.addresses["http"])
             click.echo("Opening web browser for machine {!r} at "
-                       "«{}»".format(m.fq_name, http_uri))
-            open_browser(http_uri)
+                       "«{}»".format(i.fq_name, uri))
+            open_browser(uri)
 
-        if not self._for_each_machine(machine, f):
-            raise RuntimeError("Machine {!r} not found".format(machine))
+        if not self._for_each_instance(instance, f):
+            raise RuntimeError("Machine {!r} not found".format(instance))
 
     @click.command()
     @click.pass_obj
@@ -202,36 +201,24 @@ class Neo4jConsole:
         - Debug port
 
         """
-        click.echo("CONTAINER   NAME        BOLT PORT   HTTP PORT   MODE")
-        for profile, machine in self.service.instances.items():
-            if profile is None or machine is None:
+        click.echo("CONTAINER   NAME        "
+                   "BOLT PORT   HTTP PORT   HTTPS PORT   MODE")
+        for instance in self.service.instances:
+            if instance is None:
                 continue
-            click.echo("{:<12}{:<12}{:<12}{:<12}{:<15}".format(
-                machine.container.short_id,
-                profile.fq_name,
-                profile.bolt_port,
-                profile.http_port,
-                profile.config.get("dbms.mode", "SINGLE"),
+            click.echo("{:<12}{:<12}{:<12}{:<12}{:<13}{:<15}".format(
+                instance.container.short_id,
+                instance.fq_name,
+                instance.bolt_port,
+                instance.http_port,
+                instance.https_port or 0,
+                instance.config.get("dbms.mode", "SINGLE"),
             ))
 
     @click.command()
-    @click.argument("machine", required=False)
+    @click.argument("instance", required=False)
     @click.pass_obj
-    def ping(self, machine):
-        """ Ping a server by name to check it is available. If no server name
-        is provided, 'a' is used as a default.
-        """
-
-        def f(m):
-            m.ping(timeout=0)
-
-        if not self._for_each_machine(machine, f):
-            raise RuntimeError("Machine {!r} not found".format(machine))
-
-    @click.command()
-    @click.argument("machine", required=False)
-    @click.pass_obj
-    def logs(self, machine):
+    def logs(self, instance):
         """ Display logs for a named server.
 
         If no server name is provided, 'a' is used as a default.
@@ -240,34 +227,25 @@ class Neo4jConsole:
         def f(m):
             click.echo(m.container.logs())
 
-        if not self._for_each_machine(machine, f):
-            raise RuntimeError("Machine {!r} not found".format(machine))
+        if not self._for_each_instance(instance, f):
+            raise RuntimeError("Machine {!r} not found".format(instance))
 
     @click.command()
     @click.argument("time", type=float)
-    @click.argument("machine", required=False)
+    @click.argument("instance", required=False)
     @click.pass_obj
-    def pause(self, time, machine):
+    def pause(self, time, instance):
         """ Pause a server for a given number of seconds.
 
         If no server name is provided, 'a' is used as a default.
         """
 
-        def f(m):
-            log.info("Pausing machine {!r} for {}s".format(m.profile.fq_name,
-                                                           time))
-            m.container.pause()
+        def f(i):
+            log.info("Pausing machine {!r} for {}s".format(i.fq_name, time))
+            i.container.pause()
             sleep(time)
-            m.container.unpause()
-            m.ping(timeout=0)
+            i.container.unpause()
+            i.ping(timeout=0)
 
-        if not self._for_each_machine(machine, f):
-            raise RuntimeError("Machine {!r} not found".format(machine))
-
-    @click.command()
-    @click.argument("context")
-    @click.pass_obj
-    def use(self, context):
-        """ Select a database context.
-        """
-        self.tx_context = context
+        if not self._for_each_instance(instance, f):
+            raise RuntimeError("Machine {!r} not found".format(instance))

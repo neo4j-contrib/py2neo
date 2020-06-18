@@ -16,15 +16,13 @@
 # limitations under the License.
 
 
-from collections import namedtuple
-from logging import getLogger, DEBUG
+from logging import getLogger
 from os import chmod, path
 from random import choice
 from shutil import rmtree
 from tempfile import mkdtemp
 from threading import Thread
 from time import sleep
-from uuid import uuid4
 
 from docker import DockerClient
 from docker.errors import APIError, ImageNotFound
@@ -33,25 +31,12 @@ from py2neo.wire import Address, Wire
 from py2neo.server.console import Neo4jConsole
 from py2neo.internal.compat import perf_counter
 from py2neo.internal.versioning import Version
-from py2neo.security import install_certificate, install_private_key
+from py2neo.security import Auth, make_auth, install_certificate, install_private_key
 
 
 docker = DockerClient.from_env(version="auto")
 
 log = getLogger(__name__)
-
-
-Auth = namedtuple("Auth", ["user", "password"])
-
-
-def make_auth(value=None, default_user=None, default_password=None):
-    try:
-        user, _, password = str(value or "").partition(":")
-    except AttributeError:
-        raise ValueError("Invalid auth string {!r}".format(value))
-    else:
-        return Auth(user or default_user or "neo4j",
-                    password or default_password or uuid4().hex)
 
 
 def random_name(size):
@@ -71,11 +56,12 @@ class Neo4jInstance(object):
     def __init__(self, service, name, bolt_port=None, http_port=None, https_port=None):
         self.service = service
         self.name = name
-        self.bolt_port = bolt_port or 7687
-        self.http_port = http_port or 7474
-        self.https_port = https_port or 7473
+        self.bolt_port = bolt_port
+        self.http_port = http_port
+        self.https_port = https_port
         self.address = self.addresses["bolt"]
         self.cert_volume_dir = None
+        self.config = self._create_config(self.service)
         self.env = self._create_env(self.service)
         ports = {"7687/tcp": self.bolt_port,
                  "7474/tcp": self.http_port}
@@ -117,6 +103,30 @@ class Neo4jInstance(object):
             self.__class__.__name__, self.fq_name,
             self.image, self.address)
 
+    def _create_config(self, service):
+        config = {
+            "dbms.backup.enabled": "false",
+            "dbms.connector.bolt.advertised_address": "localhost:{}".format(self.bolt_port),
+            "dbms.memory.heap.initial_size": "300m",
+            "dbms.memory.heap.max_size": "500m",
+            "dbms.memory.pagecache.size": "50m",
+            "dbms.transaction.bookmark_ready_timeout": "5s",
+        }
+
+        # Security configuration
+        if service.secured:
+            if service.image.version >= Version.parse("4.0"):
+                config.update({
+                    "dbms.ssl.policy.bolt.enabled": True,
+                    "dbms.ssl.policy.https.enabled": True,
+                    "dbms.connector.bolt.tls_level": "OPTIONAL",
+                    "dbms.connector.https.enabled": True,
+                })
+            else:
+                pass
+
+        return config
+
     def _create_env(self, service):
         env = {}
 
@@ -129,26 +139,8 @@ class Neo4jInstance(object):
         if service.auth:
             env["NEO4J_AUTH"] = "/".join(service.auth)
 
-        # General configuration
-        config = {
-            "dbms.backup.enabled": "false",
-            "dbms.connector.bolt.advertised_address": "localhost:{}".format(self.bolt_port),
-            "dbms.memory.heap.initial_size": "300m",
-            "dbms.memory.heap.max_size": "500m",
-            "dbms.memory.pagecache.size": "50m",
-            "dbms.transaction.bookmark_ready_timeout": "5s",
-        }
-        if service.secured:
-            if service.image.version >= Version.parse("4.0"):
-                config.update({
-                    "dbms.ssl.policy.bolt.enabled": True,
-                    "dbms.ssl.policy.https.enabled": True,
-                    "dbms.connector.bolt.tls_level": "OPTIONAL",
-                    "dbms.connector.https.enabled": True,
-                })
-            else:
-                pass
-        for key, value in config.items():
+        # Add config
+        for key, value in self.config.items():
             fixed_key = "NEO4J_" + key.replace("_", "__").replace(".", "_")
             env[fixed_key] = value
 
@@ -312,10 +304,13 @@ class Neo4jService(object):
     @classmethod
     def single_instance(cls, name, image_tag, auth, cert_key_pair=None):
         service = cls(name, image_tag, auth, cert_key_pair)
-        service.instances.append(Neo4jInstance(service, "a",
-                                               bolt_port=7687,
-                                               http_port=7474,
-                                               https_port=7473))
+        ports = {
+            "bolt_port": 7687,
+            "http_port": 7474,
+        }
+        if service.secured:
+            ports["https_port"] = 7473
+        service.instances.append(Neo4jInstance(service, "a", **ports))
         return service
 
     def __init__(self, name, image_tag, auth, cert_key_pair):
@@ -365,9 +360,6 @@ class Neo4jService(object):
             return True
 
     def start(self):
-        # TODO: detect verbosity level
-        from py2neo.diagnostics import watch
-        watch("py2neo.server", DEBUG)
         self.network = docker.networks.create(self.name)
         self._for_each_instance(lambda instance: instance.start)
         self.await_started()
