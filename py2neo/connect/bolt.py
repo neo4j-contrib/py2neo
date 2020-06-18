@@ -20,11 +20,11 @@ from collections import deque
 from itertools import islice
 from logging import getLogger
 
-from py2neo.meta import bolt_user_agent
 from py2neo.connect import Connection, Transaction, TransactionError, Result, Failure, Bookmark
 from py2neo.connect.packstream import MessageReader, MessageWriter, PackStreamHydrant
-from py2neo.connect.wire import Wire
+from py2neo.meta import bolt_user_agent
 from py2neo.internal.versioning import Version
+from py2neo.wire import Wire
 
 
 log = getLogger(__name__)

@@ -29,8 +29,7 @@ from uuid import uuid4
 from docker import DockerClient
 from docker.errors import APIError, ImageNotFound
 
-from py2neo.connect.addressing import Address
-from py2neo.connect.wire import Wire
+from py2neo.wire import Address, Wire
 from py2neo.server.console import Neo4jConsole
 from py2neo.internal.compat import perf_counter
 from py2neo.internal.versioning import Version

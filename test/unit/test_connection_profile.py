@@ -19,7 +19,7 @@
 from unittest import TestCase
 
 from py2neo.connect import ConnectionProfile
-from py2neo.connect.addressing import IPv4Address
+from py2neo.wire import IPv4Address
 
 
 class ConnectionProfileTestCase(TestCase):

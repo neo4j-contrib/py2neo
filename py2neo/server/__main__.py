@@ -21,10 +21,10 @@ from logging import INFO, DEBUG
 
 import click
 
-from py2neo.connect.addressing import Address
 from py2neo.diagnostics import watch
 from py2neo.server import Neo4jService, make_auth
 from py2neo.security import make_self_signed_certificate
+from py2neo.wire import Address
 
 
 class AddressParamType(click.ParamType):

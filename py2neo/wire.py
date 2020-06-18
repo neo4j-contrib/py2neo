@@ -19,7 +19,10 @@
 from socket import (
     getaddrinfo,
     getservbyname,
+    socket,
     SOCK_STREAM,
+    SOL_SOCKET,
+    SO_KEEPALIVE,
     AF_INET,
     AF_INET6,
 )
@@ -160,3 +163,109 @@ class IPv6Address(Address):
 
     def __str__(self):
         return "[{}]:{}".format(*self)
+
+
+class Wire(object):
+    """ Socket wrapper for reading and writing bytes.
+    """
+
+    __closed = False
+
+    __broken = False
+
+    @classmethod
+    def open(cls, address, timeout=None, keep_alive=False):
+        s = socket(family=address.family)
+        if keep_alive:
+            s.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
+        s.settimeout(timeout)
+        s.connect(address)
+        return cls(s)
+
+    def __init__(self, s):
+        s.settimeout(None)  # ensure wrapped socket is in blocking mode
+        self.__socket = s
+        self.__input = bytearray()
+        self.__output = bytearray()
+
+    def secure(self, verify=True, hostname=None):
+        from ssl import SSLContext, PROTOCOL_TLS, CERT_NONE, CERT_REQUIRED
+        context = SSLContext(PROTOCOL_TLS)
+        if verify:
+            context.verify_mode = CERT_REQUIRED
+            context.check_hostname = bool(hostname)
+        else:
+            context.verify_mode = CERT_NONE
+        context.load_default_certs()
+        try:
+            self.__socket = context.wrap_socket(self.__socket, server_hostname=hostname)
+        except (IOError, OSError):
+            # TODO: add connection failure/diagnostic callback
+            raise WireError("Unable to establish secure connection with remote peer")
+
+    def read(self, n):
+        while len(self.__input) < n:
+            try:
+                received = self.__socket.recv(n - len(self.__input))
+            except (IOError, OSError):
+                self.__broken = True
+                raise WireError("Broken")
+            else:
+                if received:
+                    self.__input.extend(received)
+                else:
+                    self.__broken = True
+                    raise WireError("Network read incomplete "
+                                    "(received %d of %d bytes)" %
+                                    (len(self.__input), n))
+        data = self.__input[:n]
+        self.__input[:n] = []
+        return data
+
+    def write(self, b):
+        self.__output.extend(b)
+
+    def send(self):
+        if self.__closed:
+            raise WireError("Closed")
+        sent = 0
+        while self.__output:
+            try:
+                n = self.__socket.send(self.__output)
+            except (IOError, OSError):
+                self.__broken = True
+                raise WireError("Broken")
+            else:
+                self.__output[:n] = []
+                sent += n
+        return sent
+
+    def close(self):
+        try:
+            self.__socket.close()
+        except (IOError, OSError):
+            self.__broken = True
+            raise WireError("Broken")
+        else:
+            self.__closed = True
+
+    @property
+    def closed(self):
+        return self.__closed
+
+    @property
+    def broken(self):
+        return self.__broken
+
+    @property
+    def local_address(self):
+        return Address(self.__socket.getsockname())
+
+    @property
+    def remote_address(self):
+        return Address(self.__socket.getpeername())
+
+
+class WireError(OSError):
+
+    pass
