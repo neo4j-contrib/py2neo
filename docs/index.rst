@@ -41,8 +41,8 @@ Note that Py2neo is developed and tested under **Linux** using standard CPython 
 While other operating systems and Python distributions may work, support for these is not available.
 
 
-Library Reference
-=================
+User Reference
+==============
 
 .. toctree::
    :maxdepth: 2
@@ -55,6 +55,18 @@ Library Reference
    cypher/index
    cypher/lexer
    cli
+
+
+Driver Author Reference
+=======================
+
+.. toctree::
+   :maxdepth: 2
+   :numbered:
+
+   client/index
+   client/bolt
+   client/http
 
 
 .. _Neo4j: https://neo4j.com/

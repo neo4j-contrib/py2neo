@@ -251,6 +251,10 @@ class Connection(object):
     """ A single point-to-point connection between a client and a
     server.
 
+    This base class is extended by both :class:`.Bolt` and
+    :class:`.HTTP` implementations and contains interfaces for the
+    basic operations provided by both.
+
     :ivar profile: connection profile
     :ivar user_agent:
     """
@@ -298,10 +302,15 @@ class Connection(object):
 
     @property
     def closed(self):
+        """ True if the connection has been closed by the client.
+        """
         raise NotImplementedError
 
     @property
     def broken(self):
+        """ True if the connection has been broken by the server or
+        network.
+        """
         raise NotImplementedError
 
     @property
@@ -329,7 +338,7 @@ class Connection(object):
         pass
 
     def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
-        """ Begin a transaction
+        """ Begin a transaction.
 
         :param graph_name:
         :param readonly:
@@ -337,7 +346,7 @@ class Connection(object):
         :param metadata:
         :param timeout:
         :return: new :class:`.Transaction` object
-        :raise :exc:`.TransactionError` if a new transaction cannot be created
+        :raise :exc:`.TransactionError`: if a new transaction cannot be created
         """
 
     def commit(self, tx):
@@ -475,9 +484,9 @@ class ConnectionPool(ABC):
         free connections are available, this will block until a
         connection is released, or until the acquire call is cancelled.
 
-        This method will return :py:`None` if and only if the maximum
-        size of the pool is set to zero. In this special case, no
-        amount of waiting would result in the acquisition of a
+        This method will return :const:`None` if and only if the
+        maximum size of the pool is set to zero. In this special case,
+        no amount of waiting would result in the acquisition of a
         connection. This will be the case if the pool has been closed.
 
         :param graph_name:
@@ -652,9 +661,9 @@ class DirectConnectionPool(ConnectionPool):
         free connections are available, this will block until a
         connection is released, or until the acquire call is cancelled.
 
-        This method will return :py:`None` if and only if the maximum
-        size of the pool is set to zero. In this special case, no
-        amount of waiting would result in the acquisition of a
+        This method will return :const:`None` if and only if the
+        maximum size of the pool is set to zero. In this special case,
+        no amount of waiting would result in the acquisition of a
         connection. This will be the case if the pool has been closed.
 
         :param graph_name:
@@ -1038,9 +1047,9 @@ class Connector(ConnectionPool):
         free connections are available, this will block until a
         connection is released, or until the acquire call is cancelled.
 
-        This method will return :py:`None` if and only if the maximum
-        size of the pool is set to zero. In this special case, no
-        amount of waiting would result in the acquisition of a
+        This method will return :const:`None` if and only if the
+        maximum size of the pool is set to zero. In this special case,
+        no amount of waiting would result in the acquisition of a
         connection. This will be the case if the pool has been closed.
 
         :param graph_name:

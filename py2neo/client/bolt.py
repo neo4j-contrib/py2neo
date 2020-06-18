@@ -16,6 +16,36 @@
 # limitations under the License.
 
 
+"""
+This module contains client implementations for the Bolt messaging
+protocol. It contains a base :class:`.Bolt` class, which is a type of
+:class:`.Connection`, and which is further extended by a separate class
+for each protocol version. :class:`.Bolt1` extends :class:`.Bolt`,
+:class:`.Bolt2` extends :class:`.Bolt1`, and so on.
+
+Each subclass therefore introduces deltas atop the previous protocol
+version. This reduces duplication of client code at the expense of more
+work should an old protocol version be removed.
+
+As of Bolt 4.0, the protocol versioning scheme aligned directly with
+that of Neo4j itself. Prior to this, the protocol was versioned with a
+single integer that did not necessarily increment in line with each
+Neo4j product release.
+"""
+
+
+__all__ = [
+    "Bolt",
+    "Bolt1",
+    "Bolt2",
+    "Bolt3",
+    "Bolt4x0",
+    "BoltTransaction",
+    "BoltResult",
+    "BoltResponse",
+]
+
+
 from collections import deque
 from itertools import islice
 from logging import getLogger
@@ -31,6 +61,12 @@ log = getLogger(__name__)
 
 
 class Bolt(Connection):
+    """ This is the base class for Bolt client connections. This class
+    is not intended to be instantiated directly, but contains an
+    :meth:`~Bolt.open` factory method that returns an instance of the
+    appropriate subclass, once a connection has been successfully
+    established.
+    """
 
     protocol_version = ()
 
@@ -61,6 +97,15 @@ class Bolt(Connection):
 
     @classmethod
     def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None, on_release=None):
+        """ Open a Bolt connection to a server.
+
+        :param profile: :class:`.ConnectionProfile` detailing how and
+            where to connect
+        :param user_agent:
+        :param on_bind:
+        :param on_unbind:
+        :param on_release:
+        """
         wire = cls._connect(profile)
         protocol_version = cls._handshake(wire)
         subclass = cls._get_subclass(protocol_version)
@@ -104,6 +149,8 @@ class Bolt(Connection):
         self._wire = wire
 
     def close(self):
+        """ Close the connection.
+        """
         if self.closed or self.broken:
             return
         self._goodbye()
@@ -594,7 +641,7 @@ class BoltTransaction(ItemizedTask, Transaction):
 
 # TODO: use 'has_more' metadata from PULL success response
 class BoltResult(ItemizedTask, Result):
-    """ A query carried out over a Bolt connection.
+    """ The result of a query carried out over a Bolt connection.
 
     Implementation-wise, this form of query is comprised of a number of
     individual message exchanges. Each of these exchanges may succeed
