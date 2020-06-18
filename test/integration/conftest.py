@@ -23,7 +23,6 @@ from uuid import uuid4
 from pytest import fixture
 
 from py2neo import Graph
-from py2neo.admin.dist import Distribution
 from py2neo.connect import Connector, ConnectionProfile
 from py2neo.database import GraphService
 from py2neo.server import Neo4jService
@@ -145,16 +144,6 @@ def test_profile(request):
     GraphService.forget_all()
     test_profile = request.param
     yield test_profile
-
-
-@fixture(scope="session")
-def neo4j_version(test_profile):
-    return Distribution(version=test_profile.release_str).version
-
-
-@fixture(scope="session")
-def neo4j_minor_version(neo4j_version):
-    return ".".join(neo4j_version.split(".")[:2])
 
 
 @fixture(scope="session")

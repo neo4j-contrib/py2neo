@@ -58,66 +58,6 @@ def py2neo_console(uri, auth=None, secure=None, verbose=None):
         raise SystemExit(con.loop())
 
 
-@py2neo.group("auth", help="""\
-Auth file management
-""")
-def py2neo_auth():
-    pass
-
-
-@py2neo_auth.command("list", help="""\
-List users
-""")
-@click.argument("auth_file")
-def py2neo_auth_list(auth_file):
-    from py2neo.admin.install import AuthFile
-    for user in AuthFile(auth_file):
-        click.echo(user.name)
-
-
-@py2neo_auth.command("remove", help="""\
-Remove a user
-
-Example:
-
-    py2neo auth remove data/dbms/auth alice
-    
-""")
-@click.argument("auth_file")
-@click.argument("user_name")
-def py2neo_auth_remove(auth_file, user_name):
-    from py2neo.admin.install import AuthFile
-    AuthFile(auth_file).remove(user_name)
-
-
-@py2neo_auth.command("update", help="""\
-Create a user or set a password
-
-For general interactive use, password and confirmation prompts will be presented.
-For batch mode, use the --password option.
-
-Example:
-
-    py2neo auth update data/dbms/auth alice
-
-If AUTH_FILE contains only a dash `-` then the auth file entry will be written to stdout instead.
-""")
-@click.argument("auth_file")
-@click.argument("user_name")
-@click.password_option()
-def py2neo_auth_update(auth_file, user_name, password):
-    from py2neo.admin.install import AuthFile
-    AuthFile(auth_file).update(user_name, password)
-
-
-@py2neo.command("get", help="""\
-Download a Neo4j distribution
-""")
-def py2neo_get():
-    from py2neo.admin.dist import Distribution
-    Distribution().download()
-
-
 @py2neo.command("run", help="""\
 Run a Cypher query
 """)
