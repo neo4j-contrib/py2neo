@@ -27,11 +27,11 @@ from time import sleep
 from docker import DockerClient
 from docker.errors import APIError, ImageNotFound
 
-from py2neo.wire import Address, Wire
-from py2neo.server.console import ServerConsole
-from py2neo.internal.compat import perf_counter
-from py2neo.internal.versioning import Version
+from py2neo.compat import perf_counter
 from py2neo.security import Auth, make_auth, install_certificate, install_private_key
+from py2neo.server.console import ServerConsole
+from py2neo.versioning import Version
+from py2neo.wire import Address, Wire
 
 
 docker = DockerClient.from_env(version="auto")

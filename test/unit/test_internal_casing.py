@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.internal.text import Words
+from py2neo.text import Words
 
 
 def test_breakdown_of_string_with_spaces():

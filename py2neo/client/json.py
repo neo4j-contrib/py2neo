@@ -22,7 +22,7 @@
 from collections import namedtuple
 
 from py2neo.client import Hydrant
-from py2neo.internal.compat import Sequence, Mapping, integer_types, string_types
+from py2neo.compat import Sequence, Mapping, integer_types, string_types
 from py2neo.matching import RelationshipMatcher
 
 

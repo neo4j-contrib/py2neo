@@ -22,7 +22,7 @@ from logging import getLogger
 from threading import Event
 from uuid import uuid4
 
-from py2neo.internal.compat import ABC, abstractproperty, urlsplit, string_types
+from py2neo.compat import ABC, abstractproperty, urlsplit, string_types
 from py2neo.meta import (
     NEO4J_URI,
     NEO4J_AUTH,

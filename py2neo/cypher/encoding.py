@@ -27,8 +27,8 @@ from collections import OrderedDict
 from re import compile as re_compile
 from unicodedata import category
 
-from py2neo.internal.collections import SetView
-from py2neo.internal.compat import uchr, ustr, numeric_types, string_types, unicode_types
+from py2neo.collections import SetView
+from py2neo.compat import uchr, ustr, numeric_types, string_types, unicode_types
 
 
 ID_START = {u"_"} | {uchr(x) for x in range(0xFFFF)

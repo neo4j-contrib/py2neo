@@ -23,7 +23,7 @@ __all__ = [
 ]
 
 from py2neo.cypher.encoding import CypherEncoder
-from py2neo.internal.compat import string_types, unicode_types
+from py2neo.compat import string_types, unicode_types
 
 
 def cypher_escape(identifier, **kwargs):

@@ -28,8 +28,8 @@ from threading import RLock
 from uuid import uuid4
 
 from py2neo.data import PropertyDict, Record
-from py2neo.internal.collections import iter_items
-from py2neo.internal.compat import Sequence, Set
+from py2neo.collections import iter_items
+from py2neo.compat import Sequence, Set
 
 
 NodeEntry = namedtuple("NodeEntry", ["labels", "properties"])

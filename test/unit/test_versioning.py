@@ -18,7 +18,7 @@
 
 from unittest import TestCase
 
-from py2neo.internal.versioning import Version
+from py2neo.versioning import Version
 
 
 class VersioningTestCase(TestCase):

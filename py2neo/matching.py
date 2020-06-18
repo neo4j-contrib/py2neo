@@ -16,10 +16,10 @@
 # limitations under the License.
 
 
+from py2neo.collections import is_collection
+from py2neo.compat import Sequence, Set
 from py2neo.cypher import cypher_escape, cypher_repr
 from py2neo.data import Node
-from py2neo.internal.collections import is_collection
-from py2neo.internal.compat import Sequence, Set
 
 
 class Predicate(object):

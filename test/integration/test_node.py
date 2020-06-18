@@ -17,7 +17,7 @@
 
 
 from py2neo import Node, Relationship
-from py2neo.internal.compat import long
+from py2neo.compat import long
 
 
 def test_single_node_creation(graph):

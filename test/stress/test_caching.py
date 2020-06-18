@@ -19,7 +19,7 @@
 from platform import python_implementation
 from unittest import TestCase, skipIf
 
-from py2neo.internal.caching import ThreadLocalEntityCache
+from py2neo.caching import ThreadLocalEntityCache
 
 
 IMPLEMENTATION = python_implementation()

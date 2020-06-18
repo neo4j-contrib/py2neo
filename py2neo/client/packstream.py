@@ -26,7 +26,7 @@ from collections import namedtuple
 from struct import pack as struct_pack, unpack as struct_unpack
 
 from py2neo.client import Hydrant
-from py2neo.internal.compat import Sequence, Mapping, bytes_types, integer_types, string_types, bstr
+from py2neo.compat import Sequence, Mapping, bytes_types, integer_types, string_types, bstr
 
 
 PACKED_UINT_8 = [struct_pack(">B", value) for value in range(0x100)]

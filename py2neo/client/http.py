@@ -25,10 +25,10 @@ from json import dumps as json_dumps, loads as json_loads
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo import http_user_agent
-from py2neo.internal.compat import urlsplit
-from py2neo.internal.versioning import Version
+from py2neo.compat import urlsplit
 from py2neo.client import Connection, Transaction, TransactionError, Result, Bookmark
 from py2neo.client.json import JSONHydrant
+from py2neo.versioning import Version
 
 
 log = getLogger(__name__)

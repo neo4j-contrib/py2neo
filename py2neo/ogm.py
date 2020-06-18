@@ -16,11 +16,11 @@
 # limitations under the License.
 
 
+from py2neo.compat import metaclass
 from py2neo.cypher import cypher_escape
 from py2neo.data import Node, PropertyDict
-from py2neo.internal.compat import metaclass
-from py2neo.internal.text import Words
 from py2neo.matching import NodeMatch, NodeMatcher
+from py2neo.text import Words
 
 
 OUTGOING = 1
