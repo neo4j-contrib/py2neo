@@ -239,6 +239,9 @@ class HTTP(Connection):
                                       url=url,
                                       headers=dict(self.headers))
 
+    def supports_multi(self):
+        return self.neo4j_version.major_minor >= (4, 0)
+
 
 class HTTPTransaction(Transaction):
 

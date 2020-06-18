@@ -381,7 +381,9 @@ class Connection(object):
             self._on_release(self)
 
     def supports_multi(self):
-        return self.neo4j_version.major_minor >= (4, 0)
+        """ Detect whether or not this connection supports
+        multi-database.
+        """
 
 
 class ConnectionPool(ABC):

@@ -130,6 +130,9 @@ class Bolt(Connection):
         if self.broken:
             raise RuntimeError("Connection is broken")
 
+    def supports_multi(self):
+        return self.protocol_version >= (4, 0)
+
 
 class Bolt1(Bolt):
 
