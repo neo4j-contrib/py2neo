@@ -31,7 +31,7 @@ Requirements
 The following versions of Python and Neo4j are supported:
 
 - Python 2.7 / 3.5 / 3.6 / 3.7 / 3.8
-- Neo4j 3.2 / 3.3 / 3.4 / 3.5 / 4.0 (the latest point release of each version is recommended)
+- Neo4j 3.4 / 3.5 / 4.0 (the latest point release of each version is recommended)
 
 While either Neo4j Community or Enterprise edition may be used, py2neo does not yet fully support all Enterprise-only features, such as `Causal Clustering`_.
 Py2neo does however provide support for the multi-database functionality added in Neo4j 4.0.
@@ -41,8 +41,15 @@ Note that Py2neo is developed and tested under **Linux** using standard CPython 
 While other operating systems and Python distributions may work, support for these is not available.
 
 
-User Reference
+Core Graph API
 ==============
+Py2neo consists of several layers of API, and at the heart of those is the Graph API.
+This has evolved from the original, foundational API included with early versions of the library, and remains relevant for general purpose use today.
+The backbone of this API is the :class:`.Graph` class, which represents a graph database exposed by a Neo4j service running on a single instance or cluster.
+The service itself is represented by a :class:`.GraphService` object.
+
+:class:`.Node` and :class:`.Relationship` objects are also key to this API, both of which extend the :class:`.Subgraph` class.
+A comprehensive set of graph structure data types and operations are provided, allowing great flexibility in how graph data can be used.
 
 .. toctree::
    :maxdepth: 2
@@ -51,14 +58,31 @@ User Reference
    data
    database
    matching
-   ogm
+
+
+Cypher Tools
+============
+
+.. toctree::
+   :maxdepth: 2
+   :numbered:
+
    cypher/index
    cypher/lexer
-   cli
 
 
-Driver Author Reference
-=======================
+Object-Graph Mapping
+====================
+
+.. toctree::
+   :maxdepth: 2
+   :numbered:
+
+   ogm
+
+
+Clients & Servers
+=================
 
 .. toctree::
    :maxdepth: 2
@@ -67,6 +91,17 @@ Driver Author Reference
    client/index
    client/bolt
    client/http
+   server/index
+
+
+Command Line Usage
+==================
+
+.. toctree::
+   :maxdepth: 2
+   :numbered:
+
+   cli
 
 
 .. _Neo4j: https://neo4j.com/
