@@ -25,7 +25,7 @@ from warnings import warn
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.client import Connector, Connection, ConnectionProfile, TransactionError
 from py2neo.compat import Mapping, xstr
-from py2neo.cypher import cypher_escape
+from py2neo.cypher import cypher_escape, Procedures
 from py2neo.data import Record, Table
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 from py2neo.operations import OperationError
@@ -288,6 +288,9 @@ class Graph(object):
         gs = GraphService(uri, **settings)
         return gs[name]
 
+    def __init__(self, *args, **kwargs):
+        self._procedures = Procedures(self)
+
     def __repr__(self):
         if self.name is None:
             return "%s(%r)" % (self.__class__.__name__, self.service.uri)
@@ -337,25 +340,11 @@ class Graph(object):
                  "use Graph.auto() instead", category=DeprecationWarning, stacklevel=2)
         return GraphTransaction(self, autocommit, readonly, after, metadata, timeout)
 
-    def call(self, procedure, *args):
-        """ Call a procedure by name.
-
-        For example:
-            >>> from py2neo import Graph
-            >>> g = Graph()
-            >>> g.call("dbms.components")
-             name         | versions  | edition
-            --------------|-----------|-----------
-             Neo4j Kernel | ['4.0.2'] | community
-
-        :param procedure: fully qualified procedure name
-        :param args: positional arguments to pass to the procedure
-        :returns: :class:`.Cursor` object wrapping the result
+    @property
+    def call(self):
+        """ Accessor for listing and running procedures.
         """
-        procedure_name = ".".join(cypher_escape(part) for part in procedure.split("."))
-        arg_list = [(str(i), arg) for i, arg in enumerate(args)]
-        cypher = "CALL %s(%s)" % (procedure_name, ", ".join("$" + a[0] for a in arg_list))
-        return self.run(cypher, dict(arg_list))
+        return self._procedures
 
     def create(self, subgraph):
         """ Run a :meth:`.GraphTransaction.create` operation within a
@@ -1346,10 +1335,14 @@ class Cursor(object):
         else:
             return None
 
-    def data(self):
+    def data(self, *keys):
         """ Consume and extract the entire result as a list of
         dictionaries.
 
+        :param keys: indexes or keys of the items to include; if none
+                     are provided, all values will be included
+        :return: list of dictionary of values, keyed by field name
+        :raises: :exc:`IndexError` if an out-of-bounds index is specified
         ::
 
             >>> from py2neo import Graph
@@ -1363,7 +1356,7 @@ class Cursor(object):
         :return: the full query result
         :rtype: `list` of `dict`
         """
-        return [record.data() for record in self]
+        return [record.data(*keys) for record in self]
 
     def to_table(self):
         """ Consume and extract the entire result as a :class:`.Table`

@@ -19,9 +19,10 @@
 from unittest import TestCase
 
 from neotime import Date, Time, DateTime, Duration
+from pytest import raises
 
 from py2neo.data import Node
-from py2neo.cypher import cypher_escape, cypher_repr
+from py2neo.cypher import cypher_escape, cypher_str, cypher_repr
 from py2neo.cypher.encoding import LabelSetView, PropertyDictView, PropertySelector
 
 
@@ -189,3 +190,12 @@ class CypherEscapeTestCase(TestCase):
         value = "foo `bar`"
         escaped = "`foo ``bar```"
         self.assertEqual(escaped, cypher_escape(value))
+
+
+def test_cypher_escape_on_non_string():
+    with raises(TypeError):
+        _ = cypher_escape(object())
+
+
+def test_cypher_str_on_bytes():
+    assert cypher_str(b"hello, world") == u"hello, world"

@@ -46,3 +46,26 @@ def test_can_run_cypher_while_in_transaction(graph):
     created = record[0]
     assert outer_result_list == [(1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,)]
     assert graph.exists(created)
+
+
+def test_can_list_procedure_directory(graph):
+    assert "dbms.components" in dir(graph.call)
+
+
+def test_can_list_procedure_subdirectory(graph):
+    assert "components" in dir(graph.call.dbms)
+
+
+def test_can_call_procedure_by_attribute(graph):
+    data = graph.call.dbms.components().data()
+    assert data[0]["name"] == "Neo4j Kernel"
+
+
+def test_can_call_procedure_by_item(graph):
+    data = graph.call["dbms"]["components"]().data()
+    assert data[0]["name"] == "Neo4j Kernel"
+
+
+def test_can_call_procedure_by_name(graph):
+    data = graph.call("dbms.components").data()
+    assert data[0]["name"] == "Neo4j Kernel"
