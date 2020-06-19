@@ -18,3 +18,5 @@ rm -rf \
   "${ROOT}/.pytest_cache" \
   "${ROOT}/.benchmarks" \
   "${ROOT}/.vscode"
+
+git clean -fd
