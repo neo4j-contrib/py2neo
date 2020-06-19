@@ -316,13 +316,13 @@ class Table(list):
 
     def __init__(self, records, keys=None):
         super(Table, self).__init__(map(tuple, records))
-        if keys is None:
+        if keys:
+            k = list(map(ustr, keys))
+        else:
             try:
                 k = records.keys()
             except AttributeError:
                 raise ValueError("Missing keys")
-        else:
-            k = list(map(ustr, keys))
         width = len(k)
         t = [set() for _ in range(width)]
         o = [False] * width
