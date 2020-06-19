@@ -132,7 +132,7 @@ class GraphService(object):
             inst = object.__new__(graph_class)
             inst.service = self
             inst.__name__ = graph_name
-            inst.schema = Schema(self)
+            inst.schema = Schema(inst)
             inst.node_cache = ThreadLocalEntityCache()
             inst.relationship_cache = ThreadLocalEntityCache()
             self._graphs[graph_name] = inst
