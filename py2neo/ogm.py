@@ -16,9 +16,25 @@
 # limitations under the License.
 
 
-from py2neo.compat import metaclass
+__all__ = [
+    "Property",
+    "Label",
+    "Related",
+    "RelatedTo",
+    "RelatedFrom",
+    "RelatedObjects",
+    "GraphObjectType",
+    "GraphObject",
+    "GraphObjectMatch",
+    "GraphObjectMatcher",
+    "Repository",
+]
+
+
+from py2neo.compat import metaclass, deprecated
 from py2neo.cypher import cypher_escape
 from py2neo.data import Node, PropertyDict
+from py2neo.database import Graph
 from py2neo.matching import NodeMatch, NodeMatcher
 from py2neo.text import Words
 
@@ -26,16 +42,6 @@ from py2neo.text import Words
 OUTGOING = 1
 UNDIRECTED = 0
 INCOMING = -1
-
-
-def resolve_class(cls, instance):
-    if isinstance(cls, type):
-        return cls
-    module_name, _, class_name = cls.rpartition(".")
-    if not module_name:
-        module_name = instance.__class__.__module__
-    module = __import__(module_name, fromlist=".")
-    return getattr(module, class_name)
 
 
 class Property(object):
@@ -120,7 +126,17 @@ class Related(object):
 
     def __get__(self, instance, owner):
         return instance.__ogm__.related(self.direction, self.relationship_type,
-                                        resolve_class(self.related_class, instance))
+                                        self._resolve_class(self.related_class, instance))
+
+    @classmethod
+    def _resolve_class(cls, ogm_class, instance):
+        if isinstance(ogm_class, type):
+            return ogm_class
+        module_name, _, class_name = ogm_class.rpartition(".")
+        if not module_name:
+            module_name = instance.__class__.__module__
+        module = __import__(module_name, fromlist=".")
+        return getattr(module, class_name)
 
 
 class RelatedTo(Related):
@@ -190,7 +206,7 @@ class RelatedObjects(object):
         return self.__related_objects
 
     def add(self, obj, properties=None, **kwproperties):
-        """ Add a related object.
+        """ Add or update a related object.
 
         :param obj: the :py:class:`.GraphObject` to relate
         :param properties: dictionary of properties to attach to the relationship (optional)
@@ -199,11 +215,11 @@ class RelatedObjects(object):
         if not isinstance(obj, GraphObject):
             raise TypeError("Related objects must be GraphObject instances")
         related_objects = self._related_objects
-        properties = PropertyDict(properties or {}, **kwproperties)
+        properties = dict(properties or {}, **kwproperties)
         added = False
-        for i, (related_object, _) in enumerate(related_objects):
+        for i, (related_object, p) in enumerate(related_objects):
             if related_object == obj:
-                related_objects[i] = (obj, properties)
+                related_objects[i] = (obj, PropertyDict(p, **properties))
                 added = True
         if not added:
             related_objects.append((obj, properties))
@@ -240,6 +256,8 @@ class RelatedObjects(object):
                               for related_object, properties in related_objects
                               if related_object != obj]
 
+    @deprecated("RelatedObjects.update is deprecated, "
+                "please use RelatedObjects.add instead")
     def update(self, obj, properties=None, **kwproperties):
         """ Add or update a related object.
 
@@ -247,17 +265,7 @@ class RelatedObjects(object):
         :param properties: dictionary of properties to attach to the relationship (optional)
         :param kwproperties: additional keyword properties (optional)
         """
-        if not isinstance(obj, GraphObject):
-            raise TypeError("Related objects must be GraphObject instances")
-        related_objects = self._related_objects
-        properties = dict(properties or {}, **kwproperties)
-        added = False
-        for i, (related_object, p) in enumerate(related_objects):
-            if related_object == obj:
-                related_objects[i] = (obj, PropertyDict(p, **properties))
-                added = True
-        if not added:
-            related_objects.append((obj, properties))
+        self.add(obj, properties, **kwproperties)
 
     def __db_pull__(self, tx):
         related_objects = {}
@@ -398,14 +406,14 @@ class GraphObject(object):
         return inst
 
     @classmethod
-    def match(cls, graph, primary_value=None):
+    def match(cls, repository, primary_value=None):
         """ Select one or more nodes from the database, wrapped as instances of this class.
 
-        :param graph: the :class:`.Graph` instance in which to match
+        :param repository: the :class:`.Repository` in which to match
         :param primary_value: value of the primary property (optional)
         :rtype: :class:`.GraphObjectMatch`
         """
-        return GraphObjectMatcher(cls, graph).match(primary_value)
+        return GraphObjectMatcher(cls, repository).match(primary_value)
 
     def __repr__(self):
         return "<%s %s=%r>" % (self.__class__.__name__, self.__primarykey__, self.__primaryvalue__)
@@ -486,8 +494,8 @@ class GraphObjectMatch(NodeMatch):
     _object_class = GraphObject
 
     def __iter__(self):
-        """ Iterate through items drawn from the underlying graph that
-        match the given criteria.
+        """ Iterate through items drawn from the underlying repository
+        that match the given criteria.
         """
         wrap = self._object_class.wrap
         for node in super(GraphObjectMatch, self).__iter__():
@@ -503,8 +511,17 @@ class GraphObjectMatcher(NodeMatcher):
 
     _match_class = GraphObjectMatch
 
-    def __init__(self, object_class, graph):
-        NodeMatcher.__init__(self, graph)
+    @classmethod
+    def _coerce_to_graph(cls, obj):
+        if isinstance(obj, Repository):
+            return obj.graph
+        elif isinstance(obj, Graph):
+            return obj
+        else:
+            raise TypeError("Cannot coerce object %r to Graph" % obj)
+
+    def __init__(self, object_class, repository):
+        NodeMatcher.__init__(self, self._coerce_to_graph(repository))
         self._object_class = object_class
         self._match_class = type("%sMatch" % self._object_class.__name__,
                                  (GraphObjectMatch,), {"_object_class": object_class})
@@ -518,3 +535,78 @@ class GraphObjectMatcher(NodeMatcher):
         else:
             match = NodeMatcher.match(self, cls.__primarylabel__).where(**{cls.__primarykey__: primary_value})
         return match
+
+
+class Repository(object):
+    """ Storage container for :class:`.GraphObject` instances.
+    """
+
+    @classmethod
+    def wrap(cls, graph):
+        """ Wrap an existing :class:`.Graph` object as a
+        :class:`.Repository`.
+        """
+        obj = object.__new__(Repository)
+        obj.graph = graph
+        return obj
+
+    def __init__(self, uri=None, name=None, **settings):
+        self.graph = Graph(uri, name=name, **settings)
+
+    def reload(self, obj):
+        """ Reload data from the remote graph into the local object.
+        """
+        self.graph.pull(obj)
+
+    def save(self, obj):
+        """ Save data from the local object into the remote graph.
+        """
+        self.graph.push(obj)
+
+    def delete(self, obj):
+        """ Delete the object in the remote graph.
+        """
+        self.graph.delete(obj)
+
+    def exists(self, obj):
+        """ Check whether the object exists in the remote graph.
+        """
+        return self.graph.exists(obj)
+
+    def match(self, ogm_class, primary_value=None):
+        """ Select one or more objects from the remote graph.
+
+        :param ogm_class: the :class:`.GraphObject` subclass to match
+        :param primary_value: value of the primary property (optional)
+        :rtype: :class:`.GraphObjectMatch`
+        """
+        return GraphObjectMatcher(ogm_class, self).match(primary_value)
+
+    def get(self, ogm_class, primary_value=None):
+        """ Match and return a single object from the remote graph.
+
+        :param ogm_class: the :class:`.GraphObject` subclass to match
+        :param primary_value: value of the primary property (optional)
+        :rtype: :class:`.GraphObject`
+        """
+        return self.match(ogm_class, primary_value).first()
+
+    @deprecated("Repository.create is a compatibility alias, "
+                "please use Repository.save instead")
+    def create(self, obj):
+        self.graph.create(obj)
+
+    @deprecated("Repository.merge is a compatibility alias, "
+                "please use Repository.save instead")
+    def merge(self, obj):
+        self.graph.merge(obj)
+
+    @deprecated("Repository.pull is a compatibility alias, "
+                "please use Repository.load instead")
+    def pull(self, obj):
+        self.graph.pull(obj)
+
+    @deprecated("Repository.push is a compatibility alias, "
+                "please use Repository.save instead")
+    def push(self, obj):
+        self.graph.push(obj)

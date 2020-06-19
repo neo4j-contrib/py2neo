@@ -16,95 +16,99 @@
 # limitations under the License.
 
 
-from pytest import fixture
+from pytest import warns
 
-from py2neo.ogm import RelatedObjects, Property, RelatedTo, OUTGOING
-from py2neo.matching import NodeMatcher
+from py2neo.ogm import Property, RelatedTo
 
 from test.fixtures.ogm import MovieGraphObject, Person, Film
 
 
-def test_related_objects_are_automatically_loaded(movie_graph):
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
+def test_related_objects_are_automatically_loaded(movie_repo):
+    keanu = movie_repo.get(Person, "Keanu Reeves")
     film_titles = set(film.title for film in list(keanu.acted_in))
     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
-                           'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic'}
+                           'The Matrix', 'The Replacements', 'The Matrix Revolutions',
+                           'Johnny Mnemonic'}
 
 
-def test_graph_propagation(movie_graph):
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
+def test_graph_propagation(movie_repo):
+    keanu = movie_repo.get(Person, "Keanu Reeves")
     films = list(keanu.acted_in)
     colleagues = set()
     for film in films:
         colleagues |= set(film.actors)
     names = set(colleague.name for colleague in colleagues)
-    expected_names = {'Al Pacino', 'Dina Meyer', 'Keanu Reeves', 'Brooke Langton', 'Hugo Weaving', 'Diane Keaton',
-                      'Takeshi Kitano', 'Laurence Fishburne', 'Charlize Theron', 'Emil Eifrem', 'Orlando Jones',
-                      'Carrie-Anne Moss', 'Ice-T', 'Gene Hackman', 'Jack Nicholson'}
+    expected_names = {'Al Pacino', 'Dina Meyer', 'Keanu Reeves', 'Brooke Langton', 'Hugo Weaving',
+                      'Diane Keaton', 'Takeshi Kitano', 'Laurence Fishburne', 'Charlize Theron',
+                      'Emil Eifrem', 'Orlando Jones', 'Carrie-Anne Moss', 'Ice-T', 'Gene Hackman',
+                      'Jack Nicholson'}
     assert names == expected_names
 
 
-def test_can_add_related_object_and_push(movie_graph):
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
+def test_can_add_related_object_and_push(movie_repo):
+    keanu = movie_repo.get(Person, "Keanu Reeves")
     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
     keanu.acted_in.add(bill_and_ted)
-    movie_graph.push(keanu)
+    movie_repo.save(keanu)
     node_id = keanu.__node__.identity
-    film_titles = set(title for title, in movie_graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
-                                                          "WHERE id(a) = $x "
-                                                          "RETURN b.title", x=node_id))
+    film_titles = set(title
+                      for title, in movie_repo.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
+                                                         "WHERE id(a) = $x "
+                                                         "RETURN b.title", x=node_id))
     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
-                           'The Matrix', 'The Replacements', 'The Matrix Revolutions', 'Johnny Mnemonic',
-                           "Bill & Ted's Excellent Adventure"}
+                           'The Matrix', 'The Replacements', 'The Matrix Revolutions',
+                           'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
 
 
-def test_can_add_related_object_with_properties_and_push(movie_graph):
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
+def test_can_add_related_object_with_properties_and_push(movie_repo):
+    keanu = movie_repo.get(Person, "Keanu Reeves")
     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
     keanu.acted_in.add(bill_and_ted, roles=['Ted "Theodore" Logan'])
-    movie_graph.push(keanu)
+    movie_repo.save(keanu)
     node_id = keanu.__node__.identity
-    films = {title: roles for title, roles in movie_graph.run("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
-                                                              "WHERE id(a) = $x "
-                                                              "RETURN b.title, ab.roles", x=node_id)}
+    films = {title: roles
+             for title, roles in movie_repo.graph.run("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
+                                                      "WHERE id(a) = $x "
+                                                      "RETURN b.title, ab.roles", x=node_id)}
     bill_and_ted_roles = films["Bill & Ted's Excellent Adventure"]
     assert bill_and_ted_roles == ['Ted "Theodore" Logan']
 
 
-def test_can_remove_related_object_and_push(movie_graph):
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
-    johnny_mnemonic = Film.match(movie_graph, "Johnny Mnemonic").first()
+def test_can_remove_related_object_and_push(movie_repo):
+    keanu = movie_repo.get(Person, "Keanu Reeves")
+    johnny_mnemonic = Film.match(movie_repo, "Johnny Mnemonic").first()
     keanu.acted_in.remove(johnny_mnemonic)
-    movie_graph.push(keanu)
+    movie_repo.save(keanu)
     node_id = keanu.__node__.identity
-    film_titles = set(title for title, in movie_graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
-                                                          "WHERE id(a) = $x "
-                                                          "RETURN b.title", x=node_id))
+    film_titles = set(title
+                      for title, in movie_repo.graph.run("MATCH (a:Person)-[:ACTED_IN]->(b) "
+                                                         "WHERE id(a) = $x "
+                                                         "RETURN b.title", x=node_id))
     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded', "Something's Gotta Give",
                            'The Matrix', 'The Replacements', 'The Matrix Revolutions'}
 
 
-def test_can_add_property_to_existing_relationship(movie_graph):
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
-    johnny_mnemonic = Film.match(movie_graph, "Johnny Mnemonic").first()
+def test_can_add_property_to_existing_relationship(movie_repo):
+    keanu = movie_repo.get(Person, "Keanu Reeves")
+    johnny_mnemonic = Film.match(movie_repo, "Johnny Mnemonic").first()
     keanu.acted_in.add(johnny_mnemonic, foo="bar")
-    movie_graph.push(keanu)
+    movie_repo.save(keanu)
     node_id = keanu.__node__.identity
-    johnny_foo = movie_graph.evaluate("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
-                                      "WHERE id(a) = $x AND b.title = 'Johnny Mnemonic' "
-                                      "RETURN ab.foo", x=node_id)
+    johnny_foo = movie_repo.graph.evaluate("MATCH (a:Person)-[ab:ACTED_IN]->(b) "
+                                           "WHERE id(a) = $x AND b.title = 'Johnny Mnemonic' "
+                                           "RETURN ab.foo", x=node_id)
     assert johnny_foo == "bar"
 
 
-def test_can_match_one_object(movie_graph):
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
+def test_can_match_one_object(movie_repo):
+    keanu = movie_repo.get(Person, "Keanu Reeves")
     assert keanu.name == "Keanu Reeves"
     assert keanu.year_of_birth == 1964
 
 
-def test_can_match_by_id(movie_graph):
+def test_can_match_by_id(movie_repo):
     # given
-    keanu_0 = Person.match(movie_graph, "Keanu Reeves").first()
+    keanu_0 = movie_repo.get(Person, "Keanu Reeves")
     node_id = keanu_0.__node__.identity
 
     # when
@@ -119,7 +123,7 @@ def test_can_match_by_id(movie_graph):
         directed = RelatedTo("Film")
         produced = RelatedTo("test.fixtures.ogm.Film")
 
-    found = list(PersonById.match(movie_graph, node_id))
+    found = list(PersonById.match(movie_repo, node_id))
     assert found
     keanu = found[0]
 
@@ -128,9 +132,9 @@ def test_can_match_by_id(movie_graph):
     assert keanu.year_of_birth == 1964
 
 
-def test_can_match_one_by_id(movie_graph):
+def test_can_match_one_by_id(movie_repo):
     # given
-    keanu_0 = Person.match(movie_graph, "Keanu Reeves").first()
+    keanu_0 = movie_repo.get(Person, "Keanu Reeves")
     node_id = keanu_0.__node__.identity
 
     # when
@@ -145,20 +149,20 @@ def test_can_match_one_by_id(movie_graph):
         directed = RelatedTo("Film")
         produced = RelatedTo("test.fixtures.ogm.Film")
 
-    keanu = PersonById.match(movie_graph, node_id).first()
+    keanu = PersonById.match(movie_repo, node_id).first()
 
     # then
     assert keanu.name == "Keanu Reeves"
     assert keanu.year_of_birth == 1964
 
 
-def test_cannot_match_one_that_does_not_exist(movie_graph):
-    keanu = Person.match(movie_graph, "Keanu Jones").first()
+def test_cannot_match_one_that_does_not_exist(movie_repo):
+    keanu = Person.match(movie_repo, "Keanu Jones").first()
     assert keanu is None
 
 
-def test_can_match_multiple_objects(movie_graph):
-    people = list(Person.match(movie_graph, ("Keanu Reeves", "Hugo Weaving")))
+def test_can_match_multiple_objects(movie_repo):
+    people = list(Person.match(movie_repo, ("Keanu Reeves", "Hugo Weaving")))
     if people[0].name == "Keanu Reeves":
         keanu, hugo = people
     else:
@@ -169,122 +173,120 @@ def test_can_match_multiple_objects(movie_graph):
     assert hugo.year_of_birth == 1960
 
 
-def test_create(movie_graph):
+def test_create(movie_repo):
     # given
     alice = Person()
     alice.name = "Alice"
     alice.year_of_birth = 1970
-    alice.acted_in.add(Film.match(movie_graph, "The Matrix").first())
+    alice.acted_in.add(Film.match(movie_repo, "The Matrix").first())
 
     # when
-    movie_graph.create(alice)
+    movie_repo.save(alice)
 
     # then
     node = alice.__node__
-    assert node.graph == movie_graph
+    assert node.graph == movie_repo.graph
     assert node.identity is not None
 
 
-def test_create_has_no_effect_on_existing(movie_graph):
+def test_create_has_no_effect_on_existing(movie_repo):
     # given
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
+    keanu = movie_repo.get(Person, "Keanu Reeves")
 
     # when
     keanu.name = "Keanu Charles Reeves"
-    movie_graph.create(keanu)
+    with warns(DeprecationWarning):
+        movie_repo.create(keanu)
 
     # then
     node_id = keanu.__node__.identity
-    remote_name = movie_graph.evaluate("MATCH (a:Person) WHERE id(a) = $x "
-                                       "RETURN a.name", x=node_id)
+    remote_name = movie_repo.graph.evaluate("MATCH (a:Person) WHERE id(a) = $x "
+                                            "RETURN a.name", x=node_id)
     assert remote_name == "Keanu Reeves"
 
 
-def test_delete_on_existing(movie_graph):
+def test_delete_on_existing(movie_repo):
     # given
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
+    keanu = movie_repo.get(Person, "Keanu Reeves")
 
     # when
-    movie_graph.delete(keanu)
+    movie_repo.delete(keanu)
 
     # then
-    assert not movie_graph.exists(keanu)
+    assert not movie_repo.exists(keanu)
 
 
-def test_exists_on_existing(movie_graph):
+def test_exists_on_existing(movie_repo):
     # given
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
-
-    # when
-    exists = movie_graph.exists(keanu)
+    keanu = movie_repo.get(Person, "Keanu Reeves")
 
     # then
-    assert exists
+    assert movie_repo.exists(keanu)
 
 
-def test_not_exists_on_non_existing(movie_graph):
+def test_not_exists_on_non_existing(movie_repo):
     # given
     alice = Person()
     alice.name = "Alice Smith"
     alice.year_of_birth = 1970
 
     # when
-    exists = movie_graph.exists(alice)
+    exists = movie_repo.exists(alice)
 
     # then
     assert not exists
 
 
-def test_can_push_changes_to_existing(movie_graph):
+def test_can_push_changes_to_existing(movie_repo):
     # given
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
+    keanu = movie_repo.get(Person, "Keanu Reeves")
 
     # when
     keanu.name = "Keanu Charles Reeves"
-    movie_graph.push(keanu)
+    movie_repo.save(keanu)
 
     # then
     node_id = keanu.__node__.identity
-    remote_name = movie_graph.evaluate("MATCH (a:Person) WHERE id(a) = $x "
-                                       "RETURN a.name", x=node_id)
+    remote_name = movie_repo.graph.evaluate("MATCH (a:Person) WHERE id(a) = $x "
+                                            "RETURN a.name", x=node_id)
     assert remote_name == "Keanu Charles Reeves"
 
 
-def test_can_push_new(movie_graph):
+def test_can_push_new(movie_repo):
     # given
     alice = Person()
     alice.name = "Alice Smith"
     alice.year_of_birth = 1970
 
     # when
-    movie_graph.push(alice)
+    movie_repo.save(alice)
 
     # then
     node_id = alice.__node__.identity
-    remote_name = movie_graph.evaluate("MATCH (a:Person) WHERE id(a) = $x "
-                                       "RETURN a.name", x=node_id)
+    remote_name = movie_repo.graph.evaluate("MATCH (a:Person) WHERE id(a) = $x "
+                                            "RETURN a.name", x=node_id)
     assert remote_name == "Alice Smith"
 
 
-def test_can_push_new_that_points_to_existing(movie_graph):
+def test_can_push_new_that_points_to_existing(movie_repo):
     # given
     alice = Person()
     alice.name = "Alice Smith"
     alice.year_of_birth = 1970
-    alice.acted_in.add(Film.match(movie_graph, "The Matrix").first())
+    alice.acted_in.add(Film.match(movie_repo, "The Matrix").first())
 
     # when
-    movie_graph.push(alice)
+    movie_repo.save(alice)
 
     # then
     node_id = alice.__node__.identity
-    film_node = movie_graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) WHERE id(a) = $x RETURN b",
-                                     x=node_id)
+    film_node = movie_repo.graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) "
+                                          "WHERE id(a) = $x RETURN b", x=node_id)
     assert film_node["title"] == "The Matrix"
     assert film_node["tagline"] == "Welcome to the Real World"
 
 
-def test_can_push_new_that_points_to_new(movie_graph):
+def test_can_push_new_that_points_to_new(movie_repo):
     # given
     the_dominatrix = Film("The Dominatrix")
     alice = Person()
@@ -293,134 +295,120 @@ def test_can_push_new_that_points_to_new(movie_graph):
     alice.acted_in.add(the_dominatrix)
 
     # when
-    movie_graph.push(alice)
+    movie_repo.save(alice)
 
     # then
     node_id = alice.__node__.identity
-    film_node = movie_graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) WHERE id(a) = $x RETURN b",
-                                     x=node_id)
+    film_node = movie_repo.graph.evaluate("MATCH (a:Person)-[:ACTED_IN]->(b) "
+                                          "WHERE id(a) = $x RETURN b", x=node_id)
     assert film_node["title"] == "The Dominatrix"
 
 
-def test_can_push_with_incoming_relationships(movie_graph):
+def test_can_push_with_incoming_relationships(movie_repo):
     # given
-    matrix = Film.match(movie_graph, "The Matrix").first()
+    matrix = Film.match(movie_repo, "The Matrix").first()
 
     # when
-    matrix.actors.remove(Person.match(movie_graph, "Emil Eifrem").first())
-    movie_graph.push(matrix)
+    matrix.actors.remove(Person.match(movie_repo, "Emil Eifrem").first())
+    movie_repo.save(matrix)
 
     # then
     node_id = matrix.__node__.identity
     names = set()
-    for name, in movie_graph.run("MATCH (a:Movie)<-[:ACTED_IN]-(b) WHERE id(a) = $x "
-                                 "RETURN b.name", x=node_id):
+    for name, in movie_repo.graph.run("MATCH (a:Movie)<-[:ACTED_IN]-(b) WHERE id(a) = $x "
+                                      "RETURN b.name", x=node_id):
         names.add(name)
-    assert names, {'Keanu Reeves', 'Carrie-Anne Moss', 'Hugo Weaving' == 'Laurence Fishburne'}
+    assert names, {'Keanu Reeves', 'Carrie-Anne Moss',
+                   'Hugo Weaving' == 'Laurence Fishburne'}
 
 
-def test_can_load_and_pull(movie_graph):
-    keanu = Person.match(movie_graph, "Keanu Reeves").first()
+def test_can_load_and_pull(movie_repo):
+    keanu = movie_repo.get(Person, "Keanu Reeves")
     assert keanu.name == "Keanu Reeves"
     node_id = keanu.__node__.identity
-    movie_graph.run("MATCH (a:Person) WHERE id(a) = $x SET a.name = $y",
-                    x=node_id, y="Keanu Charles Reeves")
-    movie_graph.pull(keanu)
+    movie_repo.graph.run("MATCH (a:Person) WHERE id(a) = $x SET a.name = $y",
+                         x=node_id, y="Keanu Charles Reeves")
+    movie_repo.reload(keanu)
     assert keanu.name == "Keanu Charles Reeves"
 
 
-def test_can_pull_without_loading(movie_graph):
+def test_can_pull_without_loading(movie_repo):
     keanu = Person()
     keanu.name = "Keanu Reeves"
-    movie_graph.pull(keanu)
+    movie_repo.reload(keanu)
     assert keanu.year_of_birth == 1964
 
 
-def test_can_pull_with_incoming_relationships(movie_graph):
+def test_can_pull_with_incoming_relationships(movie_repo):
     # given
-    matrix = Film.match(movie_graph, "The Matrix").first()
+    matrix = Film.match(movie_repo, "The Matrix").first()
     node_id = matrix.__node__.identity
-    movie_graph.run("MATCH (a:Movie)<-[r:ACTED_IN]-(b) WHERE id(a) = $x AND b.name = 'Emil Eifrem' DELETE r",
-                    x=node_id)
+    movie_repo.graph.run("MATCH (a:Movie)<-[r:ACTED_IN]-(b) "
+                         "WHERE id(a) = $x AND b.name = 'Emil Eifrem' DELETE r", x=node_id)
 
     # when
-    movie_graph.pull(matrix)
+    movie_repo.reload(matrix)
 
     # then
     names = set(a.name for a in matrix.actors)
     assert names, {'Keanu Reeves', 'Carrie-Anne Moss', 'Hugo Weaving' == 'Laurence Fishburne'}
 
 
-@fixture()
-def new_keanu_acted_in(movie_graph):
-
-    def f():
-        keanu_node = NodeMatcher(movie_graph).match("Person", name="Keanu Reeves").first()
-        keanu_acted_in = RelatedObjects(keanu_node, OUTGOING, "ACTED_IN", Film)
-        return keanu_acted_in
-
-    return f
-
-
-def test_can_pull_related_objects(movie_graph, new_keanu_acted_in):
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+def test_can_pull_related_objects(movie_repo):
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
     film_titles = set(film.title for film in filmography)
     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                            "Something's Gotta Give", 'The Matrix', 'The Replacements',
                            'The Matrix Revolutions', 'Johnny Mnemonic'}
 
 
-def test_contains_object(movie_graph, new_keanu_acted_in):
+def test_contains_object(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
 
     # then
-    matrix_reloaded = Film.match(movie_graph, "The Matrix Reloaded").first()
+    matrix_reloaded = Film.match(movie_repo, "The Matrix Reloaded").first()
     assert matrix_reloaded in filmography
 
 
-def test_does_not_contain_object(movie_graph, new_keanu_acted_in):
+def test_does_not_contain_object(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
 
     # then
     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
     assert bill_and_ted not in filmography
 
 
-def test_can_add_object(movie_graph, new_keanu_acted_in):
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+def test_can_add_object(movie_repo):
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
     filmography.add(bill_and_ted)
     film_titles = set(film.title for film in filmography)
     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                            "Something's Gotta Give", 'The Matrix', 'The Replacements',
-                           'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
+                           'The Matrix Revolutions', 'Johnny Mnemonic',
+                           "Bill & Ted's Excellent Adventure"}
 
 
-def test_can_add_object_when_already_present(movie_graph, new_keanu_acted_in):
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+def test_can_add_object_when_already_present(movie_repo):
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
     filmography.add(bill_and_ted)
     filmography.add(bill_and_ted)
     film_titles = set(film.title for film in filmography)
     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                            "Something's Gotta Give", 'The Matrix', 'The Replacements',
-                           'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
+                           'The Matrix Revolutions', 'Johnny Mnemonic',
+                           "Bill & Ted's Excellent Adventure"}
 
 
-def test_can_remove_object(movie_graph, new_keanu_acted_in):
+def test_can_remove_object(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
 
     # when
-    matrix_reloaded = Film.match(movie_graph, "The Matrix Reloaded").first()
+    matrix_reloaded = Film.match(movie_repo, "The Matrix Reloaded").first()
     filmography.remove(matrix_reloaded)
 
     # then
@@ -430,11 +418,10 @@ def test_can_remove_object(movie_graph, new_keanu_acted_in):
                            'The Matrix Revolutions', 'Johnny Mnemonic'}
 
 
-def test_can_remove_object_when_already_absent(movie_graph, new_keanu_acted_in):
+def test_can_remove_object_when_already_absent(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
-    matrix_reloaded = Film.match(movie_graph, "The Matrix Reloaded").first()
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
+    matrix_reloaded = Film.match(movie_repo, "The Matrix Reloaded").first()
     filmography.remove(matrix_reloaded)
 
     # when
@@ -447,52 +434,50 @@ def test_can_remove_object_when_already_absent(movie_graph, new_keanu_acted_in):
                            'The Matrix Revolutions', 'Johnny Mnemonic'}
 
 
-def test_can_push_object_additions(movie_graph, new_keanu_acted_in):
+def test_can_push_object_additions(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
 
     # when
     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
     filmography.add(bill_and_ted)
-    movie_graph.push(filmography)
+    movie_repo.save(filmography)
 
     # then
     del filmography
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
+    movie_repo.reload(filmography)
     film_titles = set(film.title for film in filmography)
     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                            "Something's Gotta Give", 'The Matrix', 'The Replacements',
-                           'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
+                           'The Matrix Revolutions', 'Johnny Mnemonic',
+                           "Bill & Ted's Excellent Adventure"}
 
 
-def test_can_push_object_removals(movie_graph, new_keanu_acted_in):
+def test_can_push_object_removals(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
 
     # when
     matrix_reloaded = Film('The Matrix Reloaded')
     filmography.remove(matrix_reloaded)
-    movie_graph.push(filmography)
+    movie_repo.save(filmography)
 
     # then
     del filmography
-    movie_graph.node_cache.clear()
-    movie_graph.relationship_cache.clear()
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    movie_repo.graph.node_cache.clear()
+    movie_repo.graph.relationship_cache.clear()
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
+    movie_repo.reload(filmography)
     film_titles = set(film.title for film in filmography)
     assert film_titles == {"The Devil's Advocate",
                            "Something's Gotta Give", 'The Matrix', 'The Replacements',
                            'The Matrix Revolutions', 'Johnny Mnemonic'}
 
 
-def test_can_get_relationship_property(movie_graph, new_keanu_acted_in):
+def test_can_get_relationship_property(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
     matrix_reloaded = Film('The Matrix Reloaded')
 
     # then
@@ -500,10 +485,9 @@ def test_can_get_relationship_property(movie_graph, new_keanu_acted_in):
     assert roles == ["Neo"]
 
 
-def test_can_get_relationship_property_from_default(movie_graph, new_keanu_acted_in):
+def test_can_get_relationship_property_from_default(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
     matrix_reloaded = Film('The Matrix Reloaded')
 
     # then
@@ -511,10 +495,9 @@ def test_can_get_relationship_property_from_default(movie_graph, new_keanu_acted
     assert foo == "bar"
 
 
-def test_can_get_relationship_property_from_default_and_unknown_object(movie_graph, new_keanu_acted_in):
+def test_can_get_relationship_property_from_default_and_unknown_object(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
 
     # then
@@ -522,95 +505,92 @@ def test_can_get_relationship_property_from_default_and_unknown_object(movie_gra
     assert foo == "bar"
 
 
-def test_can_push_property_additions(movie_graph, new_keanu_acted_in):
+def test_can_push_property_additions(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
 
     # when
     matrix = Film("The Matrix")
-    filmography.update(matrix, good=True)
-    movie_graph.push(filmography)
+    filmography.add(matrix, good=True)
+    movie_repo.save(filmography)
 
     # then
     del filmography
-    movie_graph.node_cache.clear()
-    movie_graph.relationship_cache.clear()
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    movie_repo.graph.node_cache.clear()
+    movie_repo.graph.relationship_cache.clear()
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
+    movie_repo.reload(filmography)
     good = filmography.get(matrix, "good")
     assert good
 
 
-def test_can_push_property_removals(movie_graph, new_keanu_acted_in):
+def test_can_push_property_removals(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
 
     # when
     matrix = Film("The Matrix")
-    filmography.update(matrix, roles=None)
-    movie_graph.push(filmography)
+    filmography.add(matrix, roles=None)
+    movie_repo.save(filmography)
 
     # then
     del filmography
-    movie_graph.node_cache.clear()
-    movie_graph.relationship_cache.clear()
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    movie_repo.graph.node_cache.clear()
+    movie_repo.graph.relationship_cache.clear()
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
+    movie_repo.reload(filmography)
     roles = filmography.get(matrix, "roles")
     assert roles is None
 
 
-def test_can_push_property_updates(movie_graph, new_keanu_acted_in):
+def test_can_push_property_updates(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
 
     # when
     matrix = Film("The Matrix")
-    filmography.update(matrix, roles=1)
-    movie_graph.push(filmography)
+    filmography.add(matrix, roles=1)
+    movie_repo.save(filmography)
 
     # then
     del filmography
-    movie_graph.node_cache.clear()
-    movie_graph.relationship_cache.clear()
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    movie_repo.graph.node_cache.clear()
+    movie_repo.graph.relationship_cache.clear()
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
+    movie_repo.reload(filmography)
     roles = filmography.get(matrix, "roles")
     assert roles == 1
 
 
-def test_can_push_property_updates_on_new_object(movie_graph, new_keanu_acted_in):
+def test_can_push_property_updates_on_new_object(movie_repo):
     # given
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
 
     # when
     bill_and_ted = Film("Bill & Ted's Excellent Adventure")
-    filmography.update(bill_and_ted, good=True)
-    movie_graph.push(filmography)
+    filmography.add(bill_and_ted, good=True)
+    movie_repo.save(filmography)
 
     # then
     del filmography
-    movie_graph.node_cache.clear()
-    movie_graph.relationship_cache.clear()
-    filmography = new_keanu_acted_in()
-    movie_graph.pull(filmography)
+    movie_repo.graph.node_cache.clear()
+    movie_repo.graph.relationship_cache.clear()
+    filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
+    movie_repo.reload(filmography)
     film_titles = set(film.title for film in filmography)
     assert film_titles == {"The Devil's Advocate", 'The Matrix Reloaded',
                            "Something's Gotta Give", 'The Matrix', 'The Replacements',
-                           'The Matrix Revolutions', 'Johnny Mnemonic', "Bill & Ted's Excellent Adventure"}
+                           'The Matrix Revolutions', 'Johnny Mnemonic',
+                           "Bill & Ted's Excellent Adventure"}
 
     # and
     good = filmography.get(bill_and_ted, "good")
     assert good
 
 
-def test_property_default(movie_graph):
+def test_property_default(movie_repo):
     # given
-    film = Film.match(movie_graph, "Something's Gotta Give").first()
+    film = Film.match(movie_repo, "Something's Gotta Give").first()
 
     # then
     assert film.tag_line == "Bit boring"

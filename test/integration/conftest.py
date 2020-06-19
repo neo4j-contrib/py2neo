@@ -25,6 +25,7 @@ from pytest import fixture
 from py2neo import Graph
 from py2neo.client import Connector, ConnectionProfile
 from py2neo.database import GraphService
+from py2neo.ogm import Repository
 from py2neo.server import Neo4jService
 from py2neo.security import make_self_signed_certificate
 
@@ -181,6 +182,11 @@ def movie_graph(graph):
     graph.run(cypher)
     yield graph
     graph.delete_all()
+
+
+@fixture(scope="function")
+def movie_repo(movie_graph):
+    return Repository.wrap(movie_graph)
 
 
 @fixture()

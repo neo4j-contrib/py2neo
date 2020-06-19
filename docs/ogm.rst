@@ -32,6 +32,13 @@ A simple example, based on the movie graph data set::
        produced = RelatedTo(Movie)
 
 
+Repositories
+============
+
+.. autoclass:: py2neo.ogm.Repository
+   :members:
+
+
 Graph Objects
 =============
 
