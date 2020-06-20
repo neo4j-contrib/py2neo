@@ -108,20 +108,24 @@ Run a Cypher query
               help="Set the connection URI.")
 @click.option("-a", "--auth", default=NEO4J_AUTH, metavar="USER:PASSWORD",
               help="Set the user and password.")
+@click.option("-q", "--quiet", is_flag=True, default=False,
+              help="Hide all output.")
 @click.option("-s", "--secure", is_flag=True, default=False,
               help="Use encrypted communication (TLS).")
 @click.option("-v", "--verbose", is_flag=True, default=False,
               help="Show low level communication detail.")
+@click.option("-x", "--times", type=int, default=1,
+              help="Number of times to repeat.")
 @click.argument("cypher", nargs=-1)
-def py2neo_run(cypher, uri, auth=None, secure=None, verbose=None):
+def py2neo_run(cypher, uri, auth=None, secure=False, verbose=False, quiet=False, times=1):
     from py2neo.client.console import ClientConsole, ClientConsoleError
     try:
-        con = ClientConsole(uri, auth=auth, secure=secure, verbose=verbose)
+        con = ClientConsole(uri, auth=auth, secure=secure, verbose=verbose, quiet=quiet)
     except ClientConsoleError as error:
         click.echo(error)
         raise SystemExit(1)
     else:
-        raise SystemExit(con.run_all(cypher))
+        raise SystemExit(con.run_all(cypher, times=times))
 
 
 @py2neo.command("server", help="""\

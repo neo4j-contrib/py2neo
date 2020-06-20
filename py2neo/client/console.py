@@ -113,7 +113,8 @@ def is_command(source):
 class ClientConsole(object):
 
     def echo(self, text, file=None, nl=True, err=False, color=None, **styles):
-        return click.secho(text, file=file, nl=nl, err=err, color=color, **styles)
+        if not self.quiet:
+            click.secho(text, file=file, nl=nl, err=err, color=color, **styles)
 
     def prompt(self, *args, **kwargs):
         return prompt(*args, **kwargs)
@@ -129,6 +130,7 @@ class ClientConsole(object):
     def __init__(self, uri=None, **settings):
         self.output_file = settings.pop("file", None)
         verbose = settings.pop("verbose", False)
+        self.quiet = settings.pop("quiet", False)
         profile = ConnectionProfile(uri, **settings)
         try:
             self.graph = Graph(uri, **settings)
@@ -198,14 +200,15 @@ class ClientConsole(object):
             except OSError as error:
                 self.echo("Service Unavailable: %s" % (error.args[0]), err=True)
 
-    def run_all(self, sources):
+    def run_all(self, sources, times=1):
         gap = False
-        for s in sources:
-            if gap:
-                self.echo("")
-            self.run(s)
-            if not is_command(s):
-                gap = True
+        for _ in range(times):
+            for s in sources:
+                if gap:
+                    self.echo("")
+                self.run(s)
+                if not is_command(s):
+                    gap = True
         return 0
 
     def run(self, source):
@@ -325,9 +328,10 @@ class ClientConsole(object):
     def write_result(self, result, page_size=50):
         table = Table(result)
         table_size = len(table)
-        for skip in range(0, table_size, page_size):
-            self.result_writer(table, file=self.output_file, header={"fg": "cyan", "bold": True}, skip=skip, limit=page_size)
-            self.echo("\r\n", nl=False)
+        if not self.quiet:
+            for skip in range(0, table_size, page_size):
+                self.result_writer(table, file=self.output_file, header={"fg": "cyan", "bold": True}, skip=skip, limit=page_size)
+                self.echo("\r\n", nl=False)
         return table_size
 
     def run_command(self, source):
