@@ -205,8 +205,10 @@ class Wire(object):
 
     def read(self, n):
         while len(self.__input) < n:
+            required = n - len(self.__input)
+            requested = max(required, 8192)
             try:
-                received = self.__socket.recv(n - len(self.__input))
+                received = self.__socket.recv(requested)
             except (IOError, OSError):
                 self.__broken = True
                 raise WireError("Broken")

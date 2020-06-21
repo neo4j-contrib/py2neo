@@ -30,6 +30,8 @@ from py2neo.server import Neo4jService
 from py2neo.security import make_self_signed_certificate
 
 
+QUICK_TEST = bool(getenv("QUICK_TEST", False))
+
 NEO4J_HOST = "localhost"
 NEO4J_PORTS = {
     "bolt": 7687,
@@ -124,15 +126,20 @@ class TestProfile(object):
 
 
 # TODO: test with full certificates
-neo4j_service_profiles = [
-    ServiceProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
-    ServiceProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
-    # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),
-    ServiceProfile(release=(3, 5), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
-    # ServiceProfile(release=(3, 5), topology="CE", cert="full", schemes=ALL_SCHEMES),
-    ServiceProfile(release=(3, 4), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
-    # ServiceProfile(release=(3, 4), topology="CE", cert="full", schemes=ALL_SCHEMES),
-]
+if QUICK_TEST:
+    neo4j_service_profiles = [
+        ServiceProfile(release=(4, 0), topology="CE", schemes=["bolt"]),
+    ]
+else:
+    neo4j_service_profiles = [
+        ServiceProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
+        ServiceProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+        # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),
+        ServiceProfile(release=(3, 5), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+        # ServiceProfile(release=(3, 5), topology="CE", cert="full", schemes=ALL_SCHEMES),
+        ServiceProfile(release=(3, 4), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+        # ServiceProfile(release=(3, 4), topology="CE", cert="full", schemes=ALL_SCHEMES),
+    ]
 neo4j_test_profiles = [TestProfile(sp, scheme=s)
                        for sp in neo4j_service_profiles
                        for s in sp.schemes]
