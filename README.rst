@@ -52,7 +52,7 @@ Requirements
    :target: https://www.python.org/
    :alt: Python versions
 
-.. image:: https://img.shields.io/badge/neo4j-3.2%20%7C%203.3%20%7C%203.4%20%7C%203.5%20%7C%204.0-blue.svg
+.. image:: https://img.shields.io/badge/neo4j-3.4%20%7C%203.5%20%7C%204.0-blue.svg
    :target: https://neo4j.com/
    :alt: Neo4j versions
 
