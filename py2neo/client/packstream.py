@@ -617,7 +617,11 @@ class MessageReader(object):
                 chunks.append(chunk)
             else:
                 more = False
-        message = b"".join(chunks)
+        try:
+            message = b"".join(chunks)
+        except TypeError:
+            # Python 2 compatibility
+            message = bytearray(b"".join(map(bytes, chunks)))
         _, n = divmod(message[0], 0x10)
         tag = message[1]
         unpacker = UnpackStream(message[2:])
