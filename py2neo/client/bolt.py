@@ -218,7 +218,7 @@ class Bolt1(Bolt):
 
     def reset(self, force=False):
         self._assert_open()
-        if force or self._transaction is not None:
+        if force or self._transaction:
             log.debug("[#%04X] C: RESET", self.local_port)
             response = self._write_request(0x0F, vital=True)
             self._sync(response)
@@ -379,6 +379,8 @@ class Bolt1(Bolt):
             self._responses.popleft()
             if rs.vital:
                 self._wire.close()
+            else:
+                self.reset(force=True)
         elif tag == 0x7E and not rs.vital:
             log.debug("[#%04X] S: IGNORED", self.local_port)
             rs.set_ignored()
