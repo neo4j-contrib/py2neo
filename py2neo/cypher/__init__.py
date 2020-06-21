@@ -146,7 +146,7 @@ class Procedure(object):
         return [record[0][len(prefix):] for record in proc(keys=["name"])
                 if record[0].startswith(prefix)]
 
-    def __call__(self, *args, keys=None):
+    def __call__(self, *args, **kwargs):
         """ Call a procedure by name.
 
         For example:
@@ -164,6 +164,7 @@ class Procedure(object):
         procedure_name = ".".join(cypher_escape(part) for part in self.name.split("."))
         arg_list = [(str(i), arg) for i, arg in enumerate(args)]
         cypher = "CALL %s(%s)" % (procedure_name, ", ".join("$" + a[0] for a in arg_list))
+        keys = kwargs.get("keys")
         if keys:
             cypher += " YIELD %s" % ", ".join(keys)
         return self.graph.run(cypher, dict(arg_list))

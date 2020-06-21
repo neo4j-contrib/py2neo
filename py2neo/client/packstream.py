@@ -609,14 +609,19 @@ class MessageReader(object):
             return b""
 
     def read_message(self):
-        message = bytearray()
+        chunks = []
         more = True
         while more:
             chunk = self._read_chunk()
             if chunk:
-                message.extend(chunk)
+                chunks.append(chunk)
             else:
                 more = False
+        try:
+            message = b"".join(chunks)
+        except TypeError:
+            # Python 2 compatibility
+            message = bytearray(b"".join(map(bytes, chunks)))
         _, n = divmod(message[0], 0x10)
         tag = message[1]
         unpacker = UnpackStream(message[2:])

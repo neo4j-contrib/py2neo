@@ -720,9 +720,11 @@ class DirectConnectionPool(ConnectionPool):
             reset before being released back into the pool; if false,
             this will only occur if the connection is not already in a
             clean state
-        :raise ValueError: if the connection is not currently in use,
-            or if it does not belong to this pool
+        :raise ValueError: if the connection does not belong to this
+            pool
         """
+        if cx in self._free_list or cx in self._quarantine:
+            return
         log.debug("Releasing connection %r", cx)
         if cx in self._in_use_list:
             self._in_use_list.remove(cx)
@@ -742,10 +744,6 @@ class DirectConnectionPool(ConnectionPool):
             else:
                 # If the pool is full, simply close the connection.
                 cx.close()
-        elif cx in self._free_list:
-            raise ValueError("Connection is not in use")
-        elif cx in self._quarantine:
-            pass
         else:
             raise ValueError("Connection %r does not belong to this pool" % cx)
 

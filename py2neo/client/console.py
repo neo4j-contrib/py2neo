@@ -35,7 +35,7 @@ from prompt_toolkit.styles import merge_styles, style_from_pygments_cls, style_f
 from pygments.styles.native import NativeStyle
 from pygments.token import Token
 
-from py2neo.client import ConnectionProfile, Failure
+from py2neo.client import ConnectionProfile, Failure, TransactionError
 from py2neo.cypher.lexer import CypherLexer
 from py2neo.data import Table
 from py2neo.database import Graph
@@ -230,8 +230,8 @@ class ClientConsole(object):
             else:
                 pass
             self.echo("{}: {}".format(error.title, error.message), err=True)
-        # except TransactionError:
-        #     self.echo("Transaction error", err=True, fg=self.err_colour)
+        except TransactionError:
+            raise
         except OSError:
             raise
         except Exception as error:
@@ -244,7 +244,7 @@ class ClientConsole(object):
             self.echo(u"--- BEGIN at {} ---".format(datetime.now()),
                       err=True, fg=self.tx_colour, bold=True)
         else:
-            self.echo(u"Transaction already open", err=True, fg=self.err_colour)
+            raise TransactionError("Transaction already open")
 
     def commit_transaction(self):
         if self.tx:
@@ -256,7 +256,7 @@ class ClientConsole(object):
                 self.tx = None
                 self.tx_counter = 0
         else:
-            self.echo(u"No current transaction", err=True, fg=self.err_colour)
+            raise TransactionError("No current transaction")
 
     def rollback_transaction(self):
         if self.tx:
@@ -268,7 +268,7 @@ class ClientConsole(object):
                 self.tx = None
                 self.tx_counter = 0
         else:
-            self.echo(u"No current transaction", err=True, fg=self.err_colour)
+            raise TransactionError("No current transaction")
 
     def read(self):
         if self.multi_line:
