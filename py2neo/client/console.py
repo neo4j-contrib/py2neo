@@ -128,9 +128,12 @@ class ClientConsole(object):
     prompt_colour = "cyan"
 
     def __init__(self, uri=None, **settings):
-        self.output_file = settings.pop("file", None)
         verbose = settings.pop("verbose", False)
+        if verbose:
+            from py2neo.diagnostics import watch
+            self.watcher = watch("py2neo")
         self.quiet = settings.pop("quiet", False)
+        self.output_file = settings.pop("file", None)
         profile = ConnectionProfile(uri, **settings)
         try:
             self.graph = Graph(uri, **settings)
@@ -154,9 +157,6 @@ class ClientConsole(object):
         }
         self.lexer = CypherLexer()
         self.result_writer = Table.write
-        if verbose:
-            from py2neo.diagnostics import watch
-            self.watcher = watch("py2neo")
 
         self.commands = {
 

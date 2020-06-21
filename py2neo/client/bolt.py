@@ -119,12 +119,12 @@ class Bolt(Connection):
 
     @classmethod
     def _connect(cls, profile):
-        log.debug("[#%04X] C: <DIAL> '%s'", 0, profile.address)
+        log.debug("[#%04X] C: (Dialing <%s>)", 0, profile.address)
         wire = Wire.open(profile.address, keep_alive=True)
         local_port = wire.local_address.port_number
-        log.debug("[#%04X] S: <ACCEPT>", local_port)
+        log.debug("[#%04X] S: (Accepted)", local_port)
         if profile.secure:
-            log.debug("[#%04X] C: <SECURE>", local_port)
+            log.debug("[#%04X] C: (Securing connection)", local_port)
             wire.secure(verify=profile.verify, hostname=profile.host)
         return wire
 
@@ -155,7 +155,7 @@ class Bolt(Connection):
             return
         self._goodbye()
         self._wire.close()
-        log.debug("[#%04X] C: <HANGUP>", self.local_port)
+        log.debug("[#%04X] C: (Hanging up)", self.local_port)
 
     @property
     def closed(self):
@@ -352,7 +352,7 @@ class Bolt1(Bolt):
     def _send(self):
         sent = self._writer.send()
         if sent:
-            log.debug("[#%04X] C: <SENT %r bytes>", self.local_port, sent)
+            log.debug("[#%04X] C: (Sent %r bytes)", self.local_port, sent)
 
     def _fetch(self):
         """ Fetch and process the next incoming message.
@@ -386,7 +386,7 @@ class Bolt1(Bolt):
             rs.set_ignored()
             self._responses.popleft()
         else:
-            log.debug("[#%04X] S: <ERROR>", self.local_port)
+            log.debug("[#%04X] S: (Unexpected protocol message #%02X)", self.local_port, tag)
             self._wire.close()
             raise RuntimeError("Unexpected protocol message #%02X", tag)
 
