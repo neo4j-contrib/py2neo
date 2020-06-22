@@ -1,9 +1,9 @@
 <!doctype html>
-<html>
+<html lang="en">
 
   <head>
     <title>The Movie Graph</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    <link rel="stylesheet" href="/static/main.css">
   </head>
 
   <body>

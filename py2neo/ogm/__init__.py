@@ -558,10 +558,15 @@ class Repository(object):
         """
         self.graph.pull(obj)
 
-    def save(self, obj):
+    def save(self, *objects):
         """ Save data from the local object into the remote graph.
         """
-        self.graph.push(obj)
+
+        def push_all(tx):
+            for obj in objects:
+                tx.push(obj)
+
+        self.graph.play(push_all)
 
     def delete(self, obj):
         """ Delete the object in the remote graph.

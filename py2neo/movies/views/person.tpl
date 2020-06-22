@@ -3,7 +3,7 @@
 
   <head>
     <title>{{ person.name }} - The Movie Graph</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    <link rel="stylesheet" href="/static/main.css">
   </head>
 
   <body>
@@ -18,30 +18,30 @@
     <dl>
       <dt>Name:</dt>
         <dd>{{ person.name }}</dd>
-      {% if person.born: %}
+      % if person.born:
       <dt>Born:</dt>
         <dd>{{ person.born }}</dd>
-      {% endif %}
+      % end
     </dl>
 
-    {% if movies: %}
+    % if movies:
     <h2>Movies</h2>
     <ul>
-    {% for movie, role in movies|sort: %}
+    % for movie, role in movies:
       <li class="{{ role }}"><a href="/movie/{{ movie }}">{{ movie }}</a> [{{ role }}]</li>
-    {% endfor %}
+    % end
     </ul>
-    {% endif %}
+    % end
 
-    {% if person.reviewed: %}
+    % if person.reviewed:
     <h2>Reviews</h2>
-    {% for movie in person.reviewed: %}
+    % for movie in person.reviewed:
     <p>
       Reviewed <a href="/movie/{{ movie.title }}">{{ movie.title }}</a> and gave it {{ person.reviewed.get(movie, "rating") }}%, saying...
       <blockquote>{{ person.reviewed.get(movie, "summary") }}</blockquote>
     </p>
-    {% endfor %}
-    {% endif %}
+    % end
+    % end
 
 
     <div class="footer">

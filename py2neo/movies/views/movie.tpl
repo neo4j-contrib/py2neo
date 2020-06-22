@@ -3,7 +3,7 @@
 
   <head>
     <title>{{ movie.title }} [{{ movie.released }}] - The Movie Graph</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    <link rel="stylesheet" href="/static/main.css">
   </head>
 
   <body>
@@ -22,34 +22,34 @@
           <dd>{{ movie.released }}</dd>
         <dt>Directors:</dt>
           <dd>
-            {% for director in movie.directors|sort: %}
+            % for director in movie.directors:
                 <a href="/person/{{director.name}}">{{director.name}}</a><br>
-            {% endfor %}
+            % end
           </dd>
-        {% if movie.writers: %}
+        % if movie.writers:
         <dt>Writers:</dt>
           <dd>
-            {% for writer in movie.writers|sort: %}
+            % for writer in movie.writers:
                 <a href="/person/{{ writer.name }}">{{writer.name}}</a><br>
-            {% endfor %}
+            % end
           </dd>
-        {% endif %}
+        % end
     </dl>
 
     <h2>Cast</h2>
     <ul>
-    {% for actor in movie.actors|sort: %}
+    % for actor in movie.actors:
         <li><a href="/person/{{ actor.name }}">{{ actor.name }}</a></li>
-    {% endfor %}
+    % end
     </ul>
     
     <h2>Reviews</h2>
-    {% for reviewer in movie.reviewers: %}
+    % for reviewer in movie.reviewers:
     <p>
       <a href="/person/{{ reviewer.name }}">{{ reviewer.name }}</a> gave it {{ movie.reviewers.get(reviewer, "rating") }}% and said...
       <blockquote>{{ movie.reviewers.get(reviewer, "summary") }}</blockquote>
     </p>
-    {% endfor %}
+    % end
     
     <form method="POST" action="review">
       <h3>Submit a new review</h3>

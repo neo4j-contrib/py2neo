@@ -16,6 +16,7 @@
 # limitations under the License.
 
 
+from os import chdir, path
 from sys import exit
 
 import click
@@ -179,6 +180,14 @@ def py2neo_server(name, image, auth, self_signed_certificate):
             message += "\n" + e.explanation
         click.echo(message, err=True)
         exit(1)
+
+
+@py2neo.command("movies", help="""\
+Launch the movies application.
+""")
+def py2neo_movies():
+    from py2neo.packages.bottle import load_app
+    load_app("py2neo.movies").run()
 
 
 def main():

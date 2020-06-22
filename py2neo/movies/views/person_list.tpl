@@ -3,7 +3,7 @@
 
   <head>
     <title>Person List - The Movie Graph</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    <link rel="stylesheet" href="/static/main.css">
   </head>
 
   <body>
@@ -14,9 +14,9 @@
 
     <h1>People</h1>
     <ul>
-    {% for person in people|sort: %}
+    % for person in people:
         <li><a href="/person/{{ person.name }}">{{ person.name }}</a></li>
-    {% endfor %}
+    % end
     </ul>
 
     <div class="footer">
