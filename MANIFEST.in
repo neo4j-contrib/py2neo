@@ -1,6 +1,6 @@
 include LICENSE NOTICE README.rst
 recursive-exclude test *
 
-include py2neo/demo/movies/README.md
-recursive-include py2neo/demo/movies/static *
-recursive-include py2neo/demo/movies/templates *
+include py2neo/movies/README.md
+recursive-include py2neo/movies/static *
+recursive-include py2neo/movies/templates *
