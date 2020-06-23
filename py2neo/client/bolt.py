@@ -113,8 +113,8 @@ class Bolt(Connection):
             raise RuntimeError("Unable to agree supported protocol version")
         bolt = subclass(wire, profile, (user_agent or bolt_user_agent()),
                         on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
-        bolt._hello()
         bolt.__local_port = wire.local_address.port_number
+        bolt._hello()
         return bolt
 
     @classmethod
