@@ -29,7 +29,7 @@ from py2neo.meta import (
     NEO4J_SECURE,
     NEO4J_VERIFY,
 )
-from py2neo.wire import Address
+from py2neo.wiring import Address
 
 
 DEFAULT_PROTOCOL = "bolt"

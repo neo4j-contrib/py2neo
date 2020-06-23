@@ -22,7 +22,7 @@ from sys import exit
 import click
 
 from py2neo.meta import NEO4J_URI, NEO4J_AUTH
-from py2neo.wire import Address
+from py2neo.wiring import Address
 
 
 class AddressParamType(click.ParamType):

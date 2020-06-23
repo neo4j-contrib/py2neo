@@ -54,7 +54,7 @@ from py2neo.client import Connection, Transaction, TransactionError, Result, Fai
 from py2neo.client.packstream import MessageReader, MessageWriter, PackStreamHydrant
 from py2neo.meta import bolt_user_agent
 from py2neo.versioning import Version
-from py2neo.wire import Wire
+from py2neo.wiring import Wire
 
 
 log = getLogger(__name__)
