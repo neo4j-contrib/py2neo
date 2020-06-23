@@ -87,6 +87,19 @@ class Bookmark(object):
 
 class ConnectionProfile(object):
     """ Connection details for a Neo4j service.
+
+    Configuration keys:
+    - uri
+    - auth
+    - secure
+    - verify
+    - scheme
+    - user
+    - password
+    - address
+    - host
+    - port
+
     """
 
     secure = None
