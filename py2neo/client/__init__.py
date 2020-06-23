@@ -572,6 +572,7 @@ class DirectConnectionPool(ConnectionPool):
         self._quarantine = deque()
         self._free_list = deque()
         self._waiting_list = WaitingList()  # TODO: consider moving this to Connector
+        self._supports_multi = False
 
     def __del__(self):
         try:
@@ -712,6 +713,8 @@ class DirectConnectionPool(ConnectionPool):
                     cx = Connection.open(self.profile, user_agent=self.user_agent,
                                          on_bind=self._on_bind, on_unbind=self._on_unbind,
                                          on_release=lambda c: self.release(c))
+                    if cx.supports_multi():
+                        self._supports_multi = True
                 else:
                     # Plan C: wait for more capacity to become
                     # available, then try again
@@ -806,6 +809,9 @@ class DirectConnectionPool(ConnectionPool):
                 closers.append(cx.close)
         for closer in closers:
             closer()
+
+    def supports_multi(self):
+        return self._supports_multi
 
 
 class RoutingConnectionPool(ConnectionPool):
@@ -1192,16 +1198,26 @@ class Connector(ConnectionPool):
         cx.sync(result)  # TODO: avoid sync on every tx.run
         return result
 
+    def supports_multi(self):
+        return self._connections.supports_multi()
+
     def _show_databases(self):
-        cx = self.acquire("system", readonly=True)
-        result = cx.auto_run("system", "SHOW DATABASES")
-        cx.pull(result)
-        cx.sync(result)
-        return result
+        if self.supports_multi():
+            cx = self.acquire("system", readonly=True)
+            try:
+                result = cx.auto_run("system", "SHOW DATABASES")
+                cx.pull(result)
+                cx.sync(result)
+                return result
+            finally:
+                cx.release()
+        else:
+            raise TypeError("Multi-database not supported")
 
     def graph_names(self):
         """ Fetch a list of available graph database names.
         """
+
         try:
             result = self._show_databases()
         except TypeError:
