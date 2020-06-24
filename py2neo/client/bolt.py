@@ -51,8 +51,8 @@ from itertools import islice
 from logging import getLogger
 
 from py2neo.client import Connection, Transaction, TransactionError, Result, Failure, Bookmark
+from py2neo.client.config import bolt_user_agent
 from py2neo.client.packstream import MessageReader, MessageWriter, PackStreamHydrant
-from py2neo.meta import bolt_user_agent
 from py2neo.versioning import Version
 from py2neo.wiring import Wire
 

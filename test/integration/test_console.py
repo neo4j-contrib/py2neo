@@ -21,7 +21,7 @@ from io import StringIO
 from pytest import fixture, raises
 
 from py2neo.client.console import ClientConsole
-from py2neo.meta import __version__
+from py2neo import __version__
 
 
 class CapturedClientConsole(ClientConsole):

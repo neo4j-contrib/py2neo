@@ -22,7 +22,7 @@ try:
 except ImportError:
     from distutils.core import setup, find_packages
 
-from py2neo.meta import __author__, __email__, __license__, __package__, __version__
+import py2neo
 
 
 with open(path_join(dirname(__file__), "README.rst")) as f:
@@ -30,14 +30,14 @@ with open(path_join(dirname(__file__), "README.rst")) as f:
 
 packages = find_packages(exclude=("docs", "test"))
 package_metadata = {
-    "name": __package__,
-    "version": __version__,
+    "name": py2neo.__package__,
+    "version": py2neo.__version__,
     "description": "Python client library and toolkit for Neo4j",
     "long_description": README,
     "long_description_content_type": "text/markdown",
-    "author": __author__,
-    "author_email": __email__,
-    "url": "http://py2neo.org/",
+    "author": py2neo.__author__,
+    "author_email": py2neo.__email__,
+    "url": "https://py2neo.org/",
     "entry_points": {
         "console_scripts": [
             "py2neo = py2neo.__main__:main",
@@ -62,7 +62,7 @@ package_metadata = {
     ],
     "extras_require": {
     },
-    "license": __license__,
+    "license": py2neo.__license__,
     "classifiers": [
         "Development Status :: 6 - Mature",
         "Environment :: Console",

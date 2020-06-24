@@ -16,12 +16,10 @@
 # limitations under the License.
 
 
-from os import chdir, path
 from sys import exit
 
 import click
 
-from py2neo.meta import NEO4J_URI, NEO4J_AUTH
 from py2neo.wiring import Address
 
 
@@ -76,16 +74,16 @@ def py2neo():
 Display the current library version
 """)
 def py2neo_version():
-    from py2neo.meta import __version__
+    from py2neo import __version__
     click.echo(__version__)
 
 
 @py2neo.command("console", help="""\
 Interactive Cypher console
 """)
-@click.option("-u", "--uri", default=NEO4J_URI,
+@click.option("-u", "--uri",
               help="Set the connection URI.")
-@click.option("-a", "--auth", default=NEO4J_AUTH, metavar="USER:PASSWORD",
+@click.option("-a", "--auth", metavar="USER:PASSWORD",
               help="Set the user and password.")
 @click.option("-s", "--secure", is_flag=True, default=False,
               help="Use encrypted communication (TLS).")
@@ -105,9 +103,9 @@ def py2neo_console(uri, auth=None, secure=None, verbose=None):
 @py2neo.command("run", help="""\
 Run a Cypher query
 """)
-@click.option("-u", "--uri", default=NEO4J_URI,
+@click.option("-u", "--uri",
               help="Set the connection URI.")
-@click.option("-a", "--auth", default=NEO4J_AUTH, metavar="USER:PASSWORD",
+@click.option("-a", "--auth", metavar="USER:PASSWORD",
               help="Set the user and password.")
 @click.option("-q", "--quiet", is_flag=True, default=False,
               help="Hide all output.")

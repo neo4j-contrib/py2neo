@@ -39,7 +39,7 @@ from py2neo.client import ConnectionProfile, Failure, TransactionError
 from py2neo.cypher.lexer import CypherLexer
 from py2neo.data import Table
 from py2neo.database import Graph
-from py2neo.meta import __version__
+from py2neo import __version__
 
 
 EDITOR = environ.get("EDITOR", "vim")
