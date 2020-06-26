@@ -683,7 +683,7 @@ class BoltResult(ItemizedTask, Result):
 
     def summary(self):
         return dict(self._items[-1].metadata,
-                    connection=self.__cx.profile.to_dict())
+                    connection=dict(self.__cx.profile))
 
     def fetch(self):
         return self.__cx.fetch(self)

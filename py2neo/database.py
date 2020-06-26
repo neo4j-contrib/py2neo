@@ -23,7 +23,8 @@ from time import sleep
 from warnings import warn
 
 from py2neo.caching import ThreadLocalEntityCache
-from py2neo.client import Connector, Connection, ConnectionProfile, TransactionError
+from py2neo.client import Connector, Connection, TransactionError
+from py2neo.client.config import ConnectionProfile
 from py2neo.compat import Mapping, xstr
 from py2neo.cypher import cypher_escape, Procedures
 from py2neo.data import Record, Table

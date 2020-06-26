@@ -28,7 +28,12 @@ from socket import (
 )
 
 
+BOLT_PORT_NUMBER = 7687
+
+
 class Address(tuple):
+    """ Address of a machine on a network.
+    """
 
     @classmethod
     def from_socket(cls, socket):
@@ -118,8 +123,7 @@ class Address(tuple):
         called first, with this object as its argument. This may yield
         multiple output addresses, which are chained into a subsequent
         regular DNS resolution call. If no resolver function is passed,
-        the DNS resolution is carried out on the original Address
-        object.
+        DNS resolution is carried out on the original Address object.
 
         This function returns a list of resolved Address objects.
 
@@ -138,18 +142,25 @@ class Address(tuple):
 
     @property
     def port_number(self):
+        if self.port == "bolt":
+            # Special case, just because. The regular /etc/services
+            # file doesn't contain this, but it can be found in
+            # /usr/share/nmap/nmap-services if nmap is installed.
+            return BOLT_PORT_NUMBER
         try:
-            return getservbyname(self[1])
+            return getservbyname(self.port)
         except (OSError, TypeError):
             # OSError: service/proto not found
             # TypeError: getservbyname() argument 1 must be str, not X
             try:
-                return int(self[1])
+                return int(self.port)
             except (TypeError, ValueError) as e:
-                raise type(e)("Unknown port value %r" % self[1])
+                raise type(e)("Unknown port value %r" % self.port)
 
 
 class IPv4Address(Address):
+    """ Address subclass, specifically for IPv4 addresses.
+    """
 
     family = AF_INET
 
@@ -158,6 +169,8 @@ class IPv4Address(Address):
 
 
 class IPv6Address(Address):
+    """ Address subclass, specifically for IPv6 addresses.
+    """
 
     family = AF_INET6
 
@@ -166,7 +179,7 @@ class IPv6Address(Address):
 
 
 class Wire(object):
-    """ Socket wrapper for reading and writing bytes.
+    """ Buffered socket wrapper for reading and writing bytes.
     """
 
     __closed = False
@@ -175,6 +188,8 @@ class Wire(object):
 
     @classmethod
     def open(cls, address, timeout=None, keep_alive=False):
+        """ Open a connection to a given network :class:`.Address`.
+        """
         s = socket(family=address.family)
         if keep_alive:
             s.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
@@ -189,6 +204,8 @@ class Wire(object):
         self.__output = bytearray()
 
     def secure(self, verify=True, hostname=None):
+        """ Apply a layer of security onto this connection.
+        """
         from ssl import SSLContext, PROTOCOL_TLS, CERT_NONE, CERT_REQUIRED
         context = SSLContext(PROTOCOL_TLS)
         if verify:
@@ -204,6 +221,8 @@ class Wire(object):
             raise WireError("Unable to establish secure connection with remote peer")
 
     def read(self, n):
+        """ Read bytes from the network.
+        """
         while len(self.__input) < n:
             required = n - len(self.__input)
             requested = max(required, 8192)
@@ -225,9 +244,13 @@ class Wire(object):
         return data
 
     def write(self, b):
+        """ Write bytes to the output buffer.
+        """
         self.__output.extend(b)
 
     def send(self):
+        """ Send the contents of the output buffer to the network.
+        """
         if self.__closed:
             raise WireError("Closed")
         sent = 0
@@ -243,7 +266,10 @@ class Wire(object):
         return sent
 
     def close(self):
+        """ Close the connection.
+        """
         try:
+            # TODO: shutdown
             self.__socket.close()
         except (IOError, OSError):
             self.__broken = True
@@ -253,21 +279,31 @@ class Wire(object):
 
     @property
     def closed(self):
+        """ Flag indicating whether this connection has been closed locally.
+        """
         return self.__closed
 
     @property
     def broken(self):
+        """ Flag indicating whether this connection has been closed remotely.
+        """
         return self.__broken
 
     @property
     def local_address(self):
+        """ The local :class:`.Address` to which this connection is bound.
+        """
         return Address(self.__socket.getsockname())
 
     @property
     def remote_address(self):
+        """ The remote :class:`.Address` to which this connection is bound.
+        """
         return Address(self.__socket.getpeername())
 
 
 class WireError(OSError):
+    """ Raised when a connection error occurs.
+    """
 
     pass

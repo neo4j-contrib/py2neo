@@ -282,7 +282,7 @@ class HTTPResult(Result):
         if "stats" in result:
             self._summary["stats"] = result["stats"]
         if profile:
-            self._summary["connection"] = profile.to_dict()
+            self._summary["connection"] = dict(profile)
         self._cursor = 0
 
     def buffer(self):

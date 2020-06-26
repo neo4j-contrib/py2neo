@@ -89,9 +89,11 @@ Clients & Servers
    :numbered:
 
    client/index
+   client/config
    client/bolt
    client/http
    server/index
+   wiring
 
 
 Command Line Usage
