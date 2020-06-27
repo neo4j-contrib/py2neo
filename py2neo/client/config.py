@@ -16,11 +16,10 @@
 # limitations under the License.
 
 
-from collections.abc import Mapping
 from os import getenv
 from sys import platform, version_info
 
-from py2neo.compat import urlsplit, string_types
+from py2neo.compat import Mapping, urlsplit, string_types
 from py2neo.wiring import Address
 
 
