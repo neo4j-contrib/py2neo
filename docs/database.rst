@@ -31,7 +31,7 @@ The :class:`.GraphService`
 The :class:`.Graph`
 ===================
 
-.. autoclass:: Graph(uri, name=None, **settings)
+.. autoclass:: Graph(profile, name=None, **settings)
    :members:
 
 .. autoclass:: Schema
@@ -40,7 +40,7 @@ The :class:`.Graph`
 The :class:`.SystemGraph`
 -------------------------
 
-.. autoclass:: SystemGraph(uri, **settings)
+.. autoclass:: SystemGraph(profile, **settings)
    :members:
 
 

@@ -550,8 +550,8 @@ class Repository(object):
         obj.graph = graph
         return obj
 
-    def __init__(self, uri=None, name=None, **settings):
-        self.graph = Graph(uri, name=name, **settings)
+    def __init__(self, profile=None, name=None, **settings):
+        self.graph = Graph(profile, name=name, **settings)
 
     def reload(self, obj):
         """ Reload data from the remote graph into the local object.

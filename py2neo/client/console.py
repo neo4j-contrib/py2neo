@@ -127,16 +127,16 @@ class ClientConsole(object):
     meta_colour = "cyan"
     prompt_colour = "cyan"
 
-    def __init__(self, uri=None, **settings):
+    def __init__(self, profile=None, **settings):
         verbose = settings.pop("verbose", False)
         if verbose:
             from py2neo.diagnostics import watch
             self.watcher = watch("py2neo")
         self.quiet = settings.pop("quiet", False)
         self.output_file = settings.pop("file", None)
-        profile = ConnectionProfile(uri, **settings)
+        profile = ConnectionProfile(profile, **settings)
         try:
-            self.graph = Graph(uri, **settings)
+            self.graph = Graph(profile, **settings)
         except OSError as error:
             raise ClientConsoleError("Could not connect to {} -- {}".format(profile.uri, error))
         try:

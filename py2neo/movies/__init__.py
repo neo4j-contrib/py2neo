@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from os import getenv, path
+from os import path
 from os.path import dirname
 
 from py2neo.packages.bottle import (
@@ -29,6 +29,7 @@ from py2neo.packages.bottle import (
     TEMPLATE_PATH,
 )
 
+from py2neo.client.config import ConnectionProfile
 from py2neo.ogm import Repository
 
 from .models import Movie, Person
@@ -37,12 +38,16 @@ from .models import Movie, Person
 HOME = dirname(__file__)
 STATIC = path.join(HOME, "static")
 VIEWS = path.join(HOME, "views")
+CONFIG = path.join(HOME, "movies.ini")
 
 # Update the template search path used by Bottle
 TEMPLATE_PATH.append(VIEWS)
 
+# Load the connection details from the config file
+profile = ConnectionProfile.from_file(CONFIG, "Neo4j")
+
 # Set up a link to the local graph database.
-repo = Repository(password=getenv("NEO4J_PASSWORD"))
+repo = Repository(profile)
 
 
 @get("/static/<filename>")

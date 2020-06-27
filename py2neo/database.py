@@ -87,8 +87,8 @@ class GraphService(object):
             db._connector = None
         cls._instances.clear()
 
-    def __new__(cls, uri=None, **settings):
-        profile = ConnectionProfile(uri, **settings)
+    def __new__(cls, profile=None, **settings):
+        profile = ConnectionProfile(profile, **settings)
         try:
             inst = cls._instances[profile]
         except KeyError:
@@ -285,8 +285,8 @@ class Graph(object):
     #: The :class:`.Schema` resource for this :class:`.Graph`.
     schema = None
 
-    def __new__(cls, uri=None, name=None, **settings):
-        gs = GraphService(uri, **settings)
+    def __new__(cls, profile=None, name=None, **settings):
+        gs = GraphService(profile, **settings)
         return gs[name]
 
     def __init__(self, *args, **kwargs):
@@ -597,8 +597,8 @@ class SystemGraph(Graph):
     Neo4j 4.0 and above.
     """
 
-    def __new__(cls, uri=None, **settings):
-        return super(SystemGraph, cls).__new__(uri, name="system", **settings)
+    def __new__(cls, profile=None, **settings):
+        return super(SystemGraph, cls).__new__(profile, name="system", **settings)
 
     def __repr__(self):
         return "%s(%r)" % (self.__class__.__name__, self.service.uri)
