@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from os import path
+
 from pytest import raises
 
 from py2neo.client.config import bolt_user_agent, http_user_agent, ConnectionProfile
@@ -434,6 +436,27 @@ def test_get_non_existent_key():
 def test_profile_repr():
     prof = ConnectionProfile()
     assert repr(prof).startswith("ConnectionProfile")
+
+
+def test_loading_profile_from_file():
+    filename = path.join(path.dirname(__file__),
+                         "..", "..", "resources", "example.ini")
+    prof = ConnectionProfile.from_file(filename, "Neo4j")
+    data = dict(prof)
+    assert data == {
+        'secure': False,
+        'verify': True,
+        'scheme': 'bolt',
+        'user': 'shaggy',
+        'password': 'velma',
+        'address': IPv4Address(('graph.mystery.inc', 7777)),
+        'auth': ('shaggy', 'velma'),
+        'host': 'graph.mystery.inc',
+        'port': 7777,
+        'port_number': 7777,
+        'protocol': 'bolt',
+        'uri': 'bolt://shaggy@graph.mystery.inc:7777',
+    }
 
 
 def test_uri_env_var():

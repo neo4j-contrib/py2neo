@@ -19,9 +19,9 @@
 from __future__ import absolute_import
 
 try:
-    from configparser import SafeConfigParser
+    from configparser import ConfigParser
 except ImportError:
-    from ConfigParser import SafeConfigParser
+    from ConfigParser import SafeConfigParser as ConfigParser
 
 try:
     from collections.abc import Sequence, Set, Mapping
@@ -116,7 +116,7 @@ if version_info >= (3,):
         else:
             return str(s)
 
-    class PropertiesParser(SafeConfigParser):
+    class PropertiesParser(ConfigParser):
 
         def read_properties(self, filename, section=None):
             if not section:
@@ -180,7 +180,7 @@ else:
         else:
             return unicode(s).encode(encoding)
 
-    class PropertiesParser(SafeConfigParser):
+    class PropertiesParser(ConfigParser):
 
         def read_properties(self, filename, section=None):
             if not section:

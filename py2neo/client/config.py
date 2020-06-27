@@ -19,7 +19,7 @@
 from os import getenv
 from sys import platform, version_info
 
-from py2neo.compat import Mapping, urlsplit, string_types
+from py2neo.compat import ConfigParser, Mapping, urlsplit, string_types
 from py2neo.wiring import Address
 
 
@@ -398,3 +398,31 @@ class ConnectionProfile(Mapping):
         variables, this will default to ``'bolt://neo4j@localhost:7687'``.
         """
         return "%s://%s@%s:%s" % (self.scheme, self.user, self.host, self.port)
+
+    @classmethod
+    def from_config_parser(cls, parser, section, prefix=None):
+        prefix = str(prefix or "")
+        settings = {}
+        for name, value in parser.items(section):
+            if name.startswith(prefix):
+                settings[name[len(prefix):]] = value
+        uri = settings.pop("uri", None)
+        return cls(uri, **settings)
+
+    @classmethod
+    def from_file(cls, filenames, section, prefix=None):
+        """ Load profile information from a configuration file.
+
+        The required file format is described in the standard library
+        ``configparser`` module, and is similar to that used in Windows
+        INI files.
+
+        :param filenames:
+        :param section:
+        :param prefix:
+        :returns :class:`ConnectionProfile` object created from the
+            loaded configuration
+        """
+        parser = ConfigParser()
+        parser.read(filenames)
+        return cls.from_config_parser(parser, section, prefix)
