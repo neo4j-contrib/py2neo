@@ -20,12 +20,12 @@ Installation
    :target: https://pypi.python.org/pypi/py2neo
    :alt: PyPI version
 
-.. image:: https://img.shields.io/travis/technige/py2neo/v5.svg
+.. image:: https://img.shields.io/travis/technige/py2neo/master.svg
    :target: https://travis-ci.org/technige/py2neo
    :alt: Build Status
 
-.. image:: https://img.shields.io/coveralls/github/technige/py2neo/v5.svg
-   :target: https://coveralls.io/github/technige/py2neo?branch=v5
+.. image:: https://img.shields.io/coveralls/github/technige/py2neo/master.svg
+   :target: https://coveralls.io/github/technige/py2neo?branch=master
    :alt: Coverage Status
 
 To install the latest stable version of py2neo, simply use pip:
