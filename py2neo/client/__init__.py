@@ -77,8 +77,8 @@ class Connection(object):
     :class:`.HTTP` implementations and contains interfaces for the
     basic operations provided by both.
 
-    :ivar profile: connection profile
-    :ivar user_agent:
+    :ivar Connection.profile: connection profile
+    :ivar Connection.user_agent:
     """
 
     protocol_version = None
@@ -167,8 +167,8 @@ class Connection(object):
         :param after:
         :param metadata:
         :param timeout:
-        :return: new :class:`.Transaction` object
-        :raise :exc:`.TransactionError`: if a new transaction cannot be created
+        :returns: new :class:`.Transaction` object
+        :raises TransactionError: if a new transaction cannot be created
         """
 
     def commit(self, tx):

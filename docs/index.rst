@@ -1,6 +1,6 @@
-**********************
-The Py2neo v5 Handbook
-**********************
+*******************
+The Py2neo Handbook
+*******************
 
 **Py2neo** is a client library and toolkit for working with Neo4j_ from within Python_ applications and from the command line.
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
