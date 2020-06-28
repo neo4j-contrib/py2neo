@@ -221,6 +221,7 @@ htmlhelp_basename = 'Py2neodoc'
 
 html_context = {
     "git_branch": git_branch,
+    "environ": dict(os.environ),
 }
 
 # -- Options for LaTeX output ---------------------------------------------
