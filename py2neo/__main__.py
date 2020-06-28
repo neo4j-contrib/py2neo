@@ -192,7 +192,7 @@ def main():
     try:
         py2neo(obj={})
     except Exception as error:
-        click.secho(error.args[0], err=True)
+        click.secho("%s: %s" % (error.__class__.__name__, " ".join(map(str, error.args))), err=True)
         exit(1)
     else:
         exit(0)
