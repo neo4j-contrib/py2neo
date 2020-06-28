@@ -27,6 +27,8 @@ from socket import (
     AF_INET6,
 )
 
+from py2neo.compat import xstr
+
 
 BOLT_PORT_NUMBER = 7687
 
@@ -42,6 +44,7 @@ class Address(tuple):
 
     @classmethod
     def parse(cls, s, default_host=None, default_port=None):
+        s = xstr(s)
         if not isinstance(s, str):
             raise TypeError("Address.parse requires a string argument")
         if s.startswith("["):
