@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-__author__ = "Nigel Small <technige@nige.tech>"
+__author__ = "Nigel Small"
 __copyright__ = "2011-2020, Nigel Small"
 __email__ = "py2neo@nige.tech"
 __license__ = "Apache License, Version 2.0"

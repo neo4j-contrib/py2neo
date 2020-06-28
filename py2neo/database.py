@@ -1340,10 +1340,6 @@ class Cursor(object):
         """ Consume and extract the entire result as a list of
         dictionaries.
 
-        :param keys: indexes or keys of the items to include; if none
-                     are provided, all values will be included
-        :return: list of dictionary of values, keyed by field name
-        :raises: :exc:`IndexError` if an out-of-bounds index is specified
         ::
 
             >>> from py2neo import Graph
@@ -1354,8 +1350,10 @@ class Cursor(object):
              {'a.born': 1961, 'a.name': 'Laurence Fishburne'},
              {'a.born': 1960, 'a.name': 'Hugo Weaving'}]
 
-        :return: the full query result
-        :rtype: `list` of `dict`
+        :param keys: indexes or keys of the items to include; if none
+                     are provided, all values will be included
+        :returns: list of dictionary of values, keyed by field name
+        :raises IndexError: if an out-of-bounds index is specified
         """
         return [record.data(*keys) for record in self]
 

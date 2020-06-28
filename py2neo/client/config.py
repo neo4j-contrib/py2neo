@@ -420,7 +420,7 @@ class ConnectionProfile(Mapping):
         :param filenames:
         :param section:
         :param prefix:
-        :returns :class:`ConnectionProfile` object created from the
+        :returns: :class:`ConnectionProfile` object created from the
             loaded configuration
         """
         parser = ConfigParser()

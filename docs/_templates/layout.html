@@ -1,11 +1,34 @@
 {% extends '!layout.html' %}
 
 {% block header %}
+
+    {% if git_branch == "dev" %}
     <div class="admonition versionwarning">
         <p class="admonition-title">Warning</p>
         <p>
-            You are viewing the documentation for a py2neo pre-release.
-            Look <a class="reference external" href="http://py2neo.org/">here</a> for the documentation for the latest stable release.
+            You are reading the docs for the development branch.
+            You can also read the docs for <a class="reference external" href="../master/">the master branch</a>
+                or <a class="reference external" href="/">the latest release</a>.
         </p>
     </div>
+    {% elif git_branch == "master" %}
+    <div class="admonition versionwarning">
+        <p class="admonition-title">Warning</p>
+        <p>
+            You are reading the docs for the master branch.
+            You can also read the docs for <a class="reference external" href="../dev/">the development branch</a>
+                or <a class="reference external" href="/">the latest release</a>.
+        </p>
+    </div>
+    {% else %}
+    <div class="admonition">
+        <p class="admonition-title"></p>
+        <p>
+            You are reading the docs for the {{ git_branch }} branch.
+            You can also read the docs for <a class="reference external" href="../dev/">the development branch</a>
+                or <a class="reference external" href="../master/">the master branch</a>.
+        </p>
+    </div>
+    {% endif %}
+
 {% endblock %}
