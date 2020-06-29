@@ -18,6 +18,9 @@
 
 """
 Low-level module for network communication.
+
+This module provides a convenience socket wrapper class (:class:`.Wire`)
+as well as classes for modelling IP addresses, based on tuples.
 """
 
 
