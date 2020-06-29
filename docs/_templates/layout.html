@@ -2,22 +2,12 @@
 
 {% block header %}
 
-    {% if branch == "dev" %}
+    {% if branch == "master" %}
     <div class="admonition versionwarning">
         <p class="admonition-title">Warning</p>
         <p>
-            You are reading the docs for the unstable development branch.
-            See also the docs for <a class="reference external" href="../master/">the stable master branch</a>
-                or <a class="reference external" href="/">the latest release</a>.
-        </p>
-    </div>
-    {% elif branch == "master" %}
-    <div class="admonition versionwarning">
-        <p class="admonition-title">Warning</p>
-        <p>
-            You are reading the docs for the stable master branch.
-            See also the docs for <a class="reference external" href="/">the latest release</a>
-                or <a class="reference external" href="../dev/">the unstable development branch</a>.
+            You are reading the docs for the master branch.
+            See also the docs for <a class="reference external" href="/">the latest release</a>.
         </p>
     </div>
     {% else %}
@@ -25,8 +15,7 @@
         <p class="admonition-title">Info</p>
         <p>
             You are reading the docs for the {{ branch }} release.
-            See also the docs for <a class="reference external" href="../dev/">the unstable development branch</a>
-                or <a class="reference external" href="../master/">the stable master branch</a>.
+            See also the docs for <a class="reference external" href="../master/">the master branch</a>.
         </p>
     </div>
     {% endif %}
