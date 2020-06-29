@@ -1,5 +1,5 @@
-Py2neo v5
-=========
+Py2neo
+======
 .. image:: https://img.shields.io/github/license/technige/py2neo.svg
    :target: https://www.apache.org/licenses/LICENSE-2.0
    :alt: License
@@ -72,4 +72,4 @@ While other operating systems and Python distributions may work, support for the
 Contact
 -------
 
-For more information, read the `handbook <http://py2neo.org/v5>`_.
+For more information, read the `handbook <http://py2neo.org/>`_.
