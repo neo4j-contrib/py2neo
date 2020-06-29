@@ -16,6 +16,11 @@
 # limitations under the License.
 
 
+"""
+Low-level module for network communication.
+"""
+
+
 from socket import (
     getaddrinfo,
     getservbyname,
