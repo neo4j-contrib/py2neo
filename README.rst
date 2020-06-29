@@ -31,7 +31,13 @@ To install the latest release of py2neo, simply use:
 
 .. code-block::
 
-    $ pip install py2neo
+    $ pip install --upgrade py2neo
+
+To install the latest pre-release of py2neo, use the ``--pre`` flag::
+
+.. code-block::
+
+    $ pip install --upgrade --pre py2neo
 
 To install the latest stable code from the GitHub master branch, use:
 
