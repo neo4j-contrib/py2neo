@@ -31,11 +31,16 @@ from py2neo.versioning import Version
 
 major, minor, patch = Version.parse(__version__).major_minor_patch
 
-git_branch = os.getenv("GIT_BRANCH")
+if "READTHEDOCS_VERSION" in os.environ:
+    branch = os.environ["READTHEDOCS_VERSION"]
+elif "GIT_BRANCH" in os.environ:
+    branch = os.environ["GIT_BRANCH"]
+else:
+    raise RuntimeError("Cannot determine branch")
 
-if git_branch == "dev":
+if branch == "dev":
     branch_title = "development branch"
-elif git_branch == "master":
+elif branch == "master":
     branch_title = "master branch"
 else:
     branch_title = "version %s.%s" % (major, minor)
@@ -220,8 +225,7 @@ html_favicon = "../art/py2neo.ico"
 htmlhelp_basename = 'Py2neodoc'
 
 html_context = {
-    "git_branch": git_branch,
-    "environ": dict(os.environ),
+    "branch": branch,
 }
 
 # -- Options for LaTeX output ---------------------------------------------
