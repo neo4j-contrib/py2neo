@@ -6,22 +6,22 @@ DIST="${ROOT}/dist"
 
 function get_package
 {
-    python -c "from py2neo.meta import __package__; print(__package__)"
+    python -c "from py2neo import __package__; print(__package__)"
 }
 
 function set_package
 {
-    sed -i 's/^__package__ = .*/__package__ = "'$1'"/g' "${ROOT}/py2neo/meta.py"
+    sed -i 's/^__package__ = .*/__package__ = "'$1'"/g' "${ROOT}/py2neo/__init__.py"
 }
 
 function get_version
 {
-    python -c "from py2neo.meta import __version__; print(__version__)"
+    python -c "from py2neo import __version__; print(__version__)"
 }
 
 function set_version
 {
-    sed -i 's/^__version__ = .*/__version__ = "'$1'"/g' "${ROOT}/py2neo/meta.py"
+    sed -i 's/^__version__ = .*/__version__ = "'$1'"/g' "${ROOT}/py2neo/__init__.py"
 }
 
 function check_file
@@ -49,8 +49,8 @@ function set_metadata_and_setup
     ORIGINAL_VERSION=$(get_version)
     echo "Source code originally configured for package ${ORIGINAL_PACKAGE}/${ORIGINAL_VERSION}"
     echo "----------------------------------------"
-    grep "__package__\s\+=" "${ROOT}/py2neo/meta.py"
-    grep "__version__\s\+=" "${ROOT}/py2neo/meta.py"
+    grep "__package__\s\+=" "${ROOT}/py2neo/__init__.py"
+    grep "__version__\s\+=" "${ROOT}/py2neo/__init__.py"
     echo "----------------------------------------"
 
     # Temporarily override __package__ metadata
@@ -58,8 +58,8 @@ function set_metadata_and_setup
     set_version "${VERSION}"
     echo "Source code reconfigured for package ${PACKAGE}/${VERSION}"
     echo "----------------------------------------"
-    grep "__package__\s\+=" "${ROOT}/py2neo/meta.py"
-    grep "__version__\s\+=" "${ROOT}/py2neo/meta.py"
+    grep "__package__\s\+=" "${ROOT}/py2neo/__init__.py"
+    grep "__version__\s\+=" "${ROOT}/py2neo/__init__.py"
     echo "----------------------------------------"
 
     # Create source distribution
@@ -73,8 +73,8 @@ function set_metadata_and_setup
     set_version "${ORIGINAL_VERSION}"
     echo "Source code reconfigured back to original package ${ORIGINAL_PACKAGE}/${ORIGINAL_VERSION}"
     echo "----------------------------------------"
-    grep "__package__\s\+=" "${ROOT}/py2neo/meta.py"
-    grep "__version__\s\+=" "${ROOT}/py2neo/meta.py"
+    grep "__package__\s\+=" "${ROOT}/py2neo/__init__.py"
+    grep "__version__\s\+=" "${ROOT}/py2neo/__init__.py"
     echo "----------------------------------------"
 
 }
