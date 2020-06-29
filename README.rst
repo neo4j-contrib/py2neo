@@ -27,21 +27,25 @@ Installation
    :target: https://coveralls.io/github/technige/py2neo?branch=master
    :alt: Coverage Status
 
-To install the latest stable version of py2neo, simply use pip:
+To install the latest release of py2neo, simply use:
 
 .. code-block::
 
     $ pip install py2neo
 
-Or to install the latest bleeding edge code directly from GitHub, use:
+To install the latest stable code from the GitHub master branch, use:
 
 .. code-block::
 
-    $ pip install git+https://github.com/technige/py2neo.git#egg=py2neo
+    $ pip install git+https://github.com/technige/py2neo.git@master#egg=py2neo
 
+To install the latest bleeding edge code from the GitHub development branch, use:
 
-Note that code installed directly from GitHub is likely to be unstable.
-Your mileage may vary.
+.. code-block::
+
+    $ pip install git+https://github.com/technige/py2neo.git@dev#egg=py2neo
+
+Code installed directly from the development branch is likely to be unstable.
 
 
 Requirements
