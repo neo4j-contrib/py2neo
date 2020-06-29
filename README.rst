@@ -33,7 +33,7 @@ To install the latest release of py2neo, simply use:
 
     $ pip install --upgrade py2neo
 
-To install the latest pre-release of py2neo, use the ``--pre`` flag::
+To install the latest pre-release of py2neo, use the ``--pre`` flag:
 
 .. code-block::
 
