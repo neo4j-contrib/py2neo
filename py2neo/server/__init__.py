@@ -26,11 +26,11 @@ from time import sleep
 
 from docker import DockerClient
 from docker.errors import APIError, ImageNotFound
+from packaging.version import Version
 
 from py2neo.compat import perf_counter
 from py2neo.security import Auth, make_auth, install_certificate, install_private_key
 from py2neo.server.console import ServerConsole
-from py2neo.versioning import Version
 from py2neo.wiring import Address, Wire
 
 
@@ -72,7 +72,7 @@ class Neo4jInstance(object):
             self.cert_volume_dir = mkdtemp()
             chmod(self.cert_volume_dir, 0o755)
             log.info("Using directory %r as shared certificate volume", self.cert_volume_dir)
-            if self.service.image.version >= Version.parse("4.0"):
+            if self.service.image.version >= Version("4.0"):
                 subdirectories = [path.join(self.cert_volume_dir, subdir)
                                   for subdir in ["bolt", "https"]]
                 install_certificate(cert, "public.crt", *subdirectories)
@@ -115,7 +115,7 @@ class Neo4jInstance(object):
 
         # Security configuration
         if service.secured:
-            if service.image.version >= Version.parse("4.0"):
+            if service.image.version >= Version("4.0"):
                 config.update({
                     "dbms.ssl.policy.bolt.enabled": True,
                     "dbms.ssl.policy.https.enabled": True,
@@ -372,9 +372,7 @@ class Neo4jService(object):
         self._for_each_instance(wait)
         if all(instance.ready == 1 for instance in self.instances):
             log.info("Neo4j %s %s service %r available",
-                     self.image.edition,
-                     ".".join(map(str, self.image.version.major_minor_patch)),
-                     self.name)
+                     self.image.edition, self.image.version, self.name)
         else:
             raise RuntimeError("Service %r unavailable - "
                                "some instances failed" % self.name)
@@ -452,7 +450,7 @@ class Neo4jImage(object):
         this service.
         """
         _, _, version, _ = self.tarball.split("-")
-        return Version.parse(version)
+        return Version(version)
 
     @classmethod
     def _resolve_image_tag(cls, tag):

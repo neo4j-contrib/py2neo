@@ -22,6 +22,8 @@ from collections import deque, OrderedDict
 from time import sleep
 from warnings import warn
 
+from packaging.version import Version
+
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.client import Connector, Connection, TransactionError
 from py2neo.client.config import ConnectionProfile
@@ -31,7 +33,6 @@ from py2neo.data import Record, Table
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 from py2neo.operations import OperationError
 from py2neo.text import Words
-from py2neo.versioning import Version
 
 
 update_stats_keys = [
@@ -186,7 +187,7 @@ class GraphService(object):
         kernel_component = [component for component in components
                             if component["name"] == "Neo4j Kernel"][0]
         version_string = kernel_component["versions"][0]
-        return Version.parse(version_string).major_minor_patch
+        return Version(version_string)
 
     @property
     def product(self):

@@ -17,6 +17,7 @@
 
 
 from neotime import Date, Time, DateTime, Duration
+from packaging.version import Version
 from pytest import skip
 
 from py2neo.data import Node
@@ -106,7 +107,7 @@ def test_path(graph):
 
 def skip_if_no_temporal_support(graph):
     connector = graph.service.connector
-    if graph.service.kernel_version < (3, 4):
+    if graph.service.kernel_version < Version("3.4"):
         skip("Temporal type tests are only valid for Neo4j 3.4+")
     if connector.profile.protocol != "bolt":
         skip("Temporal type tests are only valid for Bolt connectors")

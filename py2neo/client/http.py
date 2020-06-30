@@ -22,13 +22,13 @@ from collections import OrderedDict
 from logging import getLogger
 from json import dumps as json_dumps, loads as json_loads
 
+from packaging.version import Version
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo.compat import urlsplit
 from py2neo.client import Connection, Transaction, TransactionError, Result, Bookmark
 from py2neo.client.config import http_user_agent
 from py2neo.client.json import JSONHydrant
-from py2neo.versioning import Version
 
 
 log = getLogger(__name__)
@@ -105,7 +105,7 @@ class HTTP(Connection):
             #   "neo4j_version" : "4.0.0",
             #   "neo4j_edition" : "community"
             # }
-            self.neo4j_version = Version.parse(metadata["neo4j_version"])  # Neo4j 4.x
+            self.neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 4.x
         else:                               # Neo4j 3.x
             # {
             #   "data" : "http://localhost:7474/db/data/",
@@ -132,14 +132,14 @@ class HTTP(Connection):
             #   "node_labels" : "http://localhost:7474/db/data/labels",
             #   "neo4j_version" : "3.5.12"
             # }
-            self.neo4j_version = Version.parse(metadata["neo4j_version"])  # Neo4j 3.x
-        self.server_agent = "Neo4j/{}.{}.{}".format(*self.neo4j_version.major_minor_patch)
+            self.neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 3.x
+        self.server_agent = "Neo4j/{}".format(self.neo4j_version)
 
     def auto_run(self, graph_name, cypher, parameters=None,
                  readonly=False, after=None, metadata=None, timeout=None):
         if graph_name and not self.supports_multi():
-            raise TypeError("Neo4j {}.{} does not support "
-                            "named graphs".format(*self.neo4j_version.major_minor))
+            raise TypeError("Neo4j {} does not support "
+                            "named graphs".format(self.neo4j_version))
         r = self._post(HTTPTransaction.autocommit_uri(graph_name), cypher, parameters)
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
@@ -149,8 +149,8 @@ class HTTP(Connection):
 
     def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
         if graph_name and not self.supports_multi():
-            raise TypeError("Neo4j {}.{} does not support "
-                            "named graphs".format(*self.neo4j_version.major_minor))
+            raise TypeError("Neo4j {} does not support "
+                            "named graphs".format(self.neo4j_version))
         if readonly:
             raise TypeError("Readonly transactions are not supported over HTTP")
         if after:
@@ -240,7 +240,7 @@ class HTTP(Connection):
                                       headers=dict(self.headers))
 
     def supports_multi(self):
-        return self.neo4j_version.major_minor >= (4, 0)
+        return self.neo4j_version >= Version("4.0")
 
 
 class HTTPTransaction(Transaction):
