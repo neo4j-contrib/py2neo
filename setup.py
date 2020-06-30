@@ -34,6 +34,11 @@ package_metadata = {
     "author": py2neo.__author__,
     "author_email": py2neo.__email__,
     "url": "https://py2neo.org/",
+    "project_urls": {
+        "Bug Tracker": "https://github.com/technige/py2neo/issues",
+        "Documentation": "https://py2neo.readthedocs.io/en/{}/".format(py2neo.__version__),
+        "Source Code": "https://github.com/technige/py2neo",
+    },
     "entry_points": {
         "console_scripts": [
             "py2neo = py2neo.__main__:main",
