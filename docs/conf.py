@@ -38,7 +38,8 @@ elif "GIT_BRANCH" in os.environ:
 else:
     raise RuntimeError("Cannot determine branch")
 
-if branch == "master":
+if branch in ("master", "latest"):
+    branch = "master"
     branch_title = "master branch"
 else:
     branch_title = "version %s.%s" % (major, minor)

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+SCRIPT=$(basename "$0")
+
+VERSION="$1"
+if [ "${VERSION}" == "" ]
+then
+    echo "usage: ${SCRIPT} VERSION"
+    exit 1
+fi
+
+if [ "${READTHEDOCS_TOKEN}" == "" ]
+then
+    echo "The READTHEDOCS_TOKEN environment variable is not set"
+    exit 1
+fi
+
+# Activate the version
+curl -X PATCH \
+    -H "Authorization: Token ${READTHEDOCS_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d '{"active": true, "hidden": false}' \
+    "https://readthedocs.org/api/v3/projects/py2neo/versions/${VERSION}/"
+
+# Trigger the build
+curl -X POST \
+    -H "Authorization: Token ${READTHEDOCS_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d '{"active": true, "hidden": false}' \
+    "https://readthedocs.org/api/v3/projects/py2neo/versions/${VERSION}/builds/"
