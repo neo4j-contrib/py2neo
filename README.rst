@@ -1,8 +1,20 @@
 Py2neo
 ======
+.. image:: https://img.shields.io/github/v/release/technige/py2neo?sort=semver
+   :target: https://github.com/technige/py2neo
+   :alt: GitHub release
+
 .. image:: https://img.shields.io/github/license/technige/py2neo.svg
    :target: https://www.apache.org/licenses/LICENSE-2.0
    :alt: License
+
+.. image:: https://img.shields.io/travis/technige/py2neo/master.svg
+   :target: https://travis-ci.org/technige/py2neo
+   :alt: Build Status
+
+.. image:: https://img.shields.io/coveralls/github/technige/py2neo/master.svg
+   :target: https://coveralls.io/github/technige/py2neo?branch=master
+   :alt: Coverage Status
 
 **Py2neo** is a client library and toolkit for working with `Neo4j <https://neo4j.com/>`_ from within `Python <https://www.python.org/>`_ applications and from the command line.
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
@@ -19,13 +31,9 @@ Installation
    :target: https://pypi.python.org/pypi/py2neo
    :alt: PyPI version
 
-.. image:: https://img.shields.io/travis/technige/py2neo/master.svg
-   :target: https://travis-ci.org/technige/py2neo
-   :alt: Build Status
-
-.. image:: https://img.shields.io/coveralls/github/technige/py2neo/master.svg
-   :target: https://coveralls.io/github/technige/py2neo?branch=master
-   :alt: Coverage Status
+.. image:: https://img.shields.io/pypi/dm/py2neo
+   :target: https://pypi.python.org/pypi/py2neo
+   :alt: PyPI Downloads
 
 To install the latest release of py2neo, simply use:
 
@@ -42,7 +50,6 @@ To install the latest stable code from the GitHub master branch, use:
 
 Requirements
 ------------
-
 .. image:: https://img.shields.io/pypi/pyversions/py2neo.svg
    :target: https://www.python.org/
    :alt: Python versions
@@ -64,7 +71,7 @@ Note also that Py2neo is developed and tested under **Linux** using standard CPy
 While other operating systems and Python distributions may work, support for these is not available.
 
 
-Contact
--------
+More
+----
 
 For more information, read the `handbook <http://py2neo.org/>`_.

@@ -31,7 +31,6 @@ package_metadata = {
     "version": py2neo.__version__,
     "description": "Python client library and toolkit for Neo4j",
     "long_description": README,
-    "long_description_content_type": "text/markdown",
     "author": py2neo.__author__,
     "author_email": py2neo.__email__,
     "url": "https://py2neo.org/",
