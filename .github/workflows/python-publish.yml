@@ -32,4 +32,4 @@ jobs:
       run: |
         bin/make-dist ${{ steps.get_version.outputs.VERSION }}
         twine upload dist/*
-        bin/publish-docs ${{ steps.get_version.outputs.VERSION }}
+        READTHEDOCS_TOKEN="${{ secrets.READTHEDOCS_TOKEN }}" bin/publish-docs ${{ steps.get_version.outputs.VERSION }}
