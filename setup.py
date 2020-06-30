@@ -17,10 +17,7 @@
 
 
 from os.path import dirname, join as path_join
-try:
-    from setuptools import setup, find_packages
-except ImportError:
-    from distutils.core import setup, find_packages
+from setuptools import setup, find_packages
 
 import py2neo
 
@@ -57,6 +54,7 @@ package_metadata = {
         "neotime~=1.7.4",
         "prompt_toolkit~=2.0.7",
         "pygments~=2.3.1",
+        "pyopenssl",
         "pytz",
         "urllib3",
     ],

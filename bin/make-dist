@@ -10,5 +10,5 @@ then
     exit 1
 else
     source "${BIN}/dist-functions"
-    setup "${VERSION}" sdist bdist_wheel
+    setup "${VERSION}" sdist
 fi
