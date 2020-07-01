@@ -31,7 +31,6 @@ from py2neo.data import Record, Table
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 from py2neo.operations import OperationError
 from py2neo.text import Words
-from py2neo.versioning import Version
 
 
 update_stats_keys = [
@@ -182,11 +181,12 @@ class GraphService(object):
     def kernel_version(self):
         """ Return the version of Neo4j.
         """
+        from packaging.version import Version
         components = self.default_graph.call("dbms.components").data()
         kernel_component = [component for component in components
                             if component["name"] == "Neo4j Kernel"][0]
         version_string = kernel_component["versions"][0]
-        return Version.parse(version_string).major_minor_patch
+        return Version(version_string)
 
     @property
     def product(self):

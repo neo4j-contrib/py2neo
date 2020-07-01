@@ -50,10 +50,11 @@ from collections import deque
 from itertools import islice
 from logging import getLogger
 
+from packaging.version import Version
+
 from py2neo.client import Connection, Transaction, TransactionError, Result, Failure, Bookmark
 from py2neo.client.config import bolt_user_agent
 from py2neo.client.packstream import MessageReader, MessageWriter, PackStreamHydrant
-from py2neo.versioning import Version
 from py2neo.wiring import Wire
 
 
@@ -212,7 +213,7 @@ class Bolt1(Bolt):
         self.connection_id = response.metadata.get("connection_id")
         self.server_agent = response.metadata.get("server")
         if self.server_agent.startswith("Neo4j/"):
-            self.neo4j_version = Version.parse(self.server_agent[6:])
+            self.neo4j_version = Version(self.server_agent[6:])
         else:
             raise RuntimeError("Unexpected server agent {!r}".format(self.server_agent))
 
@@ -228,8 +229,8 @@ class Bolt1(Bolt):
         self._assert_open()
         self._assert_no_transaction()
         if graph_name and not self.supports_multi():
-            raise TypeError("Neo4j {}.{} does not support "
-                            "named graphs".format(*self.neo4j_version.major_minor))
+            raise TypeError("Neo4j {} does not support "
+                            "named graphs".format(self.neo4j_version))
         if metadata:
             raise TypeError("Transaction metadata not supported until Bolt v3")
         if timeout:

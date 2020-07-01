@@ -63,11 +63,7 @@ def test_kernel_version(graph_service):
     except NotImplementedError:
         skip("Kernel version not available in this version of Neo4j")
     else:
-        assert isinstance(version, tuple)
-        assert 3 <= len(version) <= 4
-        assert isinstance(version[0], int)
-        assert isinstance(version[1], int)
-        assert isinstance(version[2], int)
+        assert version
 
 
 def test_can_get_set_of_graphs_in_service(graph_service):

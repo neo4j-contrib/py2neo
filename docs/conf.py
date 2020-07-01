@@ -16,6 +16,8 @@
 import sys
 import os
 
+from packaging.version import Version
+
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -24,12 +26,12 @@ sys.path.insert(0, os.path.abspath('..'))
 
 
 from py2neo import __author__, __copyright__, __version__
-from py2neo.versioning import Version
 
 
 # -- Project metadata -----------------------------------------------------
 
-major, minor, patch = Version.parse(__version__).major_minor_patch
+v = Version(__version__)
+
 
 if "READTHEDOCS_VERSION" in os.environ:
     branch = os.environ["READTHEDOCS_VERSION"]
@@ -42,7 +44,7 @@ if branch in ("master", "latest"):
     branch = "master"
     branch_title = "master branch"
 else:
-    branch_title = "version %s.%s" % (major, minor)
+    branch_title = "version %s.%s" % (v.major, v.minor)
 
 
 # -- General configuration ------------------------------------------------
@@ -83,7 +85,7 @@ copyright = __copyright__
 #
 sys.path.insert(0, os.path.abspath('..'))
 # The short X.Y version.
-version = "%s.%s" % (major, minor)
+version = "%s.%s" % (v.major, v.minor)
 # The full version, including alpha/beta/rc tags.
 release = __version__
 
