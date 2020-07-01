@@ -22,8 +22,6 @@ from collections import deque, OrderedDict
 from time import sleep
 from warnings import warn
 
-from packaging.version import Version
-
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.client import Connector, Connection, TransactionError
 from py2neo.client.config import ConnectionProfile
@@ -183,6 +181,7 @@ class GraphService(object):
     def kernel_version(self):
         """ Return the version of Neo4j.
         """
+        from packaging.version import Version
         components = self.default_graph.call("dbms.components").data()
         kernel_component = [component for component in components
                             if component["name"] == "Neo4j Kernel"][0]
