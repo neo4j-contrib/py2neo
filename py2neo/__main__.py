@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from sys import exit
+from sys import exit, stderr
 
 import click
 
@@ -57,10 +57,9 @@ class AuthParamType(click.ParamType):
         return 'USER:PASSWORD'
 
 
-def watch_log(ctx, param, value):
-    from logging import INFO, DEBUG
+def watch_log(ctx, param, verbosity):
     from py2neo.diagnostics import watch
-    watch("py2neo", DEBUG if value >= 1 else INFO)
+    watch("py2neo", verbosity)
 
 
 @click.group(help="""\
@@ -87,17 +86,14 @@ Interactive Cypher console
               help="Set the user and password.")
 @click.option("-s", "--secure", is_flag=True, default=False,
               help="Use encrypted communication (TLS).")
-@click.option("-v", "--verbose", is_flag=True, default=False,
-              help="Show low level communication detail.")
-def py2neo_console(uri, auth=None, secure=None, verbose=None):
-    from py2neo.client.console import ClientConsole, ClientConsoleError
-    try:
-        con = ClientConsole(uri, auth=auth, secure=secure, verbose=verbose)
-    except ClientConsoleError as error:
-        click.echo(error)
-        raise SystemExit(1)
-    else:
-        raise SystemExit(con.loop())
+@click.option("-v", "--verbose", count=True,
+              help="Adjust level of communication detail.")
+def py2neo_console(uri, auth=None, secure=None, verbose=0):
+    from py2neo.client.console import Py2neoConsole
+    console = Py2neoConsole(uri, auth=auth, secure=secure)
+    console.verbosity = verbose
+    console.loop()
+    console.exit()
 
 
 @py2neo.command("run", help="""\
@@ -107,24 +103,21 @@ Run a Cypher query
               help="Set the connection URI.")
 @click.option("-a", "--auth", metavar="USER:PASSWORD",
               help="Set the user and password.")
-@click.option("-q", "--quiet", is_flag=True, default=False,
-              help="Hide all output.")
+@click.option("-q", "--quiet", count=True,
+              help="Reduce verbosity.")
 @click.option("-s", "--secure", is_flag=True, default=False,
               help="Use encrypted communication (TLS).")
-@click.option("-v", "--verbose", is_flag=True, default=False,
-              help="Show low level communication detail.")
+@click.option("-v", "--verbose", count=True,
+              help="Increase verbosity.")
 @click.option("-x", "--times", type=int, default=1,
               help="Number of times to repeat.")
 @click.argument("cypher", nargs=-1)
 def py2neo_run(cypher, uri, auth=None, secure=False, verbose=False, quiet=False, times=1):
-    from py2neo.client.console import ClientConsole, ClientConsoleError
-    try:
-        con = ClientConsole(uri, auth=auth, secure=secure, verbose=verbose, quiet=quiet)
-    except ClientConsoleError as error:
-        click.echo(error)
-        raise SystemExit(1)
-    else:
-        raise SystemExit(con.run_all(cypher, times=times))
+    from py2neo.client.console import Py2neoConsole
+    con = Py2neoConsole(uri, auth=auth, secure=secure)
+    con.verbosity = verbose - quiet
+    con.process_all(cypher, times)
+    con.exit()
 
 
 @py2neo.command("server", help="""\
@@ -155,29 +148,32 @@ passed. These are:
               help="A Docker network name to which all servers will be "
                    "attached. If omitted, an auto-generated name will be "
                    "used.")
-@click.option("-v", "--verbose", count=True, callback=watch_log,
-              expose_value=False, is_eager=True,
+@click.option("-v", "--verbose", count=True,
               help="Show more detail about the startup and shutdown process.")
 @click.option("-z", "--self-signed-certificate", is_flag=True)
 @click.argument("image", default="latest")
-def py2neo_server(name, image, auth, self_signed_certificate):
+def py2neo_server(name, image, auth, self_signed_certificate, verbose):
     from py2neo.security import make_self_signed_certificate
-    from py2neo.server import Neo4jService
+    from py2neo.server import Neo4jService, Neo4jConsole
+    console = Neo4jConsole()
+    console.verbosity = verbose
     try:
         if self_signed_certificate:
             cert_key_pair = make_self_signed_certificate()
         else:
             cert_key_pair = None
         with Neo4jService.single_instance(name, image, auth, cert_key_pair) as neo4j:
-            neo4j.run_console()
+            console.service = neo4j
+            console.invoke("env")
+            console.loop()
     except KeyboardInterrupt:
-        exit(130)
+        console.exit(130)
     except Exception as e:
         message = " ".join(map(str, e.args))
         if hasattr(e, 'explanation'):
             message += "\n" + e.explanation
         click.echo(message, err=True)
-        exit(1)
+        console.exit(1)
 
 
 @py2neo.command("movies", help="""\
@@ -192,7 +188,8 @@ def main():
     try:
         py2neo(obj={})
     except Exception as error:
-        click.secho("%s: %s" % (error.__class__.__name__, " ".join(map(str, error.args))), err=True)
+        arg_string = " ".join(map(str, error.args))
+        print("{}: {}".format(error.__class__.__name__, arg_string), file=stderr)
         exit(1)
     else:
         exit(0)

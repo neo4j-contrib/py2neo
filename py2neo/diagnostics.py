@@ -25,17 +25,18 @@ class ColourFormatter(Formatter):
     """
 
     def format(self, record):
+        from pansi import ansi
         s = super(ColourFormatter, self).format(record)
         if record.levelno == CRITICAL:
-            return "\x1b[31;1m%s\x1b[0m" % s  # bright red
+            return "{RED}{}{_}".format(s, **ansi)
         elif record.levelno == ERROR:
-            return "\x1b[33;1m%s\x1b[0m" % s  # bright yellow
+            return "{red}{}{_}".format(s, **ansi)
         elif record.levelno == WARNING:
-            return "\x1b[33m%s\x1b[0m" % s    # yellow
+            return "{yellow}{}{_}".format(s, **ansi)
         elif record.levelno == INFO:
-            return "\x1b[37m%s\x1b[0m" % s    # white
+            return "{white}{}{_}".format(s, **ansi)
         elif record.levelno == DEBUG:
-            return "\x1b[36m%s\x1b[0m" % s    # cyan
+            return "{cyan}{}{_}".format(s, **ansi)
         else:
             return s
 
@@ -53,20 +54,29 @@ class Watcher(object):
         self.formatter = ColourFormatter("%(asctime)s  %(message)s")
 
     def __enter__(self):
-        self.watch()
+        self.start()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
 
-    def watch(self, level=DEBUG, out=stderr):
+    def start(self, verbosity=0, out=stderr):
         self.stop()
         handler = StreamHandler(out)
         handler.setFormatter(self.formatter)
         for logger in self. loggers:
             self.handlers[logger.name] = handler
             logger.addHandler(handler)
-            logger.setLevel(level)
+            if verbosity > 0:
+                logger.setLevel(DEBUG)
+            elif verbosity == 0:
+                logger.setLevel(INFO)
+            elif verbosity == -1:
+                logger.setLevel(WARNING)
+            elif verbosity == -2:
+                logger.setLevel(ERROR)
+            else:
+                logger.setLevel(CRITICAL)
 
     def stop(self):
         try:
@@ -76,14 +86,14 @@ class Watcher(object):
             pass
 
 
-def watch(logger_name, level=DEBUG, out=stderr):
+def watch(logger_name, verbosity=0, out=stderr):
     """ Quick wrapper for using the Watcher.
 
     :param logger_name: name of logger to watch
-    :param level: minimum log level to show (default DEBUG)
+    :param verbosity:
     :param out: where to send output (default stderr)
     :return: Watcher instance
     """
     watcher = Watcher(logger_name)
-    watcher.watch(level, out)
+    watcher.start(verbosity, out)
     return watcher

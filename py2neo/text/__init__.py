@@ -21,14 +21,6 @@ from operator import add
 from re import findall
 
 
-def html_escape(s):
-    return (s.replace(u"&", u"&amp;")
-             .replace(u"<", u"&lt;")
-             .replace(u">", u"&gt;")
-             .replace(u'"', u"&quot;")
-             .replace(u"'", u"&#039;"))
-
-
 def iter_words(s):
     if " " in s:
         for word in s.split():

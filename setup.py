@@ -61,6 +61,7 @@ package_metadata = {
         "pygments~=2.3.1",
         "pyopenssl",
         "pytz",
+        "six",
         "urllib3",
     ],
     "extras_require": {

@@ -27,10 +27,11 @@ from py2neo.client import Connector, Connection, TransactionError
 from py2neo.client.config import ConnectionProfile
 from py2neo.compat import Mapping, xstr
 from py2neo.cypher import cypher_escape, Procedures
-from py2neo.data import Record, Table
+from py2neo.data import Record
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 from py2neo.operations import OperationError
 from py2neo.text import Words
+from py2neo.text.table import Table
 
 
 update_stats_keys = [
@@ -772,6 +773,9 @@ class GraphError(Exception):
         else:
             error_cls = cls
         inst = error_cls(message)
+        inst.classification = classification
+        inst.category = category
+        inst.title = title
         inst.code = code
         inst.message = message
         return inst

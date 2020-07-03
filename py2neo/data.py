@@ -20,14 +20,13 @@ from __future__ import absolute_import
 
 from collections import OrderedDict
 from functools import reduce
-from io import StringIO
 from itertools import chain
 from operator import xor as xor_operator
 from uuid import uuid4
 
 from py2neo.collections import is_collection, iter_items, SetView
-from py2neo.compat import Mapping, integer_types, numeric_types, string_types, ustr, xstr
-from py2neo.cypher import cypher_repr, cypher_str
+from py2neo.compat import Mapping, integer_types, string_types, ustr, xstr
+from py2neo.cypher import cypher_repr
 from py2neo.cypher.encoding import CypherEncoder, LabelSetView
 from py2neo.operations import (
     create_subgraph,
@@ -38,7 +37,6 @@ from py2neo.operations import (
     push_subgraph,
     subgraph_exists,
 )
-from py2neo.text import html_escape
 
 
 def walk(*walkables):
@@ -310,253 +308,6 @@ class PropertyDict(dict):
     def update(self, iterable=None, **kwargs):
         for key, value in dict(iterable or {}, **kwargs).items():
             self[key] = value
-
-
-class Table(list):
-    """ Immutable list of records.
-    """
-
-    def __init__(self, records, keys=None):
-        super(Table, self).__init__(map(tuple, records))
-        if keys:
-            k = list(map(ustr, keys))
-        else:
-            try:
-                k = records.keys()
-            except AttributeError:
-                raise ValueError("Missing keys")
-        width = len(k)
-        t = [set() for _ in range(width)]
-        o = [False] * width
-        for record in self:
-            for i, value in enumerate(record):
-                if value is None:
-                    o[i] = True
-                else:
-                    t[i].add(type(value))
-        f = []
-        for i, _ in enumerate(k):
-            f.append({
-                "type": t[i].copy().pop() if len(t[i]) == 1 else tuple(t[i]),
-                "numeric": all(t_ in numeric_types for t_ in t[i]),
-                "optional": o[i],
-            })
-        self._keys = k
-        self._fields = f
-
-    def __repr__(self):
-        s = StringIO()
-        self.write(file=s, header=True)
-        return s.getvalue()
-
-    def _repr_html_(self):
-        """ Return a string containing an HTML representation of this table.
-        This method is used by Jupyter notebooks to display the table natively within a browser.
-        Internally, this method calls :meth:`.write_html` with `header=True`, writing the output into an ``io.StringIO`` instance.
-        """
-        s = StringIO()
-        self.write_html(file=s, header=True)
-        return s.getvalue()
-
-    def keys(self):
-        """ Return a list of field names for this table.
-        """
-        return list(self._keys)
-
-    def field(self, key):
-        """ Return a dictionary of metadata for a given field.
-        The metadata includes the following values:
-
-        `type`
-            Single class or tuple of classes representing the
-            field values.
-
-        `numeric`
-            :const:`True` if all field values are of a numeric
-            type, :const:`False` otherwise.
-
-        `optional`
-            :const:`True` if any field values are :const:`None`,
-            :const:`False` otherwise.
-
-        """
-        if isinstance(key, integer_types):
-            return self._fields[key]
-        elif isinstance(key, string_types):
-            try:
-                index = self._keys.index(key)
-            except ValueError:
-                raise KeyError(key)
-            else:
-                return self._fields[index]
-        else:
-            raise TypeError(key)
-
-    def _range(self, skip, limit):
-        if skip is None:
-            skip = 0
-        if limit is None or skip + limit > len(self):
-            return range(skip, len(self))
-        else:
-            return range(skip, skip + limit)
-
-    def write(self, file=None, header=None, skip=None, limit=None, auto_align=True,
-              padding=1, separator=u"|", newline=u"\r\n"):
-        """ Write data to a human-readable ASCII art table.
-
-        :param file: file-like object capable of receiving output
-        :param header: boolean flag for addition of column headers
-        :param skip: number of records to skip before beginning output
-        :param limit: maximum number of records to include in output
-        :param auto_align: if :const:`True`, right-justify numeric values
-        :param padding: number of spaces to include between column separator and value
-        :param separator: column separator character
-        :param newline: newline character sequence
-        :return: the number of records included in output
-        """
-        from click import secho
-
-        space = u" " * padding
-        widths = [1 if header else 0] * len(self._keys)
-
-        def calc_widths(values, **_):
-            strings = [cypher_str(value).splitlines(False) for value in values]
-            for i, s in enumerate(strings):
-                w = max(map(len, s)) if s else 0
-                if w > widths[i]:
-                    widths[i] = w
-
-        def write_line(values, underline=u"", **styles):
-            strings = [cypher_str(value).splitlines(False) for value in values]
-            height = max(map(len, strings)) if strings else 1
-            for y in range(height):
-                line_text = u""
-                underline_text = u""
-                for x, _ in enumerate(values):
-                    try:
-                        text = strings[x][y]
-                    except IndexError:
-                        text = u""
-                    if auto_align and self._fields[x]["numeric"]:
-                        text = space + text.rjust(widths[x]) + space
-                        u_text = underline * len(text)
-                    else:
-                        text = space + text.ljust(widths[x]) + space
-                        u_text = underline * len(text)
-                    if x > 0:
-                        text = separator + text
-                        u_text = separator + u_text
-                    line_text += text
-                    underline_text += u_text
-                if underline:
-                    line_text += newline + underline_text
-                line_text += newline
-                secho(line_text, file, nl=False, **styles)
-
-        def apply(f):
-            count = 0
-            for count, index in enumerate(self._range(skip, limit), start=1):
-                if count == 1 and header:
-                    f(self.keys(), underline=u"-")
-                f(self[index])
-            return count
-
-        apply(calc_widths)
-        return apply(write_line)
-
-    def write_html(self, file=None, header=None, skip=None, limit=None, auto_align=True):
-        """ Write data to an HTML table.
-
-        :param file: file-like object capable of receiving output
-        :param header: boolean flag for addition of column headers
-        :param skip: number of records to skip before beginning output
-        :param limit: maximum number of records to include in output
-        :param auto_align: if :const:`True`, right-justify numeric values
-        :return: the number of records included in output
-        """
-        from click import echo
-
-        def write_tr(values, tag):
-            echo(u"<tr>", file, nl=False)
-            for i, value in enumerate(values):
-                if tag == "th":
-                    template = u'<{}>{}</{}>'
-                elif auto_align and self._fields[i]["numeric"]:
-                    template = u'<{} style="text-align:right">{}</{}>'
-                else:
-                    template = u'<{} style="text-align:left">{}</{}>'
-                echo(template.format(tag, html_escape(cypher_str(value)), tag), file, nl=False)
-            echo(u"</tr>", file, nl=False)
-
-        count = 0
-        echo(u"<table>", file, nl=False)
-        for count, index in enumerate(self._range(skip, limit), start=1):
-            if count == 1 and header:
-                write_tr(self.keys(), u"th")
-            write_tr(self[index], u"td")
-        echo(u"</table>", file, nl=False)
-        return count
-
-    def write_separated_values(self, separator, file=None, header=None, skip=None, limit=None,
-                               newline=u"\r\n", quote=u"\""):
-        """ Write data to a delimiter-separated file.
-
-        :param separator: field separator character
-        :param file: file-like object capable of receiving output
-        :param header: boolean flag (or dictionary of ``click.secho`` styles) for addition of column headers
-        :param skip: number of records to skip before beginning output
-        :param limit: maximum number of records to include in output
-        :param newline: newline character sequence
-        :param quote: quote character
-        :return: the number of records included in output
-        """
-        from click import secho
-
-        escaped_quote = quote + quote
-        quotable = separator + newline + quote
-        header_styles = {}
-        if header and isinstance(header, dict):
-            header_styles.update(header)
-
-        def write_value(value, **styles):
-            if value is None:
-                return
-            if isinstance(value, string_types):
-                value = ustr(value)
-                if any(ch in value for ch in quotable):
-                    value = quote + value.replace(quote, escaped_quote) + quote
-            else:
-                value = cypher_repr(value)
-            secho(value, file, nl=False, **styles)
-
-        def write_line(values, **styles):
-            for i, value in enumerate(values):
-                if i > 0:
-                    secho(separator, file, nl=False, **styles)
-                write_value(value, **styles)
-            secho(newline, file, nl=False, **styles)
-
-        def apply(f):
-            count = 0
-            for count, index in enumerate(self._range(skip, limit), start=1):
-                if count == 1 and header:
-                    f(self.keys(), underline=u"-", **header_styles)
-                f(self[index])
-            return count
-
-        return apply(write_line)
-
-    def write_csv(self, file=None, header=None, skip=None, limit=None):
-        """ Write the data as RFC4180-compatible comma-separated values.
-        This is a customised call to :meth:`.write_separated_values`.
-        """
-        return self.write_separated_values(u",", file, header, skip, limit)
-
-    def write_tsv(self, file=None, header=None, skip=None, limit=None):
-        """ Write the data as tab-separated values.
-        This is a customised call to :meth:`.write_separated_values`.
-        """
-        return self.write_separated_values(u"\t", file, header, skip, limit)
 
 
 class Subgraph(object):

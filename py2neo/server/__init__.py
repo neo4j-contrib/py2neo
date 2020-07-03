@@ -16,21 +16,25 @@
 # limitations under the License.
 
 
+from inspect import getmembers
 from logging import getLogger
 from os import chmod, path
 from random import choice
+from shlex import split as shlex_split
 from shutil import rmtree
 from tempfile import mkdtemp
 from threading import Thread
 from time import sleep
+from webbrowser import open as open_browser
 
+import click
 from docker import DockerClient
 from docker.errors import APIError, ImageNotFound
 from packaging.version import Version
 
 from py2neo.compat import perf_counter
+from py2neo.console import Console
 from py2neo.security import Auth, make_auth, install_certificate, install_private_key
-from py2neo.server.console import ServerConsole
 from py2neo.wiring import Address, Wire
 
 
@@ -71,7 +75,7 @@ class Neo4jInstance(object):
             ports["7473/tcp"] = self.https_port
             self.cert_volume_dir = mkdtemp()
             chmod(self.cert_volume_dir, 0o755)
-            log.info("Using directory %r as shared certificate volume", self.cert_volume_dir)
+            log.debug("Using directory %r as shared certificate volume", self.cert_volume_dir)
             if self.service.image.version >= Version("4.0"):
                 subdirectories = [path.join(self.cert_volume_dir, subdir)
                                   for subdir in ["bolt", "https"]]
@@ -179,10 +183,10 @@ class Neo4jInstance(object):
             self.ip_address = (self.container.attrs["NetworkSettings"]
                                ["Networks"][self.service.name]["IPAddress"])
         except APIError as e:
-            log.info(e)
+            log.exception(e)
 
-        log.info("Machine %r is bound to internal IP address %s",
-                 self.fq_name, self.ip_address)
+        log.debug("Machine %r is bound to internal IP address %s",
+                  self.fq_name, self.ip_address)
 
     def _poll_bolt_address(self, count=240, interval=0.5, is_running=None):
         address = self.addresses["bolt"]
@@ -289,7 +293,7 @@ class Neo4jInstance(object):
         self.container.stop()
         self.container.remove(force=True)
         if self.cert_volume_dir:
-            log.info("Removing directory %r", self.cert_volume_dir)
+            log.debug("Removing directory %r", self.cert_volume_dir)
             rmtree(self.cert_volume_dir)
 
 
@@ -372,7 +376,7 @@ class Neo4jService(object):
         self._for_each_instance(wait)
         if all(instance.ready == 1 for instance in self.instances):
             log.info("Neo4j %s %s service %r available",
-                     self.image.edition, self.image.version, self.name)
+                     self.image.edition.title(), self.image.version, self.name)
         else:
             raise RuntimeError("Service %r unavailable - "
                                "some instances failed" % self.name)
@@ -394,11 +398,6 @@ class Neo4jService(object):
                 container.stop()
                 container.remove(force=True)
         docker.networks.get(service_name).remove()
-
-    def run_console(self):
-        self.console = ServerConsole(self)
-        self.console.invoke("env")
-        self.console.run()
 
     def env(self):
         addresses = [instance.address for instance in self.instances]
@@ -484,3 +483,197 @@ class Neo4jImage(object):
             images = docker.images.load(f.read())
             image = images[0]
             return image.tags[0]
+
+
+class Neo4jConsole(Console):
+
+    args = None
+
+    service = None
+
+    def __init__(self):
+        super(Neo4jConsole, self).__init__(__name__)  # TODO: history file
+
+    def __iter__(self):
+        for name, value in getmembers(self):
+            if isinstance(value, click.Command):
+                yield name
+
+    def __getitem__(self, name):
+        try:
+            f = getattr(self, name)
+        except AttributeError:
+            raise click.UsageError('No such command "%s".' % name)
+        else:
+            if isinstance(f, click.Command):
+                return f
+            else:
+                raise click.UsageError('No such command "%s".' % name)
+
+    def _iter_instances(self, name):
+        if not name:
+            name = "a"
+        for instance in self.service.instances:
+            if name in (instance.name, instance.fq_name):
+                yield instance
+
+    def _for_each_instance(self, name, f):
+        found = 0
+        for instance_obj in self._iter_instances(name):
+            f(instance_obj)
+            found += 1
+        return found
+
+    def process(self, line):
+        if line:
+            self.args = shlex_split(line)
+            self.invoke(*self.args)
+
+    def invoke(self, *args):
+        try:
+            arg0, args = args[0], list(args[1:])
+            f = self[arg0]
+            ctx = f.make_context(arg0, args, obj=self)
+            return f.invoke(ctx)
+        except click.exceptions.Exit:
+            pass
+        except click.ClickException as e:
+            click.echo(e.format_message())
+        except RuntimeError as e:
+            log.error("{}".format(e.args[0]))
+
+    @click.command()
+    @click.argument("instance", required=False)
+    @click.pass_obj
+    def browser(self, instance):
+        """ Start the Neo4j browser.
+
+        A machine name may optionally be passed, which denotes the server to
+        which the browser should be tied. If no machine name is given, 'a' is
+        assumed.
+        """
+
+        def f(i):
+            try:
+                uri = "https://{}".format(i.addresses["https"])
+            except KeyError:
+                uri = "http://{}".format(i.addresses["http"])
+            log.info("Opening web browser for machine %r at %r", i.fq_name, uri)
+            open_browser(uri)
+
+        if not self._for_each_instance(instance, f):
+            raise RuntimeError("Machine {!r} not found".format(instance))
+
+    @click.command()
+    @click.pass_obj
+    def env(self):
+        """ Show available environment variables.
+
+        Each service exposes several environment variables which contain
+        information relevant to that service. These are:
+
+          BOLT_SERVER_ADDR   space-separated string of router addresses
+          NEO4J_AUTH         colon-separated user and password
+
+        """
+        for key, value in sorted(self.service.env().items()):
+            log.info("%s=%r", key, value)
+
+    @click.command()
+    @click.argument("command", required=False)
+    @click.pass_obj
+    def help(self, command):
+        """ Get help on a command or show all available commands.
+        """
+        if command:
+            try:
+                f = self[command]
+            except KeyError:
+                raise RuntimeError('No such command "%s".' % command)
+            else:
+                ctx = self.help.make_context(command, [], obj=self)
+                click.echo(f.get_help(ctx))
+        else:
+            click.echo("Commands:")
+            command_width = max(map(len, self))
+            text_width = 73 - command_width
+            template = "  {:<%d}   {}" % command_width
+            for arg0 in sorted(self):
+                f = self[arg0]
+                text = [f.get_short_help_str(limit=text_width)]
+                for i, line in enumerate(text):
+                    if i == 0:
+                        click.echo(template.format(arg0, line))
+                    else:
+                        click.echo(template.format("", line))
+
+    @click.command()
+    @click.option("-r", "--refresh", is_flag=True,
+                  help="Refresh the routing table")
+    @click.pass_obj
+    def ls(self, refresh):
+        """ Show a detailed list of the available servers.
+
+        Routing information for the current transaction context is refreshed
+        automatically if expired, or can be manually refreshed with the -r
+        option. Each server is listed by name, along with the following
+        details:
+
+        \b
+        - Bolt port
+        - HTTP port
+        - Server mode: CORE, READ_REPLICA or SINGLE
+        - Whether or not the server is a router
+        - Roles for the current tx context: (r)ead or (w)rite
+        - Docker container in which the server is running
+        - Debug port
+
+        """
+        click.echo("CONTAINER   NAME        "
+                   "BOLT PORT   HTTP PORT   HTTPS PORT   MODE")
+        for instance in self.service.instances:
+            if instance is None:
+                continue
+            click.echo("{:<12}{:<12}{:<12}{:<12}{:<13}{:<15}".format(
+                instance.container.short_id,
+                instance.fq_name,
+                instance.bolt_port,
+                instance.http_port,
+                instance.https_port or 0,
+                instance.config.get("dbms.mode", "SINGLE"),
+            ))
+
+    @click.command()
+    @click.argument("instance", required=False)
+    @click.pass_obj
+    def logs(self, instance):
+        """ Display logs for a named server.
+
+        If no server name is provided, 'a' is used as a default.
+        """
+
+        def f(m):
+            click.echo(m.container.logs())
+
+        if not self._for_each_instance(instance, f):
+            raise RuntimeError("Machine {!r} not found".format(instance))
+
+    @click.command()
+    @click.argument("time", type=float)
+    @click.argument("instance", required=False)
+    @click.pass_obj
+    def pause(self, time, instance):
+        """ Pause a server for a given number of seconds.
+
+        If no server name is provided, 'a' is used as a default.
+        """
+
+        def f(i):
+            log.info("Pausing machine {!r} for {}s".format(i.fq_name, time))
+            i.container.pause()
+            sleep(time)
+            i.container.unpause()
+            i.ping(timeout=0)
+
+        if not self._for_each_instance(instance, f):
+            raise RuntimeError("Machine {!r} not found".format(instance))

@@ -20,39 +20,47 @@ from io import StringIO
 
 from pytest import fixture, raises
 
-from py2neo.client.console import ClientConsole
+from py2neo.client.console import Py2neoConsole
 from py2neo import __version__
 
 
-class CapturedClientConsole(ClientConsole):
+class CapturedPy2neoConsole(Py2neoConsole):
 
     def __init__(self, *args, **kwargs):
         kwargs["file"] = StringIO()
-        super(CapturedClientConsole, self).__init__(*args, **kwargs)
         self.captured_output = []
         self.scripted_input = []
+        super(CapturedPy2neoConsole, self).__init__(*args, **kwargs)
+        self.verbosity = 1
 
-    def echo(self, text, *args, **kwargs):
-        self.captured_output.append(text)
+    def write(self, *values, sep=" ", end="\n"):
+        self.captured_output.append(sep.join(values) + end)
 
-    def prompt(self, *args, **kwargs):
+    def debug(self, msg, *args, **kwargs):
+        self.captured_output.append((msg % args) + "\n")
+
+    def info(self, msg, *args, **kwargs):
+        self.captured_output.append((msg % args) + "\n")
+
+    def read(self):
         return self.scripted_input.pop(0)
 
 
 @fixture()
 def console(uri):
-    return CapturedClientConsole(uri)
+    return CapturedPy2neoConsole(uri)
 
 
 def assert_prologue(console):
     output = console.captured_output
-    assert output.pop(0) == "Py2neo console v" + __version__
-    assert output.pop(0) == "Connected to %s" % console.graph.service.uri
-    assert output.pop(0) == ""
+    assert output.pop(0) == "Py2neo console v{}\n".format(__version__)
+    assert output.pop(0) == "\n"
     assert output.pop(0) == ("//  to enter multi-line mode (press [Alt]+[Enter] to run)\n"
                              "/e  to launch external editor\n"
                              "/?  for help\n"
-                             "/x  to exit")
+                             "/x  to exit\n")
+    assert output.pop(0) == "\n"
+    assert output.pop(0) == "Connected to {}\n".format(console.graph.service.uri)
 
 
 def test_can_start_console(console):
@@ -70,5 +78,5 @@ def test_can_run_query(console):
     assert_prologue(console)
     assert console.output_file.getvalue() == " x \r\n---\r\n 1 \r\n"
     assert console.captured_output.pop(0) == "\r\n"
-    assert console.captured_output.pop(0).startswith("(1 record from ")
+    assert console.captured_output.pop(0).startswith("Fetched 1 record from ")
     assert not console.captured_output
