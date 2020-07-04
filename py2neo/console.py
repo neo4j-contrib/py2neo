@@ -88,7 +88,9 @@ class Console(object):
         else:
             self.__log.setLevel(CRITICAL)
 
-    def write(self, *values, sep=" ", end="\n"):
+    def write(self, *values, **kwargs):
+        sep = kwargs.get("sep", " ")
+        end = kwargs.get("end", "\n")
         if self.verbosity >= 0:
             print(*values, sep=sep, end=end, file=stdout)
 

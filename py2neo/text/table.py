@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from __future__ import print_function, unicode_literals
+
 from io import StringIO
 
 from py2neo.compat import integer_types, numeric_types, string_types, ustr
@@ -168,7 +170,7 @@ class Table(list):
                 if underline:
                     line_text += newline + underline_text
                 line_text += newline
-                print(line_text, end="", file=file)
+                print(line_text, end=u"", file=file)
 
         def apply(f):
             count = 0

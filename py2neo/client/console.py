@@ -114,15 +114,13 @@ def is_command(source):
 class Py2neoConsole(Console):
 
     multi_line = False
-    watcher = None
-
-    tx_colour = "yellow"
-    prompt_colour = "cyan"
 
     def __init__(self, profile=None, *_, **settings):
         super(Py2neoConsole, self).__init__(__name__)  # TODO: history file
         self.verbosity = settings.get("verbosity", 0)
         self.output_file = settings.pop("file", None)
+
+        # TODO: hide for `py2neo run`
         self.write(TITLE)
         self.write()
         self.write(dedent(QUICK_HELP))
@@ -132,26 +130,15 @@ class Py2neoConsole(Console):
         try:
             self.graph = Graph(self.profile)
         except OSError as error:
-            self.critical("Could not connect to {} -- {}".format(self.profile.uri, error))
+            self.critical("Could not connect to <%s> (%s)", self.profile.uri, " ".join(error.args))
             raise
         else:
-            self.info("Connected to {}".format(self.graph.service.uri).rstrip())
+            self.debug("Connected to <%s>", self.graph.service.uri)
         try:
             makedirs(HISTORY_FILE_DIR)
         except OSError:
             pass
         self.history = FileHistory(path_join(HISTORY_FILE_DIR, HISTORY_FILE))
-        self.prompt_args = {
-            "history": self.history,
-            "lexer": PygmentsLexer(CypherLexer),
-            "style": merge_styles([
-                style_from_pygments_cls(NativeStyle),
-                style_from_pygments_dict({
-                    Token.Prompt: "#ansi{}".format(self.prompt_colour.replace("cyan", "teal")),
-                    Token.TxCounter: "#ansi{} bold".format(self.tx_colour.replace("cyan", "teal")),
-                })
-            ])
-        }
         self.lexer = CypherLexer()
         self.result_writer = Table.write
 
@@ -178,7 +165,7 @@ class Py2neoConsole(Console):
 
         }
         self.tx = None
-        self.tx_counter = 0
+        self.qid = 0
 
     def process_all(self, lines, times=1):
         gap = False
@@ -201,15 +188,10 @@ class Py2neoConsole(Console):
             else:
                 self.run_source(line)
         except (GraphError, Failure) as error:
-            if error.classification == "ClientError":
-                pass
-            elif error.classification == "DatabaseError":
-                pass
-            elif error.classification == "TransientError":
-                pass
+            if hasattr(error, "title") and hasattr(error, "message"):
+                self.error("%s: %s", error.title, error.message)
             else:
-                pass
-            self.error("%s: %s", error.title, error.message)
+                self.error("%s: %s", error.__class__.__name__, " ".join(map(str, error.args)))
         except OSError as error:
             self.critical("Service Unavailable (%s)", error.args[0])
         except Exception as error:
@@ -218,7 +200,7 @@ class Py2neoConsole(Console):
     def begin_transaction(self):
         if self.tx is None:
             self.tx = self.graph.begin()
-            self.tx_counter = 1
+            self.qid = 1
         else:
             self.warning("Transaction already open")
 
@@ -229,7 +211,7 @@ class Py2neoConsole(Console):
                 self.info("Transaction committed")
             finally:
                 self.tx = None
-                self.tx_counter = 0
+                self.qid = 0
         else:
             self.warning("No current transaction")
 
@@ -237,29 +219,49 @@ class Py2neoConsole(Console):
         if self.tx:
             try:
                 self.tx.rollback()
-                self.warning("Transaction rolled back")
+                self.info("Transaction rolled back")
             finally:
                 self.tx = None
-                self.tx_counter = 0
+                self.qid = 0
         else:
             self.warning("No current transaction")
 
     def read(self):
+        prompt_args = {
+            "history": self.history,
+            "lexer": PygmentsLexer(CypherLexer),
+            "style": merge_styles([
+                style_from_pygments_cls(NativeStyle),
+                style_from_pygments_dict({
+                    Token.Prompt.User: "#ansiteal",
+                    Token.Prompt.At: "#ansiteal",
+                    Token.Prompt.Host: "#ansiteal",
+                    Token.Prompt.QID: "#ansiyellow",
+                    Token.Prompt.Arrow: "#ansibrightblack bold",
+                })
+            ])
+        }
+
+        self.write()
         if self.multi_line:
             self.multi_line = False
-            return prompt(u"", multiline=True, **self.prompt_args)
+            return prompt(u"", multiline=True, **prompt_args)
 
         def get_prompt_tokens():
-            tokens = []
+            tokens = [
+                ("class:pygments.prompt.user", self.profile.user),
+                ("class:pygments.prompt.at", "@"),
+                ("class:pygments.prompt.host", self.profile.host),
+            ]
             if self.tx is None:
-                tokens.append(("class:pygments.prompt", "\n-> "))
+                tokens.append(("class:pygments.prompt.arrow", " -> "))
             else:
-                tokens.append(("class:pygments.prompt", "\n-("))
-                tokens.append(("class:pygments.txcounter", "{}".format(self.tx_counter)))
-                tokens.append(("class:pygments.prompt", ")-> "))
+                tokens.append(("class:pygments.prompt.arrow", " "))
+                tokens.append(("class:pygments.prompt.qid", str(self.qid)))
+                tokens.append(("class:pygments.prompt.arrow", "> "))
             return tokens
 
-        return prompt(get_prompt_tokens, **self.prompt_args)
+        return prompt(get_prompt_tokens, **prompt_args)
 
     def run_source(self, source):
         for i, statement in enumerate(self.lexer.get_statements(source)):
@@ -274,8 +276,8 @@ class Py2neoConsole(Console):
             elif self.tx is None:
                 self.run_cypher(self.graph.run, statement, {})
             else:
-                self.run_cypher(self.tx.run, statement, {}, query_id=self.tx_counter)
-                self.tx_counter += 1
+                self.run_cypher(self.tx.run, statement, {}, query_id=self.qid)
+                self.qid += 1
 
     def run_cypher(self, runner, statement, parameters, query_id=0):
         t0 = timer()

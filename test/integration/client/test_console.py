@@ -33,7 +33,9 @@ class CapturedPy2neoConsole(Py2neoConsole):
         super(CapturedPy2neoConsole, self).__init__(*args, **kwargs)
         self.verbosity = 1
 
-    def write(self, *values, sep=" ", end="\n"):
+    def write(self, *values, **kwargs):
+        sep = kwargs.get("sep", " ")
+        end = kwargs.get("end", "\n")
         self.captured_output.append(sep.join(values) + end)
 
     def debug(self, msg, *args, **kwargs):
@@ -60,7 +62,7 @@ def assert_prologue(console):
                              "/?  for help\n"
                              "/x  to exit\n")
     assert output.pop(0) == "\n"
-    assert output.pop(0) == "Connected to {}\n".format(console.graph.service.uri)
+    assert output.pop(0) == "Connected to <{}>\n".format(console.graph.service.uri)
 
 
 def test_can_start_console(console):
