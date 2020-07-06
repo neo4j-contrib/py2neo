@@ -67,16 +67,14 @@ def assert_prologue(console):
 
 def test_can_start_console(console):
     console.scripted_input = ["/x\n"]
-    with raises(SystemExit):
-        console.loop()
+    console.loop()
     assert_prologue(console)
     assert not console.captured_output
 
 
 def test_can_run_query(console):
     console.scripted_input = ["RETURN 1 AS x\n", "/x\n"]
-    with raises(SystemExit):
-        console.loop()
+    console.loop()
     assert_prologue(console)
     assert console.output_file.getvalue() == " x \r\n---\r\n 1 \r\n"
     assert console.captured_output.pop(0) == "\r\n"
