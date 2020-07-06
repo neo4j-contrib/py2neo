@@ -92,10 +92,8 @@ Interactive Cypher console
               help="Adjust level of communication detail.")
 def py2neo_console(uri, auth=None, secure=None, verbose=0):
     from py2neo.client.console import Py2neoConsole
-    console = Py2neoConsole(uri, auth=auth, secure=secure)
-    console.verbosity = verbose
+    console = Py2neoConsole(uri, auth=auth, secure=secure, verbosity=verbose)
     console.loop()
-    console.exit()
 
 
 @py2neo.command("run", help="""\
@@ -116,10 +114,8 @@ Run a Cypher query
 @click.argument("cypher", nargs=-1)
 def py2neo_run(cypher, uri, auth=None, secure=False, verbose=False, quiet=False, times=1):
     from py2neo.client.console import Py2neoConsole
-    con = Py2neoConsole(uri, auth=auth, secure=secure)
-    con.verbosity = verbose - quiet
-    con.process_all(cypher, times)
-    con.exit()
+    console = Py2neoConsole(uri, auth=auth, secure=secure, verbosity=(verbose - quiet))
+    console.process_all(cypher, times)
 
 
 @py2neo.command("server", help="""\
@@ -166,16 +162,16 @@ def py2neo_server(name, image, auth, self_signed_certificate, verbose):
             cert_key_pair = None
         with Neo4jService.single_instance(name, image, auth, cert_key_pair) as neo4j:
             console.service = neo4j
-            console.invoke("env")
+            console.env()
             console.loop()
     except KeyboardInterrupt:
-        console.exit(130)
+        exit(130)
     except Exception as e:
         message = " ".join(map(str, e.args))
         if hasattr(e, 'explanation'):
             message += "\n" + e.explanation
         click.echo(message, err=True)
-        console.exit(1)
+        exit(1)
 
 
 @py2neo.command("movies", help="""\

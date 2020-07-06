@@ -27,6 +27,7 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from timeit import default_timer as timer
 
+from pansi.console import Console
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
@@ -36,7 +37,6 @@ from pygments.token import Token
 
 from py2neo import __version__
 from py2neo.client import ConnectionProfile, Failure
-from py2neo.console import Console
 from py2neo.cypher.lexer import CypherLexer
 from py2neo.database import Graph, GraphError
 from py2neo.text.table import Table
@@ -116,8 +116,7 @@ class Py2neoConsole(Console):
     multi_line = False
 
     def __init__(self, profile=None, *_, **settings):
-        super(Py2neoConsole, self).__init__(__name__)  # TODO: history file
-        self.verbosity = settings.get("verbosity", 0)
+        super(Py2neoConsole, self).__init__(__name__, verbosity=settings.get("verbosity", 0))  # TODO: history file
         self.output_file = settings.pop("file", None)
 
         # TODO: hide for `py2neo run`
@@ -130,7 +129,7 @@ class Py2neoConsole(Console):
         try:
             self.graph = Graph(self.profile)
         except OSError as error:
-            self.critical("Could not connect to <%s> (%s)", self.profile.uri, " ".join(error.args))
+            self.critical("Could not connect to <%s> (%s)", self.profile.uri, " ".join(map(str, error.args)))
             raise
         else:
             self.debug("Connected to <%s>", self.graph.service.uri)
@@ -237,7 +236,7 @@ class Py2neoConsole(Console):
                     Token.Prompt.At: "#ansiteal",
                     Token.Prompt.Host: "#ansiteal",
                     Token.Prompt.QID: "#ansiyellow",
-                    Token.Prompt.Arrow: "#ansibrightblack bold",
+                    Token.Prompt.Arrow: "#808080",
                 })
             ])
         }
