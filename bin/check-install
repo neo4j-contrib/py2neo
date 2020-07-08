@@ -20,7 +20,7 @@ then
     exit 1
 fi
 
-python -c "from py2neo.meta import __package__, __version__; print(__package__ + ' ' + __version__)"
+python -c "from py2neo import __package__, __version__; print(__package__ + ' ' + __version__)"
 
 deactivate
 rm -r ${ENV}
