@@ -120,7 +120,7 @@ class TestProfile(object):
                          for instance in service.instances]
             uris = ["{}://{}:{}".format(self.scheme, address.host, address.port)
                     for address in addresses]
-            yield uris[0]
+            yield service, uris[0]
         finally:
             service.stop()
 
@@ -155,10 +155,22 @@ def test_profile(request):
 
 
 @fixture(scope="session")
-def uri(test_profile):
-    for uri in test_profile.generate_uri("py2neo"):
-        yield uri
+def neo4j_service_and_uri(test_profile):
+    for service, uri in test_profile.generate_uri("py2neo"):
+        yield service, uri
     return
+
+
+@fixture(scope="session")
+def neo4j_service(neo4j_service_and_uri):
+    neo4j_service, _ = neo4j_service_and_uri
+    return neo4j_service
+
+
+@fixture(scope="session")
+def uri(neo4j_service_and_uri):
+    _, uri = neo4j_service_and_uri
+    return uri
 
 
 @fixture(scope="session")

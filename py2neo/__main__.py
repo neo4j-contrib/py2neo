@@ -24,7 +24,8 @@ from sys import stderr, exit
 
 from py2neo import __version__
 from py2neo.security import make_auth, make_self_signed_certificate
-from py2neo.server import Neo4jService, Neo4jConsole
+from py2neo.server import Neo4jService
+from py2neo.server.console import Neo4jConsole
 
 
 def argument(*args, **kwargs):

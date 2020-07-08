@@ -255,7 +255,7 @@ def first_sentence(text):
         return ""
 
     from re import match
-    lines = text.splitlines(keepends=False)
+    lines = text.splitlines(False)
     one_line = " ".join(lines)
     matched = match(r"^(.*?(?<!\b\w)[.?!])\s+[A-Z0-9]", one_line)
     if matched:
