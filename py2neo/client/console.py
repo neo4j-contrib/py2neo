@@ -115,15 +115,15 @@ class Py2neoConsole(Console):
 
     multi_line = False
 
-    def __init__(self, profile=None, *_, **settings):
+    def __init__(self, profile=None, *_, welcome=True, **settings):
         super(Py2neoConsole, self).__init__(__name__, verbosity=settings.get("verbosity", 0))  # TODO: history file
         self.output_file = settings.pop("file", None)
 
-        # TODO: hide for `py2neo run`
-        self.write(TITLE)
-        self.write()
-        self.write(dedent(QUICK_HELP))
-        self.write()
+        if welcome:
+            self.write(TITLE)
+            self.write()
+            self.write(dedent(QUICK_HELP))
+            self.write()
 
         self.profile = ConnectionProfile(profile, **settings)
         try:

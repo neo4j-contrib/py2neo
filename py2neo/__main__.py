@@ -18,179 +18,153 @@
 
 from __future__ import print_function
 
-from sys import exit, stderr
+from argparse import ArgumentParser
+from inspect import getdoc
+from sys import stderr, exit
 
-import click
-
-from py2neo.wiring import Address
-
-
-class AddressParamType(click.ParamType):
-
-    name = "addr"
-
-    def __init__(self, default_host=None, default_port=None):
-        self.default_host = default_host
-        self.default_port = default_port
-
-    def convert(self, value, param, ctx):
-        return Address.parse(value, self.default_host, self.default_port)
-
-    def __repr__(self):
-        return 'HOST:PORT'
+from py2neo import __version__
+from py2neo.security import make_auth, make_self_signed_certificate
+from py2neo.server import Neo4jService, Neo4jConsole
 
 
-class AuthParamType(click.ParamType):
+def argument(*args, **kwargs):
+    """ Decorator for specifying argparse arguments attached to a
+    function.
 
-    name = "auth"
+    ::
 
-    def __init__(self, default_user=None, default_password=None):
-        self.default_user = default_user
-        self.default_password = default_password
+        @argument("-v", "--verbose", action="count", default=0,
+                  help="Increase verbosity.")
+        def foo(verbose):
+            pass
 
-    def convert(self, value, param, ctx):
-        try:
-            from py2neo.security import make_auth
-            return make_auth(value, self.default_user, self.default_password)
-        except ValueError as e:
-            self.fail(e.args[0], param, ctx)
+    """
 
-    def __repr__(self):
-        return 'USER:PASSWORD'
+    def f__(f):
+        def f_(*a, **kw):
+            return f(*a, **kw)
 
+        f_.__name__ = f.__name__
+        f_.__doc__ = f.__doc__
+        f_.__dict__.update(f.__dict__)
+        if hasattr(f, "arguments"):
+            f_.arguments = f.arguments
+        else:
+            f_.arguments = []
+        f_.arguments.insert(0, (args, kwargs))
+        return f_
 
-def watch_log(ctx, param, verbosity):
-    from py2neo.diagnostics import watch
-    watch("py2neo", verbosity)
-
-
-@click.group(help="""\
-Multipurpose Neo4j toolkit.
-""")
-def py2neo():
-    pass
-
-
-@py2neo.command("version", help="""\
-Display the current library version
-""")
-def py2neo_version():
-    from py2neo import __version__
-    click.echo(__version__)
+    return f__
 
 
-@py2neo.command("console", help="""\
-Interactive Cypher console
-""")
-@click.option("-u", "--uri",
-              help="Set the connection URI.")
-@click.option("-a", "--auth", metavar="USER:PASSWORD",
-              help="Set the user and password.")
-@click.option("-s", "--secure", is_flag=True, default=False,
-              help="Use encrypted communication (TLS).")
-@click.option("-v", "--verbose", count=True,
-              help="Adjust level of communication detail.")
-def py2neo_console(uri, auth=None, secure=None, verbose=0):
+def version():
+    """ Display the current library version.
+    """
+    print(__version__)
+
+
+@argument("-u", "--uri",
+          help="Set the connection URI.")
+@argument("-a", "--auth", metavar="USER:PASSWORD",
+          help="Set the user and password.")
+@argument("-s", "--secure", action="store_true",
+          help="Use encrypted communication (TLS).")
+@argument("-v", "--verbose", action="count", default=0,
+          help="Adjust level of communication detail.")
+def console(uri=None, auth=None, secure=None, verbose=0):
+    """ Interactive Cypher console.
+    """
     from py2neo.client.console import Py2neoConsole
-    console = Py2neoConsole(uri, auth=auth, secure=secure, verbosity=verbose)
-    console.loop()
+    con = Py2neoConsole(uri, auth=auth, secure=secure, verbosity=verbose)
+    con.loop()
 
 
-@py2neo.command("run", help="""\
-Run a Cypher query
-""")
-@click.option("-u", "--uri",
-              help="Set the connection URI.")
-@click.option("-a", "--auth", metavar="USER:PASSWORD",
-              help="Set the user and password.")
-@click.option("-q", "--quiet", count=True,
-              help="Reduce verbosity.")
-@click.option("-s", "--secure", is_flag=True, default=False,
-              help="Use encrypted communication (TLS).")
-@click.option("-v", "--verbose", count=True,
-              help="Increase verbosity.")
-@click.option("-x", "--times", type=int, default=1,
-              help="Number of times to repeat.")
-@click.argument("cypher", nargs=-1)
-def py2neo_run(cypher, uri, auth=None, secure=False, verbose=False, quiet=False, times=1):
+@argument("-u", "--uri",
+          help="Set the connection URI.")
+@argument("-a", "--auth", metavar="USER:PASSWORD",
+          help="Set the user and password.")
+@argument("-q", "--quiet", action="count", default=0,
+          help="Reduce verbosity.")
+@argument("-s", "--secure", action="store_true", default=False,
+          help="Use encrypted communication (TLS).")
+@argument("-v", "--verbose", action="count", default=0,
+          help="Increase verbosity.")
+@argument("-x", "--times", type=int, default=1,
+          help="Number of times to repeat.")
+@argument("cypher", nargs="+")
+def run(cypher, uri, auth=None, secure=False, verbose=False, quiet=False, times=1):
+    """ Run one or more Cypher query.
+    """
     from py2neo.client.console import Py2neoConsole
-    console = Py2neoConsole(uri, auth=auth, secure=secure, verbosity=(verbose - quiet))
-    console.process_all(cypher, times)
+    con = Py2neoConsole(uri, auth=auth, secure=secure, verbosity=(verbose - quiet), welcome=False)
+    con.process_all(cypher, times)
 
 
-@py2neo.command("server", help="""\
-Run a Neo4j cluster or standalone server in one or more local Docker 
-containers.
-
-If an additional COMMAND is supplied, this will be executed after startup, 
-with a shutdown occurring immediately afterwards. If no COMMAND is supplied,
-an interactive command line console will be launched which allows direct
-control of the service. This console can be shut down with Ctrl+C, Ctrl+D or
-by entering the command 'exit'.
-
-A couple of environment variables will also be made available to any COMMAND
-passed. These are:
-
-\b
-- BOLT_SERVER_ADDR
-- NEO4J_AUTH
-
-""")
-@click.option("-a", "--auth", type=AuthParamType(), envvar="NEO4J_AUTH",
-              help="Credentials with which to bootstrap the service. These "
-                   "must be specified as a 'user:password' pair and may "
-                   "alternatively be supplied via the NEO4J_AUTH environment "
-                   "variable. These credentials will also be exported to any "
-                   "COMMAND executed during the service run.")
-@click.option("-n", "--name",
-              help="A Docker network name to which all servers will be "
-                   "attached. If omitted, an auto-generated name will be "
-                   "used.")
-@click.option("-v", "--verbose", count=True,
-              help="Show more detail about the startup and shutdown process.")
-@click.option("-z", "--self-signed-certificate", is_flag=True)
-@click.argument("image", default="latest")
-def py2neo_server(name, image, auth, self_signed_certificate, verbose):
-    from py2neo.security import make_self_signed_certificate
-    from py2neo.server import Neo4jService, Neo4jConsole
-    console = Neo4jConsole()
-    console.verbosity = verbose
+@argument("-a", "--auth", type=make_auth,
+          help="Credentials with which to bootstrap the service. "
+               "These must be specified as a 'user:password' pair.")
+@argument("-n", "--name",
+          help="A Docker network name to which all servers will be "
+               "attached. If omitted, an auto-generated name will be "
+               "used.")
+@argument("-v", "--verbose", action="count", default=0,
+          help="Increase verbosity.")
+@argument("-z", "--self-signed-certificate", action="store_true",
+          help="Generate and use a self-signed certificate")
+@argument("image", nargs="?", default="latest",
+          help="Docker image to use (defaults to 'latest')")
+def server(name, image, auth, self_signed_certificate, verbose):
+    """ Start a Neo4j service in a Docker container.
+    """
+    con = Neo4jConsole()
+    con.verbosity = verbose
     try:
         if self_signed_certificate:
             cert_key_pair = make_self_signed_certificate()
         else:
             cert_key_pair = None
         with Neo4jService.single_instance(name, image, auth, cert_key_pair) as neo4j:
-            console.service = neo4j
-            console.env()
-            console.loop()
+            con.service = neo4j
+            con.env()
+            con.loop()
     except KeyboardInterrupt:
         exit(130)
     except Exception as e:
         message = " ".join(map(str, e.args))
         if hasattr(e, 'explanation'):
             message += "\n" + e.explanation
-        click.echo(message, err=True)
+        print(message, file=stderr)
         exit(1)
 
 
-@py2neo.command("movies", help="""\
-Launch the movies application.
-""")
-def py2neo_movies():
+def movies():
+    """ Start the demo 'movies' web server.
+    """
     from py2neo.packages.bottle import load_app
     load_app("py2neo.movies").run()
 
 
 def main():
-    try:
-        py2neo(obj={})
-    except Exception as error:
-        arg_string = " ".join(map(str, error.args))
-        print("{}: {}".format(error.__class__.__name__, arg_string), file=stderr)
-        exit(1)
-    else:
-        exit(0)
+    parser = ArgumentParser("py2neo")
+    subparsers = parser.add_subparsers(title="commands")
+
+    def add_command(func, name):
+        subparser = subparsers.add_parser(name, help=getdoc(func))
+        subparser.set_defaults(f=func)
+        if hasattr(func, "arguments"):
+            for a, kw in func.arguments:
+                subparser.add_argument(*a, **kw)
+
+    add_command(console, "console")
+    add_command(movies, "movies")
+    add_command(run, "run")
+    add_command(server, "server")
+    add_command(version, "version")
+
+    args = parser.parse_args()
+    kwargs = vars(args)
+    f = kwargs.pop("f")
+    f(**kwargs)
 
 
 if __name__ == "__main__":
