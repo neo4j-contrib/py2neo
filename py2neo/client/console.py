@@ -114,10 +114,11 @@ class ClientConsole(Console):
 
     multi_line = False
 
-    def __init__(self, profile=None, *_, welcome=True, **settings):
+    def __init__(self, profile=None, *_, **settings):
         super(ClientConsole, self).__init__(__name__, verbosity=settings.get("verbosity", 0))
         self.output_file = settings.pop("file", None)
 
+        welcome = settings.get("welcome", True)
         if welcome:
             self.write(TITLE)
             self.write()
