@@ -51,7 +51,6 @@ package_metadata = {
     "py_modules": [],
     "install_requires": [
         "certifi",
-        "click==7.0",
         "colorama",
         "docker",
         "monotonic",
