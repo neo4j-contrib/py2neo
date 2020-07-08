@@ -74,8 +74,8 @@ def version():
 def console(uri=None, auth=None, secure=None, verbose=0):
     """ Interactive Cypher console.
     """
-    from py2neo.client.console import Py2neoConsole
-    con = Py2neoConsole(uri, auth=auth, secure=secure, verbosity=verbose)
+    from py2neo.client.console import ClientConsole
+    con = ClientConsole(uri, auth=auth, secure=secure, verbosity=verbose)
     con.loop()
 
 
@@ -95,8 +95,8 @@ def console(uri=None, auth=None, secure=None, verbose=0):
 def run(cypher, uri, auth=None, secure=False, verbose=False, quiet=False, times=1):
     """ Run one or more Cypher query.
     """
-    from py2neo.client.console import Py2neoConsole
-    con = Py2neoConsole(uri, auth=auth, secure=secure, verbosity=(verbose - quiet), welcome=False)
+    from py2neo.client.console import ClientConsole
+    con = ClientConsole(uri, auth=auth, secure=secure, verbosity=(verbose - quiet), welcome=False)
     con.process_all(cypher, times)
 
 

@@ -110,13 +110,12 @@ def is_command(source):
     return source.startswith("/")
 
 
-# TODO: move to subpackage __init__
-class Py2neoConsole(Console):
+class ClientConsole(Console):
 
     multi_line = False
 
     def __init__(self, profile=None, *_, welcome=True, **settings):
-        super(Py2neoConsole, self).__init__(__name__, verbosity=settings.get("verbosity", 0))  # TODO: history file
+        super(ClientConsole, self).__init__(__name__, verbosity=settings.get("verbosity", 0))
         self.output_file = settings.pop("file", None)
 
         if welcome:

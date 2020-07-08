@@ -20,17 +20,17 @@ from io import StringIO
 
 from pytest import fixture, raises
 
-from py2neo.client.console import Py2neoConsole
+from py2neo.client.console import ClientConsole
 from py2neo import __version__
 
 
-class CapturedPy2neoConsole(Py2neoConsole):
+class CapturedClientConsole(ClientConsole):
 
     def __init__(self, *args, **kwargs):
         kwargs["file"] = StringIO()
         self.captured_output = []
         self.scripted_input = []
-        super(CapturedPy2neoConsole, self).__init__(*args, **kwargs)
+        super(CapturedClientConsole, self).__init__(*args, **kwargs)
         self.verbosity = 1
 
     def write(self, *values, **kwargs):
@@ -50,7 +50,7 @@ class CapturedPy2neoConsole(Py2neoConsole):
 
 @fixture()
 def console(uri):
-    return CapturedPy2neoConsole(uri)
+    return CapturedClientConsole(uri)
 
 
 def assert_prologue(console):
