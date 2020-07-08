@@ -27,7 +27,7 @@ from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from timeit import default_timer as timer
 
-import click
+from pansi.console import Console
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
@@ -35,11 +35,11 @@ from prompt_toolkit.styles import merge_styles, style_from_pygments_cls, style_f
 from pygments.styles.native import NativeStyle
 from pygments.token import Token
 
-from py2neo.client import ConnectionProfile, Failure, TransactionError
-from py2neo.cypher.lexer import CypherLexer
-from py2neo.data import Table
-from py2neo.database import Graph
 from py2neo import __version__
+from py2neo.client import ConnectionProfile, Failure
+from py2neo.cypher.lexer import CypherLexer
+from py2neo.database import Graph, GraphError
+from py2neo.text.table import Table
 
 
 EDITOR = environ.get("EDITOR", "vim")
@@ -110,51 +110,34 @@ def is_command(source):
     return source.startswith("/")
 
 
-class ClientConsole(object):
-
-    def echo(self, text, file=None, nl=True, err=False, color=None, **styles):
-        if not self.quiet:
-            click.secho(text, file=file, nl=nl, err=err, color=color, **styles)
-
-    def prompt(self, *args, **kwargs):
-        return prompt(*args, **kwargs)
+class ClientConsole(Console):
 
     multi_line = False
-    watcher = None
 
-    tx_colour = "yellow"
-    err_colour = "reset"
-    meta_colour = "cyan"
-    prompt_colour = "cyan"
-
-    def __init__(self, profile=None, **settings):
-        verbose = settings.pop("verbose", False)
-        if verbose:
-            from py2neo.diagnostics import watch
-            self.watcher = watch("py2neo")
-        self.quiet = settings.pop("quiet", False)
+    def __init__(self, profile=None, *_, **settings):
+        super(ClientConsole, self).__init__(__name__, verbosity=settings.get("verbosity", 0))
         self.output_file = settings.pop("file", None)
-        profile = ConnectionProfile(profile, **settings)
+
+        welcome = settings.get("welcome", True)
+        if welcome:
+            self.write(TITLE)
+            self.write()
+            self.write(dedent(QUICK_HELP))
+            self.write()
+
+        self.profile = ConnectionProfile(profile, **settings)
         try:
-            self.graph = Graph(profile, **settings)
+            self.graph = Graph(self.profile)
         except OSError as error:
-            raise ClientConsoleError("Could not connect to {} -- {}".format(profile.uri, error))
+            self.critical("Could not connect to <%s> (%s)", self.profile.uri, " ".join(map(str, error.args)))
+            raise
+        else:
+            self.debug("Connected to <%s>", self.graph.service.uri)
         try:
             makedirs(HISTORY_FILE_DIR)
         except OSError:
             pass
         self.history = FileHistory(path_join(HISTORY_FILE_DIR, HISTORY_FILE))
-        self.prompt_args = {
-            "history": self.history,
-            "lexer": PygmentsLexer(CypherLexer),
-            "style": merge_styles([
-                style_from_pygments_cls(NativeStyle),
-                style_from_pygments_dict({
-                    Token.Prompt: "#ansi{}".format(self.prompt_colour.replace("cyan", "teal")),
-                    Token.TxCounter: "#ansi{} bold".format(self.tx_colour.replace("cyan", "teal")),
-                })
-            ])
-        }
         self.lexer = CypherLexer()
         self.result_writer = Table.write
 
@@ -181,116 +164,108 @@ class ClientConsole(object):
 
         }
         self.tx = None
-        self.tx_counter = 0
+        self.qid = 0
 
-    def loop(self):
-        self.echo(TITLE, err=True)
-        self.echo("Connected to {}".format(self.graph.service.uri).rstrip(), err=True)
-        self.echo(u"", err=True)
-        self.echo(dedent(QUICK_HELP), err=True)
-        while True:
-            try:
-                source = self.read()
-            except KeyboardInterrupt:
-                continue
-            except EOFError:
-                return 0
-            try:
-                self.run(source)
-            except OSError as error:
-                self.echo("Service Unavailable: %s" % (error.args[0]), err=True)
-
-    def run_all(self, sources, times=1):
+    def process_all(self, lines, times=1):
         gap = False
         for _ in range(times):
-            for s in sources:
+            for line in lines:
                 if gap:
-                    self.echo("")
-                self.run(s)
-                if not is_command(s):
+                    self.write("")
+                self.process(line)
+                if not is_command(line):
                     gap = True
         return 0
 
-    def run(self, source):
-        source = source.strip()
-        if not source:
+    def process(self, line):
+        line = line.strip()
+        if not line:
             return
         try:
-            if is_command(source):
-                self.run_command(source)
+            if is_command(line):
+                self.run_command(line)
             else:
-                self.run_source(source)
-        except Failure as error:
-            if error.classification == "ClientError":
-                pass
-            elif error.classification == "DatabaseError":
-                pass
-            elif error.classification == "TransientError":
-                pass
+                self.run_source(line)
+        except (GraphError, Failure) as error:
+            if hasattr(error, "title") and hasattr(error, "message"):
+                self.error("%s: %s", error.title, error.message)
             else:
-                pass
-            self.echo("{}: {}".format(error.title, error.message), err=True)
-        except TransactionError:
-            raise
-        except OSError:
-            raise
+                self.error("%s: %s", error.__class__.__name__, " ".join(map(str, error.args)))
+        except OSError as error:
+            self.critical("Service Unavailable (%s)", error.args[0])
         except Exception as error:
-            self.echo("{}: {}".format(error.__class__.__name__, str(error)), err=True, fg=self.err_colour)
+            self.exception(*error.args)
 
     def begin_transaction(self):
         if self.tx is None:
             self.tx = self.graph.begin()
-            self.tx_counter = 1
-            self.echo(u"--- BEGIN at {} ---".format(datetime.now()),
-                      err=True, fg=self.tx_colour, bold=True)
+            self.qid = 1
         else:
-            raise TransactionError("Transaction already open")
+            self.warning("Transaction already open")
 
     def commit_transaction(self):
         if self.tx:
             try:
                 self.tx.commit()
-                self.echo(u"--- COMMIT at {} ---".format(datetime.now()),
-                          err=True, fg=self.tx_colour, bold=True)
+                self.info("Transaction committed")
             finally:
                 self.tx = None
-                self.tx_counter = 0
+                self.qid = 0
         else:
-            raise TransactionError("No current transaction")
+            self.warning("No current transaction")
 
     def rollback_transaction(self):
         if self.tx:
             try:
                 self.tx.rollback()
-                self.echo(u"--- ROLLBACK at {} ---".format(datetime.now()),
-                          err=True, fg=self.tx_colour, bold=True)
+                self.info("Transaction rolled back")
             finally:
                 self.tx = None
-                self.tx_counter = 0
+                self.qid = 0
         else:
-            raise TransactionError("No current transaction")
+            self.warning("No current transaction")
 
     def read(self):
+        prompt_args = {
+            "history": self.history,
+            "lexer": PygmentsLexer(CypherLexer),
+            "style": merge_styles([
+                style_from_pygments_cls(NativeStyle),
+                style_from_pygments_dict({
+                    Token.Prompt.User: "#ansiteal",
+                    Token.Prompt.At: "#ansiteal",
+                    Token.Prompt.Host: "#ansiteal",
+                    Token.Prompt.QID: "#ansiyellow",
+                    Token.Prompt.Arrow: "#808080",
+                })
+            ])
+        }
+
+        self.write()
         if self.multi_line:
             self.multi_line = False
-            return self.prompt(u"", multiline=True, **self.prompt_args)
+            return prompt(u"", multiline=True, **prompt_args)
 
         def get_prompt_tokens():
-            tokens = []
+            tokens = [
+                ("class:pygments.prompt.user", self.profile.user),
+                ("class:pygments.prompt.at", "@"),
+                ("class:pygments.prompt.host", self.profile.host),
+            ]
             if self.tx is None:
-                tokens.append(("class:pygments.prompt", "\n-> "))
+                tokens.append(("class:pygments.prompt.arrow", " -> "))
             else:
-                tokens.append(("class:pygments.prompt", "\n-("))
-                tokens.append(("class:pygments.txcounter", "{}".format(self.tx_counter)))
-                tokens.append(("class:pygments.prompt", ")-> "))
+                tokens.append(("class:pygments.prompt.arrow", " "))
+                tokens.append(("class:pygments.prompt.qid", str(self.qid)))
+                tokens.append(("class:pygments.prompt.arrow", "> "))
             return tokens
 
-        return self.prompt(get_prompt_tokens, **self.prompt_args)
+        return prompt(get_prompt_tokens, **prompt_args)
 
     def run_source(self, source):
         for i, statement in enumerate(self.lexer.get_statements(source)):
             if i > 0:
-                self.echo(u"")
+                self.write(u"")
             if statement.upper() == "BEGIN":
                 self.begin_transaction()
             elif statement.upper() == "COMMIT":
@@ -300,10 +275,10 @@ class ClientConsole(object):
             elif self.tx is None:
                 self.run_cypher(self.graph.run, statement, {})
             else:
-                self.run_cypher(self.tx.run, statement, {}, line_no=self.tx_counter)
-                self.tx_counter += 1
+                self.run_cypher(self.tx.run, statement, {}, query_id=self.qid)
+                self.qid += 1
 
-    def run_cypher(self, runner, statement, parameters, line_no=0):
+    def run_cypher(self, runner, statement, parameters, query_id=0):
         t0 = timer()
         result = runner(statement, parameters)
         record_count = self.write_result(result)
@@ -312,26 +287,26 @@ class ClientConsole(object):
             uri = summary.connection["uri"]
         else:
             uri = self.graph.service.uri
-        status = u"{} record{} from {} in {:.3f}s".format(
+
+        msg = "Fetched %r %s from %r in %rs"
+        args = [
             record_count,
-            "" if record_count == 1 else "s",
+            "record" if record_count == 1 else "records",
             uri,
             timer() - t0,
-        )
-        if line_no:
-            self.echo(u"(", err=True, fg=self.meta_colour, bold=True, nl=False)
-            self.echo(u"{}".format(line_no), err=True, fg=self.tx_colour, bold=True, nl=False)
-            self.echo(u")->({})".format(status), err=True, fg=self.meta_colour, bold=True)
-        else:
-            self.echo(u"({})".format(status), err=True, fg=self.meta_colour, bold=True)
+        ]
+        if query_id:
+            msg += " for query (%r)"
+            args.append(query_id)
+        self.debug(msg, *args)
 
     def write_result(self, result, page_size=50):
         table = Table(result)
         table_size = len(table)
-        if not self.quiet:
+        if self.verbosity >= 0:
             for skip in range(0, table_size, page_size):
-                self.result_writer(table, file=self.output_file, header={"fg": "cyan", "bold": True}, skip=skip, limit=page_size)
-                self.echo("\r\n", nl=False)
+                self.result_writer(table, file=self.output_file, header="cyan", skip=skip, limit=page_size)
+                self.write("\r\n", end='')
         return table_size
 
     def run_command(self, source):
@@ -342,7 +317,7 @@ class ClientConsole(object):
         try:
             command = self.commands[command_name]
         except KeyError:
-            self.echo("Unknown command: " + command_name, err=True, fg=self.err_colour)
+            self.info("Unknown command: " + command_name)
         else:
             args = []
             kwargs = {}
@@ -365,16 +340,13 @@ class ClientConsole(object):
             call([EDITOR, f.name])
             f.seek(0)
             source = f.read().decode("utf-8")
-            self.echo(source)
-            self.run(source)
+            self.write(source)
+            self.process(source)
 
     def help(self, **kwargs):
-        self.echo(DESCRIPTION, err=True)
-        self.echo(u"", err=True)
-        self.echo(FULL_HELP.replace("\b\n", ""), err=True)
-
-    def exit(self, **kwargs):
-        exit(0)
+        self.info(DESCRIPTION)
+        self.info(u"")
+        self.info(FULL_HELP.replace("\b\n", ""))
 
     def play(self, file_name):
         work = self.load_unit_of_work(file_name=file_name)
@@ -390,8 +362,8 @@ class ClientConsole(object):
         def unit_of_work(tx):
             for line_no, statement in enumerate(self.lexer.get_statements(source), start=1):
                 if line_no > 0:
-                    self.echo(u"")
-                self.run_cypher(tx.run, statement, {}, line_no=line_no)
+                    self.write(u"")
+                self.run_cypher(tx.run, statement, {}, query_id=line_no)
 
         return unit_of_work
 
@@ -414,7 +386,7 @@ class ClientConsole(object):
             if category != last_category:
                 if records is not None:
                     Table(records, ["name", "value"]).write(auto_align=False, padding=0, separator=u" = ")
-                    self.echo(u"")
+                    self.write(u"")
                 records = []
             records.append((name, record["value"]))
             last_category = category
@@ -435,8 +407,3 @@ class ClientConsole(object):
                         pass
                 records.append((key, value))
         Table(records, ["key", "value"]).write(auto_align=False, padding=0, separator=u" = ")
-
-
-class ClientConsoleError(Exception):
-
-    pass

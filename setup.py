@@ -51,16 +51,17 @@ package_metadata = {
     "py_modules": [],
     "install_requires": [
         "certifi",
-        "click==7.0",
         "colorama",
         "docker",
         "monotonic",
         "neotime~=1.7.4",
         "packaging",
+        "pansi",
         "prompt_toolkit~=2.0.7",
         "pygments~=2.3.1",
         "pyopenssl",
         "pytz",
+        "six>=1.15.0",
         "urllib3",
     ],
     "extras_require": {

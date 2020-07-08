@@ -30,11 +30,11 @@ from packaging.version import Version
 
 from py2neo.compat import perf_counter
 from py2neo.security import Auth, make_auth, install_certificate, install_private_key
-from py2neo.server.console import ServerConsole
 from py2neo.wiring import Address, Wire
 
 
 docker = DockerClient.from_env(version="auto")
+
 
 log = getLogger(__name__)
 
@@ -71,7 +71,7 @@ class Neo4jInstance(object):
             ports["7473/tcp"] = self.https_port
             self.cert_volume_dir = mkdtemp()
             chmod(self.cert_volume_dir, 0o755)
-            log.info("Using directory %r as shared certificate volume", self.cert_volume_dir)
+            log.debug("Using directory %r as shared certificate volume", self.cert_volume_dir)
             if self.service.image.version >= Version("4.0"):
                 subdirectories = [path.join(self.cert_volume_dir, subdir)
                                   for subdir in ["bolt", "https"]]
@@ -179,10 +179,10 @@ class Neo4jInstance(object):
             self.ip_address = (self.container.attrs["NetworkSettings"]
                                ["Networks"][self.service.name]["IPAddress"])
         except APIError as e:
-            log.info(e)
+            log.exception(e)
 
-        log.info("Machine %r is bound to internal IP address %s",
-                 self.fq_name, self.ip_address)
+        log.debug("Machine %r is bound to internal IP address %s",
+                  self.fq_name, self.ip_address)
 
     def _poll_bolt_address(self, count=240, interval=0.5, is_running=None):
         address = self.addresses["bolt"]
@@ -289,7 +289,7 @@ class Neo4jInstance(object):
         self.container.stop()
         self.container.remove(force=True)
         if self.cert_volume_dir:
-            log.info("Removing directory %r", self.cert_volume_dir)
+            log.debug("Removing directory %r", self.cert_volume_dir)
             rmtree(self.cert_volume_dir)
 
 
@@ -372,7 +372,7 @@ class Neo4jService(object):
         self._for_each_instance(wait)
         if all(instance.ready == 1 for instance in self.instances):
             log.info("Neo4j %s %s service %r available",
-                     self.image.edition, self.image.version, self.name)
+                     self.image.edition.title(), self.image.version, self.name)
         else:
             raise RuntimeError("Service %r unavailable - "
                                "some instances failed" % self.name)
@@ -394,11 +394,6 @@ class Neo4jService(object):
                 container.stop()
                 container.remove(force=True)
         docker.networks.get(service_name).remove()
-
-    def run_console(self):
-        self.console = ServerConsole(self)
-        self.console.invoke("env")
-        self.console.run()
 
     def env(self):
         addresses = [instance.address for instance in self.instances]
