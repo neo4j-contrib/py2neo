@@ -41,8 +41,7 @@ def test_console_ls(console, capfd):
     lines = captured.out.splitlines(False)
     assert lines[0] == ("CONTAINER   NAME        BOLT PORT   "
                         "HTTP PORT   HTTPS PORT   MODE")
-    assert lines[1].rstrip().endswith("a.py2neo    7687        7474        "
-                                      "0            SINGLE")
+    assert "a.py2neo    7687        7474" in lines[1]
 
 
 def test_console_help(console, capfd):

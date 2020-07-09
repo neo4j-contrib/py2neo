@@ -18,5 +18,5 @@ install:
 
 script:
   - bin/check-legal
-  - bin/test && coveralls
+  - bin/test -s && coveralls
   - bin/check-install
