@@ -16,14 +16,25 @@
 # limitations under the License.
 
 
+from io import BytesIO, StringIO
+
 from pytest import fixture
+from six import PY3
 
 from py2neo.server.console import Neo4jConsole
 
 
 @fixture
-def console(neo4j_service):
-    con = Neo4jConsole()
+def captured():
+    if PY3:
+        return StringIO()
+    else:
+        return BytesIO()
+
+
+@fixture
+def console(neo4j_service, captured):
+    con = Neo4jConsole(out=captured)
     con.verbosity = 1
     con.service = neo4j_service
     yield con
@@ -35,19 +46,17 @@ def test_console_env(console, caplog):
     assert "NEO4J_AUTH='neo4j:password'" in caplog.text
 
 
-def test_console_ls(console, capfd):
+def test_console_ls(console, captured):
     console.ls()
-    captured = capfd.readouterr()
-    lines = captured.out.splitlines(False)
+    lines = captured.getvalue().splitlines(False)
     assert lines[0] == ("CONTAINER   NAME        BOLT PORT   "
                         "HTTP PORT   HTTPS PORT   MODE")
     assert "a.py2neo    7687        7474" in lines[1]
 
 
-def test_console_help(console, capfd):
+def test_console_help(console, captured):
     console.help()
-    captured = capfd.readouterr()
-    lines = captured.out.splitlines(False)
+    lines = captured.getvalue().splitlines(False)
     assert lines[0] == "Commands:"
     assert lines[1] == "  browser   Start the Neo4j browser."
     assert lines[2] == "  env       Show available environment variables."

@@ -56,7 +56,7 @@ package_metadata = {
         "monotonic",
         "neotime~=1.7.4",
         "packaging",
-        "pansi",
+        "pansi>=2020.7.3",
         "prompt_toolkit~=2.0.7",
         "pygments~=2.3.1",
         "pyopenssl",

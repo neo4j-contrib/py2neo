@@ -20,6 +20,7 @@ from argparse import ArgumentParser
 from inspect import getdoc
 from logging import getLogger
 from shlex import split as shlex_split
+from sys import stdout
 from textwrap import wrap
 from webbrowser import open as open_browser
 
@@ -49,8 +50,8 @@ class _ConsoleCommandError(Exception):
 
 class _CommandConsole(Console):
 
-    def __init__(self, name, verbosity=None, history=None, time_format=None):
-        super(_CommandConsole, self).__init__(name, verbosity=verbosity,
+    def __init__(self, name, out=stdout, verbosity=None, history=None, time_format=None):
+        super(_CommandConsole, self).__init__(name, out=out, verbosity=verbosity,
                                               history=history, time_format=time_format)
         self.__parser = _ConsoleArgumentParser(self.name)
         self.__command_parsers = self.__parser.add_subparsers()
@@ -164,8 +165,8 @@ class Neo4jConsole(_CommandConsole):
 
     service = None
 
-    def __init__(self):
-        super(Neo4jConsole, self).__init__(__name__)  # TODO: history file
+    def __init__(self, out=stdout):
+        super(Neo4jConsole, self).__init__(__name__, out=out)
         self.add_command("browser", self.browser)
         self.add_command("env", self.env)
         self.add_command("ls", self.ls)
