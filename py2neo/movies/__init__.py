@@ -19,7 +19,7 @@
 from os import path
 from os.path import dirname
 
-from py2neo.packages.bottle import (
+from py2neo.vendor.bottle import (
     get,
     post,
     redirect,

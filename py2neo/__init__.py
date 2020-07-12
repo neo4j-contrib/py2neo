@@ -16,12 +16,19 @@
 # limitations under the License.
 
 
-__author__ = "Nigel Small"
-__copyright__ = "2011-2020, Nigel Small"
-__email__ = "py2neo@nige.tech"
-__license__ = "Apache License, Version 2.0"
-__package__ = "py2neo"
-__version__ = "0.0.dev0"
+from datetime import date as _date
+
+from py2neo.meta import get_metadata as _get_metadata
+
+
+metadata = _get_metadata()
+
+__author__ = metadata["author"]
+__copyright__ = "{}-{}, {}".format(2011, _date.today().year, metadata["author"])
+__email__ = metadata["author_email"]
+__license__ = metadata["license"]
+__package__ = metadata["name"]
+__version__ = metadata["version"]
 
 
 from py2neo.data import *

@@ -1,4 +1,4 @@
-include LICENSE NOTICE README.rst
+include LICENSE NOTICE README.rst VERSION
 prune test
 
 recursive-include py2neo/movies/static *

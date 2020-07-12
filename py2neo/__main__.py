@@ -141,7 +141,7 @@ def server(name, image, auth, self_signed_certificate, verbose):
 def movies():
     """ Start the demo 'movies' web server.
     """
-    from py2neo.packages.bottle import load_app
+    from py2neo.vendor.bottle import load_app
     load_app("py2neo.movies").run()
 
 

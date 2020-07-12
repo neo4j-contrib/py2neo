@@ -16,83 +16,45 @@
 # limitations under the License.
 
 
-from os.path import dirname, join as path_join
+from os import getenv
+
 from setuptools import setup, find_packages
 
-import py2neo
+from py2neo.meta import get_metadata, PatchedVersion
 
 
-with open(path_join(dirname(__file__), "README.rst")) as f:
-    README = f.read()
+patched_version_string = getenv("PATCHED_VERSION")
+if not patched_version_string:
+    raise SystemExit("Please set PATCHED_VERSION env var")
 
-packages = find_packages(exclude=("docs", "test"))
-package_metadata = {
-    "name": py2neo.__package__,
-    "version": py2neo.__version__,
-    "description": "Python client library and toolkit for Neo4j",
-    "long_description": README,
-    "author": py2neo.__author__,
-    "author_email": py2neo.__email__,
-    "url": "https://py2neo.org/",
-    "project_urls": {
-        "Bug Tracker": "https://github.com/technige/py2neo/issues",
-        "Documentation": "https://py2neo.readthedocs.io/en/{}/".format(py2neo.__version__),
-        "Source Code": "https://github.com/technige/py2neo",
-    },
-    "entry_points": {
-        "console_scripts": [
-            "py2neo = py2neo.__main__:main",
+
+with PatchedVersion(patched_version_string):
+    setup(**dict(get_metadata(), **{
+        "entry_points": {
+            "console_scripts": [
+                "py2neo = py2neo.__main__:main",
+            ],
+            "pygments.lexers": [
+                "py2neo.cypher = py2neo.cypher.lexer:CypherLexer",
+            ],
+        },
+        "packages": find_packages(exclude=("docs", "test", "test.*")),
+        "py_modules": [],
+        "install_requires": [
+            "certifi",
+            "colorama",
+            "docker",
+            "monotonic",
+            "neotime~=1.7.4",
+            "packaging",
+            "pansi>=2020.7.3",
+            "prompt_toolkit~=2.0.7",
+            "pygments~=2.6.1",
+            "pyopenssl",
+            "pytz",
+            "six>=1.15.0",
+            "urllib3",
         ],
-        "pygments.lexers": [
-            "py2neo.cypher = py2neo.cypher.lexer:CypherLexer",
-        ],
-    },
-    "packages": packages,
-    "py_modules": [],
-    "install_requires": [
-        "certifi",
-        "colorama",
-        "docker",
-        "monotonic",
-        "neotime~=1.7.4",
-        "packaging",
-        "pansi>=2020.7.3",
-        "prompt_toolkit~=2.0.7",
-        "pygments~=2.6.1",
-        "pyopenssl",
-        "pytz",
-        "six>=1.15.0",
-        "urllib3",
-    ],
-    "extras_require": {
-    },
-    "license": py2neo.__license__,
-    "classifiers": [
-        "Development Status :: 6 - Mature",
-        "Environment :: Console",
-        "Intended Audience :: Developers",
-        "Intended Audience :: Information Technology",
-        "Intended Audience :: Science/Research",
-        "License :: OSI Approved :: Apache Software License",
-        "Natural Language :: English",
-        "Operating System :: OS Independent",
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: Implementation :: CPython",
-        "Topic :: Database",
-        "Topic :: Database :: Database Engines/Servers",
-        "Topic :: Scientific/Engineering",
-        "Topic :: Software Development",
-        "Topic :: Software Development :: Libraries",
-    ],
-    "zip_safe": False,
-}
-
-setup(**package_metadata)
+        "extras_require": {
+        },
+    }))

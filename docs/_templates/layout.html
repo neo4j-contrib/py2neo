@@ -2,20 +2,20 @@
 
 {% block header %}
 
-    {% if branch == "master" %}
+    {% if version_data["rtd"] == "latest" %}
     <div class="admonition versionwarning">
         <p class="admonition-title">Warning</p>
         <p>
             You are reading the docs for the (unreleased) master branch.
-            See also the docs for <a class="reference external" href="/">the latest release</a>.
+            See also the docs for <a class="reference external" href="/">the most recent stable release</a>.
         </p>
     </div>
-    {% else %}
-    <div class="admonition">
-        <p class="admonition-title">Info</p>
+    {% elif version_data["pre"] %}
+    <div class="admonition versionwarning">
+        <p class="admonition-title">Warning</p>
         <p>
-            You are reading the docs for the {{ branch }} release.
-            See also the docs for <a class="reference external" href="../master/">the master branch</a>.
+            You are reading the docs for a pre-release.
+            See also the docs for <a class="reference external" href="/">the most recent stable release</a>.
         </p>
     </div>
     {% endif %}
