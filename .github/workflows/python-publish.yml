@@ -30,6 +30,6 @@ jobs:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
         TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
       run: |
-        bin/make-dist ${{ steps.get_version.outputs.VERSION }}
+        python setup.py sdist bdist_wheel ${{ steps.get_version.outputs.VERSION }}
         twine upload dist/*
         READTHEDOCS_TOKEN="${{ secrets.READTHEDOCS_TOKEN }}" bin/publish-docs ${{ steps.get_version.outputs.VERSION }}

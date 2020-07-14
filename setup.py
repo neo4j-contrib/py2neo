@@ -15,21 +15,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-from os import getenv
+from os import path
 
 from setuptools import setup, find_packages
 
 from py2neo.meta import get_metadata, PatchedVersion
 
 
-patched_version_string = getenv("PATCHED_VERSION")
-if not patched_version_string:
-    raise SystemExit("Please set PATCHED_VERSION env var")
+README_FILE = path.join(path.dirname(__file__), "README.rst")
+
+with open(README_FILE) as _f:
+    README = _f.read()
 
 
-with PatchedVersion(patched_version_string):
+with PatchedVersion():
     setup(**dict(get_metadata(), **{
+        "long_description": README,
+        "long_description_content_type": "text/x-rst",
         "entry_points": {
             "console_scripts": [
                 "py2neo = py2neo.__main__:main",
@@ -39,6 +41,9 @@ with PatchedVersion(patched_version_string):
             ],
         },
         "packages": find_packages(exclude=("docs", "test", "test.*")),
+        "package_data": {
+            "py2neo": ["VERSION"],
+        },
         "py_modules": [],
         "install_requires": [
             "certifi",

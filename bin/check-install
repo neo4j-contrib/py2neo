@@ -3,18 +3,19 @@
 BIN="$(dirname "$0")"
 ROOT="${BIN}/.."
 DIST="${ROOT}/dist"
+PACKAGE="py2neo"
 ENV=venv
 
-rm -r "${DIST}"
+rm -r "${DIST}" &> /dev/null
 
-cd "${ROOT}"
-python setup.py sdist
+cd "${ROOT}" || exit
+PATCHED_VERSION=$(sed s/.dev0/.999/ "${ROOT}/${PACKAGE}/VERSION") python setup.py sdist bdist_wheel || exit
 
-cd "${DIST}"
+cd "${DIST}" || exit
 pip install --upgrade virtualenv
 virtualenv ${ENV}
-source ${ENV}/bin/activate
-pip install py2neo-*.tar.gz
+source "${ENV}/bin/activate"
+pip install ${PACKAGE}-*.tar.gz
 if [ "$?" != "0" ]
 then
     exit 1

@@ -22,11 +22,7 @@ from os import getenv, path
 PACKAGE_NAME = "py2neo"
 PACKAGE_DESCRIPTION = "Python client library and toolkit for Neo4j"
 
-README_FILE = path.join(path.dirname(__file__), "..", "README.rst")
-VERSION_FILE = path.join(path.dirname(__file__), "..", "VERSION")
-
-with open(README_FILE) as _f:
-    README = _f.read()
+VERSION_FILE = path.join(path.dirname(__file__), "VERSION")
 
 
 def _parse_letter_version(letter, number):
@@ -138,7 +134,6 @@ def get_metadata():
         "name": PACKAGE_NAME,
         "version": (version_data["string"]),
         "description": PACKAGE_DESCRIPTION,
-        "long_description": README,
         "author": "Nigel Small",
         "author_email": "py2neo@nige.tech",
         "url": "https://py2neo.org/",
@@ -180,30 +175,47 @@ def get_metadata():
 
 class PatchedVersion(object):
 
-    def __init__(self, patched_version_string):
+    def __init__(self):
         self.__original = None
-        self.__patched = parse_version_string(patched_version_string)
 
     def __enter__(self):
-        with open(VERSION_FILE, "r") as f:
-            self.__original = parse_version_string(f.read())
-        self._check_compatible()
-        with open(VERSION_FILE, "w") as f:
-            f.write(self.__patched["string"])
+        self.__original = parse_version_string(self._read_version())
+        if self.__original["dev"]:
+            patched = parse_version_string(self._read_patched())
+            self._check_compatible(self.__original, patched)
+            self._patch_version(patched["string"])
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        with open(VERSION_FILE, "w") as f:
-            f.write(self.__original["string"])
+        self._patch_version(self.__original["string"])
 
-    def _check_compatible(self):
+    @classmethod
+    def _read_version(cls):
+        with open(VERSION_FILE, "r") as f:
+            return f.read()
+
+    @classmethod
+    def _read_patched(cls):
+        patched = getenv("PATCHED_VERSION")
+        if patched:
+            return patched
+        else:
+            raise SystemExit("Please set PATCHED_VERSION env var")
+
+    @classmethod
+    def _check_compatible(cls, original, patched):
         compatible = True
-        if self.__patched["epoch"] != self.__original["epoch"]:
+        if patched["epoch"] != original["epoch"]:
             compatible = False
-        if self.__patched["release"][:2] != self.__original["release"][:2]:
+        if patched["release"][:2] != original["release"][:2]:
             compatible = False
-        if self.__patched["dev"] is not None:
+        if patched["dev"] is not None:
             compatible = False
         if not compatible:
             raise SystemExit("Patched version string %r is not compatible with original version "
-                             "string %r" % (self.__patched["string"], self.__original["string"]))
+                             "string %r" % (patched["string"], original["string"]))
+
+    @classmethod
+    def _patch_version(cls, value):
+        with open(VERSION_FILE, "w") as f:
+            f.write(value)
