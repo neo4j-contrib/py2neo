@@ -54,7 +54,7 @@ with PatchedVersion():
             "packaging",
             "pansi>=2020.7.3",
             "prompt_toolkit~=2.0.7",
-            "pygments~=2.6.1",
+            "pygments~=2.5.2",
             "pyopenssl",
             "pytz",
             "six>=1.15.0",
