@@ -1,5 +1,4 @@
 coverage
 coveralls
-pyopenssl
 pytest
 pytest-threadleak

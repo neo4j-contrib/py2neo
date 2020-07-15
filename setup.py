@@ -101,6 +101,7 @@ with Release():
         "py_modules": [],
         "install_requires": [
             "certifi",
+            "cryptography",
             "docker",
             "monotonic",
             "neotime~=1.7.4",
@@ -108,7 +109,6 @@ with Release():
             "pansi>=2020.7.3",
             "prompt_toolkit~=2.0.7",
             "pygments>=2.0.0",
-            "pyopenssl",
             "pytz",
             "six>=1.15.0",
             "urllib3",
