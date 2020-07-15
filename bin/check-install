@@ -9,7 +9,7 @@ ENV=venv
 rm -r "${DIST}" &> /dev/null
 
 cd "${ROOT}" || exit
-PATCHED_VERSION=$(sed s/.dev0/.999/ "${ROOT}/${PACKAGE}/VERSION") python setup.py sdist bdist_wheel || exit
+RELEASE=$(sed s/.dev0/.999/ "${ROOT}/${PACKAGE}/VERSION") python setup.py sdist bdist_wheel || exit
 
 cd "${DIST}" || exit
 pip install --upgrade virtualenv

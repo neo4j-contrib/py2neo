@@ -1,13 +1,3 @@
-certifi
-colorama
-docker
-monotonic
-neotime~=1.7.4
-packaging
-pansi>=2020.7.3
-prompt_toolkit~=2.0.7
-pygments~=2.5.2
-pyopenssl
-pytz
-six>=1.15.0
-urllib3
+--index-url https://pypi.python.org/simple/
+
+-e .
