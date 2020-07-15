@@ -26,10 +26,15 @@ sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project metadata -----------------------------------------------------
 
-from py2neo.meta import metadata, version_data, copyright
+from py2neo import __copyright__
+from py2neo.meta import get_metadata, get_version_data
 
 
 # -- General configuration ------------------------------------------------
+
+metadata = get_metadata()
+version_data = get_version_data()
+
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #needs_sphinx = '1.0'
@@ -59,7 +64,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Py2neo'
-#copyright = (imported)
+copyright = __copyright__
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
