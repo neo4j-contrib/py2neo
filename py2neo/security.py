@@ -29,6 +29,7 @@ from cryptography.x509.oid import NameOID
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from six import u
 
 
 log = getLogger(__name__)
@@ -64,7 +65,7 @@ def make_self_signed_certificate():
         x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, u"Kent"),
         x509.NameAttribute(NameOID.LOCALITY_NAME, u"Canterbury"),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"Example"),
-        x509.NameAttribute(NameOID.COMMON_NAME, gethostname()),
+        x509.NameAttribute(NameOID.COMMON_NAME, u(gethostname())),
     ])
     cert = x509.CertificateBuilder().subject_name(
         subject
