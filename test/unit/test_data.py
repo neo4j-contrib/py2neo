@@ -21,7 +21,7 @@ from unittest import TestCase
 
 from py2neo.collections import PropertyDict
 from py2neo.data import Subgraph, Walkable, Node, Relationship, Path, walk
-from py2neo.database.tx import Record
+from py2neo.database.work import Record
 from py2neo.text.table import Table
 
 

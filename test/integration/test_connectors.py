@@ -22,7 +22,7 @@ from collections import deque
 
 from pytest import mark, skip
 
-from py2neo.database.tx import Cursor, Record, CypherStats
+from py2neo.database.work import Cursor, Record, CypherStats
 
 
 @mark.skip

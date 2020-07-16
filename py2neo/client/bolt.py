@@ -755,7 +755,7 @@ class BoltResponse(Task):
     def set_failure(self, **metadata):
         self._status = 2
         # TODO: tidy up where these errors live
-        from py2neo.database import GraphError
+        from py2neo.database.work import GraphError
         self._failure = GraphError.hydrate(metadata)
 
     def set_ignored(self):

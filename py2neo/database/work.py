@@ -27,10 +27,54 @@ from six import integer_types, string_types
 
 from py2neo.collections import iter_items
 from py2neo.client import Connection
-from py2neo.compat import Mapping, ustr
-from py2neo.database import GraphError
+from py2neo.compat import Mapping, ustr, xstr
+from py2neo.cypher import cypher_escape
 from py2neo.text import Words
 from py2neo.text.table import Table
+
+
+class Procedure(object):
+    """ Represents an individual procedure.
+    """
+
+    def __init__(self, graph, name):
+        self.graph = graph
+        self.name = name
+
+    def __getattr__(self, name):
+        return Procedure(self.graph, self.name + "." + name)
+
+    def __getitem__(self, name):
+        return Procedure(self.graph, self.name + "." + name)
+
+    def __dir__(self):
+        proc = Procedure(self.graph, "dbms.procedures")
+        prefix = self.name + "."
+        return [record[0][len(prefix):] for record in proc(keys=["name"])
+                if record[0].startswith(prefix)]
+
+    def __call__(self, *args, **kwargs):
+        """ Call a procedure by name.
+
+        For example:
+            >>> from py2neo import Graph
+            >>> g = Graph()
+            >>> g.call("dbms.components")
+             name         | versions  | edition
+            --------------|-----------|-----------
+             Neo4j Kernel | ['4.0.2'] | community
+
+        :param procedure: fully qualified procedure name
+        :param args: positional arguments to pass to the procedure
+        :returns: :class:`.Cursor` object wrapping the result
+        """
+        procedure_name = ".".join(cypher_escape(part) for part in self.name.split("."))
+        arg_list = [(str(i), arg) for i, arg in enumerate(args)]
+        cypher = "CALL %s(%s)" % (procedure_name, ", ".join("$" + a[0] for a in arg_list))
+        keys = kwargs.get("keys")
+        if keys:
+            cypher += " YIELD %s" % ", ".join(keys)
+        return self.graph.run(cypher, dict(arg_list))
 
 
 class Transaction(object):
@@ -950,6 +994,56 @@ class CypherPlan(Mapping):
 
     def keys(self):
         return ["operator_type", "identifiers", "children", "args"]
+
+
+# TODO: refactor out this base class
+class GraphError(Exception):
+    """
+    """
+
+    __cause__ = None
+
+    http_status_code = None
+    code = None
+    message = None
+
+    @classmethod
+    def hydrate(cls, data):
+        code = data["code"]
+        message = data["message"]
+        _, classification, category, title = code.split(".")
+        if classification == "ClientError":
+            try:
+                error_cls = ClientError.get_mapped_class(code)
+            except KeyError:
+                error_cls = ClientError
+                message = "%s: %s" % (Words(title).camel(upper_first=True), message)
+        elif classification == "DatabaseError":
+            error_cls = DatabaseError
+        elif classification == "TransientError":
+            error_cls = TransientError
+        else:
+            error_cls = cls
+        inst = error_cls(message)
+        inst.classification = classification
+        inst.category = category
+        inst.title = title
+        inst.code = code
+        inst.message = message
+        return inst
+
+    def __new__(cls, *args, **kwargs):
+        try:
+            exception = kwargs["exception"]
+            error_cls = type(xstr(exception), (cls,), {})
+        except KeyError:
+            error_cls = cls
+        return Exception.__new__(error_cls, *args)
+
+    def __init__(self, *args, **kwargs):
+        Exception.__init__(self, *args)
+        for key, value in kwargs.items():
+            setattr(self, key.lower(), value)
 
 
 class ClientError(GraphError):

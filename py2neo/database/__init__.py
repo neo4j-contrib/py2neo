@@ -24,10 +24,9 @@ from warnings import warn
 from py2neo.caching import ThreadLocalEntityCache
 from py2neo.client import Connector
 from py2neo.client.config import ConnectionProfile
-from py2neo.compat import xstr
-from py2neo.cypher import cypher_escape, Procedures
+from py2neo.cypher import cypher_escape
+from py2neo.database.work import Procedure, Transaction
 from py2neo.matching import NodeMatcher, RelationshipMatcher
-from py2neo.text import Words
 
 
 class GraphService(object):
@@ -305,7 +304,6 @@ class Graph(object):
         :param metadata:
         :param timeout:
         """
-        from py2neo.database.tx import Transaction
         return Transaction(self, True, readonly, after, metadata, timeout)
 
     def begin(self, autocommit=False, readonly=False,
@@ -319,7 +317,6 @@ class Graph(object):
         :param metadata:
         :param timeout:
         """
-        from py2neo.database.tx import Transaction
         if autocommit:
             warn("Graph.begin(autocommit=True) is deprecated, "
                  "use Graph.auto() instead", category=DeprecationWarning, stacklevel=2)
@@ -728,52 +725,36 @@ class Schema(object):
         return [k[0] for k in self._get_indexes(label, unique_only=True)]
 
 
-# TODO: refactor out this base class
-class GraphError(Exception):
+class Procedures(object):
+    """ Accessor for calling procedures.
     """
-    """
 
-    __cause__ = None
+    def __init__(self, graph):
+        self.graph = graph
 
-    http_status_code = None
-    code = None
-    message = None
+    def __getattr__(self, name):
+        return Procedure(self.graph, name)
 
-    @classmethod
-    def hydrate(cls, data):
-        from py2neo.database.tx import ClientError, DatabaseError, TransientError
-        code = data["code"]
-        message = data["message"]
-        _, classification, category, title = code.split(".")
-        if classification == "ClientError":
-            try:
-                error_cls = ClientError.get_mapped_class(code)
-            except KeyError:
-                error_cls = ClientError
-                message = "%s: %s" % (Words(title).camel(upper_first=True), message)
-        elif classification == "DatabaseError":
-            error_cls = DatabaseError
-        elif classification == "TransientError":
-            error_cls = TransientError
-        else:
-            error_cls = cls
-        inst = error_cls(message)
-        inst.classification = classification
-        inst.category = category
-        inst.title = title
-        inst.code = code
-        inst.message = message
-        return inst
+    def __getitem__(self, name):
+        return Procedure(self.graph, name)
 
-    def __new__(cls, *args, **kwargs):
-        try:
-            exception = kwargs["exception"]
-            error_cls = type(xstr(exception), (cls,), {})
-        except KeyError:
-            error_cls = cls
-        return Exception.__new__(error_cls, *args)
+    def __dir__(self):
+        proc = Procedure(self.graph, "dbms.procedures")
+        return [record[0] for record in proc(keys=["name"])]
 
-    def __init__(self, *args, **kwargs):
-        Exception.__init__(self, *args)
-        for key, value in kwargs.items():
-            setattr(self, key.lower(), value)
+    def __call__(self, procedure, *args):
+        """ Call a procedure by name.
+
+        For example:
+            >>> from py2neo import Graph
+            >>> g = Graph()
+            >>> g.call("dbms.components")
+             name         | versions  | edition
+            --------------|-----------|-----------
+             Neo4j Kernel | ['4.0.2'] | community
+
+        :param procedure: fully qualified procedure name
+        :param args: positional arguments to pass to the procedure
+        :returns: :class:`.Cursor` object wrapping the result
+        """
+        return Procedure(self.graph, procedure)(*args)
