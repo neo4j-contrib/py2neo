@@ -31,9 +31,10 @@ __all__ = [
 ]
 
 
+from py2neo.collections import PropertyDict
 from py2neo.compat import metaclass, deprecated
 from py2neo.cypher import cypher_escape
-from py2neo.data import Node, PropertyDict
+from py2neo.data import Node
 from py2neo.database import Graph
 from py2neo.matching import NodeMatch, NodeMatcher
 from py2neo.text import Words
