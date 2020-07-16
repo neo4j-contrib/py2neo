@@ -39,8 +39,7 @@ from py2neo import __version__
 from py2neo.client import ConnectionProfile, Failure
 from py2neo.cypher.lexer import CypherLexer
 from py2neo.database import Graph
-from py2neo.database.work import GraphError
-from py2neo.text.table import Table
+from py2neo.database.work import Table, GraphError
 
 
 EDITOR = environ.get("EDITOR", "vim")
