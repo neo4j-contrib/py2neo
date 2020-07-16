@@ -19,11 +19,15 @@
 from __future__ import absolute_import
 
 from collections import deque, OrderedDict
+from functools import reduce
+from operator import xor as xor_operator
 from warnings import warn
 
+from six import integer_types, string_types
+
+from py2neo.collections import iter_items
 from py2neo.client import Connection
-from py2neo.compat import Mapping
-from py2neo.data import Record
+from py2neo.compat import Mapping, ustr
 from py2neo.database import GraphError
 from py2neo.text import Words
 from py2neo.text.table import Table
@@ -563,9 +567,11 @@ class Cursor(object):
         :param dtype:
         :param order:
         :warns: If `numpy` is not installed
-        :returns: `ndarray <https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.html>`__ object.
+        :returns: `ndarray
+            <https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.html>`__ object.
         """
         try:
+            # noinspection PyPackageRequirements
             from numpy import array
         except ImportError:
             warn("Numpy is not installed.")
@@ -584,9 +590,11 @@ class Cursor(object):
         :param index:
         :param dtype:
         :warns: If `pandas` is not installed
-        :returns: `Series <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`__ object.
+        :returns: `Series
+            <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`__ object.
         """
         try:
+            # noinspection PyPackageRequirements
             from pandas import Series
         except ImportError:
             warn("Pandas is not installed.")
@@ -616,9 +624,11 @@ class Cursor(object):
         :param columns: Column labels to use for resulting frame.
         :param dtype: Data type to force.
         :warns: If `pandas` is not installed
-        :returns: `DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`__ object.
+        :returns: `DataFrame
+            <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`__ object.
         """
         try:
+            # noinspection PyPackageRequirements
             from pandas import DataFrame
         except ImportError:
             warn("Pandas is not installed.")
@@ -634,9 +644,11 @@ class Cursor(object):
            This method requires `sympy` to be installed.
 
         :param mutable:
-        :returns: `Matrix <http://docs.sympy.org/latest/tutorial/matrices.html>`_ object.
+        :returns: `Matrix
+            <http://docs.sympy.org/latest/tutorial/matrices.html>`_ object.
         """
         try:
+            # noinspection PyPackageRequirements
             from sympy import MutableMatrix, ImmutableMatrix
         except ImportError:
             warn("Sympy is not installed.")
@@ -646,6 +658,177 @@ class Cursor(object):
                 return MutableMatrix(list(map(list, self)))
             else:
                 return ImmutableMatrix(list(map(list, self)))
+
+
+class Record(tuple, Mapping):
+    """ A :class:`.Record` is an immutable ordered collection of key-value
+    pairs. It is generally closer to a :class:`namedtuple` than to a
+    :class:`OrderedDict` inasmuch as iteration of the collection will
+    yield values rather than keys.
+    """
+
+    __keys = None
+
+    def __new__(cls, iterable=()):
+        keys = []
+        values = []
+        for key, value in iter_items(iterable):
+            keys.append(key)
+            values.append(value)
+        inst = tuple.__new__(cls, values)
+        inst.__keys = tuple(keys)
+        return inst
+
+    def __repr__(self):
+        return "Record({%s})" % ", ".join("%r: %r" % (field, self[i])
+                                          for i, field in enumerate(self.__keys))
+
+    def __str__(self):
+        return "\t".join(map(repr, (self[i] for i, _ in enumerate(self.__keys))))
+
+    def __eq__(self, other):
+        return dict(self) == dict(other)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return reduce(xor_operator, map(hash, self.items()))
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            keys = self.__keys[key]
+            values = super(Record, self).__getitem__(key)
+            return self.__class__(zip(keys, values))
+        index = self.index(key)
+        if 0 <= index < len(self):
+            return super(Record, self).__getitem__(index)
+        else:
+            return None
+
+    def __getslice__(self, start, stop):
+        key = slice(start, stop)
+        keys = self.__keys[key]
+        values = tuple(self)[key]
+        return self.__class__(zip(keys, values))
+
+    def get(self, key, default=None):
+        """ Obtain a single value from the record by index or key. If the
+        specified item does not exist, the default value is returned.
+
+        :param key: index or key
+        :param default: default value to be returned if `key` does not exist
+        :return: selected value
+        """
+        try:
+            index = self.__keys.index(ustr(key))
+        except ValueError:
+            return default
+        if 0 <= index < len(self):
+            return super(Record, self).__getitem__(index)
+        else:
+            return default
+
+    def index(self, key):
+        """ Return the index of the given item.
+        """
+        if isinstance(key, integer_types):
+            if 0 <= key < len(self.__keys):
+                return key
+            raise IndexError(key)
+        elif isinstance(key, string_types):
+            try:
+                return self.__keys.index(key)
+            except ValueError:
+                raise KeyError(key)
+        else:
+            raise TypeError(key)
+
+    def keys(self):
+        """ Return the keys of the record.
+
+        :return: list of key names
+        """
+        return list(self.__keys)
+
+    def values(self, *keys):
+        """ Return the values of the record, optionally filtering to
+        include only certain values by index or key.
+
+        :param keys: indexes or keys of the items to include; if none
+                     are provided, all values will be included
+        :return: list of values
+        """
+        if keys:
+            d = []
+            for key in keys:
+                try:
+                    i = self.index(key)
+                except KeyError:
+                    d.append(None)
+                else:
+                    d.append(self[i])
+            return d
+        return list(self)
+
+    def items(self, *keys):
+        """ Return the fields of the record as a list of key and value tuples
+
+        :param keys: indexes or keys of the items to include; if none
+                     are provided, all values will be included
+        :return: list of (key, value) tuples
+        """
+        if keys:
+            d = []
+            for key in keys:
+                try:
+                    i = self.index(key)
+                except KeyError:
+                    d.append((key, None))
+                else:
+                    d.append((self.__keys[i], self[i]))
+            return d
+        return list((self.__keys[i], super(Record, self).__getitem__(i)) for i in range(len(self)))
+
+    def data(self, *keys):
+        """ Return the keys and values of this record as a dictionary,
+        optionally including only certain values by index or key. Keys
+        provided that do not exist within the record will be included
+        but with a value of :py:const:`None`; indexes provided
+        that are out of bounds will trigger an :exc:`IndexError`.
+
+        :param keys: indexes or keys of the items to include; if none
+                     are provided, all values will be included
+        :return: dictionary of values, keyed by field name
+        :raises: :exc:`IndexError` if an out-of-bounds index is specified
+        """
+        if keys:
+            d = {}
+            for key in keys:
+                try:
+                    i = self.index(key)
+                except KeyError:
+                    d[key] = None
+                else:
+                    d[self.__keys[i]] = self[i]
+            return d
+        return dict(self)
+
+    def to_subgraph(self):
+        """ Return a :class:`.Subgraph` containing the union of all the
+        graph structures within this :class:`.Record`.
+
+        :return: :class:`.Subgraph` object
+        """
+        from py2neo.data import Subgraph
+        s = None
+        for value in self.values():
+            if isinstance(value, Subgraph):
+                if s is None:
+                    s = value
+                else:
+                    s |= value
+        return s
 
 
 class CypherSummary(object):
@@ -733,7 +916,8 @@ class CypherPlan(Mapping):
 
     @classmethod
     def _clean_keys(cls, data):
-        return OrderedDict(sorted((cls._clean_key(key), value) for key, value in dict(data).items()))
+        return OrderedDict(sorted((cls._clean_key(key), value)
+                                  for key, value in dict(data).items()))
 
     def __init__(self, **kwargs):
         data = self._clean_keys(kwargs)
@@ -741,7 +925,8 @@ class CypherPlan(Mapping):
             data = self._clean_keys(data["root"])
         self.operator_type = data.pop("operator_type", None)
         self.identifiers = data.pop("identifiers", [])
-        self.children = [CypherPlan(**self._clean_keys(child)) for child in data.pop("children", [])]
+        self.children = [CypherPlan(**self._clean_keys(child))
+                         for child in data.pop("children", [])]
         try:
             args = data.pop("args")
         except KeyError:
@@ -751,7 +936,8 @@ class CypherPlan(Mapping):
 
     def __repr__(self):
         return ("%s(operator_type=%r, identifiers=%r, children=%r, args=%r)" %
-                (self.__class__.__name__, self.operator_type, self.identifiers, self.children, self.args))
+                (self.__class__.__name__, self.operator_type,
+                 self.identifiers, self.children, self.args))
 
     def __getitem__(self, key):
         return getattr(self, key)
