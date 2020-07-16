@@ -26,7 +26,7 @@ from packaging.version import Version
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo.compat import urlsplit
-from py2neo.client import Connection, Transaction, TransactionError, Result, Bookmark
+from py2neo.client import Connection, Transaction, Result, Bookmark
 from py2neo.client.config import http_user_agent
 from py2neo.client.json import JSONHydrant
 
@@ -171,7 +171,7 @@ class HTTP(Connection):
         return tx
 
     def commit(self, tx):
-        self._assert_valid_tx(tx)
+        self._assert_transaction_open(tx)
         self._transactions.remove(tx)
         r = self._post(tx.commit_uri())
         assert r.status == 200  # TODO: other codes
@@ -181,7 +181,7 @@ class HTTP(Connection):
         return Bookmark()
 
     def rollback(self, tx):
-        self._assert_valid_tx(tx)
+        self._assert_transaction_open(tx)
         self._transactions.remove(tx)
         r = self._delete(tx.uri())
         assert r.status == 200  # TODO: other codes
@@ -211,11 +211,9 @@ class HTTP(Connection):
         record = result.take_record()
         return record
 
-    def _assert_valid_tx(self, tx):
-        if not tx:
-            raise TransactionError("No transaction")
+    def _assert_transaction_open(self, tx):
         if tx not in self._transactions:
-            raise TransactionError("Invalid transaction")
+            raise ValueError("Transaction %r is not open on this connection", tx)
 
     def _post(self, url, statement=None, parameters=None):
         if statement:

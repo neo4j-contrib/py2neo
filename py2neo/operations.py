@@ -27,6 +27,7 @@ __all__ = [
     "push_subgraph",
     "separate_subgraph",
     "subgraph_exists",
+    "UniquenessError",
 ]
 
 
@@ -166,7 +167,7 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
         identities = list(_merge_nodes(tx, pl, pk, labels,
                                        list(map(lambda n: [n.get(pk), dict(n)], nodes))))
         if len(identities) > len(nodes):
-            raise OperationError("Found %d matching nodes for primary label %r and primary "
+            raise UniquenessError("Found %d matching nodes for primary label %r and primary "
                                  "key %r with labels %r but merging requires no more than "
                                  "one" % (len(identities), pl, pk, set(labels)))
         for i, identity in enumerate(identities):
@@ -314,6 +315,8 @@ def subgraph_exists(tx, subgraph):
     return tx.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
 
 
-class OperationError(Exception):
-
-    pass
+# TODO: find a better home for this class
+class UniquenessError(Exception):
+    """ Raised when a condition assumed to be unique is determined
+    non-unique.
+    """

@@ -23,13 +23,12 @@ from time import sleep
 from warnings import warn
 
 from py2neo.caching import ThreadLocalEntityCache
-from py2neo.client import Connector, Connection, TransactionError
+from py2neo.client import Connector, Connection
 from py2neo.client.config import ConnectionProfile
 from py2neo.compat import Mapping, xstr
 from py2neo.cypher import cypher_escape, Procedures
 from py2neo.data import Record
 from py2neo.matching import NodeMatcher, RelationshipMatcher
-from py2neo.operations import OperationError
 from py2neo.text import Words
 from py2neo.text.table import Table
 
@@ -324,7 +323,7 @@ class Graph(object):
         :param metadata:
         :param timeout:
         """
-        return GraphTransaction(self, True, readonly, after, metadata, timeout)
+        return Transaction(self, True, readonly, after, metadata, timeout)
 
     def begin(self, autocommit=False, readonly=False,
               after=None, metadata=None, timeout=None):
@@ -340,7 +339,7 @@ class Graph(object):
         if autocommit:
             warn("Graph.begin(autocommit=True) is deprecated, "
                  "use Graph.auto() instead", category=DeprecationWarning, stacklevel=2)
-        return GraphTransaction(self, autocommit, readonly, after, metadata, timeout)
+        return Transaction(self, autocommit, readonly, after, metadata, timeout)
 
     @property
     def call(self):
@@ -745,6 +744,7 @@ class Schema(object):
         return [k[0] for k in self._get_indexes(label, unique_only=True)]
 
 
+# TODO: refactor out this base class
 class GraphError(Exception):
     """
     """
@@ -844,13 +844,13 @@ class TransientError(GraphError):
     """
 
 
-class GraphTransactionError(GraphError):
+class TransactionFinished(GraphError):
     """ Raised when actions are attempted against a :class:`.GraphTransaction`
-    that is no longer available for use, or a transaction is otherwise invalid.
+    that is no longer available for use.
     """
 
 
-class GraphTransaction(object):
+class Transaction(object):
     """ A logical context for one or more graph operations.
     """
 
@@ -879,7 +879,7 @@ class GraphTransaction(object):
 
     def _assert_unfinished(self):
         if self._finished:
-            raise GraphTransactionError(self)
+            raise TransactionFinished(self)
 
     @property
     def graph(self):
@@ -931,9 +931,6 @@ class GraphTransaction(object):
         self._assert_unfinished()
         try:
             return self._connector.commit(self._transaction)
-        except TransactionError as error:
-            error.__class__ = GraphTransactionError
-            raise error
         finally:
             self._finished = True
 
@@ -943,9 +940,6 @@ class GraphTransaction(object):
         self._assert_unfinished()
         try:
             return self._connector.rollback(self._transaction)
-        except TransactionError as error:
-            error.__class__ = GraphTransactionError
-            raise error
         finally:
             self._finished = True
 
@@ -1056,12 +1050,7 @@ class GraphTransaction(object):
         except AttributeError:
             raise TypeError("No method defined to merge object %r" % subgraph)
         else:
-            try:
-                merge(self, primary_label, primary_key)
-            except OperationError as e0:
-                e1 = GraphTransactionError("Failed to merge %r" % (subgraph,))
-                e1.__cause__ = e0
-                raise e1
+            merge(self, primary_label, primary_key)
 
     def pull(self, subgraph):
         """ Update local entities from their remote counterparts.
