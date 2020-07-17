@@ -348,6 +348,6 @@ class HTTPResponse(object):
 
     def audit(self):
         if self.errors():
-            from py2neo.database import GraphError
+            from py2neo.database.work import GraphError
             failure = GraphError.hydrate(self.errors().pop(0))
             raise failure
