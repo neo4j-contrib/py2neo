@@ -24,9 +24,6 @@ from io import StringIO
 from operator import xor as xor_operator
 from warnings import warn
 
-from english.casing import Words
-from six import integer_types, string_types
-
 from py2neo.collections import iter_items
 from py2neo.client import Connection
 from py2neo.compat import Mapping, numeric_types, ustr, xstr
@@ -776,6 +773,7 @@ class Record(tuple, Mapping):
     def index(self, key):
         """ Return the index of the given item.
         """
+        from six import integer_types, string_types
         if isinstance(key, integer_types):
             if 0 <= key < len(self.__keys):
                 return key
@@ -943,6 +941,7 @@ class Table(list):
             :const:`False` otherwise.
 
         """
+        from six import integer_types, string_types
         if isinstance(key, integer_types):
             return self._fields[key]
         elif isinstance(key, string_types):
@@ -1084,6 +1083,7 @@ class Table(list):
 
         def header_row(names):
             from pansi import ansi
+            from six import string_types
             if isinstance(header, string_types):
                 if hasattr(ansi, header):
                     template = "{%s}{}{_}" % header
@@ -1211,6 +1211,7 @@ class CypherPlan(Mapping):
 
     @classmethod
     def _clean_key(cls, key):
+        from english.casing import Words
         return Words(key).snake()
 
     @classmethod
@@ -1264,6 +1265,7 @@ class GraphError(Exception):
 
     @classmethod
     def hydrate(cls, data):
+        from english.casing import Words
         code = data["code"]
         message = data["message"]
         _, classification, category, title = code.split(".")
