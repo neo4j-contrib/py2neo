@@ -19,7 +19,7 @@
 from pytest import raises
 
 from py2neo import Node, Relationship
-from py2neo.operations import UniquenessError
+from py2neo.data.operations import UniquenessError
 
 
 def test_can_merge_node_that_does_not_exist(graph, make_unique_id):

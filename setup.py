@@ -103,6 +103,7 @@ with Release():
             "certifi",
             "cryptography",
             "docker",
+            "english",
             "monotonic",
             "neotime~=1.7.4",
             "packaging",

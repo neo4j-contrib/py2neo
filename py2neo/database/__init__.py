@@ -16,6 +16,29 @@
 # limitations under the License.
 
 
+"""
+The ``py2neo.database`` package contains classes and functions required
+to interact with a Neo4j server.
+For convenience, many of these classes are also exposed through the
+top-level package, ``py2neo``.
+
+The most useful of the classes provided here is the :class:`.Graph`
+class which represents a Neo4j graph database instance and provides
+access to a large portion of the most commonly used py2neo API.
+
+To run a query against a local database is straightforward::
+
+    >>> from py2neo import Graph
+    >>> graph = Graph(password="password")
+    >>> graph.run("UNWIND range(1, 3) AS n RETURN n, n * n as n_sq").to_table()
+       n | n_sq
+    -----|------
+       1 |    1
+       2 |    4
+       3 |    9
+
+"""
+
 from __future__ import absolute_import
 
 from time import sleep
@@ -30,13 +53,10 @@ from py2neo.matching import NodeMatcher, RelationshipMatcher
 
 
 class GraphService(object):
-    """ Accessor for an entire Neo4j graph database installation over
-    Bolt or HTTP. Within the py2neo object hierarchy, a
-    :class:`.GraphService` contains a :class:`.Graph` in which most
-    activity occurs.
-
-    .. note ::
-        In earlier versions, this class was known as `Database`.
+    """ Accessor for an entire Neo4j graph database management system
+    (DBMS) over Bolt or HTTP. Within the py2neo object hierarchy, a
+    :class:`.GraphService` contains one or more :class:`.Graph` objects
+    in which data storage and retrieval activity chiefly occurs.
 
     An explicit URI can be passed to the constructor::
 
@@ -49,6 +69,38 @@ class GraphService(object):
         >>> default_gs = GraphService()
         >>> default_gs
         <GraphService uri='bolt://localhost:7687'>
+
+    *Changed in 2020.7: this class was formerly known as 'Database',
+    but was renamed to avoid confusion with the concept of the same
+    name introduced with the multi-database feature of Neo4j 4.0.*
+
+    .. note::
+
+        Some attributes of this class available in earlier versions of
+        py2neo are no longer available, specifically
+        ``kernel_start_time``, ``primitive_counts``,
+        ``store_creation_time``, ``store_file_sizes`` and ``store_id``,
+        along with the ``query_jmx`` method. This is due to a change in
+        Neo4j 4.0 relating to how certain system metadata is exposed.
+        Replacement functionality may be reintroduced in a future
+        py2neo release.
+
+    .. describe:: iter(graph_service)
+
+        Yield all named graphs.
+
+        For Neo4j 4.0 and above, this yields the names returned by a
+        ``SHOW DATABASES`` query. For earlier versions, this yields no
+        entries, since the one and only graph in these versions is not
+        named.
+
+        *New in version 2020.7.*
+
+    .. describe:: graph_service[name]
+
+        Access a :class:`.Graph` by name.
+
+        *New in version 2020.7.*
 
     """
 
@@ -120,47 +172,48 @@ class GraphService(object):
         return self._graphs[graph_name]
 
     def __iter__(self):
-        """ Yield all named graphs.
-
-        For Neo4j 4.0 and above, this yields the names returned by a
-        SHOW DATABASES query. For earlier versions, this yields no
-        entries, since the one and only graph in these versions is not
-        named.
-        """
         return iter(self._connector.graph_names())
 
     @property
     def connector(self):
+        """ The :class:`.Connector` providing communication for this
+        graph service.
+
+        *New in version 2020.7.*
+        """
         return self._connector
 
     @property
     def uri(self):
-        """ The URI to which this `GraphService` is connected.
+        """ The URI to which this graph service is connected.
         """
         return self._connector.profile.uri
 
     @property
     def default_graph(self):
-        """ The default graph exposed by this graph service.
-
-        :rtype: :class:`.Graph`
+        """ The default :class:`.Graph` exposed by this graph service.
         """
         return self[None]
 
     @property
     def system_graph(self):
-        """ The system graph exposed by this graph service.
+        """ The :class:`.SystemGraph` exposed by this graph service.
 
-        :rtype: :class:`.SystemGraph`
+        *New in version 2020.7.*
         """
         return self["system"]
 
     def keys(self):
+        """ Return a list of all :class:`.Graph` names exposed by this
+        graph service.
+
+        *New in version 2020.7.*
+        """
         return list(self)
 
     @property
     def kernel_version(self):
-        """ Return the version of Neo4j.
+        """ The :class:`~packaging.version.Version` of Neo4j running.
         """
         from packaging.version import Version
         components = self.default_graph.call("dbms.components").data()
@@ -171,14 +224,14 @@ class GraphService(object):
 
     @property
     def product(self):
-        """ Return the product name.
+        """ The product name.
         """
         record = next(self.default_graph.call("dbms.components"))
         return "%s %s (%s)" % (record[0], " ".join(record[1]), record[2].title())
 
     @property
     def config(self):
-        """ Return a dictionary of the configuration parameters used to
+        """ A dictionary of the configuration parameters used to
         configure Neo4j.
         """
         return {record["name"]: record["value"]

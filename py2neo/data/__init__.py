@@ -26,7 +26,7 @@ from py2neo.collections import is_collection, SetView, PropertyDict
 from py2neo.compat import integer_types, string_types, ustr, xstr
 from py2neo.cypher import cypher_repr
 from py2neo.cypher.encoding import CypherEncoder, LabelSetView
-from py2neo.operations import (
+from py2neo.data.operations import (
     create_subgraph,
     merge_subgraph,
     delete_subgraph,

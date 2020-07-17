@@ -1,6 +1,6 @@
-*****************************
-``py2neo.data`` -- Data Types
-*****************************
+***********************************
+``py2neo.data`` -- Graph data types
+***********************************
 
 .. module:: py2neo.data
 
@@ -359,40 +359,3 @@ Any node or relationship may be traversed one or more times in any direction.
 .. function:: walk(*walkables)
 
     Traverse over the arguments supplied, in order, yielding alternating nodes and relationships.
-
-
-:class:`.Record` objects
-========================
-
-.. class:: Record(iterable=())
-
-    A :class:`.Record` object holds an ordered, keyed collection of values.
-    It is in many ways similar to a `namedtuple` but allows field access only through bracketed syntax and provides more functionality.
-    :class:`.Record` extends both :class:`tuple` and :class:`Mapping`.
-
-    .. describe:: record[index]
-                  record[key]
-
-        Return the value of *record* with the specified *key* or *index*.
-
-    .. describe:: len(record)
-
-        Return the number of fields in *record*.
-
-    .. describe:: dict(record)
-
-        Return a `dict` representation of *record*.
-
-    .. automethod:: data
-
-    .. automethod:: get
-
-    .. automethod:: index
-
-    .. automethod:: items
-
-    .. automethod:: keys
-
-    .. automethod:: to_subgraph
-
-    .. automethod:: values

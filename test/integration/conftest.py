@@ -27,7 +27,7 @@ from py2neo.client import Connector, ConnectionProfile
 from py2neo.database import GraphService
 from py2neo.ogm import Repository
 from py2neo.server import Neo4jService
-from py2neo.security import make_self_signed_certificate
+from py2neo.server.security import make_self_signed_certificate
 
 
 QUICK_TEST = bool(getenv("QUICK_TEST", False))

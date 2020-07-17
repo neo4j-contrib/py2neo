@@ -24,13 +24,13 @@ from io import StringIO
 from operator import xor as xor_operator
 from warnings import warn
 
+from english.casing import Words
 from six import integer_types, string_types
 
 from py2neo.collections import iter_items
 from py2neo.client import Connection
 from py2neo.compat import Mapping, numeric_types, ustr, xstr
 from py2neo.cypher import cypher_escape, cypher_repr, cypher_str
-from py2neo.text import Words
 
 
 class Procedure(object):
@@ -1354,5 +1354,5 @@ class TransientError(GraphError):
 
 class TransactionFinished(GraphError):
     """ Raised when actions are attempted against a
-    :class:`.GraphTransaction` that is no longer available for use.
+    :class:`~py2neo.database.work.Transaction` that is no longer available for use.
     """

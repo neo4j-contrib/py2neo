@@ -48,6 +48,7 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
+    'sphinx.ext.intersphinx',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -118,6 +119,11 @@ pygments_style = 'sphinx'
 # If true, keep warnings as "system message" paragraphs in the built documents.
 #keep_warnings = False
 
+# Mappings to third-party docs
+intersphinx_mapping = {
+    "packaging": ("https://packaging.pypa.io/en/latest/", None),
+    "python": ("https://docs.python.org/3", None),
+}
 
 # -- Options for HTML output ----------------------------------------------
 

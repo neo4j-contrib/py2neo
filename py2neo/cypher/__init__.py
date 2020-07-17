@@ -20,7 +20,6 @@ __all__ = [
     "cypher_escape",
     "cypher_repr",
     "cypher_str",
-    "Procedures",
 ]
 
 

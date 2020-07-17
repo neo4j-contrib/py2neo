@@ -29,7 +29,7 @@ from docker.errors import APIError, ImageNotFound
 from packaging.version import Version
 
 from py2neo.compat import perf_counter
-from py2neo.security import Auth, make_auth, install_certificate, install_private_key
+from py2neo.server.security import Auth, make_auth, install_certificate, install_private_key
 from py2neo.wiring import Address, Wire
 
 
