@@ -1078,12 +1078,13 @@ class Table(list):
         :param quote: quote character
         :return: the number of records included in output
         """
+        from pansi import ansi
+        from six import string_types
+
         escaped_quote = quote + quote
         quotable = separator + newline + quote
 
         def header_row(names):
-            from pansi import ansi
-            from six import string_types
             if isinstance(header, string_types):
                 if hasattr(ansi, header):
                     template = "{%s}{}{_}" % header
