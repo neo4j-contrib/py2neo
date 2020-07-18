@@ -186,10 +186,21 @@ class GraphService(object):
         return self._connector
 
     @property
-    def uri(self):
-        """ The URI to which this graph service is connected.
+    def profile(self):
+        """ The :class:`.ConnectionProfile` for which this graph
+        service is configured. This attribute is simply a shortcut
+        for ``connector.profile``.
+
+        *New in version 2020.7.*
         """
-        return self._connector.profile.uri
+        return self.connector.profile
+
+    @property
+    def uri(self):
+        """ The URI to which this graph service is connected. This
+        attribute is simply a shortcut for ``connector.profile.uri``.
+        """
+        return self.profile.uri
 
     @property
     def default_graph(self):
@@ -235,6 +246,10 @@ class GraphService(object):
     def config(self):
         """ A dictionary of the configuration parameters used to
         configure Neo4j.
+
+            >>> gs.config['dbms.connectors.default_advertised_address']
+            'localhost'
+
         """
         return {record["name"]: record["value"]
                 for record in self.default_graph.call("dbms.listConfig")}
