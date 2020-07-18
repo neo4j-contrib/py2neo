@@ -19,8 +19,9 @@
 from io import StringIO
 from unittest import TestCase
 
-from py2neo.data import Record, Subgraph, Walkable, Node, Relationship, PropertyDict, Path, walk
-from py2neo.text.table import Table
+from py2neo.collections import PropertyDict
+from py2neo.data import Subgraph, Walkable, Node, Relationship, Path, walk
+from py2neo.database.work import Record, Table
 
 
 KNOWS = Relationship.type("KNOWS")

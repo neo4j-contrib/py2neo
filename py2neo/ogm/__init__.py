@@ -31,12 +31,14 @@ __all__ = [
 ]
 
 
+from english.casing import Words
+
+from py2neo.collections import PropertyDict
 from py2neo.compat import metaclass, deprecated
 from py2neo.cypher import cypher_escape
-from py2neo.data import Node, PropertyDict
+from py2neo.data import Node
 from py2neo.database import Graph
 from py2neo.matching import NodeMatch, NodeMatcher
-from py2neo.text import Words
 
 
 OUTGOING = 1
@@ -539,6 +541,8 @@ class GraphObjectMatcher(NodeMatcher):
 
 class Repository(object):
     """ Storage container for :class:`.GraphObject` instances.
+
+    *New in version 2020.7.*
     """
 
     @classmethod

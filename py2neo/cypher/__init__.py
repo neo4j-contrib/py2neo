@@ -20,7 +20,6 @@ __all__ = [
     "cypher_escape",
     "cypher_repr",
     "cypher_str",
-    "Procedures",
 ]
 
 
@@ -89,82 +88,3 @@ def cypher_str(value, **kwargs):
         return value.decode(kwargs.get("encoding", "utf-8"))
     else:
         return cypher_repr(value, **kwargs)
-
-
-class Procedures(object):
-    """ Accessor for calling procedures.
-    """
-
-    def __init__(self, graph):
-        self.graph = graph
-
-    def __getattr__(self, name):
-        return Procedure(self.graph, name)
-
-    def __getitem__(self, name):
-        return Procedure(self.graph, name)
-
-    def __dir__(self):
-        proc = Procedure(self.graph, "dbms.procedures")
-        return [record[0] for record in proc(keys=["name"])]
-
-    def __call__(self, procedure, *args):
-        """ Call a procedure by name.
-
-        For example:
-            >>> from py2neo import Graph
-            >>> g = Graph()
-            >>> g.call("dbms.components")
-             name         | versions  | edition
-            --------------|-----------|-----------
-             Neo4j Kernel | ['4.0.2'] | community
-
-        :param procedure: fully qualified procedure name
-        :param args: positional arguments to pass to the procedure
-        :returns: :class:`.Cursor` object wrapping the result
-        """
-        return Procedure(self.graph, procedure)(*args)
-
-
-class Procedure(object):
-    """ Represents an individual procedure.
-    """
-
-    def __init__(self, graph, name):
-        self.graph = graph
-        self.name = name
-
-    def __getattr__(self, name):
-        return Procedure(self.graph, self.name + "." + name)
-
-    def __getitem__(self, name):
-        return Procedure(self.graph, self.name + "." + name)
-
-    def __dir__(self):
-        proc = Procedure(self.graph, "dbms.procedures")
-        prefix = self.name + "."
-        return [record[0][len(prefix):] for record in proc(keys=["name"])
-                if record[0].startswith(prefix)]
-
-    def __call__(self, *args, **kwargs):
-        """ Call a procedure by name.
-
-        For example:
-            >>> from py2neo import Graph
-            >>> g = Graph()
-            >>> g.call("dbms.components")
-             name         | versions  | edition
-            --------------|-----------|-----------
-             Neo4j Kernel | ['4.0.2'] | community
-
-        :param procedure: fully qualified procedure name
-        :param args: positional arguments to pass to the procedure
-        :returns: :class:`.Cursor` object wrapping the result
-        """
-        procedure_name = ".".join(cypher_escape(part) for part in self.name.split("."))
-        arg_list = [(str(i), arg) for i, arg in enumerate(args)]
-        cypher = "CALL %s(%s)" % (procedure_name, ", ".join("$" + a[0] for a in arg_list))
-        keys = kwargs.get("keys")
-        if keys:
-            cypher += " YIELD %s" % ", ".join(keys)
-        return self.graph.run(cypher, dict(arg_list))

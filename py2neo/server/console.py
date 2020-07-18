@@ -24,6 +24,7 @@ from sys import stdout
 from textwrap import wrap
 from webbrowser import open as open_browser
 
+from english.text import first_sentence
 from pansi.console import Console
 
 
@@ -247,19 +248,3 @@ class Neo4jConsole(_CommandConsole):
         if not self._for_each_instance(instance, f):
             self.error("Machine %r not found", instance)
             return 1
-
-
-def first_sentence(text):
-    """ Extract the first sentence of a text.
-    """
-    if not text:
-        return ""
-
-    from re import match
-    lines = text.splitlines(False)
-    one_line = " ".join(lines)
-    matched = match(r"^(.*?(?<!\b\w)[.?!])\s+[A-Z0-9]", one_line)
-    if matched:
-        return matched.group(1)
-    else:
-        return lines[0]

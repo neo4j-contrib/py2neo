@@ -21,7 +21,7 @@ from packaging.version import Version
 from pytest import skip
 
 from py2neo.data import Node
-from py2neo.spatial import CartesianPoint, WGS84Point
+from py2neo.data.spatial import CartesianPoint, WGS84Point
 
 
 def test_null(graph):

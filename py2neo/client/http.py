@@ -26,7 +26,7 @@ from packaging.version import Version
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 
 from py2neo.compat import urlsplit
-from py2neo.client import Connection, Transaction, TransactionError, Result, Bookmark
+from py2neo.client import Connection, Transaction, Result, Bookmark
 from py2neo.client.config import http_user_agent
 from py2neo.client.json import JSONHydrant
 
@@ -143,8 +143,8 @@ class HTTP(Connection):
         r = self._post(HTTPTransaction.autocommit_uri(graph_name), cypher, parameters)
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
-        rs.audit()
         self.release()
+        rs.audit()
         return HTTPResult(graph_name, rs.result())
 
     def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
@@ -163,39 +163,39 @@ class HTTP(Connection):
         if r.status != 201:
             raise RuntimeError("Can't begin a new transaction")  # TODO: better error
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
-        rs.audit()
         location_path = urlsplit(r.headers["Location"]).path
         tx = HTTPTransaction(graph_name, location_path.rpartition("/")[-1])
         self._transactions.add(tx)
         self.release()
+        rs.audit(tx)
         return tx
 
     def commit(self, tx):
-        self._assert_valid_tx(tx)
+        self._assert_transaction_open(tx)
         self._transactions.remove(tx)
         r = self._post(tx.commit_uri())
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
-        rs.audit()
         self.release()
+        rs.audit(tx)
         return Bookmark()
 
     def rollback(self, tx):
-        self._assert_valid_tx(tx)
+        self._assert_transaction_open(tx)
         self._transactions.remove(tx)
         r = self._delete(tx.uri())
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
-        rs.audit()
         self.release()
+        rs.audit(tx)
         return Bookmark()
 
     def run_in_tx(self, tx, cypher, parameters=None):
         r = self._post(tx.uri(), cypher, parameters)
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
-        rs.audit()
         self.release()
+        rs.audit(tx)
         return HTTPResult(tx.graph_name, rs.result(), profile=self.profile)
 
     def pull(self, result, n=-1):
@@ -211,11 +211,9 @@ class HTTP(Connection):
         record = result.take_record()
         return record
 
-    def _assert_valid_tx(self, tx):
-        if not tx:
-            raise TransactionError("No transaction")
+    def _assert_transaction_open(self, tx):
         if tx not in self._transactions:
-            raise TransactionError("Invalid transaction")
+            raise ValueError("Transaction %r is not open on this connection", tx)
 
     def _post(self, url, statement=None, parameters=None):
         if statement:
@@ -244,6 +242,15 @@ class HTTP(Connection):
 
 
 class HTTPTransaction(Transaction):
+
+    def __init__(self, graph_name, txid=None, readonly=False):
+        super(HTTPTransaction, self).__init__(graph_name, txid, readonly)
+        self.failure = None
+
+    def __bool__(self):
+        return self.failure is None
+
+    __nonzero__ = __bool__
 
     @classmethod
     def autocommit_uri(cls, graph_name):
@@ -348,8 +355,10 @@ class HTTPResponse(object):
     def errors(self):
         return self._content.get("errors", [])
 
-    def audit(self):
+    def audit(self, tx=None):
         if self.errors():
-            from py2neo.database import GraphError
+            from py2neo.database.work import GraphError
             failure = GraphError.hydrate(self.errors().pop(0))
+            if tx is not None:
+                tx.failure = failure
             raise failure

@@ -675,7 +675,7 @@ class PackStreamHydrant(Hydrant):
         from neotime import Duration, Date, Time, DateTime
         from pytz import FixedOffset, timezone
         from py2neo.data import Node, Relationship, Path
-        from py2neo.spatial import Point
+        from py2neo.data.spatial import Point
 
         unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
         unix_epoch_date = Date(1970, 1, 1)
@@ -816,7 +816,7 @@ class PackStreamHydrant(Hydrant):
         from datetime import date, time, datetime, timedelta
         from neotime import Duration, Date, Time, DateTime
         from pytz import utc
-        from py2neo.spatial import Point
+        from py2neo.data.spatial import Point
 
         unix_epoch_date = Date(1970, 1, 1)
 

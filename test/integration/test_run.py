@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo import Node, GraphTransactionError
+from py2neo import Node, TransactionFinished
 
 
 def test_can_run_single_statement_transaction(graph):
@@ -99,7 +99,7 @@ def test_cannot_append_after_transaction_finished(graph):
     tx.rollback()
     try:
         tx.run("CREATE (a) RETURN a")
-    except GraphTransactionError as error:
+    except TransactionFinished as error:
         assert error.args[0] is tx
     else:
         assert False

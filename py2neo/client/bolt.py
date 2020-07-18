@@ -43,6 +43,7 @@ __all__ = [
     "BoltTransaction",
     "BoltResult",
     "BoltResponse",
+    "BoltProtocolError",
 ]
 
 
@@ -52,7 +53,7 @@ from logging import getLogger
 
 from packaging.version import Version
 
-from py2neo.client import Connection, Transaction, TransactionError, Result, Failure, Bookmark
+from py2neo.client import Connection, Transaction, Result, Failure, Bookmark
 from py2neo.client.config import bolt_user_agent
 from py2neo.client.packstream import MessageReader, MessageWriter, PackStreamHydrant
 from py2neo.wiring import Wire
@@ -258,7 +259,7 @@ class Bolt1(Bolt):
 
     def commit(self, tx):
         self._assert_open()
-        self._assert_open_transaction(tx)
+        self._assert_transaction_open(tx)
         self._transaction.set_complete()
         log.debug("[#%04X] C: RUN 'COMMIT' {}", self.local_port)
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
@@ -271,7 +272,7 @@ class Bolt1(Bolt):
 
     def rollback(self, tx):
         self._assert_open()
-        self._assert_open_transaction(tx)
+        self._assert_transaction_open(tx)
         self._transaction.set_complete()
         log.debug("[#%04X] C: RUN 'ROLLBACK' {}", self.local_port)
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
@@ -284,7 +285,7 @@ class Bolt1(Bolt):
 
     def run_in_tx(self, tx, cypher, parameters=None):
         self._assert_open()
-        self._assert_open_transaction(tx)
+        self._assert_transaction_open(tx)
         return self._run(tx.graph_name, cypher, parameters or {})
 
     def _run(self, graph_name, cypher, parameters, extra=None, final=False):
@@ -296,7 +297,7 @@ class Bolt1(Bolt):
 
     def pull(self, result, n=-1, capacity=-1):
         self._assert_open()
-        self._assert_is_last_result(result)
+        self._assert_result_consumable(result)
         if n != -1:
             raise TypeError("Flow control is not supported before Bolt 4.0")
         log.debug("[#%04X] C: PULL_ALL", self.local_port)
@@ -306,7 +307,7 @@ class Bolt1(Bolt):
 
     def discard(self, result, n=-1):
         self._assert_open()
-        self._assert_is_last_result(result)
+        self._assert_result_consumable(result)
         if n != -1:
             raise TypeError("Flow control is not supported before Bolt 4.0")
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
@@ -330,15 +331,16 @@ class Bolt1(Bolt):
 
     def _assert_no_transaction(self):
         if self._transaction:
-            raise TransactionError("Bolt connection already holds transaction %r", self._transaction)
+            raise BoltProtocolError("Cannot open multiple simultaneous transactions "
+                                    "on a Bolt connection")
 
-    def _assert_open_transaction(self, tx):
-        if self._transaction is not tx:
-            raise TypeError("Transaction %r is not open on this connection", self._transaction)
+    def _assert_transaction_open(self, tx):
+        if tx is not self._transaction:
+            raise ValueError("Transaction %r is not open on this connection", tx)
 
-    def _assert_is_last_result(self, result):
+    def _assert_result_consumable(self, result):
         if not self._transaction:
-            raise TransactionError("No active transaction")
+            raise BoltProtocolError("Cannot consume result without open transaction")
         if result is not self._transaction.last():
             raise TypeError("Random query access is not supported before Bolt 4.0")
 
@@ -475,7 +477,7 @@ class Bolt3(Bolt2):
 
     def commit(self, tx):
         self._assert_open()
-        self._assert_open_transaction(tx)
+        self._assert_transaction_open(tx)
         self._transaction.set_complete()
         log.debug("[#%04X] C: COMMIT", self.local_port)
         response = self._write_request(0x12)
@@ -487,7 +489,7 @@ class Bolt3(Bolt2):
 
     def rollback(self, tx):
         self._assert_open()
-        self._assert_open_transaction(tx)
+        self._assert_transaction_open(tx)
         self._transaction.set_complete()
         log.debug("[#%04X] C: ROLLBACK", self.local_port)
         response = self._write_request(0x13)
@@ -499,7 +501,7 @@ class Bolt3(Bolt2):
 
     def run(self, tx, cypher, parameters=None):
         self._assert_open()
-        self._assert_open_transaction(tx)
+        self._assert_transaction_open(tx)
         return self._run(tx.graph_name, cypher, parameters or {}, self._transaction.extra)
 
     def _run(self, graph_name, cypher, parameters, extra=None, final=False):
@@ -514,15 +516,9 @@ class Bolt4x0(Bolt3):
 
     protocol_version = (4, 0)
 
-    def _assert_is_last_result(self, result):
-        if not self._transaction:
-            raise TransactionError("No active transaction")
-        if result is not self._transaction.last():
-            raise NotImplementedError("Random query access is not yet supported")
-
     def pull(self, result, n=-1, capacity=-1):
         self._assert_open()
-        self._assert_is_last_result(result)  # TODO: random query access (qid)
+        self._assert_result_consumable(result)  # TODO: random query access (qid)
         args = {"n": n}
         log.debug("[#%04X] C: PULL %r", self.local_port, args)
         response = self._write_request(0x3F, args, capacity=capacity)
@@ -531,7 +527,7 @@ class Bolt4x0(Bolt3):
 
     def discard(self, result, n=-1):
         self._assert_open()
-        self._assert_is_last_result(result)  # TODO: random query access (qid)
+        self._assert_result_consumable(result)  # TODO: random query access (qid)
         args = {"n": n}
         log.debug("[#%04X] C: DISCARD %r", self.local_port, args)
         response = self._write_request(0x2F, args)
@@ -759,7 +755,7 @@ class BoltResponse(Task):
     def set_failure(self, **metadata):
         self._status = 2
         # TODO: tidy up where these errors live
-        from py2neo.database import GraphError
+        from py2neo.database.work import GraphError
         self._failure = GraphError.hydrate(metadata)
 
     def set_ignored(self):
@@ -785,3 +781,8 @@ class BoltResponse(Task):
     @property
     def metadata(self):
         return self._metadata
+
+
+class BoltProtocolError(Exception):
+
+    pass

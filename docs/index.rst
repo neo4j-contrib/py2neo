@@ -17,13 +17,13 @@ Installation
 
 To install the latest release of py2neo, simply use:
 
-.. code-block::
+.. code-block:: bash
 
     $ pip install --upgrade py2neo
 
 To install the latest stable code from the GitHub master branch, use:
 
-.. code-block::
+.. code-block:: bash
 
     $ pip install git+https://github.com/technige/py2neo.git@master#egg=py2neo
 
@@ -55,58 +55,62 @@ The service itself is represented by a :class:`.GraphService` object.
 A comprehensive set of graph structure data types and operations are provided, allowing great flexibility in how graph data can be used.
 
 .. toctree::
-   :maxdepth: 2
-   :numbered:
+    :maxdepth: 2
 
-   data
-   database
-   matching
-
-
-Cypher Tools
-============
-
-.. toctree::
-   :maxdepth: 2
-   :numbered:
-
-   cypher/index
-   cypher/lexer
+    database/index
+    database/work
+    matching
+    data/index
+    data/spatial
+    data/operations
 
 
 Object-Graph Mapping
 ====================
 
 .. toctree::
-   :maxdepth: 2
-   :numbered:
+    :maxdepth: 2
 
-   ogm
+    ogm/index
+    ogm/movies
+
+
+Cypher Language Tools
+=====================
+
+.. toctree::
+    :maxdepth: 2
+
+    cypher/index
+    cypher/lexer
 
 
 Clients & Servers
 =================
 
 .. toctree::
-   :maxdepth: 2
-   :numbered:
+    :maxdepth: 2
 
-   client/index
-   client/config
-   client/bolt
-   client/http
-   server/index
-   wiring
+    client/index
+    client/config
+    client/bolt
+    client/packstream
+    client/http
+    client/json
+    client/console
+    server/index
+    server/security
+    server/console
+    wiring
 
 
 Command Line Usage
 ==================
 
 .. toctree::
-   :maxdepth: 2
-   :numbered:
+    :maxdepth: 2
 
-   cli
+    cli
 
 
 .. _Neo4j: https://neo4j.com/

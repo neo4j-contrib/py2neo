@@ -1131,11 +1131,6 @@ class Result(object):
         raise NotImplementedError
 
 
-class TransactionError(Exception):
-
-    pass
-
-
 class Failure(Exception):
 
     def __init__(self, message, code):
