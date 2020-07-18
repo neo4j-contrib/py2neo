@@ -53,10 +53,11 @@ from py2neo.matching import NodeMatcher, RelationshipMatcher
 
 
 class GraphService(object):
-    """ Accessor for an entire Neo4j graph database management system
-    (DBMS) over Bolt or HTTP. Within the py2neo object hierarchy, a
-    :class:`.GraphService` contains one or more :class:`.Graph` objects
-    in which data storage and retrieval activity chiefly occurs.
+    """ The :class:`.GraphService` class is the top-level accessor for
+    an entire Neo4j graph database management system (DBMS). Within the
+    py2neo object hierarchy, a :class:`.GraphService` contains one or
+    more :class:`.Graph` objects in which data storage and retrieval
+    activity chiefly occurs.
 
     An explicit URI can be passed to the constructor::
 
@@ -70,10 +71,6 @@ class GraphService(object):
         >>> default_gs
         <GraphService uri='bolt://localhost:7687'>
 
-    *Changed in 2020.7: this class was formerly known as 'Database',
-    but was renamed to avoid confusion with the concept of the same
-    name introduced with the multi-database feature of Neo4j 4.0.*
-
     .. note::
 
         Some attributes of this class available in earlier versions of
@@ -84,6 +81,10 @@ class GraphService(object):
         Neo4j 4.0 relating to how certain system metadata is exposed.
         Replacement functionality may be reintroduced in a future
         py2neo release.
+
+    *Changed in 2020.7: this class was formerly known as 'Database',
+    but was renamed to avoid confusion with the concept of the same
+    name introduced with the multi-database feature of Neo4j 4.0.*
 
     .. describe:: iter(graph_service)
 
@@ -166,6 +167,7 @@ class GraphService(object):
             inst.service = self
             inst.__name__ = graph_name
             inst.schema = Schema(inst)
+            inst._procedures = Procedures(inst)
             inst.node_cache = ThreadLocalEntityCache()
             inst.relationship_cache = ThreadLocalEntityCache()
             self._graphs[graph_name] = inst
@@ -322,9 +324,6 @@ class Graph(object):
     def __new__(cls, profile=None, name=None, **settings):
         gs = GraphService(profile, **settings)
         return gs[name]
-
-    def __init__(self, *args, **kwargs):
-        self._procedures = Procedures(self)
 
     def __repr__(self):
         if self.name is None:
