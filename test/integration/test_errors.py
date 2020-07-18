@@ -26,6 +26,7 @@ def test_can_generate_transaction_error(graph):
     with raises(ClientError) as e:
         tx.run("X")
     assert e.value.code == "Neo.ClientError.Statement.SyntaxError"
+    assert tx.finished()
     with raises(TransactionFinished):
         tx.commit()
 

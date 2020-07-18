@@ -143,8 +143,8 @@ class HTTP(Connection):
         r = self._post(HTTPTransaction.autocommit_uri(graph_name), cypher, parameters)
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
-        rs.audit()
         self.release()
+        rs.audit()
         return HTTPResult(graph_name, rs.result())
 
     def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
@@ -163,11 +163,11 @@ class HTTP(Connection):
         if r.status != 201:
             raise RuntimeError("Can't begin a new transaction")  # TODO: better error
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
-        rs.audit()
         location_path = urlsplit(r.headers["Location"]).path
         tx = HTTPTransaction(graph_name, location_path.rpartition("/")[-1])
         self._transactions.add(tx)
         self.release()
+        rs.audit(tx)
         return tx
 
     def commit(self, tx):
@@ -176,8 +176,8 @@ class HTTP(Connection):
         r = self._post(tx.commit_uri())
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
-        rs.audit()
         self.release()
+        rs.audit(tx)
         return Bookmark()
 
     def rollback(self, tx):
@@ -186,16 +186,16 @@ class HTTP(Connection):
         r = self._delete(tx.uri())
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
-        rs.audit()
         self.release()
+        rs.audit(tx)
         return Bookmark()
 
     def run_in_tx(self, tx, cypher, parameters=None):
         r = self._post(tx.uri(), cypher, parameters)
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.data.decode("utf-8"))
-        rs.audit()
         self.release()
+        rs.audit(tx)
         return HTTPResult(tx.graph_name, rs.result(), profile=self.profile)
 
     def pull(self, result, n=-1):
@@ -242,6 +242,15 @@ class HTTP(Connection):
 
 
 class HTTPTransaction(Transaction):
+
+    def __init__(self, graph_name, txid=None, readonly=False):
+        super(HTTPTransaction, self).__init__(graph_name, txid, readonly)
+        self.failure = None
+
+    def __bool__(self):
+        return self.failure is None
+
+    __nonzero__ = __bool__
 
     @classmethod
     def autocommit_uri(cls, graph_name):
@@ -346,8 +355,10 @@ class HTTPResponse(object):
     def errors(self):
         return self._content.get("errors", [])
 
-    def audit(self):
+    def audit(self, tx=None):
         if self.errors():
             from py2neo.database.work import GraphError
             failure = GraphError.hydrate(self.errors().pop(0))
+            if tx is not None:
+                tx.failure = failure
             raise failure
