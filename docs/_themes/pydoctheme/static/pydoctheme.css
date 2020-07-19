@@ -150,6 +150,11 @@ table.docutils {
     margin-bottom: 10px;
 }
 
+table.docutils.align-default {
+    margin-left: unset;
+    margin-right: unset;
+}
+
 table.docutils td, table.docutils th {
     border: 1px solid #ddd !important;
     border-radius: 3px;
