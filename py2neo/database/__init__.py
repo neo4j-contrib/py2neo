@@ -231,7 +231,7 @@ class GraphService(object):
             inst.service = self
             inst.__name__ = graph_name
             inst.schema = Schema(inst)
-            inst._procedures = Procedures(inst)
+            inst._procedures = ProcedureLibrary(inst)
             inst.node_cache = ThreadLocalEntityCache()
             inst.relationship_cache = ThreadLocalEntityCache()
             self._graphs[graph_name] = inst
@@ -433,7 +433,34 @@ class Graph(object):
 
     @property
     def call(self):
-        """ Accessor for listing and running procedures.
+        """ Accessor for listing and calling procedures.
+
+        This property contains a :class:`.ProcedureLibrary` object tied
+        to this graph, which provides links to Cypher procedures in
+        the underlying implementation.
+
+        Calling a procedure requires only the regular Python function
+        call syntax::
+
+            >>> g = Graph()
+            >>> g.call.dbms.components()
+             name         | versions   | edition
+            --------------|------------|-----------
+             Neo4j Kernel | ['3.5.12'] | community
+
+        The object returned from the call is a :class:`.Cursor` object,
+        identical to that obtained from running a normal Cypher query,
+        and can therefore be consumed in a similar way.
+
+        Procedure names can alternatively be supplied as a string::
+
+            >>> g.call["dbms.components"]()
+             name         | versions   | edition
+            --------------|------------|-----------
+             Neo4j Kernel | ['3.5.12'] | community
+
+        Using :func:`dir` or :func:`iter` on the `call` attribute will
+        yield a list of available procedure names.
 
         *New in version 2020.7.*
         """
@@ -844,8 +871,14 @@ class Schema(object):
         return [k[0] for k in self._get_indexes(label, unique_only=True)]
 
 
-class Procedures(object):
-    """ Accessor for calling procedures.
+class ProcedureLibrary(object):
+    """ Accessor for listing and calling procedures.
+
+    This object is typically constructed and accessed via the
+    :meth:`.Graph.call` attribute. See the documentation for that
+    attribute for usage information.
+
+    *New in version 2020.7.*
     """
 
     def __init__(self, graph):
@@ -858,8 +891,12 @@ class Procedures(object):
         return Procedure(self.graph, name)
 
     def __dir__(self):
+        return list(self)
+
+    def __iter__(self):
         proc = Procedure(self.graph, "dbms.procedures")
-        return [record[0] for record in proc(keys=["name"])]
+        for record in proc(keys=["name"]):
+            yield record[0]
 
     def __call__(self, procedure, *args):
         """ Call a procedure by name.
