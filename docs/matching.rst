@@ -2,76 +2,39 @@
 ``py2neo.matching`` -- Node and relationship matching
 *****************************************************
 
-.. module:: py2neo.matching
-
-The ``py2neo.matching`` module provides functionality to match nodes and relationships according to certain criteria.
-For each entity type, a ``Matcher`` class and a ``Match`` class are provided.
-The ``Matcher`` can be used to perform a basic selection, returning a ``Match`` that can be evaluated or further refined.
-
-The underlying query is only evaluated when the selection undergoes iteration or when a specific evaluation method is called (such as :meth:`.NodeMatch.first`).
-This means that a :class:`.NodeMatch` instance may be reused before and after data changes for different results.
+.. automodule:: py2neo.matching
 
 
 Node matching
 =============
 
+``NodeMatcher`` objects
+-----------------------
+
 .. autoclass:: NodeMatcher(graph)
+    :members:
 
-    .. describe:: iter(matcher)
-
-        Iterate through the matches, yielding the node ID for each one in turn.
-
-    .. describe:: len(matcher)
-
-        Count the matched nodes and return the number matched.
-
-    .. describe:: node_id in matcher
-
-        Determine whether a given node ID exists.
-
-    .. describe:: matcher[node_id]
-
-        Match and return a specific node by ID.
-        This raises a :py:exc:`KeyError` if no such node can be found.
-
-    .. automethod:: get
-
-    .. automethod:: match
+``NodeMatch`` objects
+-----------------------
 
 .. autoclass:: py2neo.matching.NodeMatch
    :members:
-   :special-members: __len__, __iter__
 
 
 Relationship matching
 =====================
 
+``RelationshipMatcher`` objects
+-------------------------------
+
 .. autoclass:: RelationshipMatcher(graph)
+    :members:
 
-    .. describe:: iter(matcher)
-
-        Iterate through the matches, yielding the relationship ID for each one in turn.
-
-    .. describe:: len(matcher)
-
-        Count the matched relationships and return the number matched.
-
-    .. describe:: relationship_id in matcher
-
-        Determine whether a given relationship ID exists.
-
-    .. describe:: matcher[relationship_id]
-
-        Match and return a specific relationship by ID.
-        This raises a :py:exc:`KeyError` if no such relationship can be found.
-
-    .. automethod:: get
-
-    .. automethod:: match
+``RelationshipMatch`` objects
+-----------------------------
 
 .. autoclass:: py2neo.matching.RelationshipMatch
    :members:
-   :special-members: __len__, __iter__
 
 
 Applying predicates
@@ -100,6 +63,9 @@ The example below matches everyone born between 1964 and 1966 inclusive::
      Node('Person', born=1965, name='Tom Tykwer'),
      Node('Person', born=1966, name='Matthew Fox'),
      Node('Person', born=1965, name='John C. Reilly')]
+
+*Changed in 2020.7: the predicate system has been overhauled to provide
+a more idiomatic API.*
 
 
 Null check predicates

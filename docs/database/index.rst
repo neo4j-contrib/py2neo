@@ -29,7 +29,13 @@
     :members:
 
 ``ProcedureLibrary`` objects
-======================
+============================
 
 .. autoclass:: ProcedureLibrary
+    :members:
+
+``Procedure`` objects
+=====================
+
+.. autoclass:: Procedure
     :members:
