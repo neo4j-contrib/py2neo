@@ -57,8 +57,9 @@ class Transaction(object):
 
     _finished = False
 
-    def __init__(self, graph, autocommit=False, readonly=False,
-                 after=None, metadata=None, timeout=None):
+    def __init__(self, graph, autocommit=False,
+                 # readonly=False, after=None, metadata=None, timeout=None
+                 ):
         self._graph = graph
         self._autocommit = autocommit
         self._entities = deque()
@@ -67,7 +68,8 @@ class Transaction(object):
             self._transaction = None
         else:
             self._transaction = self._connector.begin(self._graph.name,
-                                                      readonly, after, metadata, timeout)
+                                                      # readonly, after, metadata, timeout
+                                                      )
 
     def __enter__(self):
         return self

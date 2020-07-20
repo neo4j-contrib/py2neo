@@ -400,28 +400,25 @@ class Graph(object):
 
     __nonzero__ = __bool__
 
-    def auto(self, readonly=False, after=None, metadata=None, timeout=None):
+    def auto(self,
+             # readonly=False, after=None, metadata=None, timeout=None
+             ):
         """ Create a new auto-commit :class:`~py2neo.database.work.Transaction`.
-
-        :param readonly:
-        :param after:
-        :param metadata:
-        :param timeout:
 
         *New in version 2020.7.*
         """
-        return Transaction(self, True, readonly, after, metadata, timeout)
+        return Transaction(self, True,
+                           # readonly, after, metadata, timeout
+                           )
 
-    def begin(self, autocommit=False, readonly=False,
-              after=None, metadata=None, timeout=None):
+    def begin(self, autocommit=False,
+              # readonly=False, after=None, metadata=None, timeout=None
+              ):
         """ Begin a new :class:`~py2neo.database.work.Transaction`.
 
-        :param autocommit: if :py:const:`True`, the transaction will
-                         automatically commit after the first operation
-        :param readonly:
-        :param after:
-        :param metadata:
-        :param timeout:
+        :param autocommit: (deprecated) if :py:const:`True`, the
+            transaction will automatically commit after the first
+            operation
 
         *Changed in version 2020.7: the 'autocommit' argument is now
         deprecated. Use the 'auto' method instead.*
@@ -429,7 +426,9 @@ class Graph(object):
         if autocommit:
             warn("Graph.begin(autocommit=True) is deprecated, "
                  "use Graph.auto() instead", category=DeprecationWarning, stacklevel=2)
-        return Transaction(self, autocommit, readonly, after, metadata, timeout)
+        return Transaction(self, autocommit,
+                           # readonly, after, metadata, timeout
+                           )
 
     @property
     def call(self):
@@ -520,7 +519,9 @@ class Graph(object):
                        :class:`.Subgraph` object
         :return:
         """
-        return self.auto(readonly=True).exists(subgraph)
+        return self.auto(
+            # readonly=True
+        ).exists(subgraph)
 
     def match(self, nodes=None, r_type=None, limit=None):
         """ Match and return all relationships with specific criteria.
@@ -618,7 +619,9 @@ class Graph(object):
         """
         return NodeMatcher(self)
 
-    def play(self, work, args=None, kwargs=None, after=None, metadata=None, timeout=None):
+    def play(self, work, args=None, kwargs=None,
+             # after=None, metadata=None, timeout=None
+             ):
         """ Call a function representing a transactional unit of work.
 
         The function must always accept a :class:`~py2neo.database.work.Transaction`
@@ -639,25 +642,22 @@ class Graph(object):
             pass into the function
         :param kwargs: mapping of additional keyword arguments to
             pass into the function
-        :param after: :class:`.Bookmark` or tuple of :class:`.Bookmark`
-            objects marking the point in transactional history after
-            which this unit of work should be played
-        :param metadata: user metadata to attach to this transaction
-        :param timeout: timeout for transaction execution
 
         *New in version 2020.7.*
         """
         if not callable(work):
             raise TypeError("Unit of work is not callable")
         kwargs = dict(kwargs or {})
-        readonly = getattr(work, "readonly", False)
-        if readonly:
-            # TODO: remove this warning when readonly is implemented
-            warn("Acquisition of readonly connections is not yet supported; "
-                 "a read-write connection will be used instead")
-        if not timeout:
-            timeout = getattr(work, "timeout", None)
-        tx = self.begin(readonly=readonly, after=after, metadata=metadata, timeout=timeout)
+        # readonly = getattr(work, "readonly", False)
+        # if readonly:
+        #     # TODO: remove this warning when readonly is implemented
+        #     warn("Acquisition of readonly connections is not yet supported; "
+        #          "a read-write connection will be used instead")
+        # if not timeout:
+        #     timeout = getattr(work, "timeout", None)
+        tx = self.begin(
+            # readonly=readonly, after=after, metadata=metadata, timeout=timeout
+        )
         try:
             work(tx, *args or (), **kwargs or {})
         except Exception:  # TODO: catch transient and retry, if within limit
@@ -671,7 +671,9 @@ class Graph(object):
 
         :param subgraph: the collection of nodes and relationships to pull
         """
-        with self.begin(readonly=True) as tx:
+        with self.begin(
+                # readonly=True
+        ) as tx:
             tx.pull(subgraph)
 
     def push(self, subgraph):
