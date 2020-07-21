@@ -135,7 +135,7 @@ html_theme = 'pydoctheme'
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    'sidebarwidth': 300,
+    'sidebarwidth': 330,
     'collapsiblesidebar': True,
     #'logo': 'py2neo-v4.280x336.png',
     #'logo_align': 'left',

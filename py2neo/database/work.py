@@ -16,6 +16,11 @@
 # limitations under the License.
 
 
+"""
+The ``py2neo.database.work`` package contains classes pertaining to the
+execution of Cypher queries and transactions.
+"""
+
 from __future__ import absolute_import, print_function, unicode_literals
 
 from collections import deque, OrderedDict
@@ -27,61 +32,34 @@ from warnings import warn
 from py2neo.collections import iter_items
 from py2neo.client import Connection
 from py2neo.compat import Mapping, numeric_types, ustr, xstr
-from py2neo.cypher import cypher_escape, cypher_repr, cypher_str
-
-
-class Procedure(object):
-    """ Represents an individual procedure.
-    """
-
-    def __init__(self, graph, name):
-        self.graph = graph
-        self.name = name
-
-    def __getattr__(self, name):
-        return Procedure(self.graph, self.name + "." + name)
-
-    def __getitem__(self, name):
-        return Procedure(self.graph, self.name + "." + name)
-
-    def __dir__(self):
-        proc = Procedure(self.graph, "dbms.procedures")
-        prefix = self.name + "."
-        return [record[0][len(prefix):] for record in proc(keys=["name"])
-                if record[0].startswith(prefix)]
-
-    def __call__(self, *args, **kwargs):
-        """ Call a procedure by name.
-
-        For example:
-            >>> from py2neo import Graph
-            >>> g = Graph()
-            >>> g.call("dbms.components")
-             name         | versions  | edition
-            --------------|-----------|-----------
-             Neo4j Kernel | ['4.0.2'] | community
-
-        :param procedure: fully qualified procedure name
-        :param args: positional arguments to pass to the procedure
-        :returns: :class:`.Cursor` object wrapping the result
-        """
-        procedure_name = ".".join(cypher_escape(part) for part in self.name.split("."))
-        arg_list = [(str(i), arg) for i, arg in enumerate(args)]
-        cypher = "CALL %s(%s)" % (procedure_name, ", ".join("$" + a[0] for a in arg_list))
-        keys = kwargs.get("keys")
-        if keys:
-            cypher += " YIELD %s" % ", ".join(keys)
-        return self.graph.run(cypher, dict(arg_list))
+from py2neo.cypher import cypher_repr, cypher_str
 
 
 class Transaction(object):
-    """ A logical context for one or more graph operations.
+    """ Logical context for one or more graph operations.
+
+    Transaction objects are typically constructed by the
+    :meth:`.Graph.auto` and :meth:`.Graph.begin` methods. User
+    applications should not generally need to create these objects
+    directly.
+
+    Each transaction has a lifetime which ends by a call to either
+    :meth:`.commit` or :meth:`.rollback`. In the case of an error, the
+    server can also prematurely end transactions. The
+    :meth:`.finished` method can be used to determine whether or not
+    any of these cases have occurred.
+
+    The :meth:`.run` and :meth:`.evaluate` methods are used to execute
+    Cypher queries within the transactional context. The remaining
+    methods operate on :class:`.Subgraph` objects, including
+    derivatives such as :class:`.Node` and :class:`.Relationship`.
     """
 
     _finished = False
 
-    def __init__(self, graph, autocommit=False, readonly=False,
-                 after=None, metadata=None, timeout=None):
+    def __init__(self, graph, autocommit=False,
+                 # readonly=False, after=None, metadata=None, timeout=None
+                 ):
         self._graph = graph
         self._autocommit = autocommit
         self._entities = deque()
@@ -90,7 +68,8 @@ class Transaction(object):
             self._transaction = None
         else:
             self._transaction = self._connector.begin(self._graph.name,
-                                                      readonly, after, metadata, timeout)
+                                                      # readonly, after, metadata, timeout
+                                                      )
 
     def __enter__(self):
         return self
@@ -702,10 +681,25 @@ class Cursor(object):
 
 
 class Record(tuple, Mapping):
-    """ A :class:`.Record` is an immutable ordered collection of key-value
-    pairs. It is generally closer to a :class:`namedtuple` than to a
-    :class:`OrderedDict` inasmuch as iteration of the collection will
-    yield values rather than keys.
+    """ A :class:`.Record` object holds an ordered, keyed collection of
+    values. It is in many ways similar to a :class:`namedtuple` but
+    allows field access only through bracketed syntax, and provides
+    more functionality. :class:`.Record` extends both :class:`tuple`
+    and :class:`Mapping`.
+
+    .. describe:: record[index]
+                  record[key]
+
+        Return the value of *record* with the specified *key* or *index*.
+
+    .. describe:: len(record)
+
+        Return the number of fields in *record*.
+
+    .. describe:: dict(record)
+
+        Return a `dict` representation of *record*.
+
     """
 
     __keys = None
@@ -875,6 +869,16 @@ class Record(tuple, Mapping):
 
 class Table(list):
     """ Immutable list of records.
+
+    A :class:`.Table` holds a list of :class:`.Record` objects, typically received as the result of a Cypher query.
+    It provides a convenient container for working with a result in its entirety and provides methods for conversion into various output formats.
+    :class:`.Table` extends ``list``.
+
+    .. describe:: repr(table)
+
+        Return a string containing an ASCII art representation of this table.
+        Internally, this method calls :meth:`.write` with `header=True`, writing the output into an ``io.StringIO`` instance.
+
     """
 
     def __init__(self, records, keys=None):

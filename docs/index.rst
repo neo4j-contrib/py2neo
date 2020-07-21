@@ -85,25 +85,6 @@ Cypher Language Tools
     cypher/lexer
 
 
-Clients & Servers
-=================
-
-.. toctree::
-    :maxdepth: 2
-
-    client/index
-    client/config
-    client/bolt
-    client/packstream
-    client/http
-    client/json
-    client/console
-    server/index
-    server/security
-    server/console
-    wiring
-
-
 Command Line Usage
 ==================
 

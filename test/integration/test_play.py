@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from pytest import raises
+from pytest import mark, raises
 
 
 def test_can_play_simple_function(graph):
@@ -39,6 +39,7 @@ def test_can_play_parameterised_function(graph):
     assert collected == [1]
 
 
+@mark.skip("Chaining functionality not yet implemented")
 def test_can_play_chained_functions(graph):
     collected = []
 
@@ -55,6 +56,7 @@ def test_can_play_chained_functions(graph):
         assert collected == [1]
 
 
+@mark.skip("Chaining functionality not yet implemented")
 def test_can_play_multi_chained_functions(graph):
     collected = []
 

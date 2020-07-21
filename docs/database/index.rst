@@ -28,8 +28,14 @@
 .. autoclass:: Schema
     :members:
 
-``Procedures`` objects
-======================
+``ProcedureLibrary`` objects
+============================
 
-.. autoclass:: Procedures
+.. autoclass:: ProcedureLibrary
+    :members:
+
+``Procedure`` objects
+=====================
+
+.. autoclass:: Procedure
     :members:

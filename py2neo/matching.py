@@ -16,6 +16,20 @@
 # limitations under the License.
 
 
+"""
+The ``py2neo.matching`` module provides functionality to match nodes
+and relationships according to certain criteria. For each entity type,
+a ``Matcher`` class and a ``Match`` class are provided. The ``Matcher``
+can be used to perform a basic selection, returning a ``Match`` that
+itself can be evaluated or further refined.
+
+The underlying query is only evaluated when the selection undergoes
+iteration or when a specific evaluation method is called (such as
+:meth:`.NodeMatch.first`). This means that a :class:`.NodeMatch`
+object may be reused before and after data changes for different
+results.
+"""
+
 from py2neo.collections import is_collection
 from py2neo.compat import Sequence, Set
 from py2neo.cypher import cypher_escape, cypher_repr
@@ -324,6 +338,15 @@ def _property_predicates(properties, offset=1):
 
 class NodeMatch(object):
     """ Immutable set of node selection criteria.
+
+    .. describe:: iter(match)
+
+        Iterate through all matching nodes.
+
+    .. describe:: len(match)
+
+        Return the number of nodes matched.
+
     """
 
     def __init__(self, graph, labels=frozenset(), predicates=tuple(), order_by=tuple(), skip=None, limit=None):
@@ -350,6 +373,8 @@ class NodeMatch(object):
         :class:`.Node` objects.
 
         :return: list of matching :class:`.Node` objects
+
+        *New in version 2020.7.*
         """
         return list(self)
 
@@ -358,6 +383,8 @@ class NodeMatch(object):
         of matches.
 
         :return: number of nodes matched
+
+        *New in version 2020.7.*
         """
         return len(self)
 
@@ -366,6 +393,8 @@ class NodeMatch(object):
         least one matched node exists.
 
         :return: boolean indicating presence or absence of a match
+
+        *New in version 2020.7.*
         """
         return len(self) > 0
 
@@ -482,6 +511,24 @@ class NodeMatcher(object):
         Node('Person', born=1964, name='Keanu Reeves')
 
     :param graph: :class:`.Graph` object on which to perform matches
+
+    .. describe:: iter(matcher)
+
+        Iterate through the matches, yielding the node ID for each one in turn.
+
+    .. describe:: len(matcher)
+
+        Count the matched nodes and return the number matched.
+
+    .. describe:: node_id in matcher
+
+        Determine whether a given node ID exists.
+
+    .. describe:: matcher[node_id]
+
+        Match and return a specific node by ID.
+        This raises a :py:exc:`KeyError` if no such node can be found.
+
     """
 
     _match_class = NodeMatch
@@ -549,6 +596,14 @@ class NodeMatcher(object):
 
 class RelationshipMatch(object):
     """ Immutable set of relationship selection criteria.
+
+    .. describe:: iter(match)
+
+        Iterate through all matching relationships.
+
+    .. describe:: len(match)
+
+        Return the number of relationships matched.
     """
 
     def __init__(self, graph, nodes=None, r_type=None,
@@ -580,6 +635,8 @@ class RelationshipMatch(object):
         :class:`.Relationship` objects.
 
         :return: list of matching :class:`.Relationship` objects
+
+        *New in version 2020.7.*
         """
         return list(self)
 
@@ -588,6 +645,8 @@ class RelationshipMatch(object):
         of matches.
 
         :return: number of relationships matched
+
+        *New in version 2020.7.*
         """
         return len(self)
 
@@ -596,6 +655,8 @@ class RelationshipMatch(object):
         least one matched relationship exists.
 
         :return: boolean indicating presence or absence of a match
+
+        *New in version 2020.7.*
         """
         return len(self) > 0
 
@@ -770,6 +831,24 @@ class RelationshipMatcher(object):
     set of criteria.
 
     :param graph: :class:`.Graph` object on which to perform matches
+
+    .. describe:: iter(matcher)
+
+        Iterate through the matches, yielding the relationship ID for each one in turn.
+
+    .. describe:: len(matcher)
+
+        Count the matched relationships and return the number matched.
+
+    .. describe:: relationship_id in matcher
+
+        Determine whether a given relationship ID exists.
+
+    .. describe:: matcher[relationship_id]
+
+        Match and return a specific relationship by ID.
+        This raises a :exc:`KeyError` if no such relationship can be found.
+
     """
 
     _match_class = RelationshipMatch

@@ -37,6 +37,70 @@ To run a query against a local database is straightforward::
        2 |    4
        3 |    9
 
+
+Getting connected
+=================
+
+The :class:`.GraphService`, :class:`.Graph`, and :class:`.SystemGraph`
+classes all accept an argument called `profile` plus individual keyword
+`settings`. Internally, these arguments are used to construct a
+:class:`.ConnectionProfile` object which holds these details.
+
+The `profile` can either be a URI or a base :class:`.ConnectionProfile`
+object. The `settings` are individual overrides for the values within
+that, such as ``host`` or ``password``. This override mechanism allows
+several ways of specifying the same information. For example, the three
+variants below are all equivalent::
+
+    >>> from py2neo import Graph
+    >>> graph_1 = Graph()
+    >>> graph_2 = Graph(host="localhost")
+    >>> graph_3 = Graph("bolt://localhost:7687")
+
+Omitting the `profile` argument completely falls back to using the
+default :class:`.ConnectionProfile`. More on this, and other useful
+information, can be found in the documentation for that class.
+
+URIs
+----
+
+The general format of a URI is ``<scheme>://[<user>[:<password>]@]<host>[:<port>]``.
+Supported URI schemes are:
+
+- ``bolt`` - Bolt (unsecured)
+- ``bolt+s`` - Bolt (secured with full certificate checks)
+- ``bolt+ssc`` - Bolt (secured with no certificate checks)
+- ``http`` - HTTP (unsecured)
+- ``https`` - HTTP (secured with full certificate checks)
+- ``http+s`` - HTTP (secured with full certificate checks)
+- ``http+ssc`` - HTTP (secured with no certificate checks)
+
+
+Note that py2neo does not support routing with a Neo4j causal cluster,
+so ``neo4j://...`` URIs are not available. For this functionality,
+please use the official Neo4j Driver for Python.
+
+
+Individual settings
+-------------------
+
+The full set of supported `settings` are:
+
+============  =========================================  =====  =========================
+Keyword       Description                                Type   Default
+============  =========================================  =====  =========================
+``scheme``    Use a specific URI scheme                  str    ``'bolt'``
+``secure``    Use a secure connection (TLS)              bool   ``False``
+``verify``    Verify the server certificate (if secure)  bool   ``True``
+``host``      Database server host name                  str    ``'localhost'``
+``port``      Database server port                       int    ``7687``
+``address``   Colon-separated host and port string       str    ``'localhost:7687'``
+``user``      User to authenticate as                    str    ``'neo4j'``
+``password``  Password to use for authentication         str    ``'password'``
+``auth``      A 2-tuple of (user, password)              tuple  ``('neo4j', 'password')``
+============  =========================================  =====  =========================
+
+
 """
 
 from __future__ import absolute_import
@@ -48,15 +112,16 @@ from py2neo.caching import ThreadLocalEntityCache
 from py2neo.client import Connector
 from py2neo.client.config import ConnectionProfile
 from py2neo.cypher import cypher_escape
-from py2neo.database.work import Procedure, Transaction
+from py2neo.database.work import Transaction
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 
 
 class GraphService(object):
-    """ Accessor for an entire Neo4j graph database management system
-    (DBMS) over Bolt or HTTP. Within the py2neo object hierarchy, a
-    :class:`.GraphService` contains one or more :class:`.Graph` objects
-    in which data storage and retrieval activity chiefly occurs.
+    """ The :class:`.GraphService` class is the top-level accessor for
+    an entire Neo4j graph database management system (DBMS). Within the
+    py2neo object hierarchy, a :class:`.GraphService` contains one or
+    more :class:`.Graph` objects in which data storage and retrieval
+    activity chiefly occurs.
 
     An explicit URI can be passed to the constructor::
 
@@ -70,10 +135,6 @@ class GraphService(object):
         >>> default_gs
         <GraphService uri='bolt://localhost:7687'>
 
-    *Changed in 2020.7: this class was formerly known as 'Database',
-    but was renamed to avoid confusion with the concept of the same
-    name introduced with the multi-database feature of Neo4j 4.0.*
-
     .. note::
 
         Some attributes of this class available in earlier versions of
@@ -84,6 +145,10 @@ class GraphService(object):
         Neo4j 4.0 relating to how certain system metadata is exposed.
         Replacement functionality may be reintroduced in a future
         py2neo release.
+
+    *Changed in 2020.7: this class was formerly known as 'Database',
+    but was renamed to avoid confusion with the concept of the same
+    name introduced with the multi-database feature of Neo4j 4.0.*
 
     .. describe:: iter(graph_service)
 
@@ -166,6 +231,7 @@ class GraphService(object):
             inst.service = self
             inst.__name__ = graph_name
             inst.schema = Schema(inst)
+            inst._procedures = ProcedureLibrary(inst)
             inst.node_cache = ThreadLocalEntityCache()
             inst.relationship_cache = ThreadLocalEntityCache()
             self._graphs[graph_name] = inst
@@ -184,10 +250,21 @@ class GraphService(object):
         return self._connector
 
     @property
-    def uri(self):
-        """ The URI to which this graph service is connected.
+    def profile(self):
+        """ The :class:`.ConnectionProfile` for which this graph
+        service is configured. This attribute is simply a shortcut
+        for ``connector.profile``.
+
+        *New in version 2020.7.*
         """
-        return self._connector.profile.uri
+        return self.connector.profile
+
+    @property
+    def uri(self):
+        """ The URI to which this graph service is connected. This
+        attribute is simply a shortcut for ``connector.profile.uri``.
+        """
+        return self.profile.uri
 
     @property
     def default_graph(self):
@@ -233,15 +310,21 @@ class GraphService(object):
     def config(self):
         """ A dictionary of the configuration parameters used to
         configure Neo4j.
+
+            >>> gs.config['dbms.connectors.default_advertised_address']
+            'localhost'
+
         """
         return {record["name"]: record["value"]
                 for record in self.default_graph.call("dbms.listConfig")}
 
 
 class Graph(object):
-    """ The `Graph` class represents the graph data storage space within
-    a Neo4j graph database. Connection details are provided using URIs
-    and/or individual settings.
+    """ The `Graph` class provides a handle to an individual named
+    graph database exposed by a Neo4j graph database service.
+
+    Connection details are provided using either a URI or a
+    :class:`.ConnectionProfile`, plus individual settings, if required.
 
     The `name` argument allows selection of a graph database by name.
     When working with Neo4j 4.0 and above, this can be any name defined
@@ -269,48 +352,19 @@ class Graph(object):
         ----------|-------|-------
          neo4j    |  null | []
 
-    Supported URI schemes are:
-
-    - ``bolt`` - Bolt (unsecured)
-    - ``bolt+s`` - Bolt (secured with full certificate checks)
-    - ``bolt+ssc`` - Bolt (secured with no certificate checks)
-    - ``http`` - HTTP (unsecured)
-    - ``https`` - HTTP (secured with full certificate checks)
-    - ``http+s`` - HTTP (secured with full certificate checks)
-    - ``http+ssc`` - HTTP (secured with no certificate checks)
-
-    The full set of supported `settings` are:
+    In addition to the core `connection details <#getting-connected>`_
+    that can be passed to the constructor, the :class:`.Graph` class
+    can accept several other settings:
 
     ===================  ========================================================  ==============  =========================
     Keyword              Description                                               Type            Default
     ===================  ========================================================  ==============  =========================
-    ``scheme``           Use a specific URI scheme                                 str             ``'bolt'``
-    ``secure``           Use a secure connection (TLS)                             bool            ``False``
-    ``verify``           Verify the server certificate (if secure)                 bool            ``True``
-    ``host``             Database server host name                                 str             ``'localhost'``
-    ``port``             Database server port                                      int             ``7687``
-    ``address``          Colon-separated host and port string                      str             ``'localhost:7687'``
-    ``user``             User to authenticate as                                   str             ``'neo4j'``
-    ``password``         Password to use for authentication                        str             ``'password'``
-    ``auth``             A 2-tuple of (user, password)                             tuple           ``('neo4j', 'password')``
     ``user_agent``       User agent to send for all connections                    str             `(depends on URI scheme)`
     ``max_connections``  The maximum number of simultaneous connections permitted  int             40
     ===================  ========================================================  ==============  =========================
 
-    Each setting can be provided as a keyword argument or as part of
-    an URI. Therefore, the three examples below are all equivalent::
-
-        >>> from py2neo import Graph
-        >>> graph_1 = Graph()
-        >>> graph_2 = Graph(host="localhost")
-        >>> graph_3 = Graph("bolt://localhost:7687")
-
     Once obtained, the `Graph` instance provides direct or indirect
     access to most of the functionality available within py2neo.
-
-    Note that py2neo does not support routing with a Neo4j causal
-    cluster. For this functionality, please use the official Neo4j
-    Driver for Python.
     """
 
     #: The :class:`.GraphService` to which this :class:`.Graph` belongs.
@@ -322,9 +376,6 @@ class Graph(object):
     def __new__(cls, profile=None, name=None, **settings):
         gs = GraphService(profile, **settings)
         return gs[name]
-
-    def __init__(self, *args, **kwargs):
-        self._procedures = Procedures(self)
 
     def __repr__(self):
         if self.name is None:
@@ -349,41 +400,74 @@ class Graph(object):
 
     __nonzero__ = __bool__
 
-    def auto(self, readonly=False, after=None, metadata=None, timeout=None):
-        """ Begin a new auto-commit :class:`.GraphTransaction`.
+    def auto(self,
+             # readonly=False, after=None, metadata=None, timeout=None
+             ):
+        """ Create a new auto-commit :class:`~py2neo.database.work.Transaction`.
 
-        :param readonly:
-        :param after:
-        :param metadata:
-        :param timeout:
+        *New in version 2020.7.*
         """
-        return Transaction(self, True, readonly, after, metadata, timeout)
+        return Transaction(self, True,
+                           # readonly, after, metadata, timeout
+                           )
 
-    def begin(self, autocommit=False, readonly=False,
-              after=None, metadata=None, timeout=None):
-        """ Begin a new :class:`.GraphTransaction`.
+    def begin(self, autocommit=False,
+              # readonly=False, after=None, metadata=None, timeout=None
+              ):
+        """ Begin a new :class:`~py2neo.database.work.Transaction`.
 
-        :param autocommit: if :py:const:`True`, the transaction will
-                         automatically commit after the first operation
-        :param readonly:
-        :param after:
-        :param metadata:
-        :param timeout:
+        :param autocommit: (deprecated) if :py:const:`True`, the
+            transaction will automatically commit after the first
+            operation
+
+        *Changed in version 2020.7: the 'autocommit' argument is now
+        deprecated. Use the 'auto' method instead.*
         """
         if autocommit:
             warn("Graph.begin(autocommit=True) is deprecated, "
                  "use Graph.auto() instead", category=DeprecationWarning, stacklevel=2)
-        return Transaction(self, autocommit, readonly, after, metadata, timeout)
+        return Transaction(self, autocommit,
+                           # readonly, after, metadata, timeout
+                           )
 
     @property
     def call(self):
-        """ Accessor for listing and running procedures.
+        """ Accessor for listing and calling procedures.
+
+        This property contains a :class:`.ProcedureLibrary` object tied
+        to this graph, which provides links to Cypher procedures in
+        the underlying implementation.
+
+        Calling a procedure requires only the regular Python function
+        call syntax::
+
+            >>> g = Graph()
+            >>> g.call.dbms.components()
+             name         | versions   | edition
+            --------------|------------|-----------
+             Neo4j Kernel | ['3.5.12'] | community
+
+        The object returned from the call is a :class:`.Cursor` object,
+        identical to that obtained from running a normal Cypher query,
+        and can therefore be consumed in a similar way.
+
+        Procedure names can alternatively be supplied as a string::
+
+            >>> g.call["dbms.components"]()
+             name         | versions   | edition
+            --------------|------------|-----------
+             Neo4j Kernel | ['3.5.12'] | community
+
+        Using :func:`dir` or :func:`iter` on the `call` attribute will
+        yield a list of available procedure names.
+
+        *New in version 2020.7.*
         """
         return self._procedures
 
     def create(self, subgraph):
-        """ Run a :meth:`.GraphTransaction.create` operation within a
-        :class:`.GraphTransaction`.
+        """ Run a :meth:`~py2neo.database.work.Transaction.create` operation within a
+        :class:`~py2neo.database.work.Transaction`.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
@@ -392,8 +476,8 @@ class Graph(object):
             tx.create(subgraph)
 
     def delete(self, subgraph):
-        """ Run a :meth:`.GraphTransaction.delete` operation within an
-        `autocommit` :class:`.GraphTransaction`. To delete only the
+        """ Run a :meth:`~py2neo.database.work.Transaction.delete` operation within an
+        `autocommit` :class:`~py2neo.database.work.Transaction`. To delete only the
         relationships, use the :meth:`.separate` method.
 
         Note that only entities which are bound to corresponding
@@ -417,8 +501,8 @@ class Graph(object):
         self.relationship_cache.clear()
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
-        """ Run a :meth:`.GraphTransaction.evaluate` operation within an
-        `autocommit` :class:`.GraphTransaction`.
+        """ Run a :meth:`~py2neo.database.work.Transaction.evaluate` operation within an
+        `autocommit` :class:`~py2neo.database.work.Transaction`.
 
         :param cypher: Cypher statement
         :param parameters: dictionary of parameters
@@ -428,14 +512,16 @@ class Graph(object):
         return self.auto().evaluate(cypher, parameters, **kwparameters)
 
     def exists(self, subgraph):
-        """ Run a :meth:`.GraphTransaction.exists` operation within an
-        `autocommit` :class:`.GraphTransaction`.
+        """ Run a :meth:`~py2neo.database.work.Transaction.exists` operation within an
+        `autocommit` :class:`~py2neo.database.work.Transaction`.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
         :return:
         """
-        return self.auto(readonly=True).exists(subgraph)
+        return self.auto(
+            # readonly=True
+        ).exists(subgraph)
 
     def match(self, nodes=None, r_type=None, limit=None):
         """ Match and return all relationships with specific criteria.
@@ -467,8 +553,8 @@ class Graph(object):
             return None
 
     def merge(self, subgraph, label=None, *property_keys):
-        """ Run a :meth:`.GraphTransaction.merge` operation within an
-        `autocommit` :class:`.GraphTransaction`.
+        """ Run a :meth:`~py2neo.database.work.Transaction.merge` operation within an
+        `autocommit` :class:`~py2neo.database.work.Transaction`.
 
         The example code below shows a simple merge for a new relationship
         between two new nodes:
@@ -490,7 +576,7 @@ class Graph(object):
             >>> g.merge(WORKS_FOR(a, c) | WORKS_FOR(b, c))
 
         For details of how the merge algorithm works, see the
-        :meth:`.GraphTransaction.merge` method. Note that this is different
+        :meth:`~py2neo.database.work.Transaction.merge` method. Note that this is different
         to a Cypher MERGE.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
@@ -503,11 +589,15 @@ class Graph(object):
 
     @property
     def name(self):
+        """ The name of this graph.
+
+        *New in version 2020.7.*
+        """
         return self.__name__
 
     @property
     def nodes(self):
-        """ Obtain a :class:`.NodeMatcher` for this graph.
+        """ A :class:`.NodeMatcher` for this graph.
 
         This can be used to find nodes that match given criteria:
 
@@ -529,10 +619,12 @@ class Graph(object):
         """
         return NodeMatcher(self)
 
-    def play(self, work, args=None, kwargs=None, after=None, metadata=None, timeout=None):
+    def play(self, work, args=None, kwargs=None,
+             # after=None, metadata=None, timeout=None
+             ):
         """ Call a function representing a transactional unit of work.
 
-        The function must always accept a :class:`.GraphTransaction`
+        The function must always accept a :class:`~py2neo.database.work.Transaction`
         object as its first argument. Additional arguments can be
         passed though the `args` and `kwargs` arguments of this method.
 
@@ -550,23 +642,22 @@ class Graph(object):
             pass into the function
         :param kwargs: mapping of additional keyword arguments to
             pass into the function
-        :param after: :class:`.Bookmark` or tuple of :class:`.Bookmark`
-            objects marking the point in transactional history after
-            which this unit of work should be played
-        :param metadata: user metadata to attach to this transaction
-        :param timeout: timeout for transaction execution
+
+        *New in version 2020.7.*
         """
         if not callable(work):
             raise TypeError("Unit of work is not callable")
         kwargs = dict(kwargs or {})
-        readonly = getattr(work, "readonly", False)
-        if readonly:
-            # TODO: remove this warning when readonly is implemented
-            warn("Acquisition of readonly connections is not yet supported; "
-                 "a read-write connection will be used instead")
-        if not timeout:
-            timeout = getattr(work, "timeout", None)
-        tx = self.begin(readonly=readonly, after=after, metadata=metadata, timeout=timeout)
+        # readonly = getattr(work, "readonly", False)
+        # if readonly:
+        #     # TODO: remove this warning when readonly is implemented
+        #     warn("Acquisition of readonly connections is not yet supported; "
+        #          "a read-write connection will be used instead")
+        # if not timeout:
+        #     timeout = getattr(work, "timeout", None)
+        tx = self.begin(
+            # readonly=readonly, after=after, metadata=metadata, timeout=timeout
+        )
         try:
             work(tx, *args or (), **kwargs or {})
         except Exception:  # TODO: catch transient and retry, if within limit
@@ -580,7 +671,9 @@ class Graph(object):
 
         :param subgraph: the collection of nodes and relationships to pull
         """
-        with self.begin(readonly=True) as tx:
+        with self.begin(
+                # readonly=True
+        ) as tx:
             tx.pull(subgraph)
 
     def push(self, subgraph):
@@ -593,7 +686,7 @@ class Graph(object):
 
     @property
     def relationships(self):
-        """ Obtain a :class:`.RelationshipMatcher` for this graph.
+        """ A :class:`.RelationshipMatcher` for this graph.
 
         This can be used to find relationships that match given criteria
         as well as efficiently count relationships.
@@ -601,8 +694,8 @@ class Graph(object):
         return RelationshipMatcher(self)
 
     def run(self, cypher, parameters=None, **kwparameters):
-        """ Run a :meth:`.GraphTransaction.run` operation within an
-        `autocommit` :class:`.GraphTransaction`.
+        """ Run a :meth:`~py2neo.database.work.Transaction.run` operation within an
+        `autocommit` :class:`~py2neo.database.work.Transaction`.
 
         :param cypher: Cypher statement
         :param parameters: dictionary of parameters
@@ -612,8 +705,8 @@ class Graph(object):
         return self.auto().run(cypher, parameters, **kwparameters)
 
     def separate(self, subgraph):
-        """ Run a :meth:`.GraphTransaction.separate` operation within an
-        `autocommit` :class:`.GraphTransaction`.
+        """ Run a :meth:`~py2neo.database.work.Transaction.separate` operation within an
+        `autocommit` :class:`~py2neo.database.work.Transaction`.
 
         Note that only relationships which are bound to corresponding
         remote relationships though the ``graph`` and ``identity``
@@ -629,6 +722,8 @@ class SystemGraph(Graph):
     """ A subclass of :class:`.Graph` that provides access to the
     system database for the remote DBMS. This is only available in
     Neo4j 4.0 and above.
+
+    *New in version 2020.7.*
     """
 
     def __new__(cls, profile=None, **settings):
@@ -778,8 +873,14 @@ class Schema(object):
         return [k[0] for k in self._get_indexes(label, unique_only=True)]
 
 
-class Procedures(object):
-    """ Accessor for calling procedures.
+class ProcedureLibrary(object):
+    """ Accessor for listing and calling procedures.
+
+    This object is typically constructed and accessed via the
+    :meth:`.Graph.call` attribute. See the documentation for that
+    attribute for usage information.
+
+    *New in version 2020.7.*
     """
 
     def __init__(self, graph):
@@ -792,8 +893,12 @@ class Procedures(object):
         return Procedure(self.graph, name)
 
     def __dir__(self):
+        return list(self)
+
+    def __iter__(self):
         proc = Procedure(self.graph, "dbms.procedures")
-        return [record[0] for record in proc(keys=["name"])]
+        for record in proc(keys=["name"]):
+            yield record[0]
 
     def __call__(self, procedure, *args):
         """ Call a procedure by name.
@@ -811,3 +916,49 @@ class Procedures(object):
         :returns: :class:`.Cursor` object wrapping the result
         """
         return Procedure(self.graph, procedure)(*args)
+
+
+class Procedure(object):
+    """ Represents an individual procedure.
+
+    *New in version 2020.7.*
+    """
+
+    def __init__(self, graph, name):
+        self.graph = graph
+        self.name = name
+
+    def __getattr__(self, name):
+        return Procedure(self.graph, self.name + "." + name)
+
+    def __getitem__(self, name):
+        return Procedure(self.graph, self.name + "." + name)
+
+    def __dir__(self):
+        proc = Procedure(self.graph, "dbms.procedures")
+        prefix = self.name + "."
+        return [record[0][len(prefix):] for record in proc(keys=["name"])
+                if record[0].startswith(prefix)]
+
+    def __call__(self, *args, **kwargs):
+        """ Call a procedure by name.
+
+        For example:
+            >>> from py2neo import Graph
+            >>> g = Graph()
+            >>> g.call("dbms.components")
+             name         | versions  | edition
+            --------------|-----------|-----------
+             Neo4j Kernel | ['4.0.2'] | community
+
+        :param procedure: fully qualified procedure name
+        :param args: positional arguments to pass to the procedure
+        :returns: :class:`.Cursor` object wrapping the result
+        """
+        procedure_name = ".".join(cypher_escape(part) for part in self.name.split("."))
+        arg_list = [(str(i), arg) for i, arg in enumerate(args)]
+        cypher = "CALL %s(%s)" % (procedure_name, ", ".join("$" + a[0] for a in arg_list))
+        keys = kwargs.get("keys")
+        if keys:
+            cypher += " YIELD %s" % ", ".join(keys)
+        return self.graph.run(cypher, dict(arg_list))

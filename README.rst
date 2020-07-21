@@ -12,9 +12,10 @@ Py2neo
    :target: https://travis-ci.org/technige/py2neo
    :alt: Build Status
 
-.. image:: https://img.shields.io/coveralls/github/technige/py2neo/master.svg
+.. image:: https://coveralls.io/repos/github/technige/py2neo/badge.svg?branch=master
    :target: https://coveralls.io/github/technige/py2neo?branch=master
    :alt: Coverage Status
+
 
 **Py2neo** is a client library and toolkit for working with `Neo4j <https://neo4j.com/>`_ from within `Python <https://www.python.org/>`_ applications and from the command line.
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
