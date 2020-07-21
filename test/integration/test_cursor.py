@@ -32,6 +32,12 @@ def test_can_only_move_until_end(graph):
     assert cursor.forward(2) == 1
 
 
+def test_can_only_move_forward(graph):
+    cursor = graph.run("RETURN 1")
+    with raises(ValueError):
+        cursor.forward(-1)
+
+
 def test_moving_by_zero_keeps_same_position(graph):
     cursor = graph.run("RETURN 1")
     assert cursor.forward(0) == 0
@@ -179,3 +185,33 @@ def test_to_subgraph(graph):
     assert isinstance(s, Subgraph)
     assert len(s.nodes) == 2
     assert len(s.relationships) == 1
+
+
+def test_preview_limit_must_be_positive(graph):
+    cursor = graph.run("RETURN 1")
+    with raises(ValueError):
+        cursor.preview(-1)
+
+
+def test_to_ndarray(graph):
+    cursor = graph.run("RETURN 1")
+    with raises(ImportError):
+        cursor.to_ndarray()
+
+
+def test_to_series(graph):
+    cursor = graph.run("RETURN 1")
+    with raises(ImportError):
+        cursor.to_series()
+
+
+def test_to_data_frame(graph):
+    cursor = graph.run("RETURN 1")
+    with raises(ImportError):
+        cursor.to_data_frame()
+
+
+def test_to_matrix(graph):
+    cursor = graph.run("RETURN 1")
+    with raises(ImportError):
+        cursor.to_matrix()
