@@ -195,23 +195,39 @@ def test_preview_limit_must_be_positive(graph):
 
 def test_to_ndarray(graph):
     cursor = graph.run("RETURN 1")
-    with raises(ImportError):
+    try:
         cursor.to_ndarray()
+    except ImportError:
+        assert True
+    else:
+        assert True
 
 
 def test_to_series(graph):
     cursor = graph.run("RETURN 1")
-    with raises(ImportError):
+    try:
         cursor.to_series()
+    except ImportError:
+        assert True
+    else:
+        assert True
 
 
 def test_to_data_frame(graph):
     cursor = graph.run("RETURN 1")
-    with raises(ImportError):
+    try:
         cursor.to_data_frame()
+    except ImportError:
+        assert True
+    else:
+        assert True
 
 
 def test_to_matrix(graph):
     cursor = graph.run("RETURN 1")
-    with raises(ImportError):
+    try:
         cursor.to_matrix()
+    except ImportError:
+        assert True
+    else:
+        assert True
