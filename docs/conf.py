@@ -44,6 +44,7 @@ version_data = get_version_data()
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosectionlabel',
     'sphinx.ext.coverage',
     'sphinx.ext.ifconfig',
     'sphinx.ext.napoleon',

@@ -94,14 +94,42 @@ class PropertyDict(dict):
 
     These are the operations that the PropertyDict can support:
 
-   .. describe:: len(d)
+    .. describe:: len(d)
 
         Return the number of items in the PropertyDict `d`.
 
-   .. describe:: d[key]
+    .. describe:: d[key]
 
         Return the item of `d` with key `key`. Returns :py:const:`None`
         if key is not in the map.
+
+    .. describe:: d == other
+
+        Return ``True`` if ``d`` is equal to ``other`` after all ``None`` values have been removed from ``other``.
+
+    .. describe:: properties != other
+
+        Return ``True`` if ``d`` is unequal to ``other`` after all ``None`` values have been removed from ``other``.
+
+    .. describe:: d[key]
+
+        Return the value of *d* with key *key* or ``None`` if the key is missing.
+
+    .. describe:: d[key] = value
+
+        Set the value of *d* with key *key* to *value* or remove the item if *value* is ``None``.
+
+    .. method:: setdefault(key, default=None)
+
+        If *key* is in the PropertyDict, return its value.
+        If not, insert *key* with a value of *default* and return *default* unless *default* is ``None``, in which case do nothing.
+        The value of *default* defaults to ``None``.
+
+    .. method:: update(iterable=None, **kwargs)
+
+        Update the PropertyDict with the key-value pairs from *iterable* followed by the keyword arguments from *kwargs*.
+        Individual properties already in the PropertyDict will be overwritten by those in *iterable* and subsequently by those in *kwargs* if the keys match.
+        Any value of ``None`` will effectively delete the property with that key, should it exist.
 
     """
 

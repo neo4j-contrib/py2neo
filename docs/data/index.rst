@@ -6,17 +6,8 @@
 
 .. note:: For convenience, the members of ``py2neo.data`` can also be imported directly from ``py2neo``.
 
-**Py2neo** provides a rich set of data types for working with both graph and record-based data.
+Py2neo provides a rich set of data types for working with both graph and record-based data.
 The graph types are completely compatible with Neo4j but can also be used independently.
-They include the fundamental entities :class:`.Node` and :class:`.Relationship` as well as classes that represent collections of these entities.
-
-Graph data classes have been designed to work together using standard operations, most notably set operations.
-Details of these operations are covered in the sections on :ref:`subgraphs` and :ref:`walkable_types`.
-
-
-
-:class:`.Node` and :class:`.Relationship` objects
-=================================================
 
 The two essential building blocks of the labelled property graph model used by Neo4j are the :class:`.Node` and the :class:`.Relationship`.
 The node is the fundamental unit of data storage within a graph.
@@ -38,84 +29,135 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
     (Alice)-[:KNOWS]->(Bob)
 
 
-.. class:: Node(*labels, **properties)
+:class:`.Node` objects
+======================
 
-    Construct a new node object with the labels and properties specified.
-    In its initial state, a node is `unbound`.
-    This means that it exists only on the client and does not reference a corresponding server node.
-    A node is typically `bound` by :meth:`creating <.GraphTransaction.create>` it in a Neo4j database.
+.. autoclass:: Node(*labels, **properties)
+
+    ..
+        .. automethod:: cast
+        .. automethod:: hydrate
+
+    .. raw:: html
+
+        <h4>Identity and equality</h4>
+
+    The properties and methods described in the section below relate to now node equality works, as well as how nodes can be uniquely identified.
+    Note that bound nodes exhibit slightly different behaviour to unbound nodes, with respect to identity.
 
     .. describe:: node == other
 
-        Return ``True`` if *node* and *other* are equal.
+        Return :py:const:`True` if `node` and `other` are equal.
         Node equality is based solely on the ID of the remote node it represents; neither properties nor labels factor into equality.
         This means that if `bound`, a node object can only be considered equal to another node object that is bound to the same remote node.
         If a node is `unbound`, thereby having no corresponding node ID, it can only ever be equal to itself.
 
     .. describe:: node != other
 
-        Return ``True`` if the nodes are unequal.
+        Return :py:const:`True` if the nodes are unequal.
 
     .. describe:: hash(node)
 
-        Return a hash of *node* based on its object ID, if unbound, or the ID of the remote node it represents, if bound.
+        Return a hash of `node` based on its object ID, if unbound, or the ID of the remote node it represents, if bound.
 
-    .. describe:: node[key]
+    .. attribute:: graph
 
-        Return the property value of *node* with key *key* or ``None`` if the key is missing.
+        The remote graph to which this node is bound, if any.
 
-    .. describe:: node[key] = value
+    .. attribute:: identity
 
-        Set the property value of *node* with key *key* to *value* or remove the property if *value* is ``None``.
+        The ID of the remote node to which this node is bound, if any.
 
-    .. describe:: del node[key]
+    .. raw:: html
 
-        Remove the property with key *key* from *node*, raising a :exc:`KeyError` if such a property does not exist.
+        <h4>Labels</h4>
+
+    The property and methods below provide a way to view and manipulate
+    the labels attached to a :class:`.Node`. Labels are a unique,
+    unordered set of tags that can be used to classify and identify
+    certain nodes.
+
+        >>> a = Node("Person", name="Alice")
+        >>> set(a.labels)
+        {'Person'}
+        >>> a.add_label("Employee")
+        >>> set(a.labels)
+        {'Employee', 'Person'}
+
+    .. autoattribute:: labels
+
+    .. automethod:: has_label(label)
+
+    .. automethod:: add_label(label)
+
+    .. automethod:: remove_label(label)
+
+    .. automethod:: clear_labels()
+
+    .. automethod:: update_labels(labels)
+
+    .. raw:: html
+
+        <h4>Properties</h4>
+
+    Node properties can be queried and managed using the attributes
+    below. Note that changes occur only on the local side of a bound
+    node, and therefore the node must be :meth:`pushed <.Transaction.push>`
+    in order to propagate these changes to the remote node.
+
+    .. describe:: node[name]
+
+        Return the value of the property called `name`, or :py:const:`None` if the name is missing.
+
+    .. describe:: node[name] = value
+
+        Set the value of the property called `name` to `value`, or remove the property if `value` is :py:const:`None`.
+
+    .. describe:: del node[name]
+
+        Remove the property called `name` from this node, raising a :exc:`KeyError` if such a property does not exist.
 
     .. describe:: len(node)
 
-        Return the number of properties in *node*.
+        Return the number of properties on this node.
 
     .. describe:: dict(node)
 
-        Return a dictionary of all the properties in *node*.
+        Return a dictionary of all the properties in this node.
 
-    .. describe:: walk(node)
+    .. method:: clear()
 
-        Yield *node* as the only item in a :func:`walk`.
+        Remove all properties from this node.
 
-    .. attribute:: node.labels
+    .. method:: get(name, default=None)
 
-        Return the full set of labels associated with *node*.
-        This set is immutable and cannot be used to add or remove labels.
+        Return the value of the property called `name`, or `default` if the name is missing.
 
-    .. method:: node.has_label(label)
+    .. method:: items()
 
-        Return :const:`True` if *node* has the label *label*.
+        Return a list of all properties as 2-tuples of name-value pairs.
 
-    .. method:: node.add_label(label)
+    .. method:: keys()
 
-        Add the label *label* to *node*.
+        Return a list of all property names.
 
-    .. method:: node.remove_label(label)
+    .. method:: setdefault(name, default=None)
 
-        Remove the label *label* from *node*, raising a :exc:`ValueError` if it does not exist.
+        If this node has a property called `name`, return its value.
+        If not, add a new property with a value of `default` and return `default`.
 
-    .. method:: node.clear_labels()
+    .. method:: update(properties, **kwproperties)
 
-        Remove all labels from *node*.
+        Update the properties on this node with a dictionary or name-value
+        list of `properties`, plus additional `kwproperties`.
 
-    .. method:: node.update_labels(labels)
+    .. method:: values()
 
-        Add multiple labels to *node* from the iterable *labels*.
+        Return a list of all property values.
 
-    .. attribute:: node.graph
 
-        The remote graph to which *node* is bound, if any.
-
-    .. attribute:: node.identity
-
-        The ID of the remote node to which *node* is bound, if any.
+:class:`.Relationship` objects
+==============================
 
 .. class:: Relationship(start_node, type, end_node, **properties)
            Relationship(start_node, end_node, **properties)
@@ -132,105 +174,134 @@ The relationship ``ab`` describes a `KNOWS` connection from the first node ``a``
         >>> type(ac)
         'WORKS_WITH'
 
+    .. raw:: html
+
+        <h4>Identity and equality</h4>
+
+    The properties and methods described in the section below relate to now relationship equality works, as well as how relationships can be uniquely identified.
+    Note that bound relationships exhibit slightly different behaviour to unbound relationships, with respect to identity.
+
     .. describe:: relationship == other
 
-        Return ``True`` if *relationship* and *other* are equal.
+        Return :py:const:`True` if `relationship` and `other` are equal.
         Relationship equality is based on equality of the start node, the end node and the relationship type (node equality is described above).
         This means that any two relationships of the same type between the same nodes are always considered equal.
         Note that this behaviour differs slightly from Neo4j itself which permits multiple relationships of the same type between the same nodes.
 
     .. describe:: relationship != other
 
-        Return ``True`` if the relationships are unequal.
+        Return :py:const:`True` if the relationships are unequal.
 
     .. describe:: hash(relationship)
 
-        Return a hash of *relationship* based on its start node, end node and type.
+        Return a hash of `relationship` based on its start node, end node and type.
 
-    .. describe:: relationship[key]
+    .. attribute:: graph
 
-        Return the property value of *relationship* with key *key* or ``None`` if the key is missing.
+        The remote graph to which this relationship is bound, if any.
 
-    .. describe:: relationship[key] = value
+    .. attribute:: identity
 
-        Set the property value of *relationship* with key *key* to *value* or remove the property
-        if *value* is ``None``.
+        The ID of the remote relationship to which this relationship is bound, if any.
 
-    .. describe:: del relationship[key]
+    .. raw:: html
 
-        Remove the property with key *key* from *relationship*, raising a :exc:`KeyError` if such a property does not exist.
+        <h4>Type and geometry</h4>
 
-    .. describe:: len(relationship)
-
-        Return the number of properties in *relationship*.
-
-    .. describe:: dict(relationship)
-
-        Return a dictionary of all the properties in *relationship*.
-
-    .. describe:: walk(relationship)
-
-        Perform a :func:`walk` of this relationship, yielding its start node, the relationship itself and its end node in turn.
+    These attributes relate to the type and endpoints of the relationship.
+    Every node in Neo4j is directed, and this is reflected in the API here.
+    Node objects therefore have a designated start and end node, which can be accessed through the :attr:`.start_node` and :attr:`.end_node` attributes respectively.
 
     .. describe:: type(relationship)
 
-        Return the type of this relationship.
+        Return the :class:`.Relationship` subclass for `relationship`.
 
-    .. attribute:: relationship.graph
+    .. describe:: type(relationship).__name__
 
-        The remote graph to which *relationship* is bound, if any.
+        Return the name of the :class:`.Relationship` subclass for `relationship` as a string.
 
-    .. attribute:: relationship.identity
+    .. attribute:: nodes
 
-        The ID of the remote relationship to which *relationship* is bound, if any.
+        A 2-tuple of start node and end node.
+
+    .. attribute:: start_node
+
+        The start node for this relationship.
+
+    .. attribute:: end_node
+
+        The end node for this relationship.
+
+    .. raw:: html
+
+        <h4>Properties</h4>
+
+    Relationship properties can be queried and managed using the attributes
+    below. Note that changes occur only on the local side of a bound
+    relationship, and therefore the relationship must be :meth:`pushed <.Transaction.push>`
+    in order to propagate these changes to the remote relationship.
+
+    .. describe:: relationship[name]
+
+        Return the value of the property called `name`, or :py:const:`None` if the name is missing.
+
+    .. describe:: relationship[name] = value
+
+        Set the value of the property called `name` to `value`, or remove the property if `value` is :py:const:`None`.
+
+    .. describe:: del relationship[name]
+
+        Remove the property called `name` from this relationship, raising a :exc:`KeyError` if such a property does not exist.
+
+    .. describe:: len(node)
+
+        Return the number of properties on this relationship.
+
+    .. describe:: dict(node)
+
+        Return a dictionary of all the properties in this relationship.
+
+    .. method:: clear()
+
+        Remove all properties from this relationship.
+
+    .. method:: get(name, default=None)
+
+        Return the value of the property called `name`, or `default` if the name is missing.
+
+    .. method:: items()
+
+        Return a list of all properties as 2-tuples of name-value pairs.
+
+    .. method:: keys()
+
+        Return a list of all property names.
+
+    .. method:: setdefault(name, default=None)
+
+        If this relationship has a property called `name`, return its value.
+        If not, add a new property with a value of `default` and return `default`.
+
+    .. method:: update(properties, **kwproperties)
+
+        Update the properties on this relationship with a dictionary or name-value
+        list of `properties`, plus additional `kwproperties`.
+
+    .. method:: values()
+
+        Return a list of all property values.
 
 
-Both :class:`.Node` and :class:`.Relationship` extend the :class:`.PropertyDict` class which itself extends Python's built-in dictionary.
-This means that nodes and relationships are both mapping types that can contain property values, indexed by key.
+:class:`.Path` objects
+======================
 
-As with Neo4j itself, property values may not be ``None``.
-A missing property (i.e. no key present) is the idiomatic way to model absence of value.
+.. class:: Path(*entities)
 
-The *PropertyDict* class is described in more detail below.
-
-.. class:: PropertyDict(iterable, **kwargs)
-
-    The *PropertyDict* extends Python's built-in *dict* type.
-    All operations and methods are identical to those of its base class except for those described below.
-
-    .. describe:: properties == other
-
-        Return ``True`` if ``properties`` is equal to ``other`` after all ``None`` values have been removed from ``other``.
-
-    .. describe:: properties != other
-
-        Return ``True`` if ``properties`` is unequal to ``other`` after all ``None`` values have been removed from ``other``.
-
-    .. describe:: properties[key]
-
-        Return the value of *properties* with key *key* or ``None`` if the key is missing.
-
-    .. describe:: properties[key] = value
-
-        Set the value of *properties* with key *key* to *value* or remove the property if *value* is ``None``.
-
-    .. method:: setdefault(key, default=None)
-
-        If *key* is in the PropertyDict, return its value.
-        If not, insert *key* with a value of *default* and return *default* unless *default* is ``None``, in which case do nothing.
-        The value of *default* defaults to ``None``.
-
-    .. method:: update(iterable=None, **kwargs)
-
-        Update the PropertyDict with the key-value pairs from *iterable* followed by the keyword arguments from *kwargs*.
-        Individual properties already in the PropertyDict will be overwritten by those in *iterable* and subsequently by those in *kwargs* if the keys match.
-        Any value of ``None`` will effectively delete the property with that key, should it exist.
+    A *Path* is a type of :class:`.Walkable` returned by some Cypher queries.
 
 
-.. _subgraphs:
-
-:class:`.Subgraph` objects
-==========================
+``Subgraph`` objects
+====================
 
 A :class:`.Subgraph` is an arbitrary collection of nodes and relationships.
 By definition, a *Subgraph* must contain at least one node; `null subgraphs <http://mathworld.wolfram.com/NullGraph.html>`_ should be represented by :const:`None`.
@@ -304,10 +375,16 @@ For example::
         Return the set of all relationship types in this subgraph.
 
 
-.. _walkable_types:
+.. _subgraph_arithmetic:
 
-:class:`.Path` objects and other :class:`.Walkable` types
-=========================================================
+Subgraph arithmetic
+-------------------
+
+TODO
+
+
+``Walkable`` objects
+====================
 
 A :class:`.Walkable` is a :class:`.Subgraph` with added traversal information
 The simplest way to construct a walkable is to concatenate other graph objects::
@@ -352,10 +429,16 @@ Any node or relationship may be traversed one or more times in any direction.
 
         Return a tuple of all relationships traversed on a :func:`walk` of this :class:`.Walkable`, listed in the order in which they were first encountered.
 
-.. class:: Path(*entities)
-
-    A *Path* is a type of :class:`.Walkable` returned by some Cypher queries.
+``walk`` function
+-----------------
 
 .. function:: walk(*walkables)
 
     Traverse over the arguments supplied, in order, yielding alternating nodes and relationships.
+
+.. _walkable_chaining:
+
+Chaining walkables
+------------------
+
+TODO

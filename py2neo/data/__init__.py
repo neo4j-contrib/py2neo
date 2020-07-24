@@ -321,6 +321,19 @@ class Node(Entity):
     graph that may optionally be connected, via relationships, to
     other nodes.
 
+    Node objects can either be created implicitly, by returning nodes
+    in a Cypher query such as ``CREATE (a) RETURN a``, or can be
+    created explicitly through the constructor. In the former case, the
+    local Node object is *bound* to the remote node in the database; in
+    the latter case, the Node object remains unbound until
+    :meth:`created <.Transaction.create>` or
+    :meth:`merged <.Transaction.merge>` into a Neo4j database.
+
+    It possible to combine nodes (along with relationships and other
+    graph data objects) into :class:`.Subgraph` objects using set
+    operations. For more details, jump to the section on
+    :ref:`subgraph arithmetic<subgraph arithmetic>`.
+
     All positional arguments passed to the constructor are interpreted
     as labels and all keyword arguments as properties::
 
@@ -355,6 +368,8 @@ class Node(Entity):
 
     @classmethod
     def hydrate(cls, graph, identity, labels=None, properties=None, into=None):
+        """ Hydrate a new or existing Node object from the attributes provided.
+        """
         if into is None:
 
             def instance_constructor():
@@ -441,28 +456,44 @@ class Node(Entity):
 
     @property
     def labels(self):
-        """ Set of all node labels.
+        """ The full set of labels associated with with this *node*.
+
+        This set is immutable and cannot be used to add or remove
+        labels. Use methods such as :meth:`.add_label` and
+        :meth:`.remove_label` for that instead.
         """
         self.__ensure_labels()
         return LabelSetView(self._labels)
 
     def has_label(self, label):
+        """ Return :const:`True` if this node has the label `label`,
+        :const:`False` otherwise.
+        """
         self.__ensure_labels()
         return label in self._labels
 
     def add_label(self, label):
+        """ Add the label `label` to this node.
+        """
         self.__ensure_labels()
         self._labels.add(label)
 
     def remove_label(self, label):
+        """ Remove the label `label` from this node, if it exists.
+        """
         self.__ensure_labels()
         self._labels.discard(label)
 
     def clear_labels(self):
+        """ Remove all labels from this node.
+        """
         self.__ensure_labels()
         self._labels.clear()
 
     def update_labels(self, labels):
+        """ Add multiple labels to this node from the iterable
+        `labels`.
+        """
         self.__ensure_labels()
         self._labels.update(labels)
 
