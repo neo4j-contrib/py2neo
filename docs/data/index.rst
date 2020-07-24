@@ -6,27 +6,34 @@
 
 .. note:: For convenience, the members of ``py2neo.data`` can also be imported directly from ``py2neo``.
 
-Py2neo provides a rich set of data types for working with both graph and record-based data.
-The graph types are completely compatible with Neo4j but can also be used independently.
+Py2neo provides a rich set of data types for working with graph data.
+These graph data types are completely compatible with Neo4j but can also be used locally, unbound to a remote database.
 
-The two essential building blocks of the labelled property graph model used by Neo4j are the :class:`.Node` and the :class:`.Relationship`.
-The node is the fundamental unit of data storage within a graph.
-It can contain a set of key-value pairs (properties) and can optionally be adorned with one or more textual labels.
-A relationship is a typed, directed connection between a pair of nodes (or alternatively a `loop <https://en.wikipedia.org/wiki/Loop_%28graph_theory%29>`_ on a single node).
-Like nodes, relationships may also contain a set of properties.
+All graph data values in py2neo can be combined into arbitrary :class:`.Subgraph` objects, which can themselves be used as arguments for many database operations, such as :meth:`Graph.create<.database.Graph.create>`.
+This provides a powerful way to send multiple entities to the database in a single round trip, thereby reducing the network overhead::
 
-The code below shows how to create a couple of nodes and a relationship joining them.
-Each node has a single property, `name`, and is labelled as a `Person`.
-The relationship ``ab`` describes a `KNOWS` connection from the first node ``a`` to the second node ``b``.
-
-::
-
-    >>> from py2neo.data import Node, Relationship
+    >>> from py2neo import *
     >>> a = Node("Person", name="Alice")
     >>> b = Node("Person", name="Bob")
-    >>> ab = Relationship(a, "KNOWS", b)
-    >>> ab
-    (Alice)-[:KNOWS]->(Bob)
+    >>> c = Node("Person", name="Carol")
+    >>> KNOWS = Relationship.type("KNOWS")
+    >>> ab = KNOWS(a, b)
+    >>> ba = KNOWS(b, a)
+    >>> ac = KNOWS(a, c)
+    >>> ca = KNOWS(c, a)
+    >>> bc = KNOWS(b, c)
+    >>> cb = KNOWS(c, b)
+    >>> friends = ab | ba | ac | ca | bc | cb
+    >>> g = Graph()
+    >>> g.create(friends)
+    >>> a.graph, a.identity
+    (Graph('bolt://neo4j@localhost:7687'), 0)
+
+The two essential building blocks of the labelled property graph model used by Neo4j are the :class:`.Node` and the :class:`.Relationship`.
+The node is the primary unit of data storage within a graph.
+It can contain a set of properties (name-value pairs) and can optionally be adorned with one or more textual labels.
+A relationship is a typed, directed connection between a pair of nodes (or alternatively a `loop <https://en.wikipedia.org/wiki/Loop_%28graph_theory%29>`_ on a single node).
+Like nodes, relationships may also contain a properties.
 
 
 :class:`.Node` objects
