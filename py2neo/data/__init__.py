@@ -38,7 +38,57 @@ from py2neo.data.operations import (
 
 
 class Subgraph(object):
-    """ Arbitrary, unordered collection of nodes and relationships.
+    """ A :class:`.Subgraph` is an arbitrary collection of nodes and
+    relationships. It is also the base class for :class:`.Node`,
+    :class:`.Relationship` and :class:`.Path`.
+
+    By definition, a subgraph must contain at least one node;
+    `null subgraphs <http://mathworld.wolfram.com/NullGraph.html>`_
+    should be represented by :const:`None`. To test for
+    `emptiness <http://mathworld.wolfram.com/EmptyGraph.html>`_ the
+    built-in :func:`bool` function can be used.
+
+    The simplest way to construct a subgraph is by combining nodes and
+    relationships using standard set operations. For example::
+
+        >>> s = ab | ac
+        >>> s
+        {(alice:Person {name:"Alice"}),
+         (bob:Person {name:"Bob"}),
+         (carol:Person {name:"Carol"}),
+         (Alice)-[:KNOWS]->(Bob),
+         (Alice)-[:WORKS_WITH]->(Carol)}
+        >>> s.nodes()
+        frozenset({(alice:Person {name:"Alice"}),
+                   (bob:Person {name:"Bob"}),
+                   (carol:Person {name:"Carol"})})
+        >>> s.relationships()
+        frozenset({(Alice)-[:KNOWS]->(Bob),
+                   (Alice)-[:WORKS_WITH]->(Carol)})
+
+    .. describe:: subgraph | other | ...
+
+        Union.
+        Return a new subgraph containing all nodes and relationships from *subgraph* as well as all those from *other*.
+        Any entities common to both will only be included once.
+
+    .. describe:: subgraph & other & ...
+
+        Intersection.
+        Return a new subgraph containing all nodes and relationships common to both *subgraph* and *other*.
+
+    .. describe:: subgraph - other - ...
+
+        Difference.
+        Return a new subgraph containing all nodes and relationships that exist in *subgraph* but do not exist in *other*,
+        as well as all nodes that are connected by the relationships in *subgraph* regardless of whether or not they exist in *other*.
+
+    .. describe:: subgraph ^ other ^ ...
+
+        Symmetric difference.
+        Return a new subgraph containing all nodes and relationships that exist in *subgraph* or *other*, but not in both,
+        as well as all nodes that are connected by those relationships regardless of whether or not they are common to *subgraph* and *other*.
+
     """
 
     def __init__(self, nodes=None, relationships=None):
@@ -125,29 +175,32 @@ class Subgraph(object):
 
     @property
     def nodes(self):
-        """ Set of all nodes.
+        """ The set of all nodes in this subgraph.
         """
         return SetView(self.__nodes)
 
     @property
     def relationships(self):
-        """ Set of all relationships.
+        """ The set of all relationships in this subgraph.
         """
         return SetView(self.__relationships)
 
-    @property
     def labels(self):
-        """ Set of all node labels.
+        """ Return the set of all node labels in this subgraph.
+
+        *Changed in version 2020.7: this is now a method rather than a
+        property, as in previous versions.*
         """
         return frozenset(chain(*(node.labels for node in self.__nodes)))
 
     def types(self):
-        """ Set of all relationship types.
+        """ Return the set of all relationship types in this subgraph.
         """
         return frozenset(type(rel).__name__ for rel in self.__relationships)
 
     def keys(self):
-        """ Set of all property keys.
+        """ Return the set of all property keys used by the nodes and
+        relationships in this subgraph.
         """
         return (frozenset(chain(*(node.keys() for node in self.__nodes))) |
                 frozenset(chain(*(rel.keys() for rel in self.__relationships))))
@@ -297,8 +350,8 @@ class Node(Entity):
 
     It possible to combine nodes (along with relationships and other
     graph data objects) into :class:`.Subgraph` objects using set
-    operations. For more details, jump to the section on
-    :ref:`subgraph arithmetic<subgraph arithmetic>`.
+    operations. For more details, look at the documentation for the
+    :class:`.Subgraph` class.
 
     All positional arguments passed to the constructor are interpreted
     as labels and all keyword arguments as properties::

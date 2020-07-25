@@ -336,81 +336,14 @@ Like nodes, relationships may also contain a properties.
 ``Subgraph`` objects
 ====================
 
-A :class:`.Subgraph` is an arbitrary collection of nodes and relationships.
-By definition, a *Subgraph* must contain at least one node; `null subgraphs <http://mathworld.wolfram.com/NullGraph.html>`_ should be represented by :const:`None`.
-To test for `emptiness <http://mathworld.wolfram.com/EmptyGraph.html>`_ the built-in :func:`bool` function can be used.
+.. autoclass:: Subgraph(nodes, relationships)
 
-The simplest way to construct a subgraph is by combining nodes and relationships using standard set operations.
-For example::
+    .. automethod:: keys
 
-    >>> s = ab | ac
-    >>> s
-    {(alice:Person {name:"Alice"}),
-     (bob:Person {name:"Bob"}),
-     (carol:Person {name:"Carol"}),
-     (Alice)-[:KNOWS]->(Bob),
-     (Alice)-[:WORKS_WITH]->(Carol)}
-    >>> s.nodes()
-    frozenset({(alice:Person {name:"Alice"}),
-               (bob:Person {name:"Bob"}),
-               (carol:Person {name:"Carol"})})
-    >>> s.relationships()
-    frozenset({(Alice)-[:KNOWS]->(Bob),
-               (Alice)-[:WORKS_WITH]->(Carol)})
+    .. automethod:: labels
 
+    .. autoattribute:: nodes
 
-.. class:: Subgraph(nodes, relationships)
+    .. autoattribute:: relationships
 
-    A *Subgraph* is an immutable set of nodes and relationships that can be provided as an argument to many graph database functions.
-    It is also the base class for :class:`.Node`, :class:`.Relationship` and :class:`.Walkable`, allowing instances of those classes to be combined using set operations.
-
-    .. describe:: subgraph | other | ...
-
-        Union.
-        Return a new subgraph containing all nodes and relationships from *subgraph* as well as all those from *other*.
-        Any entities common to both will only be included once.
-
-    .. describe:: subgraph & other & ...
-
-        Intersection.
-        Return a new subgraph containing all nodes and relationships common to both *subgraph* and *other*.
-
-    .. describe:: subgraph - other - ...
-
-        Difference.
-        Return a new subgraph containing all nodes and relationships that exist in *subgraph* but do not exist in *other*,
-        as well as all nodes that are connected by the relationships in *subgraph* regardless of whether or not they exist in *other*.
-
-    .. describe:: subgraph ^ other ^ ...
-
-        Symmetric difference.
-        Return a new subgraph containing all nodes and relationships that exist in *subgraph* or *other*, but not in both,
-        as well as all nodes that are connected by those relationships regardless of whether or not they are common to *subgraph* and *other*.
-
-    .. method:: subgraph.keys
-
-        Return the set of all property keys used by the nodes and relationships in this subgraph.
-
-    .. attribute:: subgraph.labels
-
-        Return the set of all node labels in this subgraph.
-
-    .. attribute:: subgraph.nodes
-
-        Return the set of all nodes in this subgraph.
-
-    .. attribute:: subgraph.relationships
-
-        Return the set of all relationships in this subgraph.
-
-    .. method:: subgraph.types
-
-        Return the set of all relationship types in this subgraph.
-
-
-.. _subgraph_arithmetic:
-
-Subgraph arithmetic
--------------------
-
-TODO
+    .. automethod:: types

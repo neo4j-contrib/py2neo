@@ -582,7 +582,7 @@ class SubgraphTestCase(TestCase):
         assert self.subgraph.__nonzero__() is True
 
     def test_labels(self):
-        assert self.subgraph.labels == {"Person", "Employee"}
+        assert self.subgraph.labels() == {"Person", "Employee"}
 
     def test_types(self):
         assert self.subgraph.types() == {"KNOWS", "LIKES", "DISLIKES",
