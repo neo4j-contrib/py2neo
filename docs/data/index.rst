@@ -215,9 +215,11 @@ Like nodes, relationships may also contain a properties.
 
         <h4>Type and geometry</h4>
 
-    These attributes relate to the type and endpoints of the relationship.
-    Every node in Neo4j is directed, and this is reflected in the API here.
-    Node objects therefore have a designated start and end node, which can be accessed through the :attr:`.start_node` and :attr:`.end_node` attributes respectively.
+    These attributes relate to the type and endpoints of relationships.
+    Every node in Neo4j is directed, and this is reflected in the API here:
+    Relationship objects have a designated start and end node, which can be accessed through the :attr:`.start_node` and :attr:`.end_node` attributes respectively.
+
+    .. automethod:: type
 
     .. describe:: type(relationship)
 
@@ -302,9 +304,33 @@ Like nodes, relationships may also contain a properties.
 :class:`.Path` objects
 ======================
 
-.. class:: Path(*entities)
+.. autoclass:: Path(*entities)
 
-    A *Path* is a type of :class:`.Walkable` returned by some Cypher queries.
+    .. attribute:: graph
+
+        The :class:`.Graph` to which this path is bound, if any.
+
+    .. attribute:: nodes
+
+        The sequence of :class:`.Node` objects encountered while walking this path.
+
+    .. attribute:: relationships
+
+        The sequence of :class:`.Relationship` objects encountered while walking this path.
+
+    .. attribute:: start_node
+
+        The first :class:`.Node` object encountered while walking this path.
+
+    .. attribute:: end_node
+
+        The last :class:`.Node` object encountered while walking this path.
+
+    .. method:: types
+
+        Return the set of all relationship types present on this path.
+
+    .. automethod:: walk
 
 
 ``Subgraph`` objects
@@ -386,66 +412,5 @@ For example::
 
 Subgraph arithmetic
 -------------------
-
-TODO
-
-
-``Walkable`` objects
-====================
-
-A :class:`.Walkable` is a :class:`.Subgraph` with added traversal information
-The simplest way to construct a walkable is to concatenate other graph objects::
-
-    >>> w = ab + Relationship(b, "LIKES", c) + ac
-    >>> w
-    (Alice)-[:KNOWS]->(Bob)-[:LIKES]->(Carol)<-[:WORKS_WITH]-(Alice)
-
-The traversal of a walkable object is achieved by using the :func:`walk` function, which yields alternating nodes and relationships and always starts and ends with a node.
-Any node or relationship may be traversed one or more times in any direction.
-
-.. class:: Walkable(iterable)
-
-    A *Walkable* is a :class:`.Subgraph` with added traversal information.
-
-    .. describe:: walkable + other + ...
-
-        Concatenation.
-        Return a new :class:`.Walkable` that represents a :func:`walk` of `walkable` followed by a :func:`walk` of `other`.
-        This is only possible if the end node of `walkable` is the same as either the start node or the end node of `other`;
-        in the latter case, `other` will be walked in reverse.
-
-        Nodes that overlap from one operand onto another are not duplicated in the returned :class:`.Walkable`.
-
-    .. describe:: walk(walkable)
-
-        Perform a :func:`walk` of *walkable*, yielding alternating nodes and relationships.
-
-    .. describe:: start_node
-
-        Return the first node encountered on a :func:`walk` of this object.
-
-    .. describe:: end_node
-
-        Return the last node encountered on a :func:`walk` of this object.
-
-    .. describe:: nodes
-
-        Return a tuple of all nodes traversed on a :func:`walk` of this :class:`.Walkable`, listed in the order in which they were first encountered.
-
-    .. describe:: relationships
-
-        Return a tuple of all relationships traversed on a :func:`walk` of this :class:`.Walkable`, listed in the order in which they were first encountered.
-
-``walk`` function
------------------
-
-.. function:: walk(*walkables)
-
-    Traverse over the arguments supplied, in order, yielding alternating nodes and relationships.
-
-.. _walkable_chaining:
-
-Chaining walkables
-------------------
 
 TODO

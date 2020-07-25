@@ -37,40 +37,6 @@ from py2neo.data.operations import (
 )
 
 
-def walk(*walkables):
-    """ Traverse over the arguments supplied, yielding the entities
-    from each in turn.
-
-    :arg walkables: sequence of walkable objects
-    """
-    if not walkables:
-        return
-    walkable = walkables[0]
-    try:
-        entities = walkable.__walk__()
-    except AttributeError:
-        raise TypeError("Object %r is not walkable" % walkable)
-    for entity in entities:
-        yield entity
-    end_node = walkable.end_node
-    for walkable in walkables[1:]:
-        try:
-            if end_node == walkable.start_node:
-                entities = walkable.__walk__()
-                end_node = walkable.end_node
-            elif end_node == walkable.end_node:
-                entities = reversed(list(walkable.__walk__()))
-                end_node = walkable.start_node
-            else:
-                raise ValueError("Cannot append walkable %r "
-                                 "to node %r" % (walkable, end_node))
-        except AttributeError:
-            raise TypeError("Object %r is not walkable" % walkable)
-        for i, entity in enumerate(entities):
-            if i > 0:
-                yield entity
-
-
 class Subgraph(object):
     """ Arbitrary, unordered collection of nodes and relationships.
     """
@@ -234,7 +200,7 @@ class Walkable(Subgraph):
                 if stop < 0:
                     stop += len(self)
                 stop = 2 * stop + 1
-            return Walkable(self.__sequence[start:stop])
+            return Path(*self.__sequence[start:stop])
         elif index < 0:
             return self.__sequence[2 * index]
         else:
@@ -247,7 +213,7 @@ class Walkable(Subgraph):
     def __add__(self, other):
         if other is None:
             return self
-        return Walkable(walk(self, other))
+        return Path(*walk(self, other))
 
     def __walk__(self):
         """ Traverse and yield all nodes and relationships in this
@@ -527,6 +493,13 @@ class Relationship(Entity):
 
         :param name: relationship type name
         :returns: `type` object
+
+        Example::
+
+            >>> KNOWS = Relationship.type("KNOWS")
+            >>> KNOWS(a, b)
+            KNOWS(Node('Person', name='Alice'), Node('Person', name='Bob')
+
         """
         for s in Relationship.__subclasses__():
             if s.__name__ == name:
@@ -682,8 +655,22 @@ class Relationship(Entity):
 
 
 class Path(Walkable):
-    """ A sequence of nodes connected by relationships that may
-    optionally be bound to remote counterparts in a Neo4j database.
+    """ A path represents a walk through a graph, starting on a node
+    and visiting alternating relationships and nodes thereafter.
+    Paths have a "overlaid" direction separate to that of the
+    relationships they contain, and the nodes and relationships
+    themselves may each be visited multiple times, in any order,
+    within the same path.
+
+    Paths can be returned from Cypher queries or can be constructed
+    locally via the constructor or by using the addition operator.
+
+    The `entities` provided to the constructor are walked in order to
+    build up the new path. This is only possible if the end node of
+    each entity is the same as either the start node or the end node
+    of the next entity; in the latter case, the second entity will be
+    walked in reverse. Nodes that overlap from one argument onto
+    another are not duplicated.
 
         >>> from py2neo import Node, Path
         >>> alice, bob, carol = Node(name="Alice"), Node(name="Bob"), Node(name="Carol")
@@ -758,3 +745,46 @@ class Path(Walkable):
 
     def __str__(self):
         return xstr(cypher_repr(self))
+
+    def __repr__(self):
+        entities = [self.start_node] + list(self.relationships)
+        return "Path(%s)" % ", ".join(map(repr, entities))
+
+    @staticmethod
+    def walk(*walkables):
+        """ Traverse over the arguments supplied, in order, yielding
+        alternating :class:`.Node` and :class:`.Relationship` objects.
+        Any node or relationship may be traversed one or more times in
+        any direction.
+
+        :arg walkables: sequence of walkable objects
+        """
+        if not walkables:
+            return
+        walkable = walkables[0]
+        try:
+            entities = walkable.__walk__()
+        except AttributeError:
+            raise TypeError("Object %r is not walkable" % walkable)
+        for entity in entities:
+            yield entity
+        end_node = walkable.end_node
+        for walkable in walkables[1:]:
+            try:
+                if end_node == walkable.start_node:
+                    entities = walkable.__walk__()
+                    end_node = walkable.end_node
+                elif end_node == walkable.end_node:
+                    entities = reversed(list(walkable.__walk__()))
+                    end_node = walkable.start_node
+                else:
+                    raise ValueError("Cannot append walkable %r "
+                                     "to node %r" % (walkable, end_node))
+            except AttributeError:
+                raise TypeError("Object %r is not walkable" % walkable)
+            for i, entity in enumerate(entities):
+                if i > 0:
+                    yield entity
+
+
+walk = Path.walk
