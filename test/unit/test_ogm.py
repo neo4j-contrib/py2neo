@@ -60,7 +60,7 @@ class InstanceTestCase(TestCase):
     def test_instance_repr(self):
         assert repr(self.film).startswith("<Film")
 
-    def test_instance_not_equal_to_non_graph_object(self):
+    def test_model_instance_not_equal_to_non_model(self):
         assert self.film != "this is not a graph object"
 
 

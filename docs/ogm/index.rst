@@ -5,11 +5,11 @@
 .. module:: py2neo.ogm
 
 The ``py2neo.ogm`` package contains a set of facilities for binding Python objects to an underlying set of graph data.
-Class definitions extend :class:`.GraphObject` and include :class:`.Property` and :class:`.Label` definitions as well as details of :class:`.Related` objects.
+Class definitions extend :class:`.Model` and include :class:`.Property` and :class:`.Label` definitions as well as details of :class:`.Related` objects.
 
 A simple example, based on the movie graph data set::
 
-   class Movie(GraphObject):
+   class Movie(Model):
        __primarykey__ = "title"
 
        title = Property()
@@ -21,7 +21,7 @@ A simple example, based on the movie graph data set::
        producers = RelatedFrom("Person", "PRODUCED")
 
 
-   class Person(GraphObject):
+   class Person(Model):
        __primarykey__ = "name"
 
        name = Property()
@@ -42,14 +42,14 @@ Repositories
 Graph Objects
 =============
 
-At the heart of the py2neo OGM framework is the :class:`.GraphObject`.
+At the heart of the py2neo OGM framework is the :class:`.Model`.
 This is a base class for all classes that are to be mapped onto the graph database.
-Each :class:`.GraphObject` wraps a node as well as a set of pointers to :class:`.RelatedObjects` and the relationship details that connect them.
+Each :class:`.Model` wraps a node as well as a set of pointers to :class:`.RelatedObjects` and the relationship details that connect them.
 
-A :class:`.GraphObject` instance may be constructed just like any other Python object but can also be `matched <#py2neo.ogm.GraphObject.match>`_ from the database.
+A :class:`.Model` instance may be constructed just like any other Python object but can also be `matched <#py2neo.ogm.Model.match>`_ from the database.
 Each instance may contain attributes that represent labels, nodes or related objects.
 
-.. class:: py2neo.ogm.GraphObject
+.. class:: py2neo.ogm.Model
 
    .. attribute:: __primarylabel__
 
@@ -62,7 +62,7 @@ Each instance may contain attributes that represent labels, nodes or related obj
       operations. If undefined, the special value of ``"__id__"`` is used
       to hinge uniqueness on the internal node ID instead of a property.
       Note that this alters the behaviour of operations such as
-      :meth:`.Graph.create` and :meth:`.Graph.merge` on :class:`.GraphObject`
+      :meth:`.Graph.create` and :meth:`.Graph.merge` on :class:`.Model`
       instances.
 
    .. attribute:: __primaryvalue__
@@ -73,7 +73,7 @@ Each instance may contain attributes that represent labels, nodes or related obj
 
    .. attribute:: __node__
 
-      The :class:`.Node` wrapped by this :class:`.GraphObject`.
+      The :class:`.Node` wrapped by this :class:`.Model`.
 
    .. automethod:: wrap
 
@@ -83,7 +83,7 @@ Each instance may contain attributes that represent labels, nodes or related obj
 Properties
 ==========
 
-A :class:`.Property` defined on a :class:`.GraphObject` provides an accessor to a property of the underlying node.
+A :class:`.Property` defined on a :class:`.Model` provides an accessor to a property of the underlying node.
 
 
 .. autoclass:: py2neo.ogm.Property
@@ -91,7 +91,7 @@ A :class:`.Property` defined on a :class:`.GraphObject` provides an accessor to 
 
 .. code-block:: python
 
-    >>> class Person(GraphObject):
+    >>> class Person(Model):
     ...     name = Property()
     ...
     >>> alice = Person()
@@ -103,7 +103,7 @@ A :class:`.Property` defined on a :class:`.GraphObject` provides an accessor to 
 Labels
 ======
 
-A :class:`.Label` defined on a :class:`.GraphObject` provides an accessor to a label of the underlying central node.
+A :class:`.Label` defined on a :class:`.Model` provides an accessor to a label of the underlying central node.
 It is exposed as a boolean value, the setting of which allows the label to be toggled on or off.
 
 Labels are exposed in the API in an identical way to boolean properties.
@@ -116,7 +116,7 @@ Secondary or supporting information could be stored in a boolean property.
 
 .. code-block:: python
 
-    >>> class Food(GraphObject):
+    >>> class Food(Model):
     ...     hot = Label()
     ...
     >>> pizza = Food()
@@ -130,10 +130,10 @@ Secondary or supporting information could be stored in a boolean property.
 Related Objects
 ===============
 
-Related objects are `GraphObject` instances connected to a central `GraphObject` in a particular way.
+Related objects are `Model` instances connected to a central `Model` in a particular way.
 For example, if a ``(:Person)-[:LIKES]->(:Person)`` relationship is used within the graph database to model a friendship, this might be modelled within the OGM layer as::
 
-    class Person(GraphObject):
+    class Person(Model):
         __primarykey__ = "name"
 
         name = Property()
@@ -167,7 +167,7 @@ Therefore to print a list of all friends::
 Object Matching
 ===============
 
-One or more :class:`.GraphObject` instances can be selected from the database by using the ``match`` method of the relevant subclass.
+One or more :class:`.Model` instances can be selected from the database by using the ``match`` method of the relevant subclass.
 
 To select a single instance using the primary label and primary key::
 

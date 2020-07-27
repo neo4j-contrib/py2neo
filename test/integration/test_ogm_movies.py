@@ -20,7 +20,7 @@ from pytest import warns
 
 from py2neo.ogm import Property, RelatedTo
 
-from test.fixtures.ogm import MovieGraphObject, Person, Film
+from test.fixtures.ogm import MovieModel, Person, Film
 
 
 def test_related_objects_are_automatically_loaded(movie_repo):
@@ -113,7 +113,7 @@ def test_can_match_by_id(movie_repo):
 
     # when
 
-    class PersonById(MovieGraphObject):
+    class PersonById(MovieModel):
         __primarylabel__ = "Person"
 
         name = Property()
@@ -139,7 +139,7 @@ def test_can_match_one_by_id(movie_repo):
 
     # when
 
-    class PersonById(MovieGraphObject):
+    class PersonById(MovieModel):
         __primarylabel__ = "Person"
 
         name = Property()

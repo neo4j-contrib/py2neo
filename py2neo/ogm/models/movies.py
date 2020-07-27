@@ -21,10 +21,10 @@ This module contains OGM models suitable for use with the Neo4j movies
 database.
 """
 
-from py2neo.ogm import GraphObject, Property, RelatedTo, RelatedFrom
+from py2neo.ogm import Model, Property, RelatedTo, RelatedFrom
 
 
-class Movie(GraphObject):
+class Movie(Model):
     __primarykey__ = "title"
 
     title = Property()
@@ -41,7 +41,7 @@ class Movie(GraphObject):
         return self.title < other.title
 
 
-class Person(GraphObject):
+class Person(Model):
     __primarykey__ = "name"
 
     name = Property()
