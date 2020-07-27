@@ -30,6 +30,7 @@ __all__ = [
     "Repository",
 ]
 
+from collections import OrderedDict
 
 from english.casing import Words
 
@@ -76,6 +77,15 @@ class Property(object):
     def __set__(self, instance, value):
         instance.__node__[self.key] = value
 
+    def __repr__(self):
+        args = OrderedDict()
+        if self.key is not None:
+            args["key"] = self.key
+        if self.default is not None:
+            args["default"] = self.default
+        return "%s(%s)" % (self.__class__.__name__,
+                           ", ".join("%s=%r" % arg for arg in args.items()))
+
 
 class Label(object):
     """ Label definition for a :class:`.GraphObject`.
@@ -95,6 +105,23 @@ class Label(object):
             instance.__node__.add_label(self.name)
         else:
             instance.__node__.remove_label(self.name)
+
+    def __repr__(self):
+        args = OrderedDict()
+        if self.name is not None:
+            args["name"] = self.name
+        return "%s(%s)" % (self.__class__.__name__,
+                           ", ".join("%s=%r" % arg for arg in args.items()))
+
+
+def _resolve_class(ogm_class, current_module_name):
+    if isinstance(ogm_class, type):
+        return ogm_class
+    module_name, _, class_name = ogm_class.rpartition(".")
+    if not module_name:
+        module_name = current_module_name
+    module = __import__(module_name, fromlist=".")
+    return getattr(module, class_name)
 
 
 class Related(object):
@@ -127,18 +154,8 @@ class Related(object):
         self.relationship_type = relationship_type
 
     def __get__(self, instance, owner):
-        return instance.__ogm__.related(self.direction, self.relationship_type,
-                                        self._resolve_class(self.related_class, instance))
-
-    @classmethod
-    def _resolve_class(cls, ogm_class, instance):
-        if isinstance(ogm_class, type):
-            return ogm_class
-        module_name, _, class_name = ogm_class.rpartition(".")
-        if not module_name:
-            module_name = instance.__class__.__module__
-        module = __import__(module_name, fromlist=".")
-        return getattr(module, class_name)
+        cls = _resolve_class(self.related_class, instance.__class__.__module__)
+        return instance.__ogm__.related(self.direction, self.relationship_type, cls)
 
 
 class RelatedTo(Related):
@@ -331,12 +348,28 @@ class GraphObjectType(type):
             if isinstance(attr, Property):
                 if attr.key is None:
                     attr.key = attr_name
+                if attr.__doc__ is attr.__class__.__doc__:
+                    attr.__doc__ = repr(attr)
             elif isinstance(attr, Label):
                 if attr.name is None:
                     attr.name = Words(attr_name).camel(upper_first=True)
+                if attr.__doc__ is attr.__class__.__doc__:
+                    attr.__doc__ = repr(attr)
             elif isinstance(attr, Related):
                 if attr.relationship_type is None:
                     attr.relationship_type = Words(attr_name).upper("_")
+                if attr.__doc__ is attr.__class__.__doc__:
+
+                    def related_repr(obj):
+                        if isinstance(obj.related_class, type):
+                            args = ":class:`%s`" % obj.related_class.__qualname__
+                        else:
+                            args = ":class:`.%s`" % obj.related_class
+                        if obj.relationship_type is not None:
+                            args += ", relationship_type=%r" % obj.relationship_type
+                        return "%s(%s)" % (obj.__class__.__name__, args)
+
+                    attr.__doc__ = related_repr(attr)
 
         attributes.setdefault("__primarylabel__", name)
 
@@ -542,7 +575,19 @@ class GraphObjectMatcher(NodeMatcher):
 class Repository(object):
     """ Storage container for :class:`.GraphObject` instances.
 
-    *New in version 2020.7.*
+    The constructor for this class has an identical signature to that
+    for the :class:`.Graph` class. For example::
+
+        >>> from py2neo.ogm import Repository
+        >>> from py2neo.ogm.models.movies import Movie
+        >>> repo = Repository("bolt://neo4j@localhost:7687", password="password")
+        >>> repo.match(Movie, "The Matrix").first()
+        <Movie title='The Matrix'>
+
+    *New in version 2020.7. In earlier versions, a :class:`.Graph` was
+    required to co-ordinate all reads and writes to the remote
+    database. This class completely replaces that, removing the need
+    to import from any other packages when using OGM.*
     """
 
     @classmethod

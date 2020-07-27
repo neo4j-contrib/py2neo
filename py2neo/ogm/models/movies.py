@@ -16,6 +16,11 @@
 # limitations under the License.
 
 
+"""
+This module contains OGM models suitable for use with the Neo4j movies
+database.
+"""
+
 from py2neo.ogm import GraphObject, Property, RelatedTo, RelatedFrom
 
 

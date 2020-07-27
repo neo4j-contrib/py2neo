@@ -72,7 +72,7 @@ Object-Graph Mapping
     :maxdepth: 2
 
     ogm/index
-    ogm/movies
+    ogm/models/index
 
 
 Cypher Language Tools
