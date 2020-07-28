@@ -6,6 +6,8 @@
 
     .. autoclass:: Movie
         :members:
+        :special-members:
 
     .. autoclass:: Person
         :members:
+        :special-members:

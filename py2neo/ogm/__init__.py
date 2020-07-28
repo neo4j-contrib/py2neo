@@ -361,9 +361,9 @@ class ModelType(type):
                 if attr.__doc__ is attr.__class__.__doc__:
 
                     def related_repr(obj):
-                        if isinstance(obj.related_class, type):
+                        try:
                             args = ":class:`%s`" % obj.related_class.__qualname__
-                        else:
+                        except AttributeError:
                             args = ":class:`.%s`" % obj.related_class
                         if obj.relationship_type is not None:
                             args += ", relationship_type=%r" % obj.relationship_type
