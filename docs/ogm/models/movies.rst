@@ -6,8 +6,14 @@
 
     .. autoclass:: Movie
         :members:
-        :special-members:
+
+        .. autoattribute:: __primarylabel__
+
+        .. autoattribute:: __primarykey__
 
     .. autoclass:: Person
         :members:
-        :special-members:
+
+        .. autoattribute:: __primarylabel__
+
+        .. autoattribute:: __primarykey__
