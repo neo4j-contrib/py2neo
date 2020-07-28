@@ -24,7 +24,7 @@ __all__ = [
     "RelatedFrom",
     "RelatedObjects",
     "ModelType",
-    "Model", "GraphObject",
+    "Model", "Model",
     "ModelMatch",
     "ModelMatcher",
     "Repository",
@@ -450,7 +450,7 @@ class Model(object):
 
         :param repository: the :class:`.Repository` in which to match
         :param primary_value: value of the primary property (optional)
-        :rtype: :class:`.GraphObjectMatch`
+        :rtype: :class:`.ModelMatch`
         """
         return ModelMatcher(cls, repository).match(primary_value)
 
@@ -640,7 +640,7 @@ class Repository(object):
 
         :param model: the :class:`.Model` subclass to match
         :param primary_value: value of the primary property (optional)
-        :rtype: :class:`.GraphObjectMatch`
+        :rtype: :class:`.ModelMatch`
         """
         return ModelMatcher(model, self).match(primary_value)
 

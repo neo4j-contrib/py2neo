@@ -186,5 +186,5 @@ Note the use of the underscore in the Cypher `WHERE` clause to refer to the unde
      <Person name='Kelly Preston'>]
 
 
-.. autoclass:: py2neo.ogm.GraphObjectMatch
+.. autoclass:: py2neo.ogm.ModelMatch
    :members: __iter__, first
