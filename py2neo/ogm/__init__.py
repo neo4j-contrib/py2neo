@@ -390,7 +390,7 @@ class ModelType(type):
 class Model(object):
     """ The base class for all OGM object classes.
 
-    *Changed in 2020.7: this used to be called GraphObject, but was
+    *Changed in 2020.0: this used to be called GraphObject, but was
     renamed to avoid ambiguity. The old name is still available as an
     alias.*
     """
@@ -592,7 +592,7 @@ class Repository(object):
         >>> repo.match(Movie, "The Matrix").first()
         <Movie title='The Matrix'>
 
-    *New in version 2020.7. In earlier versions, a :class:`.Graph` was
+    *New in version 2020.0. In earlier versions, a :class:`.Graph` was
     required to co-ordinate all reads and writes to the remote
     database. This class completely replaces that, removing the need
     to import from any other packages when using OGM.*

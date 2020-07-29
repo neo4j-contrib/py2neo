@@ -188,7 +188,7 @@ class Subgraph(object):
     def labels(self):
         """ Return the set of all node labels in this subgraph.
 
-        *Changed in version 2020.7: this is now a method rather than a
+        *Changed in version 2020.0: this is now a method rather than a
         property, as in previous versions.*
         """
         return frozenset(chain(*(node.labels for node in self.__nodes)))

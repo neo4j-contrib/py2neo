@@ -374,7 +374,7 @@ class NodeMatch(object):
 
         :return: list of matching :class:`.Node` objects
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return list(self)
 
@@ -384,7 +384,7 @@ class NodeMatch(object):
 
         :return: number of nodes matched
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return len(self)
 
@@ -394,7 +394,7 @@ class NodeMatch(object):
 
         :return: boolean indicating presence or absence of a match
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return len(self) > 0
 
@@ -636,7 +636,7 @@ class RelationshipMatch(object):
 
         :return: list of matching :class:`.Relationship` objects
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return list(self)
 
@@ -646,7 +646,7 @@ class RelationshipMatch(object):
 
         :return: number of relationships matched
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return len(self)
 
@@ -656,7 +656,7 @@ class RelationshipMatch(object):
 
         :return: boolean indicating presence or absence of a match
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return len(self) > 0
 

@@ -64,7 +64,7 @@ The example below matches everyone born between 1964 and 1966 inclusive::
      Node('Person', born=1966, name='Matthew Fox'),
      Node('Person', born=1965, name='John C. Reilly')]
 
-*Changed in 2020.7: the predicate system has been overhauled to provide
+*Changed in 2020.0: the predicate system has been overhauled to provide
 a more idiomatic API.*
 
 

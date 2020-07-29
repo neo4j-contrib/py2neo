@@ -7,9 +7,22 @@ The library supports both Bolt and HTTP and provides a high level API, an OGM, a
 Unlike previous releases, Py2neo does not require an HTTP-enabled server and can work entirely through Bolt.
 
 When considering whether to use py2neo or the `official Python Driver for Neo4j <https://github.com/neo4j/neo4j-python-driver>`_, there is a trade-off to be made.
-Py2neo offers a higher level API and an OGM, but the official driver provides mechanisms to work with clusters, such as automatic retries.
+Py2neo offers a larger surface, with both a higher level API and an OGM, but the official driver provides mechanisms to work with clusters, such as automatic retries.
 If you are new to Neo4j, need an OGM, do not want to learn Cypher immediately, or require data science integrations, py2neo may be the better choice.
 If you are building a high-availability Enterprise application, or are using a cluster, you likely need the official driver.
+
+
+Releases & Versioning
+=====================
+
+As of 2020, py2neo has switched to `Calendar Versioning <https://calver.org/>`_, using a scheme of ``YYYY.N.M``.
+Here, ``N`` is an incrementing zero-based number for each year, and ``M`` is a revision within that version (also zero-based).
+
+No compatibility guarantees are given between versions, but as a general rule, a change in ``M`` should require little-to-no work within client applications,
+whereas a change in ``N`` may require some work. A change to the year is likely to require a more significant amount of work to upgrade.
+
+Note that py2neo is developed on a rolling basis, so patches are not made to old versions.
+Users will instead need to install the latest release to adopt bug fixes.
 
 
 Installation

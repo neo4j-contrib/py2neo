@@ -146,7 +146,7 @@ class GraphService(object):
         Replacement functionality may be reintroduced in a future
         py2neo release.
 
-    *Changed in 2020.7: this class was formerly known as 'Database',
+    *Changed in 2020.0: this class was formerly known as 'Database',
     but was renamed to avoid confusion with the concept of the same
     name introduced with the multi-database feature of Neo4j 4.0.*
 
@@ -159,13 +159,13 @@ class GraphService(object):
         entries, since the one and only graph in these versions is not
         named.
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
 
     .. describe:: graph_service[name]
 
         Access a :class:`.Graph` by name.
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
 
     """
 
@@ -245,7 +245,7 @@ class GraphService(object):
         """ The :class:`.Connector` providing communication for this
         graph service.
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return self._connector
 
@@ -255,7 +255,7 @@ class GraphService(object):
         service is configured. This attribute is simply a shortcut
         for ``connector.profile``.
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return self.connector.profile
 
@@ -276,7 +276,7 @@ class GraphService(object):
     def system_graph(self):
         """ The :class:`.SystemGraph` exposed by this graph service.
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return self["system"]
 
@@ -284,7 +284,7 @@ class GraphService(object):
         """ Return a list of all :class:`.Graph` names exposed by this
         graph service.
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return list(self)
 
@@ -405,7 +405,7 @@ class Graph(object):
              ):
         """ Create a new auto-commit :class:`~py2neo.database.work.Transaction`.
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return Transaction(self, True,
                            # readonly, after, metadata, timeout
@@ -420,7 +420,7 @@ class Graph(object):
             transaction will automatically commit after the first
             operation
 
-        *Changed in version 2020.7: the 'autocommit' argument is now
+        *Changed in version 2020.0: the 'autocommit' argument is now
         deprecated. Use the 'auto' method instead.*
         """
         if autocommit:
@@ -461,7 +461,7 @@ class Graph(object):
         Using :func:`dir` or :func:`iter` on the `call` attribute will
         yield a list of available procedure names.
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return self._procedures
 
@@ -591,7 +591,7 @@ class Graph(object):
     def name(self):
         """ The name of this graph.
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         return self.__name__
 
@@ -643,7 +643,7 @@ class Graph(object):
         :param kwargs: mapping of additional keyword arguments to
             pass into the function
 
-        *New in version 2020.7.*
+        *New in version 2020.0.*
         """
         if not callable(work):
             raise TypeError("Unit of work is not callable")
@@ -723,7 +723,7 @@ class SystemGraph(Graph):
     system database for the remote DBMS. This is only available in
     Neo4j 4.0 and above.
 
-    *New in version 2020.7.*
+    *New in version 2020.0.*
     """
 
     def __new__(cls, profile=None, **settings):
@@ -880,7 +880,7 @@ class ProcedureLibrary(object):
     :meth:`.Graph.call` attribute. See the documentation for that
     attribute for usage information.
 
-    *New in version 2020.7.*
+    *New in version 2020.0.*
     """
 
     def __init__(self, graph):
@@ -921,7 +921,7 @@ class ProcedureLibrary(object):
 class Procedure(object):
     """ Represents an individual procedure.
 
-    *New in version 2020.7.*
+    *New in version 2020.0.*
     """
 
     def __init__(self, graph, name):
