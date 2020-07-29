@@ -16,14 +16,14 @@
 # limitations under the License.
 
 
-from py2neo.ogm import GraphObject, Label, Property, RelatedTo, RelatedFrom
+from py2neo.ogm import Model, Label, Property, RelatedTo, RelatedFrom
 
 
-class MovieGraphObject(GraphObject):
+class MovieModel(Model):
     pass
 
 
-class Film(MovieGraphObject):
+class Film(MovieModel):
     __primarylabel__ = "Movie"
     __primarykey__ = "title"
 
@@ -41,7 +41,7 @@ class Film(MovieGraphObject):
         self.title = title
 
 
-class Person(MovieGraphObject):
+class Person(MovieModel):
     __primarykey__ = "name"
 
     name = Property()
@@ -55,11 +55,11 @@ class Person(MovieGraphObject):
         return hash(self.name)
 
 
-class MacGuffin(MovieGraphObject):
+class MacGuffin(MovieModel):
     pass
 
 
-class BaseThing(GraphObject):
+class BaseThing(Model):
     __primarylabel__ = "MyLabel"
     __primarykey__ = "my_key"
 

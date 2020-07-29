@@ -16,10 +16,10 @@
 # limitations under the License.
 
 
-from py2neo.ogm import RelatedTo, RelatedFrom, GraphObject
+from py2neo.ogm import RelatedTo, RelatedFrom, Model
 
 
-class SimpleThing(GraphObject):
+class SimpleThing(Model):
     pass
 
 
@@ -44,12 +44,12 @@ def test_simple_push(graph):
     assert thing.__node__.identity is not None
 
 
-class A(GraphObject):
+class A(Model):
 
     b = RelatedTo("B")
 
 
-class B(GraphObject):
+class B(Model):
 
     a = RelatedFrom("A")
 

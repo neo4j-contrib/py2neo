@@ -31,8 +31,7 @@ from py2neo.vendor.bottle import (
 
 from py2neo.client.config import ConnectionProfile
 from py2neo.ogm import Repository
-
-from .models import Movie, Person
+from py2neo.ogm.models import Movie, Person
 
 
 HOME = dirname(__file__)

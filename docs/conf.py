@@ -22,6 +22,7 @@ import sys
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath('..'))
+sys.path.append(os.path.abspath("./_ext"))
 
 
 # -- Project metadata -----------------------------------------------------
@@ -50,6 +51,7 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
+    'ogm',
 ]
 
 # Add any paths that contain templates here, relative to this directory.

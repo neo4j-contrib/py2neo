@@ -23,13 +23,14 @@ __all__ = [
     "RelatedTo",
     "RelatedFrom",
     "RelatedObjects",
-    "GraphObjectType",
-    "GraphObject",
-    "GraphObjectMatch",
-    "GraphObjectMatcher",
+    "ModelType",
+    "Model", "Model",
+    "ModelMatch",
+    "ModelMatcher",
     "Repository",
 ]
 
+from collections import OrderedDict
 
 from english.casing import Words
 
@@ -47,7 +48,7 @@ INCOMING = -1
 
 
 class Property(object):
-    """ Property definition for a :class:`.GraphObject`.
+    """ Property definition for a :class:`.Model`.
 
     Attributes:
         key: The name of the node property within the database.
@@ -76,9 +77,18 @@ class Property(object):
     def __set__(self, instance, value):
         instance.__node__[self.key] = value
 
+    def __repr__(self):
+        args = OrderedDict()
+        if self.key is not None:
+            args["key"] = self.key
+        if self.default is not None:
+            args["default"] = self.default
+        return "%s(%s)" % (self.__class__.__name__,
+                           ", ".join("%s=%r" % arg for arg in args.items()))
+
 
 class Label(object):
-    """ Label definition for a :class:`.GraphObject`.
+    """ Label definition for a :class:`.Model`.
 
     Labels are toggleable tags applied to an object that can be used as type
     information or other forms of classification.
@@ -96,14 +106,31 @@ class Label(object):
         else:
             instance.__node__.remove_label(self.name)
 
+    def __repr__(self):
+        args = OrderedDict()
+        if self.name is not None:
+            args["name"] = self.name
+        return "%s(%s)" % (self.__class__.__name__,
+                           ", ".join("%s=%r" % arg for arg in args.items()))
+
+
+def _resolve_class(model, current_module_name):
+    if isinstance(model, type):
+        return model
+    module_name, _, class_name = model.rpartition(".")
+    if not module_name:
+        module_name = current_module_name
+    module = __import__(module_name, fromlist=".")
+    return getattr(module, class_name)
+
 
 class Related(object):
-    """ Descriptor for a set of related objects in a :class:`.GraphObject`.
+    """ Descriptor for a set of related objects in a :class:`.Model`.
 
     Attributes:
         related_class: The class of object to which these relationships
                        connect. This class is used to coerce nodes to and
-                       from :class:`GraphObject` instances.
+                       from :class:`Model` instances.
         relationship_type: The underlying relationship type for these
                            relationships. Note that the relationship
                            type should be unique for each class of related
@@ -127,22 +154,12 @@ class Related(object):
         self.relationship_type = relationship_type
 
     def __get__(self, instance, owner):
-        return instance.__ogm__.related(self.direction, self.relationship_type,
-                                        self._resolve_class(self.related_class, instance))
-
-    @classmethod
-    def _resolve_class(cls, ogm_class, instance):
-        if isinstance(ogm_class, type):
-            return ogm_class
-        module_name, _, class_name = ogm_class.rpartition(".")
-        if not module_name:
-            module_name = instance.__class__.__module__
-        module = __import__(module_name, fromlist=".")
-        return getattr(module, class_name)
+        cls = _resolve_class(self.related_class, instance.__class__.__module__)
+        return instance.__ogm__.related(self.direction, self.relationship_type, cls)
 
 
 class RelatedTo(Related):
-    """ Descriptor for a set of related objects for a :class:`.GraphObject`
+    """ Descriptor for a set of related objects for a :class:`.Model`
     that are connected by outgoing relationships.
     """
 
@@ -150,7 +167,7 @@ class RelatedTo(Related):
 
 
 class RelatedFrom(Related):
-    """ Descriptor for a set of related objects for a :class:`.GraphObject`
+    """ Descriptor for a set of related objects for a :class:`.Model`
     that are connected by incoming relationships.
     """
 
@@ -191,8 +208,8 @@ class RelatedObjects(object):
         return len(self._related_objects)
 
     def __contains__(self, obj):
-        if not isinstance(obj, GraphObject):
-            raise TypeError("Related objects must be GraphObject instances")
+        if not isinstance(obj, Model):
+            raise TypeError("Related objects must be Model instances")
         for related_object, _ in self._related_objects:
             if related_object == obj:
                 return True
@@ -210,12 +227,12 @@ class RelatedObjects(object):
     def add(self, obj, properties=None, **kwproperties):
         """ Add or update a related object.
 
-        :param obj: the :py:class:`.GraphObject` to relate
+        :param obj: the :py:class:`.Model` to relate
         :param properties: dictionary of properties to attach to the relationship (optional)
         :param kwproperties: additional keyword properties (optional)
         """
-        if not isinstance(obj, GraphObject):
-            raise TypeError("Related objects must be GraphObject instances")
+        if not isinstance(obj, Model):
+            raise TypeError("Related objects must be Model instances")
         related_objects = self._related_objects
         properties = dict(properties or {}, **kwproperties)
         added = False
@@ -239,8 +256,8 @@ class RelatedObjects(object):
         :param default: default value, in case the key is not found
         :return: property value
         """
-        if not isinstance(obj, GraphObject):
-            raise TypeError("Related objects must be GraphObject instances")
+        if not isinstance(obj, Model):
+            raise TypeError("Related objects must be Model instances")
         for related_object, properties in self._related_objects:
             if related_object == obj:
                 return properties.get(key, default)
@@ -249,10 +266,10 @@ class RelatedObjects(object):
     def remove(self, obj):
         """ Remove a related object.
 
-        :param obj: the :py:class:`.GraphObject` to separate
+        :param obj: the :py:class:`.Model` to separate
         """
-        if not isinstance(obj, GraphObject):
-            raise TypeError("Related objects must be GraphObject instances")
+        if not isinstance(obj, Model):
+            raise TypeError("Related objects must be Model instances")
         related_objects = self._related_objects
         related_objects[:] = [(related_object, properties)
                               for related_object, properties in related_objects
@@ -263,7 +280,7 @@ class RelatedObjects(object):
     def update(self, obj, properties=None, **kwproperties):
         """ Add or update a related object.
 
-        :param obj: the :py:class:`.GraphObject` to relate
+        :param obj: the :py:class:`.Model` to relate
         :param properties: dictionary of properties to attach to the relationship (optional)
         :param kwproperties: additional keyword properties (optional)
         """
@@ -324,19 +341,35 @@ class OGM(object):
         return self._related[key]
 
 
-class GraphObjectType(type):
+class ModelType(type):
 
     def __new__(mcs, name, bases, attributes):
         for attr_name, attr in list(attributes.items()):
             if isinstance(attr, Property):
                 if attr.key is None:
                     attr.key = attr_name
+                if attr.__doc__ is attr.__class__.__doc__:
+                    attr.__doc__ = repr(attr)
             elif isinstance(attr, Label):
                 if attr.name is None:
                     attr.name = Words(attr_name).camel(upper_first=True)
+                if attr.__doc__ is attr.__class__.__doc__:
+                    attr.__doc__ = repr(attr)
             elif isinstance(attr, Related):
                 if attr.relationship_type is None:
                     attr.relationship_type = Words(attr_name).upper("_")
+                if attr.__doc__ is attr.__class__.__doc__:
+
+                    def related_repr(obj):
+                        try:
+                            args = ":class:`%s`" % obj.related_class.__qualname__
+                        except AttributeError:
+                            args = ":class:`.%s`" % obj.related_class
+                        if obj.relationship_type is not None:
+                            args += ", relationship_type=%r" % obj.relationship_type
+                        return "%s(%s)" % (obj.__class__.__name__, args)
+
+                    attr.__doc__ = related_repr(attr)
 
         attributes.setdefault("__primarylabel__", name)
 
@@ -350,12 +383,16 @@ class GraphObjectType(type):
                 primary_key = "__id__"
             attributes["__primarykey__"] = primary_key
 
-        return super(GraphObjectType, mcs).__new__(mcs, name, bases, attributes)
+        return super(ModelType, mcs).__new__(mcs, name, bases, attributes)
 
 
-@metaclass(GraphObjectType)
-class GraphObject(object):
-    """ The base class for all OGM classes.
+@metaclass(ModelType)
+class Model(object):
+    """ The base class for all OGM object classes.
+
+    *Changed in 2020.7: this used to be called GraphObject, but was
+    renamed to avoid ambiguity. The old name is still available as an
+    alias.*
     """
 
     __primarylabel__ = None
@@ -395,14 +432,14 @@ class GraphObject(object):
 
     @classmethod
     def wrap(cls, node):
-        """ Convert a :class:`.Node` into a :class:`.GraphObject`.
+        """ Convert a :class:`.Node` into a :class:`.Model`.
 
         :param node:
         :return:
         """
         if node is None:
             return None
-        inst = GraphObject()
+        inst = Model()
         inst.__ogm = OGM(node)
         inst.__class__ = cls
         return inst
@@ -413,9 +450,9 @@ class GraphObject(object):
 
         :param repository: the :class:`.Repository` in which to match
         :param primary_value: value of the primary property (optional)
-        :rtype: :class:`.GraphObjectMatch`
+        :rtype: :class:`.ModelMatch`
         """
-        return GraphObjectMatcher(cls, repository).match(primary_value)
+        return ModelMatcher(cls, repository).match(primary_value)
 
     def __repr__(self):
         return "<%s %s=%r>" % (self.__class__.__name__, self.__primarykey__, self.__primaryvalue__)
@@ -431,7 +468,7 @@ class GraphObject(object):
 
     @property
     def __node__(self):
-        """ The :class:`.Node` wrapped by this :class:`.GraphObject`.
+        """ The :class:`.Node` wrapped by this :class:`.Model`.
         """
         return self.__ogm__.node
 
@@ -466,7 +503,7 @@ class GraphObject(object):
     def __db_pull__(self, tx):
         ogm = self.__ogm__
         if ogm.node.graph is None:
-            matcher = GraphObjectMatcher(self.__class__, tx.graph)
+            matcher = ModelMatcher(self.__class__, tx.graph)
             matcher._match_class = NodeMatch
             ogm.node = matcher.match(self.__primaryvalue__).first()
         tx.pull(ogm.node)
@@ -488,30 +525,34 @@ class GraphObject(object):
             related_objects.__db_push__(tx)
 
 
-class GraphObjectMatch(NodeMatch):
-    """ A selection of :class:`.GraphObject` instances that match a
+# Alias for backward compatibility
+GraphObject = Model
+
+
+class ModelMatch(NodeMatch):
+    """ A selection of :class:`.Model` instances that match a
     given set of criteria.
     """
 
-    _object_class = GraphObject
+    _object_class = Model
 
     def __iter__(self):
         """ Iterate through items drawn from the underlying repository
         that match the given criteria.
         """
         wrap = self._object_class.wrap
-        for node in super(GraphObjectMatch, self).__iter__():
+        for node in super(ModelMatch, self).__iter__():
             yield wrap(node)
 
     def first(self):
         """ Return the first item that matches the given criteria.
         """
-        return self._object_class.wrap(super(GraphObjectMatch, self).first())
+        return self._object_class.wrap(super(ModelMatch, self).first())
 
 
-class GraphObjectMatcher(NodeMatcher):
+class ModelMatcher(NodeMatcher):
 
-    _match_class = GraphObjectMatch
+    _match_class = ModelMatch
 
     @classmethod
     def _coerce_to_graph(cls, obj):
@@ -526,7 +567,7 @@ class GraphObjectMatcher(NodeMatcher):
         NodeMatcher.__init__(self, self._coerce_to_graph(repository))
         self._object_class = object_class
         self._match_class = type("%sMatch" % self._object_class.__name__,
-                                 (GraphObjectMatch,), {"_object_class": object_class})
+                                 (ModelMatch,), {"_object_class": object_class})
 
     def match(self, primary_value=None):
         cls = self._object_class
@@ -540,9 +581,21 @@ class GraphObjectMatcher(NodeMatcher):
 
 
 class Repository(object):
-    """ Storage container for :class:`.GraphObject` instances.
+    """ Storage container for :class:`.Model` instances.
 
-    *New in version 2020.7.*
+    The constructor for this class has an identical signature to that
+    for the :class:`.Graph` class. For example::
+
+        >>> from py2neo.ogm import Repository
+        >>> from py2neo.ogm.models.movies import Movie
+        >>> repo = Repository("bolt://neo4j@localhost:7687", password="password")
+        >>> repo.match(Movie, "The Matrix").first()
+        <Movie title='The Matrix'>
+
+    *New in version 2020.7. In earlier versions, a :class:`.Graph` was
+    required to co-ordinate all reads and writes to the remote
+    database. This class completely replaces that, removing the need
+    to import from any other packages when using OGM.*
     """
 
     @classmethod
@@ -582,23 +635,23 @@ class Repository(object):
         """
         return self.graph.exists(obj)
 
-    def match(self, ogm_class, primary_value=None):
+    def match(self, model, primary_value=None):
         """ Select one or more objects from the remote graph.
 
-        :param ogm_class: the :class:`.GraphObject` subclass to match
+        :param model: the :class:`.Model` subclass to match
         :param primary_value: value of the primary property (optional)
-        :rtype: :class:`.GraphObjectMatch`
+        :rtype: :class:`.ModelMatch`
         """
-        return GraphObjectMatcher(ogm_class, self).match(primary_value)
+        return ModelMatcher(model, self).match(primary_value)
 
-    def get(self, ogm_class, primary_value=None):
+    def get(self, model, primary_value=None):
         """ Match and return a single object from the remote graph.
 
-        :param ogm_class: the :class:`.GraphObject` subclass to match
+        :param model: the :class:`.Model` subclass to match
         :param primary_value: value of the primary property (optional)
-        :rtype: :class:`.GraphObject`
+        :rtype: :class:`.Model`
         """
-        return self.match(ogm_class, primary_value).first()
+        return self.match(model, primary_value).first()
 
     @deprecated("Repository.create is a compatibility alias, "
                 "please use Repository.save instead")
