@@ -167,7 +167,7 @@ class Neo4jConsole(_CommandConsole):
     service = None
 
     def __init__(self, out=stdout):
-        super(Neo4jConsole, self).__init__(__name__, out=out)
+        super(Neo4jConsole, self).__init__("py2neo.server", out=out)
         self.add_command("browser", self.browser)
         self.add_command("env", self.env)
         self.add_command("ls", self.ls)
