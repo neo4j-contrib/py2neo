@@ -2,9 +2,11 @@ include LICENSE
 include NOTICE
 include README.rst
 include py2neo/VERSION
-prune test
 
+recursive-include py2neo/movies/data *
 recursive-include py2neo/movies/static *
 recursive-include py2neo/movies/templates *
 include py2neo/movies/movies.ini
 include py2neo/movies/README.md
+
+prune test

@@ -97,6 +97,13 @@ with Release():
         "packages": find_packages(exclude=("docs", "test", "test.*")),
         "package_data": {
             "py2neo": ["VERSION"],
+            "py2neo.movies": [
+                "data/*",
+                "static/*",
+                "views/*.tpl",
+                "movies.ini",
+                "README.md",
+            ],
         },
         "py_modules": [],
         "install_requires": [

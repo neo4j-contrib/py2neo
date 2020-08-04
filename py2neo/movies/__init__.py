@@ -19,6 +19,8 @@
 from os import path
 from os.path import dirname
 
+from six.moves import input
+
 from py2neo.vendor.bottle import (
     get,
     post,
@@ -31,7 +33,7 @@ from py2neo.vendor.bottle import (
 
 from py2neo.client.config import ConnectionProfile
 from py2neo.ogm import Repository
-from py2neo.ogm.models import Movie, Person
+from py2neo.ogm.models.movies import Movie, Person
 
 
 HOME = dirname(__file__)
@@ -47,6 +49,17 @@ profile = ConnectionProfile.from_file(CONFIG, "Neo4j")
 
 # Set up a link to the local graph database.
 repo = Repository(profile)
+
+if repo.match(Movie).count() == 0:
+    print("No movie data found in repository %r" % repo)
+    answer = input("Would you like to automatically load the Neo4j movies data set [y/N]? ")
+    if answer and answer[0].upper() == "Y":
+        with open(path.join(HOME, "data", "movies.cypher")) as fin:
+            query = fin.read()
+        repo.graph.run(query)
+        print("Movie data loaded - %d movies available" % repo.match(Movie).count())
+    else:
+        exit(1)
 
 
 @get("/static/<filename>")
