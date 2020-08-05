@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from pytest import skip
+from pytest import skip, raises
 
 from py2neo import GraphService, Graph
 
@@ -70,3 +70,16 @@ def test_can_get_set_of_graphs_in_service(graph_service):
     graph_names = set(graph_service)
     assert (graph_names == set() or                 # Neo4j 3.x
             graph_names == {"neo4j", "system"})     # Neo4j 4.x+
+
+
+def test_valid_graph_name(graph_service):
+    graph_names = set(graph_service)
+    if "neo4j" in graph_names:
+        _ = graph_service["neo4j"]
+    else:
+        skip("Multi-database not available")
+
+
+def test_invalid_graph_name(graph_service):
+    with raises(KeyError):
+        _ = graph_service["x"]

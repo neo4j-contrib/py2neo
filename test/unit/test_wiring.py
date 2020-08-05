@@ -17,10 +17,11 @@
 
 
 from collections import deque
+from socket import AF_INET, AF_INET6
 
 from pytest import fixture, raises
 
-from py2neo.wiring import Wire
+from py2neo.wiring import Wire, Address
 
 
 class FakeSocket(object):
@@ -123,3 +124,17 @@ def test_byte_writer_close(fake_writer):
     writer.close()
     with raises(OSError):
         assert writer.send()
+
+
+def test_address_parse_ipv4():
+    parsed = Address.parse("127.0.0.1:7687")
+    assert parsed.family == AF_INET
+    assert parsed.host == "127.0.0.1"
+    assert parsed.port_number == 7687
+
+
+def test_address_parse_ipv6():
+    parsed = Address.parse("[::1]:7687")
+    assert parsed.family == AF_INET6
+    assert parsed.host == "::1"
+    assert parsed.port_number == 7687

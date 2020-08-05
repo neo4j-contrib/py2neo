@@ -72,3 +72,8 @@ def test_can_play_multi_chained_functions(graph):
         with raises(TypeError):
             graph.play(work, args=[3], after=(first, second))
         assert collected == [1, 2]
+
+
+def test_cannot_play_non_callable(graph):
+    with raises(TypeError):
+        graph.play(object())
