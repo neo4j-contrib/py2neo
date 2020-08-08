@@ -122,7 +122,7 @@ class Packer:
                 write(b"\xCB")
                 write(struct_pack(">q", value))
             else:
-                raise OverflowError("Integer %s out of range" % value)
+                raise ValueError("Integer %s out of range" % value)
 
         # String
         elif isinstance(value, string_types):
@@ -130,9 +130,9 @@ class Packer:
             self.pack_string_header(len(encoded))
             self.pack_raw(encoded)
 
-        # Bytes
+        # Byte array
         elif isinstance(value, bytes_types):
-            self.pack_bytes_header(len(value))
+            self.pack_byte_array_header(len(value))
             self.pack_raw(bytes(value))
 
         # List
@@ -156,7 +156,7 @@ class Packer:
         else:
             raise TypeError("Values of type %s are not supported" % type(value))
 
-    def pack_bytes_header(self, size):
+    def pack_byte_array_header(self, size):
         write = self._write
         if size < 0x100:
             write(b"\xCC")
@@ -168,7 +168,7 @@ class Packer:
             write(b"\xCE")
             write(struct_pack(">I", size))
         else:
-            raise OverflowError("Bytes header size out of range")
+            raise ValueError("Byte array too large")
 
     def pack_string_header(self, size):
         write = self._write
@@ -214,7 +214,7 @@ class Packer:
             write(b"\xD2")
             write(struct_pack(">I", size))
         else:
-            raise OverflowError("String header size out of range")
+            raise ValueError("String too large")
 
     def pack_list_header(self, size):
         write = self._write
@@ -260,10 +260,7 @@ class Packer:
             write(b"\xD6")
             write(struct_pack(">I", size))
         else:
-            raise OverflowError("List header size out of range")
-
-    def pack_list_stream_header(self):
-        self._write(b"\xD7")
+            raise ValueError("List too large")
 
     def pack_map_header(self, size):
         write = self._write
@@ -309,14 +306,9 @@ class Packer:
             write(b"\xDA")
             write(struct_pack(">I", size))
         else:
-            raise OverflowError("Map header size out of range")
+            raise ValueError("Map too large")
 
-    def pack_map_stream_header(self):
-        self._write(b"\xDB")
-
-    def pack_struct(self, signature, fields):
-        if len(signature) != 1 or not isinstance(signature, bytes):
-            raise ValueError("Structure signature must be a single byte value")
+    def pack_struct(self, tag, fields):
         write = self._write
         size = len(fields)
         if size == 0x00:
@@ -352,13 +344,10 @@ class Packer:
         elif size == 0x0F:
             write(b"\xBF")
         else:
-            raise OverflowError("Structure size out of range")
-        write(signature)
+            raise ValueError("Structure too large")
+        write(bytearray([tag]))
         for field in fields:
             self._pack(field)
-
-    def pack_end_of_stream(self):
-        self._write(b"\xDF")
 
 
 class UnpackStream(object):
@@ -598,13 +587,13 @@ def packed(*values):
 
 class MessageReader(object):
 
-    def __init__(self, rx):
-        self.rx = rx
+    def __init__(self, wire):
+        self.wire = wire
 
     def _read_chunk(self):
-        size, = struct_unpack(">H", self.rx.read(2))
+        size, = struct_unpack(">H", self.wire.read(2))
         if size:
-            return self.rx.read(size)
+            return self.wire.read(size)
         else:
             return b""
 
@@ -615,7 +604,7 @@ class MessageReader(object):
             chunk = self._read_chunk()
             if chunk:
                 chunks.append(chunk)
-            else:
+            elif chunks:
                 more = False
         try:
             message = b"".join(chunks)
@@ -631,13 +620,13 @@ class MessageReader(object):
 
 class MessageWriter(object):
 
-    def __init__(self, tx):
-        self._tx = tx
+    def __init__(self, wire):
+        self.wire = wire
 
     def _write_chunk(self, data):
         size = len(data)
-        self._tx.write(struct_pack(">H", size))
-        self._tx.write(data)
+        self.wire.write(struct_pack(">H", size))
+        self.wire.write(data)
 
     def write_message(self, tag, *fields):
         data = bytearray([0xB0 + len(fields), tag])
@@ -649,7 +638,7 @@ class MessageWriter(object):
         self._write_chunk(b"")
 
     def send(self):
-        return self._tx.send()
+        return self.wire.send()
 
 
 class PackStreamHydrant(Hydrant):
@@ -859,7 +848,7 @@ class PackStreamHydrant(Hydrant):
             :type value: Date
             :return:
             """
-            return Structure(b"D", value.toordinal() - unix_epoch_date.toordinal())
+            return Structure(ord(b"D"), value.toordinal() - unix_epoch_date.toordinal())
 
         def dehydrate_time(value):
             """ Dehydrator for `time` values.
@@ -876,9 +865,9 @@ class PackStreamHydrant(Hydrant):
             else:
                 raise TypeError("Value must be a neotime.Time or a datetime.time")
             if value.tzinfo:
-                return Structure(b"T", nanoseconds, value.tzinfo.utcoffset(value).seconds)
+                return Structure(ord(b"T"), nanoseconds, value.tzinfo.utcoffset(value).seconds)
             else:
-                return Structure(b"t", nanoseconds)
+                return Structure(ord(b"t"), nanoseconds)
 
         def dehydrate_datetime(value):
             """ Dehydrator for `datetime` values.
@@ -900,15 +889,15 @@ class PackStreamHydrant(Hydrant):
                 # without time zone
                 value = utc.localize(value)
                 seconds, nanoseconds = seconds_and_nanoseconds(value)
-                return Structure(b"d", seconds, nanoseconds)
+                return Structure(ord(b"d"), seconds, nanoseconds)
             elif hasattr(tz, "zone") and tz.zone:
                 # with named time zone
                 seconds, nanoseconds = seconds_and_nanoseconds(value)
-                return Structure(b"f", seconds, nanoseconds, tz.zone)
+                return Structure(ord(b"f"), seconds, nanoseconds, tz.zone)
             else:
                 # with time offset
                 seconds, nanoseconds = seconds_and_nanoseconds(value)
-                return Structure(b"F", seconds, nanoseconds, tz.utcoffset(value).seconds)
+                return Structure(ord(b"F"), seconds, nanoseconds, tz.utcoffset(value).seconds)
 
         def dehydrate_duration(value):
             """ Dehydrator for `duration` values.
@@ -917,7 +906,7 @@ class PackStreamHydrant(Hydrant):
             :type value: Duration
             :return:
             """
-            return Structure(b"E", value.months, value.days, value.seconds, int(1000000000 * value.subseconds))
+            return Structure(ord(b"E"), value.months, value.days, value.seconds, int(1000000000 * value.subseconds))
 
         def dehydrate_timedelta(value):
             """ Dehydrator for `timedelta` values.
@@ -930,7 +919,7 @@ class PackStreamHydrant(Hydrant):
             days = value.days
             seconds = value.seconds
             nanoseconds = 1000 * value.microseconds
-            return Structure(b"E", months, days, seconds, nanoseconds)
+            return Structure(ord(b"E"), months, days, seconds, nanoseconds)
 
         def dehydrate_point(value):
             """ Dehydrator for Point data.
@@ -941,9 +930,9 @@ class PackStreamHydrant(Hydrant):
             """
             dim = len(value)
             if dim == 2:
-                return Structure(b"X", value.srid, *value)
+                return Structure(ord(b"X"), value.srid, *value)
             elif dim == 3:
-                return Structure(b"Y", value.srid, *value)
+                return Structure(ord(b"Y"), value.srid, *value)
             else:
                 raise ValueError("Cannot dehydrate Point with %d dimensions" % dim)
 

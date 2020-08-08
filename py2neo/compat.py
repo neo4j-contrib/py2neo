@@ -81,17 +81,12 @@ if version_info >= (3,):
     def bstr(s, encoding="utf-8"):
         """ Convert a value to a byte string, held in a Python `bytearray` object.
         """
-        if isinstance(s, bytearray):
-            return s
+        if isinstance(s, str):
+            return s.encode(encoding=encoding)
         elif isinstance(s, bytes):
-            return bytearray(s)
-        elif isinstance(s, str):
-            return bytearray(s.encode(encoding=encoding))
+            return s
         else:
-            try:
-                return bytearray(s.__bytes__())
-            except AttributeError:
-                return bytearray(str(s).encode(encoding=encoding))
+            raise ValueError(s)
 
     def ustr(s, encoding="utf-8"):
         """ Convert a value to a Unicode string, held in a Python `str` object.
@@ -147,17 +142,12 @@ else:
     def bstr(s, encoding="utf-8"):
         """ Convert a value to byte string, held in a Python `bytearray` object.
         """
-        if isinstance(s, bytearray):
+        if isinstance(s, str):
             return s
-        elif isinstance(s, bytes):
-            return bytearray(s)
         elif isinstance(s, unicode):
-            return bytearray(s.encode(encoding=encoding))
+            return s.encode(encoding=encoding)
         else:
-            try:
-                return bytearray(s.__bytes__())
-            except AttributeError:
-                return bytearray(unicode(s).encode(encoding=encoding))
+            raise ValueError(s)
 
     def ustr(s, encoding="utf-8"):
         """ Convert a value to a Unicode string, held in a Python `unicode` object.
