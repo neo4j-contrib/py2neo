@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright (c) 2002-2020 "Neo4j,"
-# Neo4j Sweden AB [http://neo4j.com]
-#
-# This file is part of Neo4j.
+# Copyright 2011-2020, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
