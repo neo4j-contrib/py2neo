@@ -18,15 +18,17 @@
 
 import random
 from collections import OrderedDict
+from io import BytesIO
 from math import isnan
 from struct import pack_into
 
 from pytest import raises
 
-from py2neo.client.packstream import packed, UnpackStream, Structure
+from py2neo.client.packstream import UnpackStream, Structure, pack
+from py2neo.compat import unicode_types
 
 
-class FakeString(str):
+class FakeString(unicode_types[0]):
 
     def __init__(self, size):
         super(FakeString, self).__init__()
@@ -77,7 +79,9 @@ class FakeDict(OrderedDict):
 
 
 def pack_and_unpack(value):
-    b = packed(value)
+    buffer = BytesIO()
+    pack(buffer, value)
+    b = buffer.getvalue()
     unpacked = UnpackStream(b).unpack()
     return b, unpacked
 
@@ -366,3 +370,14 @@ def test_extra_large_struct():
     s = Structure(0x7F, *fields)
     with raises(ValueError):
         pack_and_unpack(s)
+
+
+def test_packing_unknown_type():
+    buffer = BytesIO()
+    with raises(TypeError):
+        pack(buffer, object())
+
+
+def test_unpacking_unknown_marker():
+    with raises(ValueError):
+        UnpackStream(b"\xDF").unpack()

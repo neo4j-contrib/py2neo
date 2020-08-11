@@ -23,6 +23,7 @@ from __future__ import division
 
 from codecs import decode
 from collections import namedtuple
+from io import BytesIO
 from struct import pack as struct_pack, unpack as struct_unpack
 
 from py2neo.client import Hydrant
@@ -42,9 +43,6 @@ UNPACKED_MARKERS.update({bytes(bytearray([z + 256])): z for z in range(-0x10, 0x
 
 INT64_MIN = -(2 ** 63)
 INT64_MAX = 2 ** 63
-
-
-EndOfStream = object()
 
 
 class Structure:
@@ -75,279 +73,97 @@ class Structure:
         self.fields[key] = value
 
 
-class Packer:
+def pack(buffer, *values):
+    """ Pack values into a buffer.
 
-    def __init__(self, stream):
-        self.stream = stream
-        self._write = self.stream.write
+    :param buffer:
+    :param values:
+    :return:
+    """
+    write_bytes = buffer.write
 
-    def pack_raw(self, data):
-        self._write(data)
+    def write_header(size, tiny, small=None, medium=None, large=None):
+        if 0x0 <= size <= 0xF and tiny is not None:
+            write_bytes(bytearray([tiny + size]))
+        elif size < 0x100 and small is not None:
+            write_bytes(bytearray([small]))
+            write_bytes(PACKED_UINT_8[size])
+        elif size < 0x10000 and medium is not None:
+            write_bytes(bytearray([medium]))
+            write_bytes(PACKED_UINT_16[size])
+        elif size < 0x100000000 and large is not None:
+            write_bytes(bytearray([large]))
+            write_bytes(struct_pack(">I", size))
+        else:
+            raise ValueError("Collection too large")
 
-    def pack(self, value):
-        return self._pack(value)
-
-    def _pack(self, value):
-        write = self._write
+    for value in values:
 
         # None
         if value is None:
-            write(b"\xC0")  # NULL
+            write_bytes(b"\xC0")  # NULL
 
         # Boolean
         elif value is True:
-            write(b"\xC3")
+            write_bytes(b"\xC3")
         elif value is False:
-            write(b"\xC2")
+            write_bytes(b"\xC2")
 
         # Float (only double precision is supported)
         elif isinstance(value, float):
-            write(b"\xC1")
-            write(struct_pack(">d", value))
+            write_bytes(b"\xC1")
+            write_bytes(struct_pack(">d", value))
 
         # Integer
         elif isinstance(value, integer_types):
             if -0x10 <= value < 0x80:
-                write(PACKED_UINT_8[value % 0x100])
+                write_bytes(PACKED_UINT_8[value % 0x100])
             elif -0x80 <= value < -0x10:
-                write(b"\xC8")
-                write(PACKED_UINT_8[value % 0x100])
+                write_bytes(b"\xC8")
+                write_bytes(PACKED_UINT_8[value % 0x100])
             elif -0x8000 <= value < 0x8000:
-                write(b"\xC9")
-                write(PACKED_UINT_16[value % 0x10000])
+                write_bytes(b"\xC9")
+                write_bytes(PACKED_UINT_16[value % 0x10000])
             elif -0x80000000 <= value < 0x80000000:
-                write(b"\xCA")
-                write(struct_pack(">i", value))
+                write_bytes(b"\xCA")
+                write_bytes(struct_pack(">i", value))
             elif INT64_MIN <= value < INT64_MAX:
-                write(b"\xCB")
-                write(struct_pack(">q", value))
+                write_bytes(b"\xCB")
+                write_bytes(struct_pack(">q", value))
             else:
                 raise ValueError("Integer %s out of range" % value)
 
         # String
         elif isinstance(value, string_types):
             encoded = bstr(value)
-            self.pack_string_header(len(encoded))
-            self.pack_raw(encoded)
+            write_header(len(encoded), 0x80, 0xD0, 0xD1, 0xD2)
+            write_bytes(encoded)
 
         # Byte array
         elif isinstance(value, bytes_types):
-            self.pack_byte_array_header(len(value))
-            self.pack_raw(bytes(value))
+            write_header(len(value), None, 0xCC, 0xCD, 0xCE)
+            write_bytes(bytes(value))
 
         # List
         elif isinstance(value, list):
-            self.pack_list_header(len(value))
-            for item in value:
-                self._pack(item)
+            write_header(len(value), 0x90, 0xD4, 0xD5, 0xD6)
+            pack(buffer, *value)
 
         # Map
         elif isinstance(value, dict):
-            self.pack_map_header(len(value))
+            write_header(len(value), 0xA0, 0xD8, 0xD9, 0xDA)
             for key, item in value.items():
-                self._pack(key)
-                self._pack(item)
+                pack(buffer, key, item)
 
         # Structure
         elif isinstance(value, Structure):
-            self.pack_struct(value.tag, value.fields)
+            write_header(len(value), 0xB0, None, None, None)
+            write_bytes(bytearray([value.tag]))
+            pack(buffer, *value.fields)
 
         # Other
         else:
             raise TypeError("Values of type %s are not supported" % type(value))
-
-    def pack_byte_array_header(self, size):
-        write = self._write
-        if size < 0x100:
-            write(b"\xCC")
-            write(PACKED_UINT_8[size])
-        elif size < 0x10000:
-            write(b"\xCD")
-            write(PACKED_UINT_16[size])
-        elif size < 0x100000000:
-            write(b"\xCE")
-            write(struct_pack(">I", size))
-        else:
-            raise ValueError("Byte array too large")
-
-    def pack_string_header(self, size):
-        write = self._write
-        if size == 0x00:
-            write(b"\x80")
-        elif size == 0x01:
-            write(b"\x81")
-        elif size == 0x02:
-            write(b"\x82")
-        elif size == 0x03:
-            write(b"\x83")
-        elif size == 0x04:
-            write(b"\x84")
-        elif size == 0x05:
-            write(b"\x85")
-        elif size == 0x06:
-            write(b"\x86")
-        elif size == 0x07:
-            write(b"\x87")
-        elif size == 0x08:
-            write(b"\x88")
-        elif size == 0x09:
-            write(b"\x89")
-        elif size == 0x0A:
-            write(b"\x8A")
-        elif size == 0x0B:
-            write(b"\x8B")
-        elif size == 0x0C:
-            write(b"\x8C")
-        elif size == 0x0D:
-            write(b"\x8D")
-        elif size == 0x0E:
-            write(b"\x8E")
-        elif size == 0x0F:
-            write(b"\x8F")
-        elif size < 0x100:
-            write(b"\xD0")
-            write(PACKED_UINT_8[size])
-        elif size < 0x10000:
-            write(b"\xD1")
-            write(PACKED_UINT_16[size])
-        elif size < 0x100000000:
-            write(b"\xD2")
-            write(struct_pack(">I", size))
-        else:
-            raise ValueError("String too large")
-
-    def pack_list_header(self, size):
-        write = self._write
-        if size == 0x00:
-            write(b"\x90")
-        elif size == 0x01:
-            write(b"\x91")
-        elif size == 0x02:
-            write(b"\x92")
-        elif size == 0x03:
-            write(b"\x93")
-        elif size == 0x04:
-            write(b"\x94")
-        elif size == 0x05:
-            write(b"\x95")
-        elif size == 0x06:
-            write(b"\x96")
-        elif size == 0x07:
-            write(b"\x97")
-        elif size == 0x08:
-            write(b"\x98")
-        elif size == 0x09:
-            write(b"\x99")
-        elif size == 0x0A:
-            write(b"\x9A")
-        elif size == 0x0B:
-            write(b"\x9B")
-        elif size == 0x0C:
-            write(b"\x9C")
-        elif size == 0x0D:
-            write(b"\x9D")
-        elif size == 0x0E:
-            write(b"\x9E")
-        elif size == 0x0F:
-            write(b"\x9F")
-        elif size < 0x100:
-            write(b"\xD4")
-            write(PACKED_UINT_8[size])
-        elif size < 0x10000:
-            write(b"\xD5")
-            write(PACKED_UINT_16[size])
-        elif size < 0x100000000:
-            write(b"\xD6")
-            write(struct_pack(">I", size))
-        else:
-            raise ValueError("List too large")
-
-    def pack_map_header(self, size):
-        write = self._write
-        if size == 0x00:
-            write(b"\xA0")
-        elif size == 0x01:
-            write(b"\xA1")
-        elif size == 0x02:
-            write(b"\xA2")
-        elif size == 0x03:
-            write(b"\xA3")
-        elif size == 0x04:
-            write(b"\xA4")
-        elif size == 0x05:
-            write(b"\xA5")
-        elif size == 0x06:
-            write(b"\xA6")
-        elif size == 0x07:
-            write(b"\xA7")
-        elif size == 0x08:
-            write(b"\xA8")
-        elif size == 0x09:
-            write(b"\xA9")
-        elif size == 0x0A:
-            write(b"\xAA")
-        elif size == 0x0B:
-            write(b"\xAB")
-        elif size == 0x0C:
-            write(b"\xAC")
-        elif size == 0x0D:
-            write(b"\xAD")
-        elif size == 0x0E:
-            write(b"\xAE")
-        elif size == 0x0F:
-            write(b"\xAF")
-        elif size < 0x100:
-            write(b"\xD8")
-            write(PACKED_UINT_8[size])
-        elif size < 0x10000:
-            write(b"\xD9")
-            write(PACKED_UINT_16[size])
-        elif size < 0x100000000:
-            write(b"\xDA")
-            write(struct_pack(">I", size))
-        else:
-            raise ValueError("Map too large")
-
-    def pack_struct(self, tag, fields):
-        write = self._write
-        size = len(fields)
-        if size == 0x00:
-            write(b"\xB0")
-        elif size == 0x01:
-            write(b"\xB1")
-        elif size == 0x02:
-            write(b"\xB2")
-        elif size == 0x03:
-            write(b"\xB3")
-        elif size == 0x04:
-            write(b"\xB4")
-        elif size == 0x05:
-            write(b"\xB5")
-        elif size == 0x06:
-            write(b"\xB6")
-        elif size == 0x07:
-            write(b"\xB7")
-        elif size == 0x08:
-            write(b"\xB8")
-        elif size == 0x09:
-            write(b"\xB9")
-        elif size == 0x0A:
-            write(b"\xBA")
-        elif size == 0x0B:
-            write(b"\xBB")
-        elif size == 0x0C:
-            write(b"\xBC")
-        elif size == 0x0D:
-            write(b"\xBD")
-        elif size == 0x0E:
-            write(b"\xBE")
-        elif size == 0x0F:
-            write(b"\xBF")
-        else:
-            raise ValueError("Structure too large")
-        write(bytearray([tag]))
-        for field in fields:
-            self._pack(field)
 
 
 class UnpackStream(object):
@@ -434,9 +250,6 @@ class UnpackStream(object):
                     value[i] = self.unpack()
                 return value
 
-            elif marker == 0xDF:  # END_OF_STREAM:
-                return EndOfStream
-
             else:
                 raise ValueError("Unknown PackStream marker %02X" % marker)
 
@@ -463,12 +276,6 @@ class UnpackStream(object):
             size = self._read_u32be()
             for _ in range(size):
                 yield self.unpack()
-        elif marker == 0xD7:  # LIST_STREAM:
-            item = None
-            while item is not EndOfStream:
-                item = self.unpack()
-                if item is not EndOfStream:
-                    yield item
         else:
             return
 
@@ -501,14 +308,6 @@ class UnpackStream(object):
             for _ in range(size):
                 key = self.unpack()
                 value[key] = self.unpack()
-            return value
-        elif marker == 0xDB:  # MAP_STREAM:
-            value = {}
-            key = None
-            while key is not EndOfStream:
-                key = self.unpack()
-                if key is not EndOfStream:
-                    value[key] = self.unpack()
             return value
         else:
             return None
@@ -576,15 +375,6 @@ class UnpackStream(object):
         return r
 
 
-def packed(*values):
-    from io import BytesIO
-    b = BytesIO()
-    packer = Packer(b)
-    for value in values:
-        packer.pack(value)
-    return b.getvalue()
-
-
 class MessageReader(object):
 
     def __init__(self, wire):
@@ -627,15 +417,15 @@ class MessageWriter(object):
         size = len(data)
         self.wire.write(struct_pack(">H", size))
         self.wire.write(data)
+        return size
 
     def write_message(self, tag, *fields):
-        data = bytearray([0xB0 + len(fields), tag])
-        for field in fields:
-            data.extend(packed(field))
-        for offset in range(0, len(data), 32767):
-            end = offset + 32767
-            self._write_chunk(data[offset:end])
-        self._write_chunk(b"")
+        buffer = BytesIO()
+        buffer.write(bytearray([0xB0 + len(fields), tag]))
+        pack(buffer, *fields)
+        buffer.seek(0)
+        while self._write_chunk(buffer.read(0x7FFF)):
+            pass
 
     def send(self):
         return self.wire.send()
