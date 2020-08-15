@@ -39,7 +39,7 @@ from py2neo import __version__
 from py2neo.client import ConnectionProfile, Failure
 from py2neo.cypher.lexer import CypherLexer
 from py2neo.database import Graph
-from py2neo.database.work import Table, GraphError
+from py2neo.database.work import Table, Neo4jError
 
 
 EDITOR = environ.get("EDITOR", "vim")
@@ -127,7 +127,7 @@ class ClientConsole(Console):
 
         self.profile = ConnectionProfile(profile, **settings)
         try:
-            self.graph = Graph(self.profile)
+            self.graph = Graph(self.profile)    # TODO: use Connector instead
         except OSError as error:
             self.critical("Could not connect to <%s> (%s)", self.profile.uri, " ".join(map(str, error.args)))
             raise
@@ -186,7 +186,11 @@ class ClientConsole(Console):
                 self.run_command(line)
             else:
                 self.run_source(line)
-        except (GraphError, Failure) as error:
+        except (Neo4jError, Failure) as error:
+            # TODO: once this class wraps a Connector instead of a
+            #   Graph and the errors raised by that class are only
+            #   Failures and not Neo4jErrors, this only needs to
+            #   catch Failure.
             if hasattr(error, "title") and hasattr(error, "message"):
                 self.error("%s: %s", error.title, error.message)
             else:

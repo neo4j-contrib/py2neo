@@ -142,7 +142,7 @@ class HTTP(Connection):
                             "named graphs".format(self.neo4j_version))
         r = self._post(HTTPTransaction.autocommit_uri(graph_name), cypher, parameters)
         assert r.status == 200  # TODO: other codes
-        rs = HTTPResponse.from_json(r.data.decode("utf-8"))
+        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
         self.release()
         rs.audit()
         return HTTPResult(graph_name, rs.result())
@@ -162,7 +162,7 @@ class HTTP(Connection):
         r = self._post(HTTPTransaction.begin_uri(graph_name))
         if r.status != 201:
             raise RuntimeError("Can't begin a new transaction")  # TODO: better error
-        rs = HTTPResponse.from_json(r.data.decode("utf-8"))
+        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
         location_path = urlsplit(r.headers["Location"]).path
         tx = HTTPTransaction(graph_name, location_path.rpartition("/")[-1])
         self._transactions.add(tx)
@@ -175,7 +175,7 @@ class HTTP(Connection):
         self._transactions.remove(tx)
         r = self._post(tx.commit_uri())
         assert r.status == 200  # TODO: other codes
-        rs = HTTPResponse.from_json(r.data.decode("utf-8"))
+        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
         self.release()
         rs.audit(tx)
         return Bookmark()
@@ -185,7 +185,7 @@ class HTTP(Connection):
         self._transactions.remove(tx)
         r = self._delete(tx.uri())
         assert r.status == 200  # TODO: other codes
-        rs = HTTPResponse.from_json(r.data.decode("utf-8"))
+        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
         self.release()
         rs.audit(tx)
         return Bookmark()
@@ -193,7 +193,7 @@ class HTTP(Connection):
     def run_in_tx(self, tx, cypher, parameters=None):
         r = self._post(tx.uri(), cypher, parameters)
         assert r.status == 200  # TODO: other codes
-        rs = HTTPResponse.from_json(r.data.decode("utf-8"))
+        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
         self.release()
         rs.audit(tx)
         return HTTPResult(tx.graph_name, rs.result(), profile=self.profile)
@@ -329,11 +329,16 @@ class HTTPResult(Result):
 class HTTPResponse(object):
 
     @classmethod
-    def from_json(cls, data):
-        return cls(json_loads(data, object_hook=JSONHydrant.json_to_packstream))
+    def from_json(cls, status, data):
+        return cls(status, json_loads(data, object_hook=JSONHydrant.json_to_packstream))
 
-    def __init__(self, content):
+    def __init__(self, status, content):
+        self._status = status
         self._content = content
+
+    @property
+    def status(self):
+        return self._status
 
     def columns(self):
         return tuple(self._content.get("columns", ()))
@@ -357,8 +362,11 @@ class HTTPResponse(object):
 
     def audit(self, tx=None):
         if self.errors():
-            from py2neo.database.work import GraphError
-            failure = GraphError.hydrate(self.errors().pop(0))
+            # FIXME: This currently clumsily breaks through abstraction
+            #   layers. This should create a Failure instead of a
+            #   Neo4jError. See also BoltResponse.set_failure
+            from py2neo.database.work import Neo4jError
+            failure = Neo4jError.hydrate(self.errors().pop(0))
             if tx is not None:
                 tx.failure = failure
             raise failure

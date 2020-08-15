@@ -18,7 +18,7 @@
 
 from pytest import raises, skip
 
-from py2neo import ClientError, TransactionFinished
+from py2neo import ClientError
 
 
 def test_can_generate_transaction_error(graph):
@@ -27,7 +27,7 @@ def test_can_generate_transaction_error(graph):
         tx.run("X")
     assert e.value.code == "Neo.ClientError.Statement.SyntaxError"
     assert tx.finished()
-    with raises(TransactionFinished):
+    with raises(TypeError):
         tx.commit()
 
 
@@ -47,5 +47,5 @@ def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(g
     if e.value.code == "Neo.ClientError.Statement.SyntaxError":
         skip("CREATE UNIQUE is not supported on this version of Neo4j")
     assert e.value.code == "Neo.ClientError.Statement.ConstraintVerificationFailed"
-    with raises(TransactionFinished):
+    with raises(TypeError):
         tx.commit()
