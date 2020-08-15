@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from pytest import raises
+
 from py2neo import Node
 
 
@@ -97,9 +99,5 @@ def test_can_rollback_transaction(graph):
 def test_cannot_append_after_transaction_finished(graph):
     tx = graph.begin()
     tx.rollback()
-    try:
+    with raises(TypeError):
         tx.run("CREATE (a) RETURN a")
-    except TypeError as error:
-        assert error.args[0] is tx
-    else:
-        assert False
