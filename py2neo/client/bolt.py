@@ -754,9 +754,11 @@ class BoltResponse(Task):
 
     def set_failure(self, **metadata):
         self._status = 2
-        # TODO: tidy up where these errors live
-        from py2neo.database.work import GraphError
-        self._failure = GraphError.hydrate(metadata)
+        # FIXME: This currently clumsily breaks through abstraction
+        #   layers. This should create a Failure instead of a
+        #   Neo4jError. See also HTTPResponse.audit
+        from py2neo.database.work import Neo4jError
+        self._failure = Neo4jError.hydrate(metadata)
 
     def set_ignored(self):
         self._status = 3

@@ -5,19 +5,10 @@
 .. automodule:: py2neo.database.work
 
 
-Transactions
-============
-
 ``Transaction`` objects
------------------------
+=======================
 
 .. autoclass:: Transaction(autocommit=False)
-   :members:
-
-``TransactionFinished`` exceptions
-----------------------------------
-
-.. autoexception:: TransactionFinished
    :members:
 
 

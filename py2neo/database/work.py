@@ -80,9 +80,9 @@ class Transaction(object):
         else:
             self.rollback()
 
-    def _assert_unfinished(self):
+    def _assert_unfinished(self, message):
         if self._finished:
-            raise TransactionFinished(self)
+            raise TypeError(message)
 
     @property
     def graph(self):
@@ -99,14 +99,14 @@ class Transaction(object):
         return self._finished
 
     def run(self, cypher, parameters=None, **kwparameters):
-        """ Send a Cypher statement to the server for execution and return
+        """ Send a Cypher query to the server for execution and return
         a :py:class:`.Cursor` for navigating its result.
 
-        :param cypher: Cypher statement
+        :param cypher: Cypher query
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
-        self._assert_unfinished()
+        self._assert_unfinished("Cannot run query in finished transaction")
         try:
             entities = self._entities.popleft()
         except IndexError:
@@ -125,13 +125,13 @@ class Transaction(object):
                 self.finish()
 
     def finish(self):
-        self._assert_unfinished()
+        self._assert_unfinished("Transaction already finished")
         self._finished = True
 
     def commit(self):
         """ Commit the transaction.
         """
-        self._assert_unfinished()
+        self._assert_unfinished("Cannot commit finished transaction")
         try:
             return self._connector.commit(self._transaction)
         finally:
@@ -140,7 +140,7 @@ class Transaction(object):
     def rollback(self):
         """ Roll back the current transaction, undoing all actions previously taken.
         """
-        self._assert_unfinished()
+        self._assert_unfinished("Cannot rollback finished transaction")
         try:
             return self._connector.rollback(self._transaction)
         finally:
@@ -1257,36 +1257,27 @@ class CypherPlan(Mapping):
         return ["operator_type", "identifiers", "children", "args"]
 
 
-# TODO: refactor out this base class
-class GraphError(Exception):
-    """
+class Neo4jError(Exception):
+    """ Base exception for all errors signalled by Neo4j.
     """
 
-    __cause__ = None
-
-    http_status_code = None
     code = None
     message = None
 
     @classmethod
     def hydrate(cls, data):
-        from english.casing import Words
         code = data["code"]
         message = data["message"]
         _, classification, category, title = code.split(".")
         if classification == "ClientError":
-            try:
-                error_cls = ClientError.get_mapped_class(code)
-            except KeyError:
-                error_cls = ClientError
-                message = "%s: %s" % (Words(title).camel(upper_first=True), message)
+            error_cls = ClientError
         elif classification == "DatabaseError":
             error_cls = DatabaseError
         elif classification == "TransientError":
             error_cls = TransientError
         else:
             error_cls = cls
-        inst = error_cls(message)
+        inst = error_cls("[%s.%s] %s" % (category, title, message))
         inst.classification = classification
         inst.category = category
         inst.title = title
@@ -1308,58 +1299,17 @@ class GraphError(Exception):
             setattr(self, key.lower(), value)
 
 
-class ClientError(GraphError):
+class ClientError(Neo4jError):
     """ The Client sent a bad request - changing the request might yield a successful outcome.
     """
 
-    @classmethod
-    def get_mapped_class(cls, status):
-        # TODO: mappings to error subclasses:
-        #     {
-        #         #
-        #         # ConstraintError
-        #         "Neo.ClientError.Schema.ConstraintValidationFailed": ConstraintError,
-        #         "Neo.ClientError.Schema.ConstraintViolation": ConstraintError,
-        #         "Neo.ClientError.Statement.ConstraintVerificationFailed": ConstraintError,
-        #         "Neo.ClientError.Statement.ConstraintViolation": ConstraintError,
-        #         #
-        #         # CypherSyntaxError
-        #         "Neo.ClientError.Statement.InvalidSyntax": CypherSyntaxError,
-        #         "Neo.ClientError.Statement.SyntaxError": CypherSyntaxError,
-        #         #
-        #         # CypherTypeError
-        #         "Neo.ClientError.Procedure.TypeError": CypherTypeError,
-        #         "Neo.ClientError.Statement.InvalidType": CypherTypeError,
-        #         "Neo.ClientError.Statement.TypeError": CypherTypeError,
-        #         #
-        #         # Forbidden
-        #         "Neo.ClientError.General.ForbiddenOnReadOnlyDatabase": Forbidden,
-        #         "Neo.ClientError.General.ReadOnly": Forbidden,
-        #         "Neo.ClientError.Schema.ForbiddenOnConstraintIndex": Forbidden,
-        #         "Neo.ClientError.Schema.IndexBelongsToConstrain": Forbidden,
-        #         "Neo.ClientError.Security.Forbidden": Forbidden,
-        #         "Neo.ClientError.Transaction.ForbiddenDueToTransactionType": Forbidden,
-        #         #
-        #         # Unauthorized
-        #         "Neo.ClientError.Security.AuthorizationFailed": AuthError,
-        #         "Neo.ClientError.Security.Unauthorized": AuthError,
-        #         #
-        #     }
-        raise KeyError(status)
 
-
-class DatabaseError(GraphError):
+class DatabaseError(Neo4jError):
     """ The database failed to service the request.
     """
 
 
-class TransientError(GraphError):
+class TransientError(Neo4jError):
     """ The database cannot service the request right now, retrying
     later might yield a successful outcome.
-    """
-
-
-class TransactionFinished(GraphError):
-    """ Raised when actions are attempted against a
-    :class:`~py2neo.database.work.Transaction` that is no longer available for use.
     """
