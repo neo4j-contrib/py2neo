@@ -572,7 +572,9 @@ class ModelMatcher(NodeMatcher):
     def match(self, primary_value=None):
         cls = self._object_class
         if cls.__primarykey__ == "__id__":
-            match = NodeMatcher.match(self, cls.__primarylabel__).where("id(_) = %d" % primary_value)
+            match = NodeMatcher.match(self, cls.__primarylabel__)
+            if primary_value is not None:
+                match = match.where("id(_) = %d" % primary_value)
         elif primary_value is None:
             match = NodeMatcher.match(self, cls.__primarylabel__)
         else:

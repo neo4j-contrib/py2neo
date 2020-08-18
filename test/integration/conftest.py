@@ -194,6 +194,13 @@ def graph(uri):
 
 
 @fixture(scope="function")
+def repo(graph):
+    graph.delete_all()
+    yield Repository.wrap(graph)
+    graph.delete_all()
+
+
+@fixture(scope="function")
 def movie_graph(graph):
     graph.delete_all()
     with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:

@@ -44,6 +44,13 @@ def test_simple_push(graph):
     assert thing.__node__.identity is not None
 
 
+def test_simple_match_with_no_id(repo):
+    repo.save(SimpleThing())
+    thing = repo.match(SimpleThing).first()
+    assert thing.__node__.graph is repo.graph
+    assert thing.__node__.identity is not None
+
+
 class A(Model):
 
     b = RelatedTo("B")
