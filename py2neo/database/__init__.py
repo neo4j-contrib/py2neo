@@ -628,15 +628,6 @@ class Graph(object):
         object as its first argument. Additional arguments can be
         passed though the `args` and `kwargs` arguments of this method.
 
-        If the function has a `readonly` attribute, and this is set to
-        a truthy value, then it will be executed in a read-only
-        environment, if possible.
-
-        If the function has a `timeout` attribute, and no `timeout`
-        argument is passed to this method call, then the value of the
-        function attribute will be used instead for setting the
-        timeout.
-
         :param work: function containing the unit of work
         :param args: sequence of additional positional arguments to
             pass into the function
