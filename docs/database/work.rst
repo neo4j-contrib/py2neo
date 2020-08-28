@@ -59,7 +59,7 @@ Query result summaries
 Errors
 ======
 
-.. autoclass:: GraphError
+.. autoclass:: Neo4jError
    :members:
 
 ``ClientError`` exceptions

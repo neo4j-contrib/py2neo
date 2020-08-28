@@ -186,15 +186,15 @@ class Wire(object):
                 received = self.__socket.recv(requested)
             except (IOError, OSError):
                 self.__broken = True
-                raise WireError("Broken")
+                raise BrokenWireError("Broken")
             else:
                 if received:
                     self.__input.extend(received)
                 else:
                     self.__broken = True
-                    raise WireError("Network read incomplete "
-                                    "(received %d of %d bytes)" %
-                                    (len(self.__input), n))
+                    raise BrokenWireError("Network read incomplete "
+                                          "(received %d of %d bytes)" %
+                                          (len(self.__input), n))
         data = self.__input[:n]
         self.__input[:n] = []
         return data
@@ -215,7 +215,7 @@ class Wire(object):
                 n = self.__socket.send(self.__output)
             except (IOError, OSError):
                 self.__broken = True
-                raise WireError("Broken")
+                raise BrokenWireError("Broken")
             else:
                 self.__output[:n] = []
                 sent += n
@@ -229,7 +229,7 @@ class Wire(object):
             self.__socket.close()
         except (IOError, OSError):
             self.__broken = True
-            raise WireError("Broken")
+            raise BrokenWireError("Broken")
         else:
             self.__closed = True
 
@@ -262,4 +262,7 @@ class WireError(OSError):
     """ Raised when a connection error occurs.
     """
 
-    pass
+
+class BrokenWireError(WireError):
+    """ Raised when a connection is broken by the network or remote peer.
+    """

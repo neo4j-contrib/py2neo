@@ -52,11 +52,12 @@ from itertools import islice
 from logging import getLogger
 
 from packaging.version import Version
+from six import raise_from
 
-from py2neo.client import Connection, Transaction, Result, Failure, Bookmark
+from py2neo.client import Connection, Transaction, Result, Failure, Bookmark, BrokenTransactionError
 from py2neo.client.config import bolt_user_agent
 from py2neo.client.packstream import MessageReader, MessageWriter, PackStreamHydrant
-from py2neo.wiring import Wire
+from py2neo.wiring import Wire, BrokenWireError
 
 
 log = getLogger(__name__)
@@ -263,12 +264,17 @@ class Bolt1(Bolt):
         self._transaction.set_complete()
         log.debug("[#%04X] C: RUN 'COMMIT' {}", self.local_port)
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
-        self._sync(self._write_request(0x10, "COMMIT", {}),
-                   self._write_request(0x2F))
-        self._audit(self._transaction)
-        if callable(self._on_unbind):
-            self._on_unbind(self._transaction)
-        return Bookmark()
+        try:
+            self._sync(self._write_request(0x10, "COMMIT", {}),
+                       self._write_request(0x2F))
+        except BrokenWireError as error:
+            raise_from(BrokenTransactionError("Transaction broken by disconnection "
+                                              "during commit"), error)
+        else:
+            self._audit(self._transaction)
+            if callable(self._on_unbind):
+                self._on_unbind(self._transaction)
+            return Bookmark()
 
     def rollback(self, tx):
         self._assert_open()
@@ -276,12 +282,17 @@ class Bolt1(Bolt):
         self._transaction.set_complete()
         log.debug("[#%04X] C: RUN 'ROLLBACK' {}", self.local_port)
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
-        self._sync(self._write_request(0x10, "ROLLBACK", {}),
-                   self._write_request(0x2F))
-        self._audit(self._transaction)
-        if callable(self._on_unbind):
-            self._on_unbind(self._transaction)
-        return Bookmark()
+        try:
+            self._sync(self._write_request(0x10, "ROLLBACK", {}),
+                       self._write_request(0x2F))
+        except BrokenWireError as error:
+            raise_from(BrokenTransactionError("Transaction broken by disconnection "
+                                              "during rollback"), error)
+        else:
+            self._audit(self._transaction)
+            if callable(self._on_unbind):
+                self._on_unbind(self._transaction)
+            return Bookmark()
 
     def run_in_tx(self, tx, cypher, parameters=None):
         self._assert_open()
@@ -669,10 +680,18 @@ class BoltResult(ItemizedTask, Result):
 
     def buffer(self):
         if not self.done():
-            self.__cx.sync(self)
+            try:
+                self.__cx.sync(self)
+            except BrokenWireError as error:
+                raise_from(BrokenTransactionError("Transaction broken by disconnection "
+                                                  "while buffering query result"), error)
 
     def header(self):
-        self.__cx.sync(self)
+        try:
+            self.__cx.sync(self)
+        except BrokenWireError as error:
+            raise_from(BrokenTransactionError("Transaction broken by disconnection "
+                                              "while buffering query result"), error)
         return self._items[0]
 
     def fields(self):

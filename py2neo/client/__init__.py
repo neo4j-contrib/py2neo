@@ -1092,6 +1092,8 @@ class Transaction(object):
 
 
 class Result(object):
+    """ Abstract base class representing the result of a Cypher query.
+    """
 
     def __init__(self, graph_name):
         super(Result, self).__init__()
@@ -1099,35 +1101,95 @@ class Result(object):
 
     @property
     def graph_name(self):
+        """ Return the name of the database from which this result
+        originates.
+
+        :returns: database name
+        """
         return self._graph_name
 
     @property
-    def query_id(self):
+    def protocol_version(self):
+        """ Return the underlying protocol version used to transfer
+        this result, or :const:`None` if not applicable.
+
+        :returns: protocol version
+        """
         return None
 
-    @property
-    def protocol_version(self):
+    def query_id(self):
+        """ Return the ID of the query behind this result. This method
+        may carry out network activity.
+
+        :returns: query ID or :const:`None`
+        :raises: :class:`.BrokenTransactionError` if the transaction is
+            broken by an unexpected network event.
+        """
         return None
 
     def buffer(self):
+        """ Fetch the remainder of the result into memory. This method
+        may carry out network activity.
+
+        :raises: :class:`.BrokenTransactionError` if the transaction is
+            broken by an unexpected network event.
+        """
         raise NotImplementedError
 
     def fields(self):
+        """ Return the list of field names for records in this result.
+        This method may carry out network activity.
+
+        :returns: list of field names
+        :raises: :class:`.BrokenTransactionError` if the transaction is
+            broken by an unexpected network event.
+        """
         raise NotImplementedError
 
     def summary(self):
+        """ Gather and return summary information as relates to the
+        current progress of query execution and result retrieval. This
+        method does not carry out any network activity.
+
+        :returns: summary information
+        """
         raise NotImplementedError
 
     def fetch(self):
+        """ Fetch and return the next record in this result, or
+        :const:`None` if at the end of the result. This method may carry
+        out network activity.
+
+        :returns: the next available record, or :const:`None`
+        :raises: :class:`.BrokenTransactionError` if the transaction is
+            broken by an unexpected network event.
+        """
         raise NotImplementedError
 
     def has_records(self):
+        """ Return :const:`True` if this result contains buffered
+        records, :const:`False` otherwise. This method does not carry
+        out any network activity.
+
+        :returns: boolean indicator
+        """
         raise NotImplementedError
 
     def take_record(self):
+        """ Return the next record from the buffer if one is available,
+        :const:`None` otherwise. This method does not carry out any
+        network activity.
+
+        :returns: record or :class:`None`
+        """
         raise NotImplementedError
 
     def peek_records(self, limit):
+        """ Return up to `limit` records from the buffer if available.
+        This method does not carry out any network activity.
+
+        :returns: list of records
+        """
         raise NotImplementedError
 
 
@@ -1144,6 +1206,11 @@ class Failure(Exception):
     @property
     def message(self):
         return self.args[0]
+
+
+class BrokenTransactionError(Exception):
+    """ Raised when a transaction is broken by the network or remote peer.
+    """
 
 
 class Hydrant(object):
