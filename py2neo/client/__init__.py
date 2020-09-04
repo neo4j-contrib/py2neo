@@ -156,29 +156,47 @@ class Connection(object):
         pass
 
     def auto_run(self, graph_name, cypher, parameters=None,
-                 readonly=False, after=None, metadata=None, timeout=None):
+                 # readonly=False, after=None, metadata=None, timeout=None
+                 ):
         pass
 
-    def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
-        """ Begin a transaction.
+    def begin(self, graph_name,
+              # readonly=False, after=None, metadata=None, timeout=None
+              ):
+        """ Begin a transaction. This method may invoke network
+        activity.
 
         :param graph_name:
-        :param readonly:
-        :param after:
-        :param metadata:
-        :param timeout:
         :returns: new :class:`.Transaction` object
         :raises TransactionError: if a new transaction cannot be created
         """
 
     def commit(self, tx):
-        pass
+        """ Commit a transaction. This method will always invoke
+        network activity.
+
+        :param tx: the transaction to commit
+        :returns: bookmark
+        :raises ValueError: if the supplied :class:`.Transaction`
+            object is not valid for committing
+        :raises BrokenTransactionError: if the transaction cannot be
+            committed
+        """
 
     def rollback(self, tx):
-        pass
+        """ Rollback a transaction. This method will always invoke
+        network activity.
+
+        :param tx: the transaction to rollback
+        :returns: bookmark
+        :raises ValueError: if the supplied :class:`.Transaction`
+            object is not valid for rolling back
+        :raises BrokenTransactionError: if the transaction cannot be
+            rolled back
+        """
 
     def run_in_tx(self, tx, cypher, parameters=None):
-        pass
+        pass  # may have network activity
 
     def pull(self, result, n=-1):
         pass
@@ -962,30 +980,44 @@ class Connector(ConnectionPool):
         except KeyError:
             raise TypeError("Invalid or unbound transaction {!r}".format(tx))
 
-    def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
+    def begin(self, graph_name, readonly=False,
+              # after=None, metadata=None, timeout=None
+              ):
         """ Begin a new explicit transaction.
         """
+        # TODO: retry on failure
         cx = self.acquire(graph_name, readonly=readonly)
-        return cx.begin(graph_name, after=after, metadata=metadata, timeout=timeout)
+        return cx.begin(graph_name,
+                        # readonly=readonly, after=after, metadata=metadata, timeout=timeout
+                        )
 
     def commit(self, tx):
         """ Commit a transaction.
 
         :param tx: the transaction to commit
-        :return: a :class:`.Bookmark` representing the point in
+        :returns: a :class:`.Bookmark` representing the point in
             transactional history immediately after this transaction
-        :raise TypeError: if the transaction is invalid
+        :raises ValueError: if the transaction is not valid to be committed
+        :raises BrokenTransactionError: if the transaction fails to commit
         """
         cx = self._get_connection(tx)
         return cx.commit(tx)
 
     def rollback(self, tx):
         """ Roll back a transaction.
+
+        :param tx: the transaction to rollback
+        :returns: a :class:`.Bookmark` representing the point in
+            transactional history immediately after this transaction
+        :raises ValueError: if the transaction is not valid to be rolled back
+        :raises BrokenTransactionError: if the transaction fails to rollback
         """
         cx = self._get_connection(tx)
         return cx.rollback(tx)
 
-    def auto_run(self, graph_name, cypher, parameters=None, hydrant=None, readonly=False):
+    def auto_run(self, graph_name, cypher, parameters=None, hydrant=None, readonly=False,
+                 # after=None, metadata=None, timeout=None
+                 ):
         """ Run a Cypher query within a new auto-commit transaction.
         """
         cx = self.acquire(graph_name, readonly)
@@ -1080,6 +1112,7 @@ class Transaction(object):
         self.graph_name = graph_name
         self.txid = txid or uuid4()
         self.readonly = readonly
+        self.__broken = False
 
     def __hash__(self):
         return hash((self.graph_name, self.txid))
@@ -1089,6 +1122,16 @@ class Transaction(object):
             return self.graph_name == other.graph_name and self.txid == other.txid
         else:
             return False
+
+    @property
+    def broken(self):
+        """ Flag indicating whether this transaction has been broken
+        due to disconnection or remote failure.
+        """
+        return self.__broken
+
+    def mark_broken(self):
+        self.__broken = True
 
 
 class Result(object):
@@ -1208,7 +1251,11 @@ class Failure(Exception):
         return self.args[0]
 
 
-class BrokenTransactionError(Exception):
+class TransactionError(Exception):
+    """ Raised when an error occurs in relation to a transaction."""
+
+
+class BrokenTransactionError(TransactionError):
     """ Raised when a transaction is broken by the network or remote peer.
     """
 

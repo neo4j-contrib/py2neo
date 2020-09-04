@@ -23,10 +23,13 @@ from logging import getLogger
 from json import dumps as json_dumps, loads as json_loads
 
 from packaging.version import Version
+from six import raise_from
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
+from urllib3.exceptions import ConnectionError, HTTPError
 
 from py2neo.compat import urlsplit
-from py2neo.client import Connection, Transaction, Result, Bookmark
+from py2neo.client import Connection, Transaction, Result, Bookmark, \
+    TransactionError, BrokenTransactionError
 from py2neo.client.config import http_user_agent
 from py2neo.client.json import JSONHydrant
 
@@ -135,8 +138,12 @@ class HTTP(Connection):
             self.neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 3.x
         self.server_agent = "Neo4j/{}".format(self.neo4j_version)
 
+    def fast_forward(self, bookmark):
+        raise NotImplementedError("Bookmarking is not yet supported over HTTP")
+
     def auto_run(self, graph_name, cypher, parameters=None,
-                 readonly=False, after=None, metadata=None, timeout=None):
+                 # readonly=False, after=None, metadata=None, timeout=None
+                 ):
         if graph_name and not self.supports_multi():
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
@@ -147,52 +154,90 @@ class HTTP(Connection):
         rs.audit()
         return HTTPResult(graph_name, rs.result())
 
-    def begin(self, graph_name, readonly=False, after=None, metadata=None, timeout=None):
+    def begin(self, graph_name,
+              # readonly=False, after=None, metadata=None, timeout=None
+              ):
         if graph_name and not self.supports_multi():
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
-        if readonly:
-            raise TypeError("Readonly transactions are not supported over HTTP")
-        if after:
-            raise TypeError("Bookmarks are not supported over HTTP")
-        if metadata:
-            raise TypeError("Transaction metadata is not supported over HTTP")
-        if timeout:
-            raise TypeError("Transaction timeouts are not supported over HTTP")
-        r = self._post(HTTPTransaction.begin_uri(graph_name))
-        if r.status != 201:
-            raise RuntimeError("Can't begin a new transaction")  # TODO: better error
-        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-        location_path = urlsplit(r.headers["Location"]).path
-        tx = HTTPTransaction(graph_name, location_path.rpartition("/")[-1])
-        self._transactions.add(tx)
-        self.release()
-        rs.audit(tx)
-        return tx
+        # if readonly:
+        #     raise TypeError("Readonly transactions are not supported over HTTP")
+        # if after:
+        #     raise TypeError("Bookmarks are not supported over HTTP")
+        # if metadata:
+        #     raise TypeError("Transaction metadata is not supported over HTTP")
+        # if timeout:
+        #     raise TypeError("Transaction timeouts are not supported over HTTP")
+        try:
+            r = self._post(HTTPTransaction.begin_uri(graph_name))
+        except ConnectionError as error:
+            raise_from(TransactionError("Transaction failed to begin"), error)
+        except HTTPError as error:
+            raise_from(TransactionError("Transaction failed to begin"), error)
+        else:
+            if r.status != 201:
+                raise TransactionError("Transaction failed to begin "
+                                       "due to HTTP status %r" % r.status)
+            rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
+            location_path = urlsplit(r.headers["Location"]).path
+            tx = HTTPTransaction(graph_name, location_path.rpartition("/")[-1])
+            self._transactions.add(tx)
+            self.release()
+            rs.audit(tx)
+            return tx
 
     def commit(self, tx):
         self._assert_transaction_open(tx)
         self._transactions.remove(tx)
-        r = self._post(tx.commit_uri())
-        assert r.status == 200  # TODO: other codes
-        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-        self.release()
-        rs.audit(tx)
-        return Bookmark()
+        try:
+            r = self._post(tx.commit_uri())
+        except ConnectionError as error:
+            tx.mark_broken()
+            raise_from(BrokenTransactionError("Transaction broken by disconnection "
+                                              "during commit"), error)
+        except HTTPError as error:
+            tx.mark_broken()
+            raise_from(BrokenTransactionError("Transaction broken by HTTP error "
+                                              "during commit"), error)
+        else:
+            if r.status != 200:
+                tx.mark_broken()
+                raise BrokenTransactionError("Transaction broken by HTTP %d status "
+                                             "during commit" % r.status)
+            rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
+            self.release()
+            rs.audit(tx)
+            return Bookmark()
 
     def rollback(self, tx):
         self._assert_transaction_open(tx)
         self._transactions.remove(tx)
-        r = self._delete(tx.uri())
-        assert r.status == 200  # TODO: other codes
-        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-        self.release()
-        rs.audit(tx)
-        return Bookmark()
+        try:
+            r = self._delete(tx.uri())
+        except ConnectionError as error:
+            tx.mark_broken()
+            raise_from(BrokenTransactionError("Transaction broken by disconnection "
+                                              "during rollback"), error)
+        except HTTPError as error:
+            tx.mark_broken()
+            raise_from(BrokenTransactionError("Transaction broken by HTTP error "
+                                              "during rollback"), error)
+        else:
+            if r.status != 200:
+                tx.mark_broken()
+                raise BrokenTransactionError("Transaction broken by HTTP %d status "
+                                             "during rollback" % r.status)
+            rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
+            self.release()
+            rs.audit(tx)
+            return Bookmark()
 
     def run_in_tx(self, tx, cypher, parameters=None):
         r = self._post(tx.uri(), cypher, parameters)
-        assert r.status == 200  # TODO: other codes
+        if r.status != 200:
+            tx.mark_broken()
+            raise BrokenTransactionError("Transaction broken by HTTP %d status "
+                                         "during query execution" % r.status)
         rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
         self.release()
         rs.audit(tx)
@@ -214,6 +259,8 @@ class HTTP(Connection):
     def _assert_transaction_open(self, tx):
         if tx not in self._transactions:
             raise ValueError("Transaction %r is not open on this connection", tx)
+        if tx.broken:
+            raise ValueError("Transaction is broken")
 
     def _post(self, url, statement=None, parameters=None):
         if statement:
@@ -248,7 +295,7 @@ class HTTPTransaction(Transaction):
         self.failure = None
 
     def __bool__(self):
-        return self.failure is None
+        return not self.broken
 
     __nonzero__ = __bool__
 
@@ -368,5 +415,5 @@ class HTTPResponse(object):
             from py2neo.database.work import Neo4jError
             failure = Neo4jError.hydrate(self.errors().pop(0))
             if tx is not None:
-                tx.failure = failure
+                tx.mark_broken()
             raise failure
