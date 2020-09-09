@@ -228,7 +228,7 @@ def check_bolt_connections_released(connector):
     yield
     if connector.profile.protocol == "bolt":
         try:
-            assert connector.in_use == 0
+            assert sum(connector.in_use.values()) == 0
         except AttributeError:
             # print(connector.pool.in_use_connection_count(address), "/", len(connector.pool.connections.get(address, [])))
             assert connector.in_use_connection_count(connector.profile.address) == 0

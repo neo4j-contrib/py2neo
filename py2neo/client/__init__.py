@@ -16,14 +16,13 @@
 # limitations under the License.
 
 
-from abc import abstractmethod
 from collections import deque
 from logging import getLogger
 from threading import Event
 from uuid import uuid4
 
 from py2neo.client.config import ConnectionProfile
-from py2neo.compat import ABC, abstractproperty, string_types
+from py2neo.compat import string_types
 
 
 DEFAULT_MAX_CONNECTIONS = 40
@@ -235,121 +234,8 @@ class Connection(object):
         """
 
 
-class ConnectionPool(ABC):
-    """ Abstract connection pool interface.
-    """
-
-    @abstractproperty
-    def profile(self):
-        """ The initial connection profile for connections in this pool.
-        """
-        raise NotImplementedError
-
-    @abstractproperty
-    def user_agent(self):
-        """ The user agent for connections in this pool.
-        """
-        raise NotImplementedError
-
-    @abstractproperty
-    def max_size(self):
-        """ The maximum permitted number of simultaneous connections
-        that may be owned by this pool, both in-use and free.
-        """
-        raise NotImplementedError
-
-    @max_size.setter
-    def max_size(self, value):
-        raise NotImplementedError
-
-    @abstractproperty
-    def max_age(self):
-        """ The maximum permitted age, in seconds, for connections to
-        be retained in this pool.
-        """
-        raise NotImplementedError
-
-    @abstractproperty
-    def in_use(self):
-        """ The number of connections that are currently in use in
-        this pool.
-        """
-        raise NotImplementedError
-
-    @abstractproperty
-    def size(self):
-        """ The total number of connections in this pool, both in-use
-        and free.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def prune(self):
-        """ Close all free connections in this pool.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def close(self):
-        """ Close all connections immediately.
-
-        This does not permanently disable the connection pool. Instead,
-        it sets the maximum pool size to zero before shutting down all
-        open connections, including those in use.
-
-        To reuse the pool, the maximum size will need to be set to a
-        a value greater than zero before connections can once again be
-        acquired.
-
-        To close gracefully, allowing work in progress to continue
-        until connections are released, use the following sequence
-        instead:
-
-            pool.max_size = 0
-            pool.prune()
-
-        This will force all future connection acquisitions to be
-        rejected, and released connections will be closed instead
-        of being returned to the pool.
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def acquire(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
-        """ Acquire a connection from the pool.
-
-        In the simplest case, this will return an existing open
-        connection, if one is free. If not, and the pool is not full,
-        a new connection will be created. If the pool is full and no
-        free connections are available, this will block until a
-        connection is released, or until the acquire call is cancelled.
-
-        This method will return :const:`None` if and only if the
-        maximum size of the pool is set to zero. In this special case,
-        no amount of waiting would result in the acquisition of a
-        connection. This will be the case if the pool has been closed.
-
-        :param graph_name:
-        :param readonly: if true, a readonly server will be selected,
-            if available; if no such servers are available, a regular
-            server will be used instead
-        :param timeout:
-        :param force_reset: if true, the connection will be forcibly
-            reset before being returned; if false, this will only occur
-            if the connection is not already in a clean state
-        :return: a Bolt connection object
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def release(self, cx, force_reset=False):
-        """ Release a connection back into the pool.
-        """
-        raise NotImplementedError
-
-
-class DirectConnectionPool(ConnectionPool):
-    """ A connection pool targeting a single Neo4j server.
+class ConnectionPool(object):
+    """ A pool of connections targeting a single Neo4j server.
     """
 
     default_init_size = 1
@@ -359,8 +245,7 @@ class DirectConnectionPool(ConnectionPool):
     default_max_age = 3600
 
     @classmethod
-    def open(cls, profile=None, user_agent=None,
-             init_size=None, max_size=None, max_age=None,
+    def open(cls, profile=None, user_agent=None, init_size=None, max_size=None, max_age=None,
              on_bind=None, on_unbind=None):
         """ Create a new connection pool, with an option to seed one
         or more initial connections.
@@ -388,7 +273,8 @@ class DirectConnectionPool(ConnectionPool):
             seed.release()
         return pool
 
-    def __init__(self, profile, user_agent, max_size, max_age, on_bind, on_unbind):
+    def __init__(self, profile, user_agent=None, max_size=None, max_age=None,
+                 on_bind=None, on_unbind=None):
         self._profile = profile or ConnectionProfile()
         self._user_agent = user_agent
         self._max_size = max_size or self.default_max_size
@@ -641,51 +527,89 @@ class DirectConnectionPool(ConnectionPool):
         return self._supports_multi
 
 
-class RoutingConnectionPool(ConnectionPool):
-    """ A connection pool targeting a system of interconnected machines
-    bound by a routing table.
+class Connector(object):
+    """ A connection pool abstraction that uses an appropriate
+    connection pool implementation and is coupled with a transaction
+    manager.
     """
 
     # TODO: routing table
-    """
-    
-    Bolt 1 (< Neo4j 3.2) (Clusters only)
-        cx.run("CALL dbms.cluster.routing.getServers"
-    
-    
-    Bolt 1 (>= Neo4j 3.2) / Bolt 2 / Bolt 3 (Clusters only)
-        cx.run("CALL dbms.cluster.routing.getRoutingTable($context)",
-       {"context": self.routing_context}
-    
-    Bolt 4 (All topologies)
-    Default database:
-        "CALL dbms.routing.getRoutingTable($context)",
-        {"context": self.routing_context},
-        SYSTEM,
-    Named database:
-        "CALL dbms.routing.getRoutingTable($context, $database)",
-        {"context": self.routing_context, "database": database},
-        SYSTEM,
-    
-    """
+    #
+    # Bolt 1 (< Neo4j 3.2) (Clusters only)
+    #     cx.run("CALL dbms.cluster.routing.getServers"
+    #
+    #
+    # Bolt 1 (>= Neo4j 3.2) / Bolt 2 / Bolt 3 (Clusters only)
+    #     cx.run("CALL dbms.cluster.routing.getRoutingTable($context)",
+    #    {"context": self.routing_context}
+    #
+    # Bolt 4 (All topologies)
+    # Default database:
+    #     "CALL dbms.routing.getRoutingTable($context)",
+    #     {"context": self.routing_context},
+    #     SYSTEM,
+    # Named database:
+    #     "CALL dbms.routing.getRoutingTable($context, $database)",
+    #     {"context": self.routing_context, "database": database},
+    #     SYSTEM,
 
-    def __init__(self, connector, profile, user_agent, init_size,
-                 max_size, max_age, on_bind, on_unbind):
-        self._connector = connector
-        self._profile = profile
+    default_acquire_timeout = 30
+
+    @classmethod
+    def open(cls, profile, user_agent=None, init_size=None, max_size=None, max_age=None):
+        """ Create a new connector.
+
+        :param profile: a :class:`.ConnectionProfile` describing how to
+            connect to the remote graph database service
+        :param user_agent: a user agent string identifying the client
+            software
+        :param init_size: the number of seed connections to open in the
+            initial pool
+        :param max_size: the maximum permitted number of simultaneous
+            connections that may be owned by pools held by this
+            connector, both in-use and free
+        :param max_age: the maximum permitted age, in seconds, for
+            connections to be retained within pools held by this
+            connector
+        """
+        cx = cls(profile, user_agent, init_size, max_size, max_age)
+        cx.add_pool(profile, reader=True, runner=True)
+        return cx
+
+    def __init__(self, profile, user_agent, init_size, max_size, max_age):
+        self._profile = profile  # does not add pool for this profile
         self._user_agent = user_agent
+        self._init_size = init_size
         self._max_size = max_size
         self._max_age = max_age
-        self._on_bind = on_bind
-        self._on_unbind = on_unbind
-        self._pools = {
-            profile: DirectConnectionPool.open(profile, user_agent, init_size,
-                                               max_size, max_age, on_bind, on_unbind),
-        }
+        self._pools = {}
         self._router_pools = {}
         self._runner_pools = {}
         self._reader_pools = {}
-        self._set_runner_pool(self._pools[profile])
+        self._transactions = {}
+
+    def __repr__(self):
+        return "<{} to {!r}>".format(self.__class__.__name__, self.profile)
+
+    def __hash__(self):
+        return hash(self.profile)
+
+    def add_pool(self, profile, reader=False, runner=False, router=False):
+        pool = ConnectionPool.open(
+            profile,
+            user_agent=self._user_agent,
+            init_size=self._init_size,
+            max_size=self._max_size,
+            max_age=self._max_age,
+            on_bind=self._bind_connection,
+            on_unbind=self._unbind_connection)
+        self._pools[profile] = pool
+        if router:
+            self._router_pools[profile] = pool
+        if runner:
+            self._runner_pools[profile] = pool
+        if reader:
+            self._reader_pools[profile] = pool
 
     @property
     def profile(self):
@@ -700,39 +624,60 @@ class RoutingConnectionPool(ConnectionPool):
         return self._user_agent
 
     @property
-    def max_size(self):
-        """ The maximum permitted number of simultaneous connections
-        that may be owned by this pools attached to this connector,
-        both in-use and free.
-        """
-        return self._max_size
-
-    @max_size.setter
-    def max_size(self, value):
-        self._max_size = value
-        for pool in self._pools.values():
-            pool.max_size = value
-
-    @property
-    def max_age(self):
-        """ The maximum permitted age, in seconds, for connections to
-        be retained in this pool.
-        """
-        return self._max_age
+    def acquire_timeout(self):
+        # TODO: make this configurable
+        return self.default_acquire_timeout
 
     @property
     def in_use(self):
-        """ The number of connections attached to this connector that
-        are currently in use.
+        """ A dictionary mapping each profile to the number of
+        connections currently pooled for that profile that are
+        currently in use.
         """
-        return sum(pool.in_use for pool in self._pools.values())
+        return {profile: pool.in_use
+                for profile, pool in self._pools.items()}
 
-    @property
-    def size(self):
-        """ The total number of connections (both in-use and free)
-        currently attached to this connector.
+    def acquire(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
+        """ Acquire a connection from a pool owned by this connector.
+
+        In the simplest case, this will return an existing open
+        connection, if one is free. If not, and the pool is not full,
+        a new connection will be created. If the pool is full and no
+        free connections are available, this will block until a
+        connection is released, or until the acquire call is cancelled.
+
+        This method will return :const:`None` if and only if the
+        maximum size of the pool is set to zero. In this special case,
+        no amount of waiting would result in the acquisition of a
+        connection. This will be the case if the pool has been closed.
+
+        :param graph_name:
+        :param readonly: if true, a readonly server will be selected,
+            if available; if no such servers are available, a regular
+            server will be used instead
+        :param timeout:
+        :param force_reset: if true, the connection will be forcibly
+            reset before being returned; if false, this will only occur
+            if the connection is not already in a clean state
+        :return: a Bolt connection object
         """
-        return sum(pool.size for pool in self._pools.values())
+        # TODO: improve this algorithm
+        import random
+        pool = random.choice(list(self._pools.values()))
+        return pool.acquire(graph_name, readonly=readonly,
+                            timeout=self.acquire_timeout, force_reset=force_reset)
+
+    def release(self, cx, force_reset=False):
+        """ Release a connection back into the pool.
+        """
+        # TODO: improve this algorithm
+        for pool in self._pools:
+            try:
+                pool.release(cx, force_reset=force_reset)
+            except ValueError:
+                continue
+            else:
+                break
 
     def prune(self):
         """ Close all free connections.
@@ -764,184 +709,6 @@ class RoutingConnectionPool(ConnectionPool):
         """
         for pool in self._pools.values():
             pool.close()
-
-    def _get_pool(self, graph_name=None, readonly=False):
-        # TODO: readonly
-        # TODO: least connected
-        from random import choice
-        pool_dict = self._runner_pools.get(graph_name, {})
-        try:
-            pool = choice(list(pool_dict.values()))
-        except IndexError:
-            raise TypeError("No connection profile available "
-                            "for database %r" % graph_name)
-        else:
-            return pool
-
-    def _set_runner_pool(self, pool, graph_name=None):
-        if graph_name not in self._runner_pools:
-            self._runner_pools[graph_name] = {}
-        self._runner_pools[graph_name][pool.profile] = pool
-
-    def acquire(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
-        pool = self._get_pool(graph_name, readonly=readonly)
-        return pool.acquire(graph_name, readonly=readonly,
-                            timeout=timeout, force_reset=force_reset)
-
-    def release(self, cx, force_reset=False):
-        raise NotImplementedError
-
-
-class Connector(ConnectionPool):
-    """ A connection pool abstraction that uses an appropriate
-    connection pool implementation and is coupled with a transaction
-    manager.
-    """
-
-    default_acquire_timeout = 30
-
-    @classmethod
-    def open(cls, profile=None, user_agent=None, init_size=None, max_size=None, max_age=None):
-        """ Create a new connector.
-
-        :param profile: a :class:`.ConnectionProfile` describing how to
-            connect to the remote graph database service
-        :param user_agent: a user agent string identifying the client
-            software
-        :param init_size: the number of seed connections to open in the
-            initial pool
-        :param max_size: the maximum permitted number of simultaneous
-            connections that may be owned by pools held by this
-            connector, both in-use and free
-        :param max_age: the maximum permitted age, in seconds, for
-            connections to be retained within pools held by this
-            connector
-        """
-        return cls(profile, user_agent, init_size, max_size, max_age)
-
-    def __init__(self, profile, user_agent, init_size, max_size, max_age):
-        self._connections = DirectConnectionPool.open(
-            profile, user_agent, init_size, max_size, max_age,
-            on_bind=self._bind_connection,
-            on_unbind=self._unbind_connection)
-        self._transactions = {}
-
-    def __repr__(self):
-        return "<{} to {!r}>".format(self.__class__.__name__, self.profile)
-
-    def __hash__(self):
-        return hash(self.profile)
-
-    @property
-    def profile(self):
-        """ The initial connection profile for this connector.
-        """
-        return self._connections.profile
-
-    @property
-    def user_agent(self):
-        """ The user agent for connections attached to this connector.
-        """
-        return self._connections.user_agent
-
-    @property
-    def max_size(self):
-        """ The maximum permitted number of simultaneous connections
-        that may be owned by this pools attached to this connector,
-        both in-use and free.
-        """
-        return self._connections.max_size
-
-    @max_size.setter
-    def max_size(self, value):
-        self._connections.max_size = value
-
-    @property
-    def max_age(self):
-        """ The maximum permitted age, in seconds, for connections to
-        be retained in this pool.
-        """
-        return self._connections.max_age
-
-    @property
-    def acquire_timeout(self):
-        # TODO: make this configurable
-        return self.default_acquire_timeout
-
-    @property
-    def in_use(self):
-        """ The number of connections attached to this connector that
-        are currently in use.
-        """
-        return self._connections.in_use
-
-    @property
-    def size(self):
-        """ The total number of connections (both in-use and free)
-        currently attached to this connector.
-        """
-        return self._connections.size
-
-    def acquire(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
-        """ Acquire a connection from the pool.
-
-        In the simplest case, this will return an existing open
-        connection, if one is free. If not, and the pool is not full,
-        a new connection will be created. If the pool is full and no
-        free connections are available, this will block until a
-        connection is released, or until the acquire call is cancelled.
-
-        This method will return :const:`None` if and only if the
-        maximum size of the pool is set to zero. In this special case,
-        no amount of waiting would result in the acquisition of a
-        connection. This will be the case if the pool has been closed.
-
-        :param graph_name:
-        :param readonly: if true, a readonly server will be selected,
-            if available; if no such servers are available, a regular
-            server will be used instead
-        :param timeout:
-        :param force_reset: if true, the connection will be forcibly
-            reset before being returned; if false, this will only occur
-            if the connection is not already in a clean state
-        :return: a Bolt connection object
-        """
-        return self._connections.acquire(graph_name, readonly=readonly,
-                                         timeout=self.acquire_timeout, force_reset=force_reset)
-
-    def release(self, cx, force_reset=False):
-        """ Release a connection back into the pool.
-        """
-        self._connections.release(cx, force_reset=force_reset)
-
-    def prune(self):
-        """ Close all free connections.
-        """
-        self._connections.prune()
-
-    def close(self):
-        """ Close all connections immediately.
-
-        This does not permanently disable the connection pool. Instead,
-        it sets the maximum pool size to zero before shutting down all
-        open connections, including those in use.
-
-        To reuse the pool, the maximum size will need to be set to a
-        a value greater than zero before connections can once again be
-        acquired.
-
-        To close gracefully, allowing work in progress to continue
-        until connections are released, use the following sequence
-        instead:
-
-            pool.max_size = 0
-            pool.prune()
-
-        This will force all future connection acquisitions to be
-        rejected, and released connections will be closed instead
-        of being returned to the pool.
-        """
-        self._connections.close()
 
     def _get_connection(self, tx):
         """ Lookup and return the connection bound to this
@@ -1040,7 +807,8 @@ class Connector(ConnectionPool):
         return result
 
     def supports_multi(self):
-        return self._connections.supports_multi()
+        return all(pool.supports_multi()
+                   for pool in self._pools.values())
 
     def _show_databases(self):
         if self.supports_multi():
