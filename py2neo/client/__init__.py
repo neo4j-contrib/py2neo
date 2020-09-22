@@ -557,7 +557,8 @@ class Connector(object):
 
     @classmethod
     def open(cls, profile, user_agent=None, init_size=None, max_size=None, max_age=None):
-        """ Create a new connector.
+        """ Create a new connector, opening a pool for the initial
+        connection profile.
 
         :param profile: a :class:`.ConnectionProfile` describing how to
             connect to the remote graph database service
@@ -595,6 +596,8 @@ class Connector(object):
         return hash(self.profile)
 
     def add_pool(self, profile, reader=False, runner=False, router=False):
+        """ Add a connection pool for a given connection profile.
+        """
         pool = ConnectionPool.open(
             profile,
             user_agent=self._user_agent,

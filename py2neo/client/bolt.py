@@ -156,8 +156,11 @@ class Bolt(Connection):
         """
         if self.closed or self.broken:
             return
-        self._goodbye()
-        self._wire.close()
+        try:
+            self._goodbye()
+            self._wire.close()
+        except BrokenWireError:
+            return
         log.debug("[#%04X] C: (Hanging up)", self.local_port)
 
     @property

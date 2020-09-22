@@ -164,8 +164,12 @@ def main():
 
     args = parser.parse_args()
     kwargs = vars(args)
-    f = kwargs.pop("f")
-    f(**kwargs)
+    try:
+        f = kwargs.pop("f")
+    except KeyError:
+        parser.print_help()
+    else:
+        f(**kwargs)
 
 
 if __name__ == "__main__":
