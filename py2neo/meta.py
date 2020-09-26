@@ -114,7 +114,7 @@ def parse_version_string(version_string):
 
 
 def get_version_data():
-    rtd_version = getenv("READTHEDOCS_VERSION")
+    rtd_version = getenv("READTHEDOCS_PROJECT") == PACKAGE_NAME and getenv("READTHEDOCS_VERSION")
     if rtd_version and rtd_version not in ("latest", "stable"):
         version_string = rtd_version
     else:
