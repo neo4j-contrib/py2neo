@@ -195,7 +195,11 @@ class ConnectionProfile(Mapping):
     def _apply_base_uri(self, uri):
         assert uri
         parsed = urlsplit(uri)
-        if parsed.scheme is not None:
+        if parsed.scheme is None:
+            self.__secure = None
+            self.__verify = None
+            self.__scheme = None
+        else:
             self.__scheme = parsed.scheme
             if self.__scheme in ["bolt+s", "bolt+ssc",
                                  "https", "http+s", "http+ssc"]:
