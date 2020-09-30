@@ -835,12 +835,12 @@ class Connector(object):
         except TypeError:
             return []
         else:
-            value = []
+            value = set()
             while result.has_records():
                 (name, address, role, requested_status,
                  current_status, error, default) = result.fetch()
-                value.append(name)
-            return value
+                value.add(name)
+            return sorted(value)
 
     def default_graph_name(self):
         """ Fetch the default graph database name for the service.
