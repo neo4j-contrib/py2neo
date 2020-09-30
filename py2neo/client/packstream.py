@@ -20,7 +20,6 @@ from __future__ import division
 
 from codecs import decode
 from collections import namedtuple
-from io import BytesIO
 from struct import pack as struct_pack, unpack as struct_unpack
 
 from py2neo.client import Hydrant
@@ -370,62 +369,6 @@ class UnpackStream(object):
         r, = struct_unpack(">d", self._mem[self._p:q])
         self._p = q
         return r
-
-
-class MessageReader(object):
-
-    def __init__(self, wire):
-        self.wire = wire
-
-    def _read_chunk(self):
-        size, = struct_unpack(">H", self.wire.read(2))
-        if size:
-            return self.wire.read(size)
-        else:
-            return b""
-
-    def read_message(self):
-        chunks = []
-        more = True
-        while more:
-            chunk = self._read_chunk()
-            if chunk:
-                chunks.append(chunk)
-            elif chunks:
-                more = False
-        try:
-            message = b"".join(chunks)
-        except TypeError:
-            # Python 2 compatibility
-            message = bytearray(b"".join(map(bytes, chunks)))
-        _, n = divmod(message[0], 0x10)
-        tag = message[1]
-        unpacker = UnpackStream(message[2:])
-        fields = tuple(unpacker.unpack() for _ in range(n))
-        return tag, fields
-
-
-class MessageWriter(object):
-
-    def __init__(self, wire):
-        self.wire = wire
-
-    def _write_chunk(self, data):
-        size = len(data)
-        self.wire.write(struct_pack(">H", size))
-        self.wire.write(data)
-        return size
-
-    def write_message(self, tag, *fields):
-        buffer = BytesIO()
-        buffer.write(bytearray([0xB0 + len(fields), tag]))
-        pack(buffer, *fields)
-        buffer.seek(0)
-        while self._write_chunk(buffer.read(0x7FFF)):
-            pass
-
-    def send(self):
-        return self.wire.send()
 
 
 class PackStreamHydrant(Hydrant):

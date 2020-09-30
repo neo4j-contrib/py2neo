@@ -35,6 +35,8 @@ Neo4j product release.
 
 
 __all__ = [
+    "BoltMessageReader",
+    "BoltMessageWriter",
     "Bolt",
     "Bolt1",
     "Bolt2",
@@ -48,19 +50,77 @@ __all__ = [
 
 
 from collections import deque
+from io import BytesIO
 from itertools import islice
 from logging import getLogger
+from struct import pack as struct_pack, unpack as struct_unpack
 
 from packaging.version import Version
 from six import raise_from
 
 from py2neo.client import Connection, Transaction, Result, Failure, Bookmark, BrokenTransactionError
 from py2neo.client.config import bolt_user_agent
-from py2neo.client.packstream import MessageReader, MessageWriter, PackStreamHydrant
+from py2neo.client.packstream import pack, UnpackStream, PackStreamHydrant
 from py2neo.wiring import Wire, BrokenWireError
 
 
 log = getLogger(__name__)
+
+
+class BoltMessageReader(object):
+
+    def __init__(self, wire):
+        self.wire = wire
+
+    def _read_chunk(self):
+        size, = struct_unpack(">H", self.wire.read(2))
+        if size:
+            return self.wire.read(size)
+        else:
+            return b""
+
+    def read_message(self):
+        chunks = []
+        more = True
+        while more:
+            chunk = self._read_chunk()
+            if chunk:
+                chunks.append(chunk)
+            elif chunks:
+                more = False
+        try:
+            message = b"".join(chunks)
+        except TypeError:
+            # Python 2 compatibility
+            message = bytearray(b"".join(map(bytes, chunks)))
+        _, n = divmod(message[0], 0x10)
+        tag = message[1]
+        unpacker = UnpackStream(message[2:])
+        fields = tuple(unpacker.unpack() for _ in range(n))
+        return tag, fields
+
+
+class BoltMessageWriter(object):
+
+    def __init__(self, wire):
+        self.wire = wire
+
+    def _write_chunk(self, data):
+        size = len(data)
+        self.wire.write(struct_pack(">H", size))
+        self.wire.write(data)
+        return size
+
+    def write_message(self, tag, *fields):
+        buffer = BytesIO()
+        buffer.write(bytearray([0xB0 + len(fields), tag]))
+        pack(buffer, *fields)
+        buffer.seek(0)
+        while self._write_chunk(buffer.read(0x7FFF)):
+            pass
+
+    def send(self):
+        return self.wire.send()
 
 
 class Bolt(Connection):
@@ -88,7 +148,7 @@ class Bolt(Connection):
         for subclass in cls._walk_subclasses():
             if subclass.protocol_version == protocol_version:
                 return subclass
-        raise RuntimeError("Unsupported protocol version %d.%d" % protocol_version)
+        raise BoltProtocolError("Unsupported protocol version %d.%d" % protocol_version)
 
     @classmethod
     def default_hydrant(cls, profile, graph):
@@ -143,6 +203,9 @@ class Bolt(Connection):
                             for major, minor in versions).ljust(16, b"\x00"))
         wire.send()
         v = bytearray(wire.read(4))
+        if v == bytearray([0, 0, 0, 0]):
+            raise BoltProtocolError("Unable to negotiate compatible "
+                                    "protocol version from {!r}".format(versions))
         log.debug("[#%04X] S: <PROTOCOL> %d.%d", local_port, v[-1], v[-2])
         return v[-1], v[-2]
 
@@ -194,8 +257,8 @@ class Bolt1(Bolt):
     def __init__(self, wire, profile, user_agent, on_bind=None, on_unbind=None, on_release=None):
         super(Bolt1, self).__init__(wire, profile, user_agent,
                                     on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
-        self._reader = MessageReader(wire)
-        self._writer = MessageWriter(wire)
+        self._reader = BoltMessageReader(wire)
+        self._writer = BoltMessageWriter(wire)
         self._responses = deque()
         self._transaction = None
         self._metadata = {}
@@ -609,6 +672,11 @@ class Bolt4x0(Bolt3):
         response = self._write_request(0x2F, args)
         result.append(response, final=(n == -1))
         return response
+
+
+class Bolt4x1(Bolt4x0):
+
+    protocol_version = (4, 1)
 
 
 class Task(object):
