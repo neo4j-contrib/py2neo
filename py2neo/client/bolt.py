@@ -88,7 +88,7 @@ class Bolt(Connection):
         for subclass in cls._walk_subclasses():
             if subclass.protocol_version == protocol_version:
                 return subclass
-        raise RuntimeError("Unsupported protocol version %r" % protocol_version)
+        raise RuntimeError("Unsupported protocol version %d.%d" % protocol_version)
 
     @classmethod
     def default_hydrant(cls, profile, graph):
