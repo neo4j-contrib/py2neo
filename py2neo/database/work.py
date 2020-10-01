@@ -890,6 +890,8 @@ class Table(list):
                 k = records.keys()
             except AttributeError:
                 raise ValueError("Missing keys")
+        if not k:
+            raise ValueError("Missing keys")
         width = len(k)
         t = [set() for _ in range(width)]
         o = [False] * width
@@ -1266,9 +1268,17 @@ class Neo4jError(Exception):
 
     @classmethod
     def hydrate(cls, data):
-        code = data["code"]
-        message = data["message"]
-        _, classification, category, title = code.split(".")
+        try:
+            code = data["code"]
+            message = data["message"]
+        except KeyError:
+            classification = None
+            category = None
+            title = None
+            code = None
+            message = None
+        else:
+            _, classification, category, title = code.split(".")
         if classification == "ClientError":
             error_cls = ClientError
         elif classification == "DatabaseError":
@@ -1277,7 +1287,10 @@ class Neo4jError(Exception):
             error_cls = TransientError
         else:
             error_cls = cls
-        inst = error_cls("[%s.%s] %s" % (category, title, message))
+        error_text = message or "<Unknown>"
+        if category or title:
+            error_text = "[%s.%s] %s" % (category, title, error_text)
+        inst = error_cls(error_text)
         inst.classification = classification
         inst.category = category
         inst.title = title
