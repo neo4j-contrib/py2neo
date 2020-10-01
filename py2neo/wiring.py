@@ -32,9 +32,8 @@ from socket import (
     AF_INET,
     AF_INET6,
 )
-from socketserver import BaseRequestHandler
 
-from py2neo.compat import xstr
+from py2neo.compat import xstr, BaseRequestHandler
 
 
 BOLT_PORT_NUMBER = 7687
