@@ -68,14 +68,14 @@ Requirements
    :target: https://www.python.org/
    :alt: Python versions
 
-.. image:: https://img.shields.io/badge/neo4j-3.4%20%7C%203.5%20%7C%204.0-blue.svg
+.. image:: https://img.shields.io/badge/neo4j-3.4%20%7C%203.5%20%7C%204.0%20%7C%204.1-blue.svg
    :target: https://neo4j.com/
    :alt: Neo4j versions
 
 The following versions of Python and Neo4j are supported:
 
 - Python 2.7 / 3.5 / 3.6 / 3.7 / 3.8
-- Neo4j 3.4 / 3.5 / 4.0 (the latest point release of each version is recommended)
+- Neo4j 3.4 / 3.5 / 4.0 / 4.1 (the latest point release of each version is recommended)
 
 While either Neo4j Community or Enterprise edition may be used, py2neo does not yet fully support all Enterprise-only features, such as `Causal Clustering <https://neo4j.com/docs/operations-manual/current/clustering/>`_.
 Py2neo does however provide support for the multi-database functionality added in Neo4j 4.0.
