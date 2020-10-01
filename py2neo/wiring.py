@@ -32,6 +32,7 @@ from socket import (
     AF_INET,
     AF_INET6,
 )
+from socketserver import BaseRequestHandler
 
 from py2neo.compat import xstr
 
@@ -256,6 +257,20 @@ class Wire(object):
         """ The remote :class:`.Address` to which this connection is bound.
         """
         return Address(self.__socket.getpeername())
+
+
+class WireRequestHandler(BaseRequestHandler):
+    """ Base handler for use with the `socketserver` module that wraps
+    the request attribute as a :class:`.Wire` object.
+    """
+
+    __wire = None
+
+    @property
+    def wire(self):
+        if self.__wire is None:
+            self.__wire = Wire(self.request)
+        return self.__wire
 
 
 class WireError(OSError):
