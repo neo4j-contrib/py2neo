@@ -179,9 +179,11 @@ class RelatedObjects(object):
     relative to a central node.
     """
 
-    def __init__(self, node, direction, relationship_type, related_class):
+    def __init__(self, subject, node, direction, relationship_type, related_class):
         assert isinstance(direction, int) and not isinstance(direction, bool)
+        self.subject = subject
         self.node = node
+        self.relationship_type = relationship_type
         self.related_class = related_class
         self.__related_objects = None
         if direction > 0:
@@ -223,6 +225,29 @@ class RelatedObjects(object):
                 with self.node.graph.begin() as tx:
                     self.__db_pull__(tx)
         return self.__related_objects
+
+    def triples(self):
+        """ Iterate through the related objects, yielding for each a
+        triple of `(subject, (type, properties), object)`. This is the
+        easiest way to see the full details of the underlying
+        relationships.
+
+            >>> from py2neo.ogm import *
+            >>> from py2neo.ogm.models.movies import *
+            >>> repo = Repository()
+            >>> keanu = repo.match(Person).where(name="Keanu Reeves").first()
+            >>> list(keanu.acted_in.triples())
+            [(<Person name='Keanu Reeves'>, ('ACTED_IN', {'roles': ['Julian Mercer']}), <Movie title="Something's Gotta Give">),
+             (<Person name='Keanu Reeves'>, ('ACTED_IN', {'roles': ['Shane Falco']}), <Movie title='The Replacements'>),
+             (<Person name='Keanu Reeves'>, ('ACTED_IN', {'roles': ['Johnny Mnemonic']}), <Movie title='Johnny Mnemonic'>),
+             (<Person name='Keanu Reeves'>, ('ACTED_IN', {'roles': ['Kevin Lomax']}), <Movie title="The Devil's Advocate">),
+             (<Person name='Keanu Reeves'>, ('ACTED_IN', {'roles': ['Neo']}), <Movie title='The Matrix Revolutions'>),
+             (<Person name='Keanu Reeves'>, ('ACTED_IN', {'roles': ['Neo']}), <Movie title='The Matrix Reloaded'>),
+             (<Person name='Keanu Reeves'>, ('ACTED_IN', {'roles': ['Neo']}), <Movie title='The Matrix'>)]
+
+        """
+        for obj, properties in self._related_objects:
+            yield self.subject, (self.relationship_type, properties), obj
 
     def add(self, obj, properties=None, **kwproperties):
         """ Add or update a related object.
@@ -323,7 +348,8 @@ class RelatedObjects(object):
 
 class OGM(object):
 
-    def __init__(self, node):
+    def __init__(self, subject, node):
+        self.subject = subject
         self.node = node
         self._related = {}
 
@@ -337,7 +363,8 @@ class OGM(object):
         """
         key = (direction, relationship_type)
         if key not in self._related:
-            self._related[key] = RelatedObjects(self.node, direction, relationship_type, related_class)
+            self._related[key] = RelatedObjects(self.subject, self.node, direction,
+                                                relationship_type, related_class)
         return self._related[key]
 
 
@@ -422,7 +449,7 @@ class Model(object):
     @property
     def __ogm__(self):
         if self.__ogm is None:
-            self.__ogm = OGM(Node(self.__primarylabel__))
+            self.__ogm = OGM(self, Node(self.__primarylabel__))
         node = self.__ogm.node
         if not hasattr(node, "__primarylabel__"):
             setattr(node, "__primarylabel__", self.__primarylabel__)
@@ -440,7 +467,7 @@ class Model(object):
         if node is None:
             return None
         inst = Model()
-        inst.__ogm = OGM(node)
+        inst.__ogm = OGM(inst, node)
         inst.__class__ = cls
         return inst
 

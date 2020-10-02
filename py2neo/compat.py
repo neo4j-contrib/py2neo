@@ -43,6 +43,11 @@ try:
 except ImportError:
     from time import time as perf_counter
 
+try:
+    from socketserver import BaseRequestHandler
+except ImportError:
+    from SocketServer import BaseRequestHandler
+
 from abc import ABCMeta
 from io import StringIO
 import os
