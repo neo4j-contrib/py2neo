@@ -39,8 +39,8 @@ Repositories
    :members:
 
 
-Graph Objects
-=============
+Models
+======
 
 At the heart of the py2neo OGM framework is the :class:`.Model`.
 This is a base class for all classes that are to be mapped onto the graph database.
