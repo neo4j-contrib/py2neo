@@ -682,10 +682,14 @@ class Connector(object):
             else:
                 break
 
-    def prune(self):
-        """ Close all free connections.
+    def prune(self, profile):
+        """ Close all free connections for the given profile.
         """
-        for pool in self._pools.values():
+        try:
+            pool = self._pools[profile]
+        except KeyError:
+            pass
+        else:
             pool.prune()
 
     def close(self):
@@ -755,11 +759,15 @@ class Connector(object):
               ):
         """ Begin a new explicit transaction.
         """
-        # TODO: retry on failure
         cx = self.acquire(graph_name, readonly=readonly)
-        return cx.begin(graph_name,
-                        # readonly=readonly, after=after, metadata=metadata, timeout=timeout
-                        )
+        try:
+            return cx.begin(graph_name,
+                            # readonly=readonly, after=after, metadata=metadata, timeout=timeout
+                            )
+        except TransactionError:
+            # TODO: retry on failure (TransactionError)
+            self.prune(cx.profile)
+            raise
 
     def commit(self, tx):
         """ Commit a transaction.
@@ -771,7 +779,11 @@ class Connector(object):
         :raises BrokenTransactionError: if the transaction fails to commit
         """
         cx = self._get_connection(tx)
-        return cx.commit(tx)
+        try:
+            return cx.commit(tx)
+        except TransactionError:
+            self.prune(cx.profile)
+            raise
 
     def rollback(self, tx):
         """ Roll back a transaction.
@@ -783,7 +795,11 @@ class Connector(object):
         :raises BrokenTransactionError: if the transaction fails to rollback
         """
         cx = self._get_connection(tx)
-        return cx.rollback(tx)
+        try:
+            return cx.rollback(tx)
+        except TransactionError:
+            self.prune(cx.profile)
+            raise
 
     def auto_run(self, graph_name, cypher, parameters=None, hydrant=None, readonly=False,
                  # after=None, metadata=None, timeout=None
@@ -795,8 +811,14 @@ class Connector(object):
             parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
         result = cx.auto_run(graph_name, cypher, parameters)
         cx.pull(result)
-        cx.sync(result)
-        return result
+        try:
+            cx.sync(result)
+        except TransactionError:
+            # TODO: retry on failure (TransactionError)
+            self.prune(cx.profile)
+            raise
+        else:
+            return result
 
     def run_in_tx(self, tx, cypher, parameters=None, hydrant=None):
         """ Run a Cypher query within an open explicit transaction.
@@ -806,8 +828,13 @@ class Connector(object):
             parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
         result = cx.run_in_tx(tx, cypher, parameters)
         cx.pull(result)
-        cx.sync(result)  # TODO: avoid sync on every tx.run
-        return result
+        try:
+            cx.sync(result)
+        except TransactionError:
+            self.prune(cx.profile)
+            raise
+        else:
+            return result
 
     def supports_multi(self):
         return all(pool.supports_multi()

@@ -58,7 +58,8 @@ from struct import pack as struct_pack, unpack as struct_unpack
 from packaging.version import Version
 from six import raise_from
 
-from py2neo.client import Connection, Transaction, Result, Failure, Bookmark, BrokenTransactionError
+from py2neo.client import Connection, Transaction, Result, Failure, Bookmark, \
+    TransactionError, BrokenTransactionError
 from py2neo.client.config import bolt_user_agent
 from py2neo.client.packstream import pack, UnpackStream, PackStreamHydrant
 from py2neo.wiring import Wire, BrokenWireError
@@ -316,7 +317,19 @@ class Bolt1(Bolt):
         self._set_transaction(graph_name,
                               # readonly, after, metadata, timeout
                               )
-        return self._run(graph_name, cypher, parameters or {}, final=True)
+        result = self._run(graph_name, cypher, parameters or {}, final=True)
+        try:
+            result.buffer()
+        except BrokenWireError as error:
+            raise_from(TransactionError("Transaction could not run "
+                                        "due to disconnection"), error)
+        else:
+            try:
+                self._audit(self._transaction)
+            except Failure as failure:
+                raise_from(TransactionError("Failed to run transaction"), failure)
+            else:
+                return result
 
     def begin(self, graph_name,
               # readonly=False, after=None, metadata=None, timeout=None
@@ -328,13 +341,20 @@ class Bolt1(Bolt):
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
         responses = (self._write_request(0x10, "BEGIN", self._transaction.extra),
                      self._write_request(0x2F))
-        # if after:
-        #     # TODO: raise TransactionError on failure
-        #     self._sync(*responses)
-        #     self._audit(self._transaction)
-        if callable(self._on_bind):
-            self._on_bind(self._transaction, self)
-        return self._transaction
+        try:
+            self._sync(*responses)
+        except BrokenWireError as error:
+            raise_from(TransactionError("Transaction could not begin "
+                                        "due to disconnection"), error)
+        else:
+            try:
+                self._audit(self._transaction)
+            except Failure as failure:
+                raise_from(TransactionError("Failed to begin transaction"), failure)
+            else:
+                if callable(self._on_bind):
+                    self._on_bind(self._transaction, self)
+                return self._transaction
 
     def commit(self, tx):
         self._assert_open()
@@ -355,7 +375,6 @@ class Bolt1(Bolt):
             except Failure as failure:
                 tx.mark_broken()
                 raise_from(BrokenTransactionError("Failed to commit transaction"), failure)
-                raise
             else:
                 return Bookmark()
         finally:
@@ -381,7 +400,6 @@ class Bolt1(Bolt):
             except Failure as failure:
                 tx.mark_broken()
                 raise_from(BrokenTransactionError("Failed to rollback transaction"), failure)
-                raise
             else:
                 return Bookmark()
         finally:
@@ -568,7 +586,19 @@ class Bolt3(Bolt2):
         self._transaction = BoltTransaction(graph_name, self.protocol_version,
                                             # readonly, after, metadata, timeout
                                             )
-        return self._run(graph_name, cypher, parameters or {}, self._transaction.extra, final=True)
+        result = self._run(graph_name, cypher, parameters or {}, self._transaction.extra, final=True)
+        try:
+            result.buffer()
+        except BrokenWireError as error:
+            raise_from(TransactionError("Transaction could not run "
+                                        "due to disconnection"), error)
+        else:
+            try:
+                self._audit(self._transaction)
+            except Failure as failure:
+                raise_from(TransactionError("Failed to run transaction"), failure)
+            else:
+                return result
 
     def begin(self, graph_name,
               # readonly=False, after=None, metadata=None, timeout=None
@@ -580,13 +610,20 @@ class Bolt3(Bolt2):
                                             )
         log.debug("[#%04X] C: BEGIN %r", self.local_port, self._transaction.extra)
         response = self._write_request(0x11, self._transaction.extra)
-        # if after:
-        #     # TODO: raise TransactionError on failure
-        #     self._sync(response)
-        #     self._audit(self._transaction)
-        if callable(self._on_bind):
-            self._on_bind(self._transaction, self)
-        return self._transaction
+        try:
+            self._sync(response)
+        except BrokenWireError as error:
+            raise_from(TransactionError("Transaction could not begin "
+                                        "due to disconnection"), error)
+        else:
+            try:
+                self._audit(self._transaction)
+            except Failure as failure:
+                raise_from(TransactionError("Failed to begin transaction"), failure)
+            else:
+                if callable(self._on_bind):
+                    self._on_bind(self._transaction, self)
+                return self._transaction
 
     def commit(self, tx):
         self._assert_open()
@@ -606,7 +643,6 @@ class Bolt3(Bolt2):
             except Failure as failure:
                 tx.mark_broken()
                 raise_from(BrokenTransactionError("Failed to commit transaction"), failure)
-                raise
             else:
                 return Bookmark(response.metadata.get("bookmark"))
         finally:
@@ -631,7 +667,6 @@ class Bolt3(Bolt2):
             except Failure as failure:
                 tx.mark_broken()
                 raise_from(BrokenTransactionError("Failed to rollback transaction"), failure)
-                raise
             else:
                 return Bookmark(response.metadata.get("bookmark"))
         finally:
@@ -813,21 +848,17 @@ class BoltResult(ItemizedTask, Result):
         return self.__cx.protocol_version
 
     def buffer(self):
-        if not self.done():
-            try:
-                self.__cx.sync(self)
-            except BrokenWireError as error:
-                self.__cx.transaction.mark_broken()
-                raise_from(BrokenTransactionError("Transaction broken by disconnection "
-                                                  "while buffering query result"), error)
-
-    def header(self):
+        if self.done():
+            return
         try:
             self.__cx.sync(self)
         except BrokenWireError as error:
             self.__cx.transaction.mark_broken()
             raise_from(BrokenTransactionError("Transaction broken by disconnection "
-                                              "while buffering query result"), error)
+                                              "while buffering"), error)
+
+    def header(self):
+        self.buffer()
         return self._items[0]
 
     def fields(self):
