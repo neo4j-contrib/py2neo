@@ -465,8 +465,6 @@ def test_can_push_object_removals(movie_repo):
 
     # then
     del filmography
-    movie_repo.graph.node_cache.clear()
-    movie_repo.graph.relationship_cache.clear()
     filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
     movie_repo.reload(filmography)
     film_titles = set(film.title for film in filmography)
@@ -516,8 +514,6 @@ def test_can_push_property_additions(movie_repo):
 
     # then
     del filmography
-    movie_repo.graph.node_cache.clear()
-    movie_repo.graph.relationship_cache.clear()
     filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
     movie_repo.reload(filmography)
     good = filmography.get(matrix, "good")
@@ -535,8 +531,6 @@ def test_can_push_property_removals(movie_repo):
 
     # then
     del filmography
-    movie_repo.graph.node_cache.clear()
-    movie_repo.graph.relationship_cache.clear()
     filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
     movie_repo.reload(filmography)
     roles = filmography.get(matrix, "roles")
@@ -554,8 +548,6 @@ def test_can_push_property_updates(movie_repo):
 
     # then
     del filmography
-    movie_repo.graph.node_cache.clear()
-    movie_repo.graph.relationship_cache.clear()
     filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
     movie_repo.reload(filmography)
     roles = filmography.get(matrix, "roles")
@@ -573,8 +565,6 @@ def test_can_push_property_updates_on_new_object(movie_repo):
 
     # then
     del filmography
-    movie_repo.graph.node_cache.clear()
-    movie_repo.graph.relationship_cache.clear()
     filmography = movie_repo.get(Person, "Keanu Reeves").acted_in
     movie_repo.reload(filmography)
     film_titles = set(film.title for film in filmography)

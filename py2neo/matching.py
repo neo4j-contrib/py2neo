@@ -559,7 +559,7 @@ class NodeMatcher(object):
         and returns the first matched :class:`.Node`. This can be used
         to match and return a :class:`.Node` by ID.
 
-            >>> nodes.get(1234)
+            >>> matches.get(1234)
             Node('Person', name='Alice')
 
         If no such :class:`.Node` is found, :py:const:`None` is
@@ -568,15 +568,10 @@ class NodeMatcher(object):
         """
         t = type(identity)
         if issubclass(t, (list, tuple, set, frozenset)):
-            missing = [i for i in identity if i not in self.graph.node_cache]
-            if missing:
-                list(self.match().where("id(_) in %s" % cypher_repr(missing)))
-            return t(self.graph.node_cache.get(i) for i in identity)
+            matches = self.match().where("id(_) in %s" % cypher_repr(list(identity)))
+            return t(matches)
         else:
-            try:
-                return self.graph.node_cache[identity]
-            except KeyError:
-                return self.match().where("id(_) = %d" % identity).first()
+            return self.match().where("id(_) = %d" % identity).first()
 
     def match(self, *labels, **properties):
         """ Describe a basic node match using labels and property
@@ -889,15 +884,10 @@ class RelationshipMatcher(object):
         """
         t = type(identity)
         if issubclass(t, (list, tuple, set, frozenset)):
-            missing = [i for i in identity if i not in self.graph.relationship_cache]
-            if missing:
-                list(self.match().where("id(_) in %s" % cypher_repr(missing)))
-            return t(self.graph.relationship_cache.get(i) for i in identity)
+            matches = self.match().where("id(_) in %s" % cypher_repr(list(identity)))
+            return t(matches)
         else:
-            try:
-                return self.graph.relationship_cache[identity]
-            except KeyError:
-                return self.match().where("id(_) = %d" % identity).first()
+            return self.match().where("id(_) = %d" % identity).first()
 
     def match(self, nodes=None, r_type=None, **properties):
         """ Describe a basic relationship match using start and end

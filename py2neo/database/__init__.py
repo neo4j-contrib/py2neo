@@ -108,7 +108,6 @@ from __future__ import absolute_import
 from time import sleep
 from warnings import warn
 
-from py2neo.caching import ThreadLocalEntityCache
 from py2neo.client import Connector
 from py2neo.client.config import ConnectionProfile
 from py2neo.cypher import cypher_escape
@@ -232,8 +231,6 @@ class GraphService(object):
             inst.__name__ = graph_name
             inst.schema = Schema(inst)
             inst._procedures = ProcedureLibrary(inst)
-            inst.node_cache = ThreadLocalEntityCache()
-            inst.relationship_cache = ThreadLocalEntityCache()
             self._graphs[graph_name] = inst
         return self._graphs[graph_name]
 
@@ -497,8 +494,6 @@ class Graph(object):
             from the graph and cannot be undone.
         """
         self.run("MATCH (a) DETACH DELETE a")
-        self.node_cache.clear()
-        self.relationship_cache.clear()
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
         """ Run a :meth:`~py2neo.database.work.Transaction.evaluate` operation within an

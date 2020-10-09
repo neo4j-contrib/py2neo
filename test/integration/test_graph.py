@@ -72,21 +72,11 @@ def test_can_create_and_delete_relationship(graph):
     assert not graph.exists(ab)
 
 
-def test_can_get_node_by_id_when_cached(graph):
+def test_can_get_node_by_id(graph):
     node = Node()
     graph.create(node)
-    assert node.identity in graph.node_cache
     got = graph.nodes.get(node.identity)
-    assert got is node
-
-
-def test_can_get_node_by_id_when_not_cached(graph):
-    node = Node()
-    graph.create(node)
-    graph.node_cache.clear()
-    assert node.identity not in graph.node_cache
-    got = graph.nodes.get(node.identity)
-    assert got.identity == node.identity
+    assert got == node
 
 
 def test_get_non_existent_node_by_id(graph):
@@ -94,28 +84,9 @@ def test_get_non_existent_node_by_id(graph):
     graph.create(node)
     node_id = node.identity
     graph.delete(node)
-    graph.node_cache.clear()
     with raises(KeyError):
         _ = graph.nodes[node_id]
     assert graph.nodes.get(node_id) is None
-
-
-def test_node_cache_is_thread_local(graph):
-    from threading import Thread
-    node = Node()
-    graph.create(node)
-    assert node.identity in graph.node_cache
-    other_cache_keys = []
-
-    def check_cache():
-        other_cache_keys.extend(graph.node_cache.keys())
-
-    thread = Thread(target=check_cache)
-    thread.start()
-    thread.join()
-
-    assert node.identity in graph.node_cache
-    assert node.identity not in other_cache_keys
 
 
 def test_can_get_same_instance(uri):

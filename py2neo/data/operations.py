@@ -139,7 +139,6 @@ def create_subgraph(tx, subgraph):
             node.graph = graph
             node.identity = identity
             node._remote_labels = labels
-            graph.node_cache.update(identity, node)
     for r_type, relationships in _rel_create_dict(r for r in subgraph.relationships if r.graph is None).items():
         identities = _merge_relationships(tx, r_type, list(map(
             lambda r: [r.start_node.identity, r.end_node.identity, dict(r)], relationships)))
@@ -147,7 +146,6 @@ def create_subgraph(tx, subgraph):
             relationship = relationships[i]
             relationship.graph = graph
             relationship.identity = identity
-            graph.relationship_cache.update(identity, relationship)
 
 
 def merge_subgraph(tx, subgraph, p_label, p_key):
@@ -175,7 +173,6 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
             node.graph = graph
             node.identity = identity
             node._remote_labels = labels
-            graph.node_cache.update(identity, node)
     for r_type, relationships in _rel_create_dict(r for r in subgraph.relationships if r.graph is None).items():
         identities = _merge_relationships(tx, r_type, list(map(
             lambda r: [r.start_node.identity, r.end_node.identity, dict(r)], relationships)))
@@ -183,7 +180,6 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
             relationship = relationships[i]
             relationship.graph = graph
             relationship.identity = identity
-            graph.relationship_cache.update(identity, relationship)
 
 
 def delete_subgraph(tx, subgraph):
@@ -198,12 +194,10 @@ def delete_subgraph(tx, subgraph):
     node_identities = []
     for relationship in subgraph.relationships:
         if relationship.graph is graph:
-            graph.relationship_cache.update(relationship.identity, None)
             relationship.graph = None
             relationship.identity = None
     for node in subgraph.nodes:
         if node.graph is graph:
-            graph.node_cache.update(node.identity, None)
             node_identities.append(node.identity)
             node.graph = None
             node.identity = None
@@ -222,7 +216,6 @@ def separate_subgraph(tx, subgraph):
     relationship_identities = []
     for relationship in subgraph.relationships:
         if relationship.graph is graph:
-            graph.relationship_cache.update(relationship.identity, None)
             relationship_identities.append(relationship.identity)
             relationship.graph = None
             relationship.identity = None

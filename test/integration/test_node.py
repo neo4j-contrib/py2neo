@@ -55,7 +55,6 @@ def test_bound_node_equality(graph):
     alice_1 = Node(name="Alice")
     alice_1.graph = graph
     alice_1.identity = 999
-    graph.node_cache.clear()
     alice_2 = Node(name="Alice")
     alice_2.graph = alice_1.graph
     alice_2.identity = alice_1.identity

@@ -398,12 +398,11 @@ class Node(Entity):
                 new_instance._stale.update({"labels", "properties"})
                 return new_instance
 
-            into = graph.node_cache.update(identity, instance_constructor)
+            into = instance_constructor()
         else:
             assert isinstance(into, cls)
             into.graph = graph
             into.identity = identity
-            graph.node_cache.update(identity, into)
 
         if properties is not None:
             into._stale.discard("properties")
@@ -621,7 +620,7 @@ class Relationship(Entity):
                 new_instance.identity = identity
                 return new_instance
 
-            into = graph.relationship_cache.update(identity, instance_constructor)
+            into = instance_constructor()
         else:
             assert isinstance(into, Relationship)
             into.graph = graph
@@ -634,7 +633,6 @@ class Relationship(Entity):
             else:
                 into.clear()
                 into.update(properties)
-            graph.relationship_cache.update(identity, into)
         return into
 
     def __init__(self, *nodes, **properties):

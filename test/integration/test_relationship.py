@@ -41,43 +41,13 @@ def test_relationship_creation(graph):
     assert graph.exists(b)
 
 
-def test_can_get_relationship_by_id_when_cached(graph):
+def test_can_get_relationship_by_id(graph):
     a = Node()
     b = Node()
     r = Relationship(a, "TO", b)
     graph.create(r)
     got = graph.relationships.get(r.identity)
-    assert got is r
-
-
-def test_can_get_relationship_by_id_when_not_cached(graph):
-    a = Node()
-    b = Node()
-    r = Relationship(a, "TO", b)
-    graph.create(r)
-    graph.relationship_cache.clear()
-    got = graph.relationships.get(r.identity)
-    assert got.identity == r.identity
-
-
-def test_relationship_cache_is_thread_local(graph):
-    import threading
-    a = Node()
-    b = Node()
-    r = Relationship(a, "TO", b)
-    graph.create(r)
-    assert r.identity in graph.relationship_cache
-    other_relationship_cache_keys = []
-
-    def check_cache():
-        other_relationship_cache_keys.extend(graph.relationship_cache.keys())
-
-    thread = threading.Thread(target=check_cache)
-    thread.start()
-    thread.join()
-
-    assert r.identity in graph.relationship_cache
-    assert r.identity not in other_relationship_cache_keys
+    assert got == r
 
 
 def test_cannot_get_relationship_by_id_when_id_does_not_exist(graph):
