@@ -714,9 +714,9 @@ class Bolt4x1(Bolt4x0):
     protocol_version = (4, 1)
 
 
-class Bolt4x2(Bolt4x1):
-
-    protocol_version = (4, 2)
+# class Bolt4x2(Bolt4x1):
+#
+#     protocol_version = (4, 2)
 
 
 class Task(object):
