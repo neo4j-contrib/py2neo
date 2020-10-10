@@ -42,6 +42,7 @@ __all__ = [
     "Bolt2",
     "Bolt3",
     "Bolt4x0",
+    "Bolt4x1",
     "BoltTransaction",
     "BoltResult",
     "BoltResponse",
