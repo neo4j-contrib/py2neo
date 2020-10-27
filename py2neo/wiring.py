@@ -33,6 +33,8 @@ from socket import (
     AF_INET6,
 )
 
+from six import raise_from
+
 from py2neo.compat import xstr, BaseRequestHandler
 
 
@@ -143,21 +145,34 @@ class Wire(object):
     __broken = False
 
     @classmethod
-    def open(cls, address, timeout=None, keep_alive=False):
+    def open(cls, address, timeout=None, keep_alive=False, on_broken=None):
         """ Open a connection to a given network :class:`.Address`.
+
+        :param address:
+        :param timeout:
+        :param keep_alive:
+        :param on_broken: callback for when the wire is broken after a
+            successful connection has first been established (this does
+            not trigger if the connection never opens successfully)
+        :returns: :class:`.Wire` object
+        :raises WireError: if connection fails to open
         """
         s = socket(family=address.family)
         if keep_alive:
             s.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
         s.settimeout(timeout)
-        s.connect(address)
-        return cls(s)
+        try:
+            s.connect(address)
+        except (IOError, OSError) as error:
+            raise_from(WireError("Cannot connect to %r" % address), error)
+        return cls(s, on_broken=on_broken)
 
-    def __init__(self, s):
+    def __init__(self, s, on_broken=None):
         s.settimeout(None)  # ensure wrapped socket is in blocking mode
         self.__socket = s
         self.__input = bytearray()
         self.__output = bytearray()
+        self.__on_broken = on_broken
 
     def secure(self, verify=True, hostname=None):
         """ Apply a layer of security onto this connection.
@@ -185,16 +200,14 @@ class Wire(object):
             try:
                 received = self.__socket.recv(requested)
             except (IOError, OSError):
-                self.__broken = True
-                raise BrokenWireError("Broken")
+                self.__set_broken()
             else:
                 if received:
                     self.__input.extend(received)
                 else:
-                    self.__broken = True
-                    raise BrokenWireError("Network read incomplete "
-                                          "(received %d of %d bytes)" %
-                                          (len(self.__input), n))
+                    self.__set_broken("Network read incomplete "
+                                      "(received %d of %d bytes)" %
+                                      (len(self.__input), n))
         data = self.__input[:n]
         self.__input[:n] = []
         return data
@@ -214,8 +227,7 @@ class Wire(object):
             try:
                 n = self.__socket.send(self.__output)
             except (IOError, OSError):
-                self.__broken = True
-                raise BrokenWireError("Broken")
+                self.__set_broken()
             else:
                 self.__output[:n] = []
                 sent += n
@@ -228,8 +240,7 @@ class Wire(object):
             # TODO: shutdown
             self.__socket.close()
         except (IOError, OSError):
-            self.__broken = True
-            raise BrokenWireError("Broken")
+            self.__set_broken()
         else:
             self.__closed = True
 
@@ -256,6 +267,12 @@ class Wire(object):
         """ The remote :class:`.Address` to which this connection is bound.
         """
         return Address(self.__socket.getpeername())
+
+    def __set_broken(self, message=None):
+        if callable(self.__on_broken):
+            self.__on_broken(message)
+        self.__broken = True
+        raise BrokenWireError(message)
 
 
 class WireRequestHandler(BaseRequestHandler):
