@@ -164,7 +164,7 @@ class Wire(object):
         try:
             s.connect(address)
         except (IOError, OSError) as error:
-            raise_from(WireError("Cannot connect to %r" % address), error)
+            raise_from(WireError("Cannot connect to %r" % (address,)), error)
         return cls(s, on_broken=on_broken)
 
     def __init__(self, s, on_broken=None):
