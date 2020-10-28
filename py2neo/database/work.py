@@ -1263,6 +1263,9 @@ class Neo4jError(Exception):
     """ Base exception for all errors signalled by Neo4j.
     """
 
+    classification = None
+    category = None
+    title = None
     code = None
     message = None
 
