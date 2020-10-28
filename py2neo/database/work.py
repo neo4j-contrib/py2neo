@@ -30,7 +30,6 @@ from operator import xor as xor_operator
 from warnings import warn
 
 from py2neo.collections import iter_items
-from py2neo.client import Connection
 from py2neo.compat import Mapping, numeric_types, ustr, xstr
 from py2neo.cypher import cypher_repr, cypher_str
 
@@ -106,6 +105,7 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
+        from py2neo.client import Connection
         self._assert_unfinished("Cannot run query in finished transaction")
         try:
             entities = self._entities.popleft()

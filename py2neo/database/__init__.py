@@ -113,8 +113,6 @@ from __future__ import absolute_import
 from time import sleep
 from warnings import warn
 
-from py2neo.client import Connector
-from py2neo.client.config import ConnectionProfile
 from py2neo.cypher import cypher_escape
 from py2neo.database.work import Transaction
 from py2neo.matching import NodeMatcher, RelationshipMatcher
@@ -189,6 +187,8 @@ class GraphService(object):
         cls._instances.clear()
 
     def __new__(cls, profile=None, **settings):
+        from py2neo.client import Connector
+        from py2neo.client.config import ConnectionProfile
         profile = ConnectionProfile(profile, **settings)
         try:
             inst = cls._instances[profile]
