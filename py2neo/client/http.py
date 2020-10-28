@@ -29,7 +29,7 @@ from urllib3.exceptions import ConnectionError, HTTPError
 
 from py2neo.compat import urlsplit
 from py2neo.client import Connection, Transaction, Result, Bookmark, \
-    TransactionError, BrokenTransactionError
+    TransactionError, BrokenTransactionError, ConnectionUnavailable
 from py2neo.client.config import http_user_agent
 from py2neo.client.json import JSONHydrant
 
@@ -44,18 +44,35 @@ class HTTP(Connection):
         return JSONHydrant(graph)
 
     @classmethod
-    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None, on_release=None):
-        http = cls(profile, (user_agent or http_user_agent()),
-                   on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
-        http._hello()
-        return http
+    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None,
+             on_release=None, on_broken=None):
+        """ Open an HTTP connection to a server.
+
+        :param profile: :class:`.ConnectionProfile` detailing how and
+            where to connect
+        :param user_agent:
+        :param on_bind:
+        :param on_unbind:
+        :param on_release:
+        :param on_broken:
+        :returns: :class:`.HTTP` connection object
+        :raises: :class:`.ConnectionUnavailable` if a connection cannot
+            be opened
+        """
+        try:
+            http = cls(profile, (user_agent or http_user_agent()),
+                       on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
+            http._hello()
+            return http
+        except HTTPError as error:
+            raise_from(ConnectionUnavailable("Cannot open connection to %r", profile), error)
 
     def __init__(self, profile, user_agent, on_bind=None, on_unbind=None, on_release=None):
         super(HTTP, self).__init__(profile, user_agent,
                                    on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         self.http_pool = None
         self.headers = make_headers(basic_auth=":".join(profile.auth))
-        self._transactions = set()
+        self.__transactions = set()
         self.__closed = False
         self._make_pool(profile)
 
@@ -181,14 +198,14 @@ class HTTP(Connection):
             rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
             location_path = urlsplit(r.headers["Location"]).path
             tx = HTTPTransaction(graph_name, location_path.rpartition("/")[-1])
-            self._transactions.add(tx)
+            self.__transactions.add(tx)
             self.release()
             rs.audit(tx)
             return tx
 
     def commit(self, tx):
         self._assert_transaction_open(tx)
-        self._transactions.remove(tx)
+        self.__transactions.remove(tx)
         try:
             r = self._post(tx.commit_uri())
         except ConnectionError as error:
@@ -211,7 +228,7 @@ class HTTP(Connection):
 
     def rollback(self, tx):
         self._assert_transaction_open(tx)
-        self._transactions.remove(tx)
+        self.__transactions.remove(tx)
         try:
             r = self._delete(tx.uri())
         except ConnectionError as error:
@@ -257,7 +274,7 @@ class HTTP(Connection):
         return record
 
     def _assert_transaction_open(self, tx):
-        if tx not in self._transactions:
+        if tx not in self.__transactions:
             raise ValueError("Transaction %r is not open on this connection", tx)
         if tx.broken:
             raise ValueError("Transaction is broken")

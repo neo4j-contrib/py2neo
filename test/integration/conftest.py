@@ -180,7 +180,7 @@ def connection_profile(uri):
 
 @fixture(scope="session")
 def connector(connection_profile):
-    return Connector.open(connection_profile)
+    return Connector(connection_profile)
 
 
 @fixture(scope="session")

@@ -21,6 +21,8 @@ from logging import getLogger
 from threading import Event
 from uuid import uuid4
 
+from monotonic import monotonic
+
 from py2neo.client.config import ConnectionProfile
 from py2neo.compat import string_types
 
@@ -91,20 +93,37 @@ class Connection(object):
     # TODO: ping method
 
     @classmethod
-    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None, on_release=None):
+    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None,
+             on_release=None, on_broken=None):
+        """ Open a connection to a server.
+
+        :param profile: :class:`.ConnectionProfile` detailing how and
+            where to connect
+        :param user_agent:
+        :param on_bind:
+        :param on_unbind:
+        :param on_release:
+        :param on_broken:
+        :returns: :class:`.Bolt` connection object
+        :raises: :class:`.ConnectionUnavailable` if a connection cannot
+            be opened
+        :raises: ValueError if the profile references an unsupported
+            scheme
+        """
         if profile.protocol == "bolt":
             from py2neo.client.bolt import Bolt
             return Bolt.open(profile, user_agent=user_agent,
-                             on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
+                             on_bind=on_bind, on_unbind=on_unbind,
+                             on_release=on_release, on_broken=on_broken)
         elif profile.protocol == "http":
             from py2neo.client.http import HTTP
             return HTTP.open(profile, user_agent=user_agent,
-                             on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
+                             on_bind=on_bind, on_unbind=on_unbind,
+                             on_release=on_release, on_broken=on_broken)
         else:
             raise ValueError("Unknown scheme %r" % profile.scheme)
 
     def __init__(self, profile, user_agent, on_bind=None, on_unbind=None, on_release=None):
-        from monotonic import monotonic
         self.profile = profile
         self.user_agent = user_agent
         self._on_bind = on_bind
@@ -203,6 +222,21 @@ class Connection(object):
     def discard(self, result, n=-1):
         pass
 
+    def route(self, graph_name=None, context=None):
+        """ Fetch the routing table for a given database.
+
+        :param graph_name: the name of the graph database for which to
+            retrieve a routing table; `None` references the default
+            database
+        :param context: an optional dictionary of routing context
+            information
+        :returns: 4-tuple of router, reader, writer connection
+            profiles, plus ttl
+        :raises TypeError: if routing is not supported
+        """
+        raise TypeError("Routing not supported "
+                        "for {} connections".format(self.__class__.__name__))
+
     def sync(self, result):
         """ Perform network synchronisation required to make available
         a given result.
@@ -246,7 +280,7 @@ class ConnectionPool(object):
 
     @classmethod
     def open(cls, profile=None, user_agent=None, init_size=None, max_size=None, max_age=None,
-             on_bind=None, on_unbind=None):
+             on_bind=None, on_unbind=None, on_broken=None):
         """ Create a new connection pool, with an option to seed one
         or more initial connections.
 
@@ -266,21 +300,29 @@ class ConnectionPool(object):
         :param on_unbind: callback to execute when unbinding a
             transaction from a connection; this must accept an argument
             representing the transaction
+        :param on_broken: callback to execute when a connection in the
+            pool is broken; this must accept an argument representing
+            the connection profile and a second with an error message
+        :raises: :class:`.ConnectionUnavailable` if connections cannot
+            be successfully made to seed the pool
+        :raises: ValueError if the profile references an unsupported
+            scheme
         """
-        pool = cls(profile, user_agent, max_size, max_age, on_bind, on_unbind)
+        pool = cls(profile, user_agent, max_size, max_age, on_bind, on_unbind, on_broken)
         seeds = [pool.acquire() for _ in range(init_size or cls.default_init_size)]
         for seed in seeds:
             seed.release()
         return pool
 
     def __init__(self, profile, user_agent=None, max_size=None, max_age=None,
-                 on_bind=None, on_unbind=None):
+                 on_bind=None, on_unbind=None, on_broken=None):
         self._profile = profile or ConnectionProfile()
         self._user_agent = user_agent
         self._max_size = max_size or self.default_max_size
         self._max_age = max_age or self.default_max_age
         self._on_bind = on_bind
         self._on_unbind = on_unbind
+        self._on_broken = on_broken
         self._in_use_list = deque()
         self._quarantine = deque()
         self._free_list = deque()
@@ -379,7 +421,7 @@ class ConnectionPool(object):
         self._quarantine.remove(cx)
         return cx
 
-    def acquire(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
+    def acquire(self, timeout=None, force_reset=False):
         """ Acquire a connection from the pool.
 
         In the simplest case, this will return an existing open
@@ -393,15 +435,14 @@ class ConnectionPool(object):
         no amount of waiting would result in the acquisition of a
         connection. This will be the case if the pool has been closed.
 
-        :param graph_name:
-        :param readonly:
         :param timeout:
         :param force_reset: if true, the connection will be forcibly
             reset before being returned; if false, this will only occur
             if the connection is not already in a clean state
-        :return: a Bolt connection object
+        :returns: a Bolt connection object
+        :raises: :class:`.ConnectionUnavailable` if a connection
+            attempt was made which failed
         """
-        from monotonic import monotonic
         t0 = monotonic()
 
         def remaining_timeout():
@@ -422,10 +463,14 @@ class ConnectionPool(object):
             except IndexError:
                 if self.size < self.max_size:
                     # Plan B: if the pool isn't full, open
-                    # a new connection
+                    # a new connection. This may raise a
+                    # ConnectionUnavailable exception, which
+                    # should bubble up to the caller.
+                    # TODO: pass in timeout
                     cx = Connection.open(self.profile, user_agent=self.user_agent,
                                          on_bind=self._on_bind, on_unbind=self._on_unbind,
-                                         on_release=lambda c: self.release(c))
+                                         on_release=lambda c: self.release(c),
+                                         on_broken=lambda msg: self.__on_broken(msg))
                     if cx.supports_multi():
                         self._supports_multi = True
                 else:
@@ -526,68 +571,51 @@ class ConnectionPool(object):
     def supports_multi(self):
         return self._supports_multi
 
+    def __on_broken(self, message):
+        if callable(self._on_broken):
+            self._on_broken(self._profile, message)
+
 
 class Connector(object):
     """ A connection pool abstraction that uses an appropriate
     connection pool implementation and is coupled with a transaction
     manager.
-    """
 
-    # TODO: routing table
-    #
-    # Bolt 1 (< Neo4j 3.2) (Clusters only)
-    #     cx.run("CALL dbms.cluster.routing.getServers"
-    #
-    #
-    # Bolt 1 (>= Neo4j 3.2) / Bolt 2 / Bolt 3 (Clusters only)
-    #     cx.run("CALL dbms.cluster.routing.getRoutingTable($context)",
-    #    {"context": self.routing_context}
-    #
-    # Bolt 4 (All topologies)
-    # Default database:
-    #     "CALL dbms.routing.getRoutingTable($context)",
-    #     {"context": self.routing_context},
-    #     SYSTEM,
-    # Named database:
-    #     "CALL dbms.routing.getRoutingTable($context, $database)",
-    #     {"context": self.routing_context, "database": database},
-    #     SYSTEM,
+    :param profile: a :class:`.ConnectionProfile` describing how to
+        connect to the remote graph database service
+    :param user_agent: a user agent string identifying the client
+        software
+    :param init_size: the number of seed connections to open in the
+        initial pool
+    :param max_size: the maximum permitted number of simultaneous
+        connections that may be owned by pools held by this
+        connector, both in-use and free
+    :param max_age: the maximum permitted age, in seconds, for
+        connections to be retained within pools held by this
+        connector
+    :param routing: flag to switch on client-side routing across a
+        cluster
+    """
 
     default_acquire_timeout = 30
 
-    @classmethod
-    def open(cls, profile, user_agent=None, init_size=None, max_size=None, max_age=None):
-        """ Create a new connector, opening a pool for the initial
-        connection profile.
-
-        :param profile: a :class:`.ConnectionProfile` describing how to
-            connect to the remote graph database service
-        :param user_agent: a user agent string identifying the client
-            software
-        :param init_size: the number of seed connections to open in the
-            initial pool
-        :param max_size: the maximum permitted number of simultaneous
-            connections that may be owned by pools held by this
-            connector, both in-use and free
-        :param max_age: the maximum permitted age, in seconds, for
-            connections to be retained within pools held by this
-            connector
-        """
-        cx = cls(profile, user_agent, init_size, max_size, max_age)
-        cx.add_pool(profile, reader=True, runner=True)
-        return cx
-
-    def __init__(self, profile, user_agent, init_size, max_size, max_age):
-        self._profile = profile  # does not add pool for this profile
+    def __init__(self, profile, user_agent=None, init_size=None, max_size=None, max_age=None,
+                 routing=False):
+        self._profile = ConnectionProfile(profile)
         self._user_agent = user_agent
         self._init_size = init_size
         self._max_size = max_size
         self._max_age = max_age
-        self._pools = {}
-        self._router_pools = {}
-        self._runner_pools = {}
-        self._reader_pools = {}
         self._transactions = {}
+        self._pools = {}
+        self._add_pools(self._profile)
+        if routing:
+            self._routers = []
+            self._routing_tables = {}
+            self._refresh_routing_table(None)
+        else:
+            self._routers = None
+            self._routing_tables = None
 
     def __repr__(self):
         return "<{} to {!r}>".format(self.__class__.__name__, self.profile)
@@ -595,24 +623,88 @@ class Connector(object):
     def __hash__(self):
         return hash(self.profile)
 
-    def add_pool(self, profile, reader=False, runner=False, router=False):
-        """ Add a connection pool for a given connection profile.
+    def _add_pools(self, *profiles):
+        """ Adds connection pools for one or more connection profiles.
+        Pools that already exist will be skipped.
         """
-        pool = ConnectionPool.open(
-            profile,
-            user_agent=self._user_agent,
-            init_size=self._init_size,
-            max_size=self._max_size,
-            max_age=self._max_age,
-            on_bind=self._bind_connection,
-            on_unbind=self._unbind_connection)
-        self._pools[profile] = pool
-        if router:
-            self._router_pools[profile] = pool
-        if runner:
-            self._runner_pools[profile] = pool
-        if reader:
-            self._reader_pools[profile] = pool
+        for profile in profiles:
+            if profile in self._pools:
+                # This profile already has a pool,
+                # no need to add it again
+                continue
+            log.debug("Adding connection pool for profile %r", profile)
+            pool = ConnectionPool.open(
+                profile,
+                user_agent=self._user_agent,
+                init_size=self._init_size,
+                max_size=self._max_size,
+                max_age=self._max_age,
+                on_bind=self._on_bind,
+                on_unbind=self._on_unbind,
+                on_broken=self._on_broken)
+            self._pools[profile] = pool
+
+    def _get_pools(self, graph_name=None, readonly=False):
+        """ Obtain a dictionary of connection pools for a particular
+        graph database and read/write mode, keyed by
+        :class:`.ConnectionProfile`.
+        """
+        if self._routers is None:
+            return self._pools
+        while True:  # TODO: timeout
+            try:
+                profiles = self._routing_tables[graph_name].runners(readonly=readonly)
+            except KeyError:
+                self._refresh_routing_table(graph_name)
+                continue
+            except RoutingTable.Expired:
+                log.debug("Routing table for %s expired at %r",
+                          "default database" if graph_name is None else repr(graph_name),
+                          self._routing_tables[graph_name].expiry_time)
+                self._refresh_routing_table(graph_name)
+                continue
+            else:
+                if profiles:
+                    return {profile: pool for profile, pool in self._pools.items()
+                            if profile in profiles}
+                else:
+                    self._refresh_routing_table(graph_name)
+
+    def _refresh_routing_table(self, graph_name=None):
+        log.debug("Attempting to refresh routing table for %s",
+                  "default database" if graph_name is None else repr(graph_name))
+        assert self._routers is not None
+        for router in self._routers + [self.profile]:
+            # TODO: don't open a new connection every time, use the pool if free
+            try:
+                cx = Connection.open(router, self._user_agent)
+            except ConnectionUnavailable:
+                continue  # try the next router instead
+            else:
+                try:
+                    routers, ro_runners, rw_runners, ttl = cx.route(graph_name)
+                except TransactionError as error:
+                    log.warning(error.args[0])
+                    continue
+                else:
+                    # TODO: comment this algorithm
+                    self._add_pools(*ro_runners)
+                    self._add_pools(*rw_runners)
+                    routing_table = RoutingTable(ro_runners, rw_runners, monotonic() + ttl)
+                    # TODO: housekeep old pools (maybe in connection pool after connection failure)
+                    old = set(profile for profile in self._routers if profile not in routers)
+                    if graph_name in self._routing_tables:
+                        rt = self._routing_tables[graph_name]
+                        old.update(profile for profile in rt if profile not in routing_table)
+
+                    self._routers[:] = routers
+                    self._routing_tables[graph_name] = routing_table
+                    for profile in old:
+                        self._pools[profile].prune()
+                    return
+                finally:
+                    cx.close()
+        raise RuntimeError("No suitable routers found")  # TODO: better exception
 
     @property
     def profile(self):
@@ -663,17 +755,19 @@ class Connector(object):
             reset before being returned; if false, this will only occur
             if the connection is not already in a clean state
         :return: a Bolt connection object
+        :raises: :class:`.ConnectionUnavailable` if a connection
+            attempt was made which failed
         """
+        # TODO: implement timeout
+        pools = self._get_pools(graph_name, readonly=readonly)
         # TODO: improve this algorithm
         import random
-        pool = random.choice(list(self._pools.values()))
-        return pool.acquire(graph_name, readonly=readonly,
-                            timeout=self.acquire_timeout, force_reset=force_reset)
+        pool = random.choice(list(pools.values()))
+        return pool.acquire(timeout=self.acquire_timeout, force_reset=force_reset)
 
     def release(self, cx, force_reset=False):
         """ Release a connection back into the pool.
         """
-        # TODO: improve this algorithm
         for pool in self._pools:
             try:
                 pool.release(cx, force_reset=force_reset)
@@ -729,7 +823,7 @@ class Connector(object):
         except KeyError:
             return self.acquire(tx.graph_name, tx.readonly)
 
-    def _bind_connection(self, tx, cx):
+    def _on_bind(self, tx, cx):
         """ Bind a transaction to a connection.
 
         :param tx: an unbound transaction
@@ -743,7 +837,7 @@ class Connector(object):
         else:
             raise TypeError("Transaction {!r} already bound to connection {!r}".format(tx, cx0))
 
-    def _unbind_connection(self, tx):
+    def _on_unbind(self, tx):
         """ Unbind a transaction from a connection.
 
         :param tx: a bound transaction
@@ -753,6 +847,23 @@ class Connector(object):
             del self._transactions[tx]
         except KeyError:
             raise TypeError("Invalid or unbound transaction {!r}".format(tx))
+
+    def _on_broken(self, profile, message):
+        """ Handle a broken connection.
+        """
+        log.warning("Connection to %r broken (%s)", profile, message)
+        if self._routers is not None:
+            log.debug("Removing profile %r from router list", profile)
+            try:
+                self._routers.remove(profile)
+            except ValueError:
+                pass  # ignore
+            for graph_name, routing_table in self._routing_tables.items():
+                log.debug("Removing profile %r from routing table for %s", profile,
+                          "default database" if graph_name is None else repr(graph_name))
+                routing_table.remove(profile)
+        log.debug("Pruning idle connections to %r", profile)
+        self._pools[profile].prune()
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
@@ -837,6 +948,7 @@ class Connector(object):
             return result
 
     def supports_multi(self):
+        assert self._pools  # this will break if no pools exist
         return all(pool.supports_multi()
                    for pool in self._pools.values())
 
@@ -883,6 +995,37 @@ class Connector(object):
                 if default:
                     return name
             return None
+
+
+class RoutingTable(object):
+
+    class Expired(Exception):
+        pass
+
+    def __init__(self, ro_runners, rw_runners, expiry_time):
+        self._ro_runners = list(ro_runners)
+        self._rw_runners = list(rw_runners)
+        self.expiry_time = expiry_time
+
+    def __repr__(self):
+        return "%s(%r, %r, %r)" % (self.__class__.__name__,
+                                   self._ro_runners, self._rw_runners, self.expiry_time)
+
+    def runners(self, readonly=False):
+        expired = monotonic() >= self.expiry_time
+        if expired:
+            raise self.Expired("Routing table expired at %r" % self.expiry_time)
+        return list(self._ro_runners if readonly else self._rw_runners)
+
+    def remove(self, profile):
+        try:
+            self._ro_runners.remove(profile)
+        except ValueError:
+            pass  # ignore, not present
+        try:
+            self._rw_runners.remove(profile)
+        except ValueError:
+            pass  # ignore, not present
 
 
 class WaitingList:
@@ -987,6 +1130,21 @@ class Result(object):
         """
         raise NotImplementedError
 
+    def records(self):
+        """ Iterate through the remaining records, yielding each one in
+        turn. This method may carry out network activity.
+
+        :returns: record iterator
+        :raises: :class:`.BrokenTransactionError` if the transaction is
+            broken by an unexpected network event.
+        """
+        self.buffer()
+        while True:
+            record = self.fetch()
+            if record is None:
+                break
+            yield record
+
     def summary(self):
         """ Gather and return summary information as relates to the
         current progress of query execution and result retrieval. This
@@ -1055,6 +1213,11 @@ class TransactionError(Exception):
 
 class BrokenTransactionError(TransactionError):
     """ Raised when a transaction is broken by the network or remote peer.
+    """
+
+
+class ConnectionUnavailable(Exception):
+    """ Raised when a connection cannot be established.
     """
 
 

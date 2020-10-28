@@ -76,9 +76,13 @@ Supported URI schemes are:
 - ``http+ssc`` - HTTP (secured with no certificate checks)
 
 
-Note that py2neo does not support routing with a Neo4j causal cluster,
-so ``neo4j://...`` URIs are not available. For this functionality,
-please use the official Neo4j Driver for Python.
+Note that py2neo does not support routing URIs like ``neo4j://...``
+for use with Neo4j causal clusters. To enable routing, instead pass
+a ``routing=True`` keyword argument to the :class:`.Graph` or
+:class:`.GraphService` constructor.
+
+Routing is only available for Bolt-enabled servers. No equivalent
+currently exists for HTTP.
 
 
 Individual settings
@@ -98,6 +102,7 @@ Keyword       Description                                Type   Default
 ``user``      User to authenticate as                    str    ``'neo4j'``
 ``password``  Password to use for authentication         str    ``'password'``
 ``auth``      A 2-tuple of (user, password)              tuple  ``('neo4j', 'password')``
+``routing``   Route connections across multiple servers  bool   ``False``
 ============  =========================================  =====  =========================
 
 
@@ -194,8 +199,9 @@ class GraphService(object):
                 "init_size": settings.get("init_size"),
                 "max_size": settings.get("max_size"),
                 "max_age": settings.get("max_age"),
+                "routing": settings.get("routing"),
             }
-            inst._connector = Connector.open(profile, **connector_settings)
+            inst._connector = Connector(profile, **connector_settings)
             inst._graphs = {}
             cls._instances[profile] = inst
         return inst

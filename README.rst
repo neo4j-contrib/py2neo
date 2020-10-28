@@ -21,9 +21,9 @@ Py2neo
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
 
 When considering whether to use py2neo or the `official Python Driver for Neo4j <https://github.com/neo4j/neo4j-python-driver>`_, there is a trade-off to be made.
-Py2neo offers a larger surface, with both a higher level API and an OGM, but the official driver provides mechanisms to work with clusters, such as automatic retries.
+Py2neo offers a larger surface, with both a higher level API and an OGM, but the official driver is fully supported by Neo4j.
 If you are new to Neo4j, need an OGM, do not want to learn Cypher immediately, or require data science integrations, py2neo may be the better choice.
-If you are building a high-availability Enterprise application, or are using a cluster, you likely need the official driver.
+If you are in an Enterprise environment where you require support, you likely need the official driver.
 
 
 Releases & Versioning
@@ -72,13 +72,12 @@ Requirements
    :target: https://neo4j.com/
    :alt: Neo4j versions
 
-The following versions of Python and Neo4j are supported:
+The following versions of Python and Neo4j (all editions) are supported:
 
 - Python 2.7 / 3.5 / 3.6 / 3.7 / 3.8
 - Neo4j 3.4 / 3.5 / 4.0 / 4.1 (the latest point release of each version is recommended)
 
-While either Neo4j Community or Enterprise edition may be used, py2neo does not yet fully support all Enterprise-only features, such as `Causal Clustering <https://neo4j.com/docs/operations-manual/current/clustering/>`_.
-Py2neo does however provide support for the multi-database functionality added in Neo4j 4.0.
+Py2neo provides support for the multi-database functionality added in Neo4j 4.0.
 More about this can be found in the documentation for the ``Graph`` class.
 
 Note also that Py2neo is developed and tested under **Linux** using standard CPython distributions.

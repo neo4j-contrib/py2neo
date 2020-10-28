@@ -60,10 +60,10 @@ from packaging.version import Version
 from six import raise_from
 
 from py2neo.client import Connection, Transaction, Result, Failure, Bookmark, \
-    TransactionError, BrokenTransactionError
-from py2neo.client.config import bolt_user_agent
+    TransactionError, BrokenTransactionError, ConnectionUnavailable
+from py2neo.client.config import bolt_user_agent, ConnectionProfile
 from py2neo.client.packstream import pack, UnpackStream, PackStreamHydrant
-from py2neo.wiring import Wire, BrokenWireError
+from py2neo.wiring import Wire, WireError, BrokenWireError
 
 
 log = getLogger(__name__)
@@ -161,7 +161,8 @@ class Bolt(Connection):
         return [bolt.protocol_version for bolt in Bolt._walk_subclasses()]
 
     @classmethod
-    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None, on_release=None):
+    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None,
+             on_release=None, on_broken=None):
         """ Open a Bolt connection to a server.
 
         :param profile: :class:`.ConnectionProfile` detailing how and
@@ -170,22 +171,29 @@ class Bolt(Connection):
         :param on_bind:
         :param on_unbind:
         :param on_release:
+        :param on_broken:
+        :returns: :class:`.Bolt` connection object
+        :raises: :class:`.ConnectionUnavailable` if a connection cannot
+            be opened, or a protocol version cannot be agreed
         """
-        wire = cls._connect(profile)
-        protocol_version = cls._handshake(wire)
-        subclass = cls._get_subclass(protocol_version)
-        if subclass is None:
-            raise RuntimeError("Unable to agree supported protocol version")
-        bolt = subclass(wire, profile, (user_agent or bolt_user_agent()),
-                        on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
-        bolt.__local_port = wire.local_address.port_number
-        bolt._hello()
-        return bolt
+        try:
+            wire = cls._connect(profile, on_broken=on_broken)
+            protocol_version = cls._handshake(wire)
+            subclass = cls._get_subclass(protocol_version)
+            if subclass is None:
+                raise BoltProtocolError("Unable to agree supported protocol version")
+            bolt = subclass(wire, profile, (user_agent or bolt_user_agent()),
+                            on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
+            bolt.__local_port = wire.local_address.port_number
+            bolt._hello()
+            return bolt
+        except (BoltProtocolError, WireError) as error:
+            raise_from(ConnectionUnavailable("Cannot open connection to %r" % profile), error)
 
     @classmethod
-    def _connect(cls, profile):
+    def _connect(cls, profile, on_broken):
         log.debug("[#%04X] C: (Dialing <%s>)", 0, profile.address)
-        wire = Wire.open(profile.address, keep_alive=True)
+        wire = Wire.open(profile.address, keep_alive=True, on_broken=on_broken)
         local_port = wire.local_address.port_number
         log.debug("[#%04X] S: (Accepted)", local_port)
         if profile.secure:
@@ -320,6 +328,8 @@ class Bolt1(Bolt):
                               )
         result = self._run(graph_name, cypher, parameters or {}, final=True)
         try:
+            # TODO: can we avoid this buffering before the first
+            #   PULL/DISCARD is sent?
             result.buffer()
         except BrokenWireError as error:
             raise_from(TransactionError("Transaction could not run "
@@ -438,6 +448,41 @@ class Bolt1(Bolt):
         response = self._write_request(0x2F)
         result.append(response, final=True)
         return response
+
+    def _get_routing_info(self, graph_name, query, parameters):
+        # This import is not ideal as it breaks abstraction layers,
+        # but it's necessary until the ROUTE message is available.
+        from py2neo import ClientError
+        try:
+            result = self.auto_run(graph_name, query, parameters)
+            self.pull(result)
+            for ttl, address_data in result.records():
+                addresses = {}
+                for a in address_data:
+                    addresses[a["role"]] = [ConnectionProfile(address=address)
+                                            for address in a["addresses"]]
+                return addresses["ROUTE"], addresses["READ"], addresses["WRITE"], ttl
+        except ClientError as error:
+            if error.title == "ProcedureNotFound":
+                raise_from(TypeError("Neo4j service does not support routing"), error)
+            else:
+                raise
+
+    def route(self, graph_name=None, context=None):
+        #
+        # Bolt 1 (< Neo4j 3.2) (Clusters only)
+        #     cx.run("CALL dbms.cluster.routing.getServers"
+        #
+        #
+        # Bolt 1 (>= Neo4j 3.2) / Bolt 2 / Bolt 3 (Clusters only)
+        #     cx.run("CALL dbms.cluster.routing.getRoutingTable($context)",
+        #    {"context": self.routing_context}
+        #
+        if graph_name is not None:
+            raise TypeError("Multiple graph databases are not available prior to Bolt v4")
+        query = "CALL dbms.cluster.routing.getRoutingTable($context)"
+        parameters = {"context": context or {}}
+        return self._get_routing_info(None, query, parameters)
 
     def sync(self, result):
         self._send()
@@ -708,6 +753,19 @@ class Bolt4x0(Bolt3):
         response = self._write_request(0x2F, args)
         result.append(response, final=(n == -1))
         return response
+
+    def route(self, graph_name=None, context=None):
+        # In Neo4j 4.0 and above, routing is available for all
+        # topologies, standalone or clustered.
+        if graph_name is None:
+            # Default database
+            query = "CALL dbms.routing.getRoutingTable($context)"
+            parameters = {"context": context or {}}
+        else:
+            # Named database
+            query = "CALL dbms.routing.getRoutingTable($context, $database)"
+            parameters = {"context": context or {}, "database": graph_name}
+        return self._get_routing_info("system", query, parameters)
 
 
 class Bolt4x1(Bolt4x0):
