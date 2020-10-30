@@ -17,11 +17,11 @@
 
 
 from collections import deque
-from socket import AF_INET, AF_INET6
+from socket import AF_INET, AF_INET6, SOCK_STREAM
 
 from pytest import fixture, raises
 
-from py2neo.wiring import Wire, Address
+from py2neo.wiring import Wire, Address, WireError
 
 
 class FakeSocket(object):
@@ -75,6 +75,77 @@ def fake_writer():
         s = FakeSocket(out_packets=into)
         return Wire(s)
     return writer
+
+
+class MockSocket(object):
+
+    fail_on_connect = False
+    fail_on_recv = False
+
+    def __init__(self, family=AF_INET, type=SOCK_STREAM, proto=0, fileno=None):
+        self.__family = family
+        self.__type = type
+        self.__proto = proto
+        self.__fileno = fileno
+        self.__timeout = None
+        self.__peer = None
+        self.on_connect = None
+
+    def settimeout(self, value):
+        self.__timeout = value
+
+    def setsockopt(self, level, optname, value, optlen=None):
+        pass
+
+    def connect(self, address):
+        if self.fail_on_connect:
+            raise OSError("Connection refused to %r" % (address,))
+        else:
+            self.__peer = address
+
+    def getpeername(self):
+        return self.__peer
+
+    def recv(self, bufsize, flags=None):
+        if self.fail_on_recv:
+            raise OSError("Connection broken")
+        else:
+            raise NotImplementedError
+
+
+@fixture
+def mock_socket(monkeypatch):
+    monkeypatch.setattr("socket.socket", MockSocket)
+    return MockSocket
+
+
+def test_wire_open_simple(mock_socket):
+    wire = Wire.open(("localhost", 7687))
+    assert wire.remote_address == ("localhost", 7687)
+
+
+def test_wire_open_with_keep_alive(mock_socket):
+    wire = Wire.open(("localhost", 7687), keep_alive=True)
+    assert wire.remote_address == ("localhost", 7687)
+
+
+def test_wire_open_with_connect_error(mock_socket):
+    mock_socket.fail_on_connect = True
+    try:
+        with raises(WireError):
+            _ = Wire.open(("localhost", 7687))
+    finally:
+        mock_socket.fail_on_connect = False
+
+
+def test_wire_read_with_recv_error(mock_socket):
+    mock_socket.fail_on_recv = True
+    try:
+        wire = Wire.open(("localhost", 7687))
+        with raises(WireError):
+            _ = wire.read(1)
+    finally:
+        mock_socket.fail_on_recv = False
 
 
 def test_byte_reader_read_when_enough_available(fake_reader):

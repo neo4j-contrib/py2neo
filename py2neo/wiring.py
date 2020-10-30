@@ -24,14 +24,7 @@ as well as classes for modelling IP addresses, based on tuples.
 """
 
 
-from socket import (
-    getservbyname,
-    socket,
-    SOL_SOCKET,
-    SO_KEEPALIVE,
-    AF_INET,
-    AF_INET6,
-)
+from socket import AF_INET, AF_INET6
 
 from six import raise_from
 
@@ -100,6 +93,7 @@ class Address(tuple):
 
     @property
     def port_number(self):
+        from socket import getservbyname
         if self.port == "bolt":
             # Special case, just because. The regular /etc/services
             # file doesn't contain this, but it can be found in
@@ -157,6 +151,8 @@ class Wire(object):
         :returns: :class:`.Wire` object
         :raises WireError: if connection fails to open
         """
+        from socket import socket, SOL_SOCKET, SO_KEEPALIVE
+        address = Address(address)
         s = socket(family=address.family)
         if keep_alive:
             s.setsockopt(SOL_SOCKET, SO_KEEPALIVE, 1)
