@@ -851,7 +851,7 @@ class Connector(object):
     def _on_broken(self, profile, message):
         """ Handle a broken connection.
         """
-        log.warning("Connection to %r broken (%s)", profile, message)
+        log.warning("Connection to %r broken\n%s", profile, message)
         if self._routers is not None:
             log.debug("Removing profile %r from router list", profile)
             try:
