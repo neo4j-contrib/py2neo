@@ -101,6 +101,31 @@ class BoltMessageReader(object):
         fields = tuple(unpacker.unpack() for _ in range(n))
         return tag, fields
 
+    def peek_message(self):
+        """ If another complete message exists, return the tag for
+        that message, otherwise return `None`.
+        """
+        data = self.wire.peek()
+        p = 0
+
+        def peek_chunk():
+            q = p + 2
+            if q < len(data):
+                size, = struct_unpack(">H", data[p:q])
+                r = q + size
+                if r < len(data):
+                    return size
+            return -1
+
+        while True:
+            chunk_size = peek_chunk()
+            if chunk_size == -1:
+                return None
+            elif chunk_size == 0:
+                return data[3]
+            else:
+                p += 2 + chunk_size
+
 
 class BoltMessageWriter(object):
 
@@ -545,8 +570,17 @@ class Bolt1(Bolt):
             self._responses.popleft()
             self._metadata.update(fields[0])
         elif tag == 0x71:
-            log.debug("[#%04X] S: RECORD %s", self.local_port, " ".join(map(repr, fields)))
-            rs.add_record(fields[0])
+            # If a RECORD is received, check for more records
+            # in the buffer immediately following, and log and
+            # add them all at the same time
+            value_lists = list(fields)
+            while self._reader.peek_message() == 0x71:
+                _, extra_fields = self._reader.read_message()
+                value_lists.extend(extra_fields)
+            more = len(value_lists) - 1
+            log.debug("[#%04X] S: RECORD %r%s", self.local_port, value_lists[0],
+                      " (...and %d more)" % more if more else "")
+            rs.add_records(value_lists)
         elif tag == 0x7F:
             log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
             rs.set_failure(**fields[0])
@@ -983,8 +1017,8 @@ class BoltResponse(Task):
         else:
             return "<BoltResponse ?>"
 
-    def add_record(self, values):
-        self._records.append(values)
+    def add_records(self, value_lists):
+        self._records.extend(value_lists)
 
     def has_records(self):
         return bool(self._records)
