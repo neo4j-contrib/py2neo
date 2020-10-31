@@ -310,16 +310,16 @@ class WireRequestHandler(BaseRequestHandler):
 class WireError(OSError):
     """ Raised when a connection error occurs.
 
-    :ivar idle_time:
-    :ivar bytes_sent:
-    :ivar bytes_received:
+    :param idle_time:
+    :param bytes_sent:
+    :param bytes_received:
     """
 
-    def __init__(self, *args, idle_time=None, bytes_sent=0, bytes_received=0):
+    def __init__(self, *args, **kwargs):
         super(WireError, self).__init__(*args)
-        self.idle_time = idle_time
-        self.bytes_sent = bytes_sent
-        self.bytes_received = bytes_received
+        self.idle_time = kwargs.get("idle_time", None)
+        self.bytes_sent = kwargs.get("bytes_sent", 0)
+        self.bytes_received = kwargs.get("bytes_received", 0)
 
 
 class BrokenWireError(WireError):
