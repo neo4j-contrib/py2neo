@@ -26,6 +26,7 @@ as well as classes for modelling IP addresses, based on tuples.
 
 from socket import AF_INET, AF_INET6
 
+from monotonic import monotonic
 from six import raise_from
 
 from py2neo.compat import xstr, BaseRequestHandler
@@ -166,6 +167,9 @@ class Wire(object):
     def __init__(self, s, on_broken=None):
         s.settimeout(None)  # ensure wrapped socket is in blocking mode
         self.__socket = s
+        self.__active_time = monotonic()
+        self.__bytes_received = 0
+        self.__bytes_sent = 0
         self.__input = bytearray()
         self.__output = bytearray()
         self.__on_broken = on_broken
@@ -186,6 +190,8 @@ class Wire(object):
         except (IOError, OSError):
             # TODO: add connection failure/diagnostic callback
             raise WireError("Unable to establish secure connection with remote peer")
+        else:
+            self.__active_time = monotonic()
 
     def read(self, n):
         """ Read bytes from the network.
@@ -196,9 +202,11 @@ class Wire(object):
             try:
                 received = self.__socket.recv(requested)
             except (IOError, OSError):
-                self.__set_broken()
+                self.__set_broken("Wire broken")
             else:
                 if received:
+                    self.__active_time = monotonic()
+                    self.__bytes_received += len(received)
                     self.__input.extend(received)
                 else:
                     self.__set_broken("Network read incomplete "
@@ -207,6 +215,11 @@ class Wire(object):
         data = self.__input[:n]
         self.__input[:n] = []
         return data
+
+    def peek(self):
+        """ Return any buffered unread data.
+        """
+        return self.__input
 
     def write(self, b):
         """ Write bytes to the output buffer.
@@ -223,8 +236,10 @@ class Wire(object):
             try:
                 n = self.__socket.send(self.__output)
             except (IOError, OSError):
-                self.__set_broken()
+                self.__set_broken("Wire broken")
             else:
+                self.__active_time = monotonic()
+                self.__bytes_sent += n
                 self.__output[:n] = []
                 sent += n
         return sent
@@ -236,7 +251,7 @@ class Wire(object):
             # TODO: shutdown
             self.__socket.close()
         except (IOError, OSError):
-            self.__set_broken()
+            self.__set_broken("Wire broken")
         else:
             self.__closed = True
 
@@ -264,11 +279,18 @@ class Wire(object):
         """
         return Address(self.__socket.getpeername())
 
-    def __set_broken(self, message=None):
+    def __set_broken(self, message):
+        idle_time = monotonic() - self.__active_time
+        message += (" after %.01fs idle (%r bytes sent, "
+                    "%r bytes received)" % (idle_time,
+                                            self.__bytes_sent,
+                                            self.__bytes_received))
         if callable(self.__on_broken):
             self.__on_broken(message)
         self.__broken = True
-        raise BrokenWireError(message)
+        raise BrokenWireError(message, idle_time=idle_time,
+                              bytes_sent=self.__bytes_sent,
+                              bytes_received=self.__bytes_received)
 
 
 class WireRequestHandler(BaseRequestHandler):
@@ -287,7 +309,17 @@ class WireRequestHandler(BaseRequestHandler):
 
 class WireError(OSError):
     """ Raised when a connection error occurs.
+
+    :ivar idle_time:
+    :ivar bytes_sent:
+    :ivar bytes_received:
     """
+
+    def __init__(self, *args, idle_time=None, bytes_sent=0, bytes_received=0):
+        super(WireError, self).__init__(*args)
+        self.idle_time = idle_time
+        self.bytes_sent = bytes_sent
+        self.bytes_received = bytes_received
 
 
 class BrokenWireError(WireError):
