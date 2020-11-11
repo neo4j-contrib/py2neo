@@ -321,7 +321,6 @@ class ConnectionPool(object):
         self._in_use_list = deque()
         self._quarantine = deque()
         self._free_list = deque()
-        self._waiting_list = WaitingList()  # TODO: consider moving this to Connector
         self._supports_multi = False
 
     def __repr__(self):
@@ -363,7 +362,7 @@ class ConnectionPool(object):
             # The maximum size has grown, so new slots have become
             # available. Notify any waiting acquirers of this extra
             # capacity.
-            self._waiting_list.notify()
+            pass  # Removed waiting list mechanism (11 Nov 2020)
 
     @property
     def max_age(self):
@@ -492,7 +491,7 @@ class ConnectionPool(object):
                     if self.size < self.max_size:
                         # Check again if there is still capacity.
                         self._free_list.append(cx)
-                        self._waiting_list.notify()
+                        pass  # Removed waiting list mechanism (11 Nov 2020)
                     else:
                         # Otherwise, close the connection.
                         cx.close()
@@ -532,7 +531,6 @@ class ConnectionPool(object):
         self.max_size = 0
         self.prune()
         self.__close(self._in_use_list)
-        self._waiting_list.notify()
 
     @classmethod
     def __close(cls, connections):
@@ -1031,26 +1029,6 @@ class RoutingTable(object):
             self._rw_runners.remove(profile)
         except ValueError:
             pass  # ignore, not present
-
-
-# TODO: this class can probably be removed now
-class WaitingList:
-
-    def __init__(self):
-        self._wait_list = deque()
-
-    def wait(self, timeout=None):
-        event = Event()
-        self._wait_list.append(event)
-        return event.wait(timeout)
-
-    def notify(self):
-        try:
-            event = self._wait_list.popleft()
-        except IndexError:
-            pass
-        else:
-            event.set()
 
 
 class Transaction(object):
