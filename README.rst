@@ -25,6 +25,9 @@ Py2neo offers a larger surface, with both a higher level API and an OGM, but the
 If you are new to Neo4j, need an OGM, do not want to learn Cypher immediately, or require data science integrations, py2neo may be the better choice.
 If you are in an Enterprise environment where you require support, you likely need the official driver.
 
+As of version 2020.1.0, Py2neo contains **experimental** Bolt routing support, enabled using ``g = Graph(..., routing=True)``.
+Constructive feedback on this feature is very welcome, but note that it is not yet guaranteed to be stable in a production environment.
+
 
 Releases & Versioning
 ---------------------

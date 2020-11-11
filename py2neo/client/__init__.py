@@ -25,6 +25,7 @@ from monotonic import monotonic
 
 from py2neo.client.config import ConnectionProfile
 from py2neo.compat import string_types
+from py2neo.timing import repeater
 
 
 DEFAULT_MAX_CONNECTIONS = 40
@@ -421,7 +422,7 @@ class ConnectionPool(object):
         self._quarantine.remove(cx)
         return cx
 
-    def acquire(self, timeout=None, force_reset=False):
+    def acquire(self, force_reset=False):
         """ Acquire a connection from the pool.
 
         In the simplest case, this will return an existing open
@@ -430,33 +431,24 @@ class ConnectionPool(object):
         free connections are available, this will block until a
         connection is released, or until the acquire call is cancelled.
 
-        This method will return :const:`None` if and only if the
-        maximum size of the pool is set to zero. In this special case,
-        no amount of waiting would result in the acquisition of a
-        connection. This will be the case if the pool has been closed.
+        This method will raise :exc:`.ConnectionUnavailable` if the
+        maximum size of the pool is set to zero, if the pool is full
+        and all connections are in use, or if a new connection attempt
+        is made which fails.
 
-        :param timeout:
         :param force_reset: if true, the connection will be forcibly
             reset before being returned; if false, this will only occur
             if the connection is not already in a clean state
         :returns: a Bolt connection object
-        :raises: :class:`.ConnectionUnavailable` if a connection
-            attempt was made which failed
+        :raises: :class:`.ConnectionUnavailable` if no connection can
+            be acquired
         """
-        t0 = monotonic()
-
-        def remaining_timeout():
-            if timeout is None:
-                return None
-            else:
-                t1 = monotonic()
-                return timeout - (t1 - t0)
-
-        log.debug("Acquiring connection from pool %r", self)
+        log.debug("Trying to acquiring connection from pool %r", self)
         cx = None
         while cx is None or cx.broken or cx.closed:
             if self.max_size == 0:
-                return None
+                log.debug("Pool %r is set to zero size", self)
+                raise ConnectionUnavailable("Pool is set to zero size")
             try:
                 # Plan A: select a free connection from the pool
                 cx = self._free_list.popleft()
@@ -466,7 +458,6 @@ class ConnectionPool(object):
                     # a new connection. This may raise a
                     # ConnectionUnavailable exception, which
                     # should bubble up to the caller.
-                    # TODO: pass in timeout
                     cx = Connection.open(self.profile, user_agent=self.user_agent,
                                          on_bind=self._on_bind, on_unbind=self._on_unbind,
                                          on_release=lambda c: self.release(c),
@@ -474,13 +465,15 @@ class ConnectionPool(object):
                     if cx.supports_multi():
                         self._supports_multi = True
                 else:
-                    # Plan C: wait for more capacity to become
-                    # available, then try again
-                    log.debug("Joining waiting list")
-                    if not self._waiting_list.wait(remaining_timeout()):
-                        raise RuntimeError("Unable to acquire connection")
+                    # Plan C: the pool is full and all connections
+                    # are in use. Return immediately to allow the
+                    # caller to make an alternative choice.
+                    log.debug("Pool %r is full with all connections "
+                              "in use", self)
+                    return ConnectionUnavailable("Pool is full")
             else:
                 cx = self._sanitize(cx, force_reset=force_reset)
+        log.debug("Acquired connection %r", cx)
         self._in_use_list.append(cx)
         return cx
 
@@ -597,8 +590,6 @@ class Connector(object):
         cluster
     """
 
-    default_acquire_timeout = 30
-
     def __init__(self, profile, user_agent=None, init_size=None, max_size=None, max_age=None,
                  routing=False):
         self._profile = ConnectionProfile(profile)
@@ -608,7 +599,7 @@ class Connector(object):
         self._max_age = max_age
         self._transactions = {}
         self._pools = {}
-        self._add_pools(self._profile)
+        self.add_pools(self._profile)
         if routing:
             self._routers = []
             self._routing_tables = {}
@@ -623,7 +614,7 @@ class Connector(object):
     def __hash__(self):
         return hash(self.profile)
 
-    def _add_pools(self, *profiles):
+    def add_pools(self, *profiles):
         """ Adds connection pools for one or more connection profiles.
         Pools that already exist will be skipped.
         """
@@ -644,31 +635,46 @@ class Connector(object):
                 on_broken=self._on_broken)
             self._pools[profile] = pool
 
-    def _get_pools(self, graph_name=None, readonly=False):
-        """ Obtain a dictionary of connection pools for a particular
-        graph database and read/write mode, keyed by
-        :class:`.ConnectionProfile`.
+    @classmethod
+    def _repr_graph_name(cls, graph_name):
+        # helper for logging
+        if graph_name is None:
+            return "default database"
+        else:
+            return repr(graph_name)
+
+    def get_pools(self, graph_name=None, readonly=False):
+        """ Obtain a list of connection pools for a particular
+        graph database and read/write mode.
+
+        If, for any reason, the routing table is not valid, a
+        :exc:`.RoutingTable.Invalid` exception will be raised.
+        Possible reasons are:
+        - No routing table exists for the given graph database
+        - The routing table has expired
+        - No appropriate readonly or read-write servers are listed
         """
         if self._routers is None:
-            return self._pools
-        while True:  # TODO: timeout
-            try:
-                profiles = self._routing_tables[graph_name].runners(readonly=readonly)
-            except KeyError:
-                self._refresh_routing_table(graph_name)
-                continue
-            except RoutingTable.Expired:
-                log.debug("Routing table for %s expired at %r",
-                          "default database" if graph_name is None else repr(graph_name),
-                          self._routing_tables[graph_name].expiry_time)
-                self._refresh_routing_table(graph_name)
-                continue
-            else:
-                if profiles:
-                    return {profile: pool for profile, pool in self._pools.items()
-                            if profile in profiles}
-                else:
-                    self._refresh_routing_table(graph_name)
+            # If routing isn't enabled, just return a
+            # simple list of pools.
+            return list(self._pools.values())
+        try:
+            rt = self._routing_tables[graph_name]
+        except KeyError:
+            log.debug("No routing table available for %s", self._repr_graph_name(graph_name))
+            raise RoutingTable.Invalid()
+        else:
+            if rt.expired():
+                log.debug("Routing table for %s expired at %r", self._repr_graph_name(graph_name),
+                          rt.expiry_time)
+                raise RoutingTable.Invalid()
+            profiles = rt.runners(readonly=readonly)
+            if not profiles:
+                log.debug("No server profiles for %r "
+                          "and readonly=%r", self._repr_graph_name(graph_name), readonly)
+                raise RoutingTable.Invalid()
+            return [pool for profile, pool in self._pools.items()
+                    if profile in profiles]
 
     def _refresh_routing_table(self, graph_name=None):
         log.debug("Attempting to refresh routing table for %s",
@@ -688,8 +694,8 @@ class Connector(object):
                     continue
                 else:
                     # TODO: comment this algorithm
-                    self._add_pools(*ro_runners)
-                    self._add_pools(*rw_runners)
+                    self.add_pools(*ro_runners)
+                    self.add_pools(*rw_runners)
                     routing_table = RoutingTable(ro_runners, rw_runners, monotonic() + ttl)
                     # TODO: housekeep old pools (maybe in connection pool after connection failure)
                     old = set(profile for profile in self._routers if profile not in routers)
@@ -704,7 +710,7 @@ class Connector(object):
                     return
                 finally:
                     cx.close()
-        raise RuntimeError("No suitable routers found")  # TODO: better exception
+        raise ConnectionUnavailable("No suitable routers found")  # TODO: better exception
 
     @property
     def profile(self):
@@ -717,11 +723,6 @@ class Connector(object):
         """ The user agent for connections attached to this connector.
         """
         return self._user_agent
-
-    @property
-    def acquire_timeout(self):
-        # TODO: make this configurable
-        return self.default_acquire_timeout
 
     @property
     def in_use(self):
@@ -746,24 +747,40 @@ class Connector(object):
         no amount of waiting would result in the acquisition of a
         connection. This will be the case if the pool has been closed.
 
-        :param graph_name:
+        :param graph_name: the graph database name for which a
+            connection must be acquired
         :param readonly: if true, a readonly server will be selected,
             if available; if no such servers are available, a regular
             server will be used instead
-        :param timeout:
+        :param timeout: for how long (in seconds) to continue to
+            attempt to acquire a connection
         :param force_reset: if true, the connection will be forcibly
             reset before being returned; if false, this will only occur
             if the connection is not already in a clean state
-        :return: a Bolt connection object
+        :return: a :class:`.Connection` object
         :raises: :class:`.ConnectionUnavailable` if a connection
-            attempt was made which failed
+            could not be acquired within the time limit
         """
-        # TODO: implement timeout
-        pools = self._get_pools(graph_name, readonly=readonly)
-        # TODO: improve this algorithm
-        import random
-        pool = random.choice(list(pools.values()))
-        return pool.acquire(timeout=self.acquire_timeout, force_reset=force_reset)
+        # TODO: improve logging for this method
+        for n in repeater(at_least=3, timeout=timeout):
+            log.debug("Attempting to acquire connection to %s", self._repr_graph_name(graph_name))
+            try:
+                pools = self.get_pools(graph_name, readonly=readonly)
+            except RoutingTable.Invalid:
+                self._refresh_routing_table(graph_name)
+            else:
+                for pool in sorted(pools, key=lambda p: p.in_use):
+                    log.debug("Using connection pool %r", pool)
+                    try:
+                        cx = pool.acquire(force_reset=force_reset)
+                    except ConnectionUnavailable as error:
+                        log.debug("Connection unavailable; %r", error.args[0])
+                        continue
+                    else:
+                        if cx is not None:
+                            return cx
+        else:
+            raise ConnectionUnavailable("Timed out trying to acquire connection")
 
     def release(self, cx, force_reset=False):
         """ Release a connection back into the pool.
@@ -999,7 +1016,7 @@ class Connector(object):
 
 class RoutingTable(object):
 
-    class Expired(Exception):
+    class Invalid(Exception):
         pass
 
     def __init__(self, ro_runners, rw_runners, expiry_time):
@@ -1011,10 +1028,10 @@ class RoutingTable(object):
         return "%s(%r, %r, %r)" % (self.__class__.__name__,
                                    self._ro_runners, self._rw_runners, self.expiry_time)
 
+    def expired(self):
+        return monotonic() >= self.expiry_time
+
     def runners(self, readonly=False):
-        expired = monotonic() >= self.expiry_time
-        if expired:
-            raise self.Expired("Routing table expired at %r" % self.expiry_time)
         return list(self._ro_runners if readonly else self._rw_runners)
 
     def remove(self, profile):
@@ -1028,6 +1045,7 @@ class RoutingTable(object):
             pass  # ignore, not present
 
 
+# TODO: this class can probably be removed now
 class WaitingList:
 
     def __init__(self):
