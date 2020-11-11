@@ -171,40 +171,23 @@ class GraphService(object):
 
     """
 
-    _instances = {}
-
     _connector = None
 
     _graphs = None
 
-    @classmethod
-    def forget_all(cls):
-        """ Forget all cached :class:`.GraphService` details.
-        """
-        for _, db in cls._instances.items():
-            db._connector.close()
-            db._connector = None
-        cls._instances.clear()
-
-    def __new__(cls, profile=None, **settings):
+    def __init__(self, profile=None, **settings):
         from py2neo.client import Connector
         from py2neo.client.config import ConnectionProfile
         profile = ConnectionProfile(profile, **settings)
-        try:
-            inst = cls._instances[profile]
-        except KeyError:
-            inst = super(GraphService, cls).__new__(cls)
-            connector_settings = {
-                "user_agent": settings.get("user_agent"),
-                "init_size": settings.get("init_size"),
-                "max_size": settings.get("max_size"),
-                "max_age": settings.get("max_age"),
-                "routing": settings.get("routing"),
-            }
-            inst._connector = Connector(profile, **connector_settings)
-            inst._graphs = {}
-            cls._instances[profile] = inst
-        return inst
+        connector_settings = {
+            "user_agent": settings.get("user_agent"),
+            "init_size": settings.get("init_size"),
+            "max_size": settings.get("max_size"),
+            "max_age": settings.get("max_age"),
+            "routing": settings.get("routing"),
+        }
+        self._connector = Connector(profile, **connector_settings)
+        self._graphs = {}
 
     def __repr__(self):
         class_name = self.__class__.__name__
@@ -230,14 +213,9 @@ class GraphService(object):
         elif graph_name not in self._connector.graph_names():
             raise KeyError("Graph {!r} does not exist for "
                            "service {!r}".format(graph_name, self._connector.profile.uri))
-        graph_class = SystemGraph if graph_name == "system" else Graph
         if graph_name not in self._graphs:
-            inst = object.__new__(graph_class)
-            inst.service = self
-            inst.__name__ = graph_name
-            inst.schema = Schema(inst)
-            inst._procedures = ProcedureLibrary(inst)
-            self._graphs[graph_name] = inst
+            graph_class = SystemGraph if graph_name == "system" else Graph
+            self._graphs[graph_name] = graph_class(self.profile, name=graph_name)
         return self._graphs[graph_name]
 
     def __iter__(self):
@@ -376,9 +354,11 @@ class Graph(object):
     #: The :class:`.Schema` resource for this :class:`.Graph`.
     schema = None
 
-    def __new__(cls, profile=None, name=None, **settings):
-        gs = GraphService(profile, **settings)
-        return gs[name]
+    def __init__(self, profile=None, name=None, **settings):
+        self.service = GraphService(profile, **settings)
+        self.__name__ = name
+        self.schema = Schema(self)
+        self._procedures = ProcedureLibrary(self)
 
     def __repr__(self):
         if self.name is None:

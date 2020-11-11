@@ -21,13 +21,6 @@ from pytest import raises, skip, mark
 from py2neo import Graph, Node, Relationship
 
 
-def test_same_uri_gives_same_instance(graph):
-    uri = graph.service.uri
-    graph_1 = Graph(uri)
-    graph_2 = Graph(uri)
-    assert graph_1 is graph_2
-
-
 def test_graph_len_returns_number_of_rels(graph):
     size = len(graph)
     statement = "MATCH ()-[r]->() RETURN COUNT(r)"
@@ -87,12 +80,6 @@ def test_get_non_existent_node_by_id(graph):
     with raises(KeyError):
         _ = graph.nodes[node_id]
     assert graph.nodes.get(node_id) is None
-
-
-def test_can_get_same_instance(uri):
-    graph_1 = Graph(uri)
-    graph_2 = Graph(uri)
-    assert graph_1 is graph_2
 
 
 def test_create_single_empty_node(graph):

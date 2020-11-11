@@ -26,13 +26,6 @@ def test_can_generate_graph(graph_service):
     assert isinstance(graph, Graph)
 
 
-def test_same_uri_gives_same_instance(graph_service):
-    uri = graph_service.uri
-    gs1 = GraphService(uri)
-    gs2 = GraphService(uri)
-    assert gs1 is gs2
-
-
 def test_graph_service_equality(graph_service):
     uri = graph_service.uri
     gs1 = GraphService(uri)

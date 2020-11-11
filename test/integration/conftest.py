@@ -149,7 +149,6 @@ neo4j_test_profiles = [TestProfile(sp, scheme=s)
          params=neo4j_test_profiles,
          ids=list(map(str, neo4j_test_profiles)))
 def test_profile(request):
-    GraphService.forget_all()
     test_profile = request.param
     yield test_profile
 
@@ -246,4 +245,3 @@ def stop_neo4j():
         NEO4J_PROCESS["installation"].server.stop()
         NEO4J_PROCESS["warehouse"].uninstall(NEO4J_PROCESS["name"])
         NEO4J_PROCESS.clear()
-        GraphService.forget_all()
