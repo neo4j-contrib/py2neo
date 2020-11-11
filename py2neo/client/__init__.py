@@ -132,12 +132,6 @@ class Connection(object):
         self._on_release = on_release
         self.__t_opened = monotonic()
 
-    def __del__(self):
-        try:
-            self.close()
-        except OSError:
-            pass
-
     def close(self):
         pass
 
@@ -329,12 +323,6 @@ class ConnectionPool(object):
         self._free_list = deque()
         self._waiting_list = WaitingList()  # TODO: consider moving this to Connector
         self._supports_multi = False
-
-    def __del__(self):
-        try:
-            self.close()
-        except OSError:
-            pass
 
     def __repr__(self):
         return "<{} profile={!r} in_use={!r} free={!r} spare={!r}>".format(

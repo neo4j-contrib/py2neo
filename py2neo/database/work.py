@@ -359,12 +359,6 @@ class Cursor(object):
         self._current = None
         self._closed = False
 
-    def __del__(self):
-        try:
-            self.close()
-        except OSError:
-            pass
-
     def __repr__(self):
         return repr(self.preview(3))
 
