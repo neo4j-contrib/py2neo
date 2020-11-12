@@ -18,6 +18,7 @@
 
 from unittest import TestCase
 
+from py2neo.ogm import Model, Property, RelatedTo
 from test.fixtures.ogm import Film, MacGuffin, DerivedThing
 
 
@@ -113,3 +114,26 @@ class InstancePropertyTestCase(TestCase):
     def test_instance_property_key_can_be_overridden(self):
         assert "released" in self.film_node
         assert "year_of_release" not in self.film_node
+
+
+def test_uniqueness_with_no_id():
+    # Test added to solve https://github.com/technige/py2neo/issues/839
+
+    class Page(Model):
+        name = Property()
+
+    class Book(Model):
+        pages = RelatedTo(Page, "HAS_PAGE")
+
+    book = Book()
+    page1 = Page()
+    page1.name = 'Index'
+    page2 = Page()
+    page2.name = 'Preface'
+    page3 = Page()
+    page3.name = 'Chapter One'
+    book.pages.add(page1)
+    book.pages.add(page2)
+    book.pages.add(page3)
+
+    assert len(book.pages) == 3

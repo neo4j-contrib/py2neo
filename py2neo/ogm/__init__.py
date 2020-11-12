@@ -434,9 +434,22 @@ class Model(object):
             self_node = self.__node__
             other_node = other.__node__
             if any(x is None for x in [self_node.graph, other_node.graph, self_node.identity, other_node.identity]):
-                return self.__primarylabel__ == other.__primarylabel__ and \
-                       self.__primarykey__ == other.__primarykey__ and \
-                       self.__primaryvalue__ == other.__primaryvalue__
+                if self.__primarylabel__ != other.__primarylabel__:
+                    return False
+                if (self.__primarykey__ == other.__primarykey__ and
+                        self.__primaryvalue__ == other.__primaryvalue__):
+                    if self.__primarykey__ == "__id__" and self.__primaryvalue__ is None:
+                        # If __id__ is the primary key but the value
+                        # isn't yet set, assume the objects are
+                        # not equal.
+                        #
+                        # See https://github.com/technige/py2neo/issues/839
+                        #
+                        return False
+                    else:
+                        return True
+                else:
+                    return False
             return (type(self) is type(other) and
                     self_node.graph == other_node.graph and
                     self_node.identity == other_node.identity)
