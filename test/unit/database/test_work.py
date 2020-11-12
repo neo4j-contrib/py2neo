@@ -23,13 +23,19 @@ from py2neo import Transaction
 
 class FakeTransaction(object):
 
-    pass
+    def __init__(self, graph_name, readonly=False):
+        self._graph_name = graph_name
+        self._readonly = readonly
+
+    @property
+    def readonly(self):
+        return self._readonly
 
 
 class FakeConnector(object):
 
-    def begin(self, graph_name):
-        return FakeTransaction()
+    def begin(self, graph_name, readonly=False):
+        return FakeTransaction(graph_name, readonly=readonly)
 
 
 class FakeService(object):

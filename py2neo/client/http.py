@@ -158,12 +158,14 @@ class HTTP(Connection):
     def fast_forward(self, bookmark):
         raise NotImplementedError("Bookmarking is not yet supported over HTTP")
 
-    def auto_run(self, graph_name, cypher, parameters=None,
-                 # readonly=False, after=None, metadata=None, timeout=None
+    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
+                 # after=None, metadata=None, timeout=None
                  ):
         if graph_name and not self.supports_multi():
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
+        if readonly:
+            raise TypeError("Readonly transactions are not supported over HTTP")
         r = self._post(HTTPTransaction.autocommit_uri(graph_name), cypher, parameters)
         assert r.status == 200  # TODO: other codes
         rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
@@ -171,14 +173,14 @@ class HTTP(Connection):
         rs.audit()
         return HTTPResult(graph_name, rs.result())
 
-    def begin(self, graph_name,
-              # readonly=False, after=None, metadata=None, timeout=None
+    def begin(self, graph_name, readonly=False,
+              # after=None, metadata=None, timeout=None
               ):
         if graph_name and not self.supports_multi():
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
-        # if readonly:
-        #     raise TypeError("Readonly transactions are not supported over HTTP")
+        if readonly:
+            raise TypeError("Readonly transactions are not supported over HTTP")
         # if after:
         #     raise TypeError("Bookmarks are not supported over HTTP")
         # if metadata:

@@ -56,8 +56,8 @@ class Transaction(object):
 
     _finished = False
 
-    def __init__(self, graph, autocommit=False,
-                 # readonly=False, after=None, metadata=None, timeout=None
+    def __init__(self, graph, autocommit=False, readonly=False,
+                 # after=None, metadata=None, timeout=None
                  ):
         self._graph = graph
         self._autocommit = autocommit
@@ -66,9 +66,10 @@ class Transaction(object):
         if autocommit:
             self._transaction = None
         else:
-            self._transaction = self._connector.begin(self._graph.name,
-                                                      # readonly, after, metadata, timeout
+            self._transaction = self._connector.begin(self._graph.name, readonly=readonly,
+                                                      # after, metadata, timeout
                                                       )
+        self._readonly = readonly
 
     def __enter__(self):
         return self
@@ -90,6 +91,10 @@ class Transaction(object):
     @property
     def entities(self):
         return self._entities
+
+    @property
+    def readonly(self):
+        return self._readonly
 
     def finished(self):
         """ Indicates whether or not this transaction has been completed
@@ -116,9 +121,11 @@ class Transaction(object):
             hydrant = Connection.default_hydrant(self._connector.profile, self.graph)
             parameters = dict(parameters or {}, **kwparameters)
             if self._transaction:
-                result = self._connector.run_in_tx(self._transaction, cypher, parameters, hydrant)
+                result = self._connector.run_in_tx(self._transaction, cypher, parameters,
+                                                   hydrant=hydrant)
             else:
-                result = self._connector.auto_run(self.graph.name, cypher, parameters, hydrant)
+                result = self._connector.auto_run(self.graph.name, cypher, parameters,
+                                                  readonly=self.readonly, hydrant=hydrant)
             return Cursor(result, hydrant, entities)
         finally:
             if not self._transaction:

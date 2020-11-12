@@ -16,6 +16,9 @@
 # limitations under the License.
 
 
+from pytest import skip
+
+
 def test_simple_evaluation(graph):
     value = graph.evaluate("RETURN 1")
     assert value == 1
@@ -69,3 +72,11 @@ def test_can_call_procedure_by_item(graph):
 def test_can_call_procedure_by_name(graph):
     data = graph.call("dbms.components").data()
     assert data[0]["name"] == "Neo4j Kernel"
+
+
+def test_readonly_query(graph):
+    if not graph.service.connector.supports_readonly_transactions():
+        skip("The underlying connection profile "
+             "does not support readonly transactions")
+    data = graph.read("RETURN 1 AS x").data()
+    assert data[0]["x"] == 1

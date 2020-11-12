@@ -345,11 +345,11 @@ class Bolt1(Bolt):
         self._transaction = BoltTransaction(graph_name, self.protocol_version,
                                             readonly, after)
 
-    def auto_run(self, graph_name, cypher, parameters=None,
-                 # readonly=False, after=None, metadata=None, timeout=None
+    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
+                 # after=None, metadata=None, timeout=None
                  ):
-        self._set_transaction(graph_name,
-                              # readonly, after, metadata, timeout
+        self._set_transaction(graph_name, readonly=readonly,
+                              # after, metadata, timeout
                               )
         result = self._run(graph_name, cypher, parameters or {}, final=True)
         try:
@@ -367,11 +367,11 @@ class Bolt1(Bolt):
             else:
                 return result
 
-    def begin(self, graph_name,
-              # readonly=False, after=None, metadata=None, timeout=None
+    def begin(self, graph_name, readonly=False,
+              # after=None, metadata=None, timeout=None
               ):
-        self._set_transaction(graph_name,
-                              # readonly, after, metadata, timeout
+        self._set_transaction(graph_name, readonly=readonly,
+                              # after, metadata, timeout
                               )
         log.debug("[#%04X] C: RUN 'BEGIN' %r", self.local_port, self._transaction.extra)
         log.debug("[#%04X] C: DISCARD_ALL", self.local_port)
@@ -658,15 +658,16 @@ class Bolt3(Bolt2):
         self._write_request(0x02)
         self._send()
 
-    def auto_run(self, graph_name, cypher, parameters=None,
-                 # readonly=False, after=None, metadata=None, timeout=None
+    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
+                 # after=None, metadata=None, timeout=None
                  ):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransaction(graph_name, self.protocol_version,
-                                            # readonly, after, metadata, timeout
+        self._transaction = BoltTransaction(graph_name, self.protocol_version, readonly,
+                                            # after, metadata, timeout
                                             )
-        result = self._run(graph_name, cypher, parameters or {}, self._transaction.extra, final=True)
+        result = self._run(graph_name, cypher, parameters or {},
+                           self._transaction.extra, final=True)
         try:
             result.buffer()
         except BrokenWireError as error:
@@ -680,13 +681,13 @@ class Bolt3(Bolt2):
             else:
                 return result
 
-    def begin(self, graph_name,
-              # readonly=False, after=None, metadata=None, timeout=None
+    def begin(self, graph_name, readonly=False,
+              # after=None, metadata=None, timeout=None
               ):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransaction(graph_name, self.protocol_version,
-                                            # readonly, after, metadata, timeout
+        self._transaction = BoltTransaction(graph_name, self.protocol_version, readonly,
+                                            # after, metadata, timeout
                                             )
         log.debug("[#%04X] C: BEGIN %r", self.local_port, self._transaction.extra)
         response = self._write_request(0x11, self._transaction.extra)
@@ -752,11 +753,6 @@ class Bolt3(Bolt2):
         finally:
             if callable(self._on_unbind):
                 self._on_unbind(self._transaction)
-
-    def run(self, tx, cypher, parameters=None):
-        self._assert_open()
-        self._assert_transaction_open(tx)
-        return self._run(tx.graph_name, cypher, parameters or {}, self._transaction.extra)
 
     def _run(self, graph_name, cypher, parameters, extra=None, final=False):
         log.debug("[#%04X] C: RUN %r %r %r", self.local_port, cypher, parameters, extra or {})

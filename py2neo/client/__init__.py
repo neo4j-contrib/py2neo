@@ -168,18 +168,27 @@ class Connection(object):
     def reset(self, force=False):
         pass
 
-    def auto_run(self, graph_name, cypher, parameters=None,
-                 # readonly=False, after=None, metadata=None, timeout=None
+    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
+                 # after=None, metadata=None, timeout=None
                  ):
-        pass
+        """ Run a single query within an auto-commit transaction. This
+        method may invoke network activity
 
-    def begin(self, graph_name,
-              # readonly=False, after=None, metadata=None, timeout=None
+        :param graph_name:
+        :param cypher:
+        :param parameters:
+        :param readonly:
+        :returns:
+        """
+
+    def begin(self, graph_name, readonly=False,
+              # after=None, metadata=None, timeout=None
               ):
         """ Begin a transaction. This method may invoke network
         activity.
 
         :param graph_name:
+        :param readonly:
         :returns: new :class:`.Transaction` object
         :raises TransactionError: if a new transaction cannot be created
         """
@@ -875,8 +884,8 @@ class Connector(object):
         """
         cx = self.acquire(graph_name, readonly=readonly)
         try:
-            return cx.begin(graph_name,
-                            # readonly=readonly, after=after, metadata=metadata, timeout=timeout
+            return cx.begin(graph_name, readonly=readonly,
+                            # after=after, metadata=metadata, timeout=timeout
                             )
         except TransactionError:
             # TODO: retry on failure (TransactionError)
@@ -915,7 +924,7 @@ class Connector(object):
             self.prune(cx.profile)
             raise
 
-    def auto_run(self, graph_name, cypher, parameters=None, hydrant=None, readonly=False,
+    def auto_run(self, graph_name, cypher, parameters=None, readonly=False, hydrant=None,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a Cypher query within a new auto-commit transaction.
@@ -923,7 +932,7 @@ class Connector(object):
         cx = self.acquire(graph_name, readonly)
         if hydrant:
             parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
-        result = cx.auto_run(graph_name, cypher, parameters)
+        result = cx.auto_run(graph_name, cypher, parameters, readonly=readonly)
         cx.pull(result)
         try:
             cx.sync(result)
@@ -954,6 +963,9 @@ class Connector(object):
         assert self._pools  # this will break if no pools exist
         return all(pool.supports_multi()
                    for pool in self._pools.values())
+
+    def supports_readonly_transactions(self):
+        return self.profile.protocol == "bolt"
 
     def _show_databases(self):
         if self.supports_multi():
