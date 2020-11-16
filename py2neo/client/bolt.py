@@ -448,6 +448,7 @@ class Bolt1(Bolt):
         return self._run(tx.graph_name, cypher, parameters or {})
 
     def _run(self, graph_name, cypher, parameters, extra=None, final=False):
+        # TODO: limit logging for big parameter sets (e.g. bulk import)
         log.debug("[#%04X] C: RUN %r %r", self.local_port, cypher, parameters)
         response = self._write_request(0x10, cypher, parameters)
         result = BoltResult(graph_name, self, response)
