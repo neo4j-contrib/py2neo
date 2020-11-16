@@ -367,7 +367,11 @@ class Cursor(object):
         self._closed = False
 
     def __repr__(self):
-        return repr(self.preview(3))
+        preview = self.preview(3)
+        if preview:
+            return repr(preview)
+        else:
+            return "(No data)"
 
     def __next__(self):
         if self.forward():
@@ -493,11 +497,14 @@ class Cursor(object):
         v = self._result.protocol_version
         records = []
         keys = self._result.fields()
-        for values in self._result.peek_records(int(limit)):
-            if self._hydrant:
-                values = self._hydrant.hydrate(keys, values, entities=self._entities, version=v)
-            records.append(values)
-        return Table(records, keys)
+        if keys:
+            for values in self._result.peek_records(int(limit)):
+                if self._hydrant:
+                    values = self._hydrant.hydrate(keys, values, entities=self._entities, version=v)
+                records.append(values)
+            return Table(records, keys)
+        else:
+            return None
 
     def evaluate(self, field=0):
         """ Return the value of the first field from the next record
