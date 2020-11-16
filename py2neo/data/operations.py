@@ -20,6 +20,9 @@ from __future__ import absolute_import
 
 
 __all__ = [
+    "create_nodes",
+    "merge_nodes",
+    "merge_relationships",
     "create_subgraph",
     "delete_subgraph",
     "merge_subgraph",
@@ -81,15 +84,14 @@ def _rel_create_dict(relationships):
     return d
 
 
-def _create_nodes(tx, labels, data):
-    assert isinstance(labels, frozenset)
+def create_nodes(tx, labels, data):
     label_string = "".join(":" + cypher_escape(label) for label in sorted(labels))
     cypher = "UNWIND $x AS data CREATE (_%s) SET _ = data RETURN id(_)" % label_string
     for record in tx.run(cypher, x=data):
         yield record[0]
 
 
-def _merge_nodes(tx, p_label, p_key, labels, data):
+def merge_nodes(tx, p_label, p_key, labels, data):
     """
 
     :param tx:
@@ -107,7 +109,7 @@ def _merge_nodes(tx, p_label, p_key, labels, data):
         yield record[0]
 
 
-def _merge_relationships(tx, r_type, data):
+def merge_relationships(tx, r_type, data):
     """
 
     :param tx:
@@ -133,14 +135,14 @@ def create_subgraph(tx, subgraph):
     """
     graph = tx.graph
     for labels, nodes in _node_create_dict(n for n in subgraph.nodes if n.graph is None).items():
-        identities = _create_nodes(tx, labels, list(map(dict, nodes)))
+        identities = create_nodes(tx, labels, list(map(dict, nodes)))
         for i, identity in enumerate(identities):
             node = nodes[i]
             node.graph = graph
             node.identity = identity
             node._remote_labels = labels
     for r_type, relationships in _rel_create_dict(r for r in subgraph.relationships if r.graph is None).items():
-        identities = _merge_relationships(tx, r_type, list(map(
+        identities = merge_relationships(tx, r_type, list(map(
             lambda r: [r.start_node.identity, r.end_node.identity, dict(r)], relationships)))
         for i, identity in enumerate(identities):
             relationship = relationships[i]
@@ -162,8 +164,8 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
     for (pl, pk, labels), nodes in _node_merge_dict(p_label, p_key, (n for n in subgraph.nodes if n.graph is None)).items():
         if pl is None or pk is None:
             raise ValueError("Primary label and primary key are required for MERGE operation")
-        identities = list(_merge_nodes(tx, pl, pk, labels,
-                                       list(map(lambda n: [n.get(pk), dict(n)], nodes))))
+        identities = list(merge_nodes(tx, pl, pk, labels,
+                                      list(map(lambda n: [n.get(pk), dict(n)], nodes))))
         if len(identities) > len(nodes):
             raise UniquenessError("Found %d matching nodes for primary label %r and primary "
                                  "key %r with labels %r but merging requires no more than "
@@ -174,7 +176,7 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
             node.identity = identity
             node._remote_labels = labels
     for r_type, relationships in _rel_create_dict(r for r in subgraph.relationships if r.graph is None).items():
-        identities = _merge_relationships(tx, r_type, list(map(
+        identities = merge_relationships(tx, r_type, list(map(
             lambda r: [r.start_node.identity, r.end_node.identity, dict(r)], relationships)))
         for i, identity in enumerate(identities):
             relationship = relationships[i]
