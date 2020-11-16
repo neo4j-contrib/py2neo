@@ -643,7 +643,10 @@ class Graph(object):
                         # after=after, metadata=metadata, timeout=timeout
                         )
         try:
-            work(tx, *args or (), **kwargs or {})
+            from inspect import isgenerator
+            value = work(tx, *args or (), **kwargs or {})
+            if isgenerator(value):
+                _ = list(value)     # exhaust the generator
         except Exception:  # TODO: catch transient and retry, if within limit
             tx.rollback()
             raise
