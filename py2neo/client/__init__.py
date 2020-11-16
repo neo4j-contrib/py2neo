@@ -594,14 +594,15 @@ class Connector(object):
         self._max_age = max_age
         self._transactions = {}
         self._pools = {}
-        self.add_pools(self._profile)
         if routing:
             self._routers = []
             self._routing_tables = {}
-            self._refresh_routing_table(None)
         else:
             self._routers = None
             self._routing_tables = None
+        self.add_pools(self._profile)
+        if routing:
+            self._refresh_routing_table(None)
 
     def __repr__(self):
         return "<{} to {!r}>".format(self.__class__.__name__, self.profile)
