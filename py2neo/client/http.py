@@ -154,6 +154,7 @@ class HTTP(Connection):
             # }
             self.neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 3.x
         self.server_agent = "Neo4j/{}".format(self.neo4j_version)
+
         # Given the root discovery endpoint isn't authenticated, we don't
         # catch incorrect passwords here, and this wouldn't then be signalled
         # to the user until later on. So here, we make a second call to a
@@ -163,7 +164,6 @@ class HTTP(Connection):
                                    headers=dict(self.headers))
         data = r.data.decode("utf-8")
         rs = HTTPResponse.from_json(r.status, data or "{}")
-        self.release()
         rs.audit()
 
     def fast_forward(self, bookmark):
