@@ -163,6 +163,7 @@ class HTTP(Connection):
                                    headers=dict(self.headers))
         data = r.data.decode("utf-8")
         rs = HTTPResponse.from_json(r.status, data or "{}")
+        self.release()
         rs.audit()
 
     def fast_forward(self, bookmark):
