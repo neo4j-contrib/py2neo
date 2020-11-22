@@ -17,7 +17,7 @@
 
 
 from logging import getLogger
-from os import chmod, path
+from os import chmod, getenv, path
 from random import choice
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -33,7 +33,12 @@ from py2neo.server.security import Auth, make_auth, install_certificate, install
 from py2neo.wiring import Address, Wire
 
 
+DOCKER_USER = getenv("DOCKER_USER", "")
+DOCKER_PASSWORD = getenv("DOCKER_PASSWORD", "")
+
 docker = DockerClient.from_env(version="auto")
+if DOCKER_USER and DOCKER_PASSWORD:
+    docker.login(username=DOCKER_USER, password=DOCKER_PASSWORD)
 
 
 log = getLogger(__name__)
