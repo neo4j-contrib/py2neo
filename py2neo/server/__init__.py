@@ -87,7 +87,7 @@ class Neo4jInstance(object):
                 install_private_key(key, "neo4j.key", self.cert_volume_dir)
             volumes[self.cert_volume_dir] = {
                 "bind": "/var/lib/neo4j/certificates",
-                "mode": "ro",
+                "mode": "rw",
             }
         self.container = docker.containers.create(
             self.image.id,
