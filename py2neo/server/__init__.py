@@ -17,7 +17,7 @@
 
 
 from logging import getLogger
-from os import chmod, getenv, path
+from os import chmod, getenv, makedirs, path
 from random import choice
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -35,6 +35,9 @@ from py2neo.wiring import Address, Wire
 
 DOCKER_USER = getenv("DOCKER_USER", "")
 DOCKER_PASSWORD = getenv("DOCKER_PASSWORD", "")
+
+TMP = path.join(path.expanduser("~"), "tmp")
+
 
 docker = DockerClient.from_env(version="auto")
 if DOCKER_USER and DOCKER_PASSWORD:
@@ -74,7 +77,11 @@ class Neo4jInstance(object):
         if self.service.secured:
             cert, key = self.service.cert_key_pair
             ports["7473/tcp"] = self.https_port
-            self.cert_volume_dir = mkdtemp(dir=path.join(path.expanduser("~"), "tmp"))
+            try:
+                makedirs(TMP)
+            except OSError:
+                pass
+            self.cert_volume_dir = mkdtemp(dir=TMP)
             chmod(self.cert_volume_dir, 0o755)
             log.debug("Using directory %r as shared certificate volume", self.cert_volume_dir)
             if self.service.image.version >= Version("4.0"):
