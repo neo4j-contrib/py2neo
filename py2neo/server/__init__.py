@@ -74,7 +74,7 @@ class Neo4jInstance(object):
         if self.service.secured:
             cert, key = self.service.cert_key_pair
             ports["7473/tcp"] = self.https_port
-            self.cert_volume_dir = mkdtemp()
+            self.cert_volume_dir = mkdtemp(dir=path.join(path.expanduser("~"), "tmp"))
             chmod(self.cert_volume_dir, 0o755)
             log.debug("Using directory %r as shared certificate volume", self.cert_volume_dir)
             if self.service.image.version >= Version("4.0"):
@@ -87,7 +87,7 @@ class Neo4jInstance(object):
                 install_private_key(key, "neo4j.key", self.cert_volume_dir)
             volumes[self.cert_volume_dir] = {
                 "bind": "/var/lib/neo4j/certificates",
-                "mode": "rw",
+                "mode": "ro",
             }
         self.container = docker.containers.create(
             self.image.id,
