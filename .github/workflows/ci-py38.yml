@@ -34,7 +34,7 @@ jobs:
         bin/check-legal
     - name: Run tests
       run: |
-        bin/test && coveralls
+        bin/test -v -x && coveralls
     - name: Perform installation check
       run: |
         bin/check-install
