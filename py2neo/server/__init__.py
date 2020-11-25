@@ -36,8 +36,6 @@ from py2neo.wiring import Address, Wire
 DOCKER_USER = getenv("DOCKER_USER", "")
 DOCKER_PASSWORD = getenv("DOCKER_PASSWORD", "")
 
-TMP = None
-
 
 docker = DockerClient.from_env(version="auto")
 if DOCKER_USER and DOCKER_PASSWORD:
@@ -77,11 +75,7 @@ class Neo4jInstance(object):
         if self.service.secured:
             cert, key = self.service.cert_key_pair
             ports["7473/tcp"] = self.https_port
-            try:
-                makedirs(TMP)
-            except OSError:
-                pass
-            self.cert_volume_dir = mkdtemp(dir=TMP)
+            self.cert_volume_dir = mkdtemp()
             chmod(self.cert_volume_dir, 0o755)
             log.debug("Using directory %r as shared certificate volume", self.cert_volume_dir)
             if self.service.image.version >= Version("4.0"):
