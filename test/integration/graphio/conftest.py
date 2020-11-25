@@ -17,7 +17,6 @@
 
 
 import pytest
-import pytest
 
 
 @pytest.fixture

@@ -21,7 +21,7 @@
 # however, NodeSets are also tested separately
 
 import pytest
-from py2neo.graphio.objects.nodeset import NodeSet, RelationshipSet
+from py2neo.graphio import NodeSet, RelationshipSet
 
 
 @pytest.fixture
