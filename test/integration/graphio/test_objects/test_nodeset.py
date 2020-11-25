@@ -18,7 +18,7 @@
 
 import pytest
 
-from py2neo.graphio.objects.nodeset import NodeSet
+from py2neo.graphio import NodeSet
 
 
 @pytest.fixture

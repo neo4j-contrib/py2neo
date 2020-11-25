@@ -16,14 +16,14 @@
 # limitations under the License.
 
 
-from py2neo.graphio.objects.helper import create_single_index, create_composite_index
+from py2neo.graphio import _create_single_index, _create_composite_index
 
 
 def test_create_single_index(clear_graph):
     test_label = 'Foo'
     test_prop = 'bar'
 
-    create_single_index(clear_graph, test_label, test_prop)
+    _create_single_index(clear_graph, test_label, test_prop)
 
     result = list(
         clear_graph.run("CALL db.indexes()")
@@ -45,7 +45,7 @@ def test_create_composite_index(clear_graph):
     test_label = 'Foo'
     test_properties = ['bar', 'keks']
 
-    create_composite_index(clear_graph, test_label, test_properties)
+    _create_composite_index(clear_graph, test_label, test_properties)
 
     result = list(
         clear_graph.run("CALL db.indexes()")
