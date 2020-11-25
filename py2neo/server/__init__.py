@@ -36,7 +36,7 @@ from py2neo.wiring import Address, Wire
 DOCKER_USER = getenv("DOCKER_USER", "")
 DOCKER_PASSWORD = getenv("DOCKER_PASSWORD", "")
 
-TMP = path.join(path.expanduser("~"), "tmp")
+TMP = None
 
 
 docker = DockerClient.from_env(version="auto")
@@ -288,6 +288,7 @@ class Neo4jInstance(object):
                 else:
                     log.error("Machine %r did not "
                               "become available", self.fq_name)
+                exit(1)
             else:
                 self.ready = 1
         else:
@@ -295,6 +296,7 @@ class Neo4jInstance(object):
                       self.fq_name, self.container.status)
             for line in self.container.logs().splitlines():
                 log.error("> %s" % line.decode("utf-8"))
+                exit(1)
 
     def stop(self):
         log.info("Stopping instance %r", self.fq_name)
