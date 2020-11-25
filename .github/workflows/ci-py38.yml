@@ -24,21 +24,23 @@ jobs:
       with:
         java-version: '8.0.x'
         java-package: jdk
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pytest
+        pip install https://github.com/bboe/coveralls-python/archive/github_actions.zip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
     - name: Perform legal checks
-      run: |
-        bin/check-legal
+      run: bin/check-legal
+
     - name: Run tests
-      run: |
-        bin/test -v -x
+      run: bin/test -v -x
+
     - name: Upload coverage
-      uses: coverallsapp/github-action@master
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+      run: coveralls
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Perform installation check
-      run: |
-        bin/check-install
+      run: bin/check-install
