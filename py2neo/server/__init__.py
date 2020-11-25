@@ -298,7 +298,10 @@ class Neo4jInstance(object):
         self.container.remove(force=True)
         if self.cert_volume_dir:
             log.debug("Removing directory %r", self.cert_volume_dir)
-            rmtree(self.cert_volume_dir)
+            try:
+                rmtree(self.cert_volume_dir)
+            except OSError:
+                pass
 
 
 class Neo4jService(object):
