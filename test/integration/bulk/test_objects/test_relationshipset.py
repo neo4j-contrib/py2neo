@@ -95,3 +95,33 @@ class TestRelationshipSetCreate:
             elif 'labelsOrTypes' in row:
                 assert row['labelsOrTypes'] == ['Test'] and row['properties'] == ['uuid'] \
                        or row['labelsOrTypes'] == ['Test'] and row['properties'] == ['uuid']
+
+
+class TestRelationshipSetMerge:
+
+    def test_relationshipset_merge(self, graph, create_nodes_test, small_relationshipset):
+
+        small_relationshipset.merge(graph)
+
+        result = list(
+            graph.run(
+                "MATCH (t:Test)-[r:TEST]->(f:Foo) RETURN count(r)"
+            )
+        )
+        print(result)
+        print(result[0])
+        assert result[0][0] == 100
+
+    def test_to_dict(self, small_relationshipset):
+        d = small_relationshipset.to_dict()
+        assert isinstance(d, dict)
+        assert len(d["relationships"]) == 100
+
+    def test_from_dict(self, small_relationshipset):
+        d = small_relationshipset.to_dict()
+        rs2 = RelationshipSet.from_dict(d)
+        assert rs2.rel_type == small_relationshipset.rel_type
+        assert rs2.start_node_labels == small_relationshipset.start_node_labels
+        assert rs2.end_node_labels == small_relationshipset.end_node_labels
+        assert rs2.start_node_properties == small_relationshipset.start_node_properties
+        assert rs2.end_node_properties == small_relationshipset.end_node_properties
