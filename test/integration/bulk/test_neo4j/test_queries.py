@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.graphio.queries import nodes_create_unwind, nodes_merge_unwind
+from py2neo.bulk.queries import nodes_create_unwind, nodes_merge_unwind
 
 
 class TestNodesCreateUnwind:

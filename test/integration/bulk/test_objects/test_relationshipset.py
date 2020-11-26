@@ -17,11 +17,11 @@
 
 
 # note: integration tests for creating relationships needs nodes in the database
-# we create the nodes with graphio, this could mean that issues are difficult to resolve
+# we create the nodes with bulk, this could mean that issues are difficult to resolve
 # however, NodeSets are also tested separately
 
 import pytest
-from py2neo.graphio import NodeSet, RelationshipSet
+from py2neo.bulk import NodeSet, RelationshipSet
 
 
 @pytest.fixture

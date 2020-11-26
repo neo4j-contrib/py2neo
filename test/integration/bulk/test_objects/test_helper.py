@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.graphio import _create_single_index, _create_composite_index
+from py2neo.bulk import _create_single_index, _create_composite_index
 
 
 def test_create_single_index(clear_graph):
