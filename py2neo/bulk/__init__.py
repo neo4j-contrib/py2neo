@@ -16,13 +16,20 @@
 # limitations under the License.
 
 
+__all__ = [
+    "NodeSet",
+    "RelationshipSet",
+    "Container",
+]
+
+
 from itertools import chain, islice
 import json
 import logging
 from uuid import uuid4
 
 from py2neo import ClientError
-from py2neo.graphio.queries import nodes_create_unwind, nodes_merge_unwind, \
+from py2neo.bulk.queries import nodes_create_unwind, nodes_merge_unwind, \
                                    _query_create_rels_unwind, _query_merge_rels_unwind, \
                                    _params_create_rels_unwind_from_objects
 
