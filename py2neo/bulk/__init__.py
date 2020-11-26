@@ -538,14 +538,14 @@ class Container:
         """
         Get the NodeSets in the Container.
         """
-        return _get_instances_from_list(self.objects, NodeSet)
+        return [o for o in self.objects if isinstance(o, NodeSet)]
 
     @property
     def relationshipsets(self):
         """
         Get the RelationshipSets in the Container.
         """
-        return _get_instances_from_list(self.objects, RelationshipSet)
+        return [o for o in self.objects if isinstance(o, RelationshipSet)]
 
     def get_nodeset(self, labels, merge_keys):
         for nodeset in self.nodesets:
@@ -569,21 +569,6 @@ class Container:
     def create_relationshipsets(self):
         for relationshipset in self.relationshipsets:
             relationshipset.create()
-
-
-def _get_instances_from_list(list, klass):
-    """
-    From a list of objects, get all objects that are instance of klass.
-
-    :param list: List of objects.
-    :param klass: The reference class.
-    :return: Filtered list if objects.
-    """
-    output = []
-    for o in list:
-        if isinstance(o, klass):
-            output.append(o)
-    return output
 
 
 def _chunks(iterable, size=10):
