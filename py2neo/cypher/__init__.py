@@ -17,6 +17,7 @@
 
 
 __all__ = [
+    "Literal",
     "cypher_escape",
     "cypher_repr",
     "cypher_str",
@@ -25,6 +26,16 @@ __all__ = [
 
 from py2neo.cypher.encoding import CypherEncoder
 from py2neo.compat import string_types, unicode_types
+
+
+class Literal(object):
+
+    def __init__(self, value):
+        self.__value = value
+
+    @property
+    def value(self):
+        return self.__value
 
 
 def cypher_escape(identifier, **kwargs):

@@ -34,7 +34,7 @@ __all__ = [
 ]
 
 
-from py2neo.cypher import cypher_escape
+from py2neo.cypher import cypher_escape, cypher_repr, Literal
 
 
 def _node_create_dict(nodes):
@@ -84,10 +84,23 @@ def _rel_create_dict(relationships):
     return d
 
 
-def create_nodes(tx, labels, data):
-    label_string = "".join(":" + cypher_escape(label) for label in sorted(labels))
-    cypher = "UNWIND $x AS data CREATE (_%s) SET _ = data RETURN id(_)" % label_string
-    for record in tx.run(cypher, x=data):
+def _label_string(labels):
+    return "".join(":" + cypher_escape(label) for label in sorted(frozenset(labels or ())))
+
+
+def create_nodes(tx, data, labels=None, headers=None):
+    if headers:
+        # data is list of lists
+        fields = [Literal("r[%d]" % i) for i in range(len(headers))]
+        set_rhs = cypher_repr(dict(zip(headers, fields)))
+    else:
+        # data is list of dicts
+        set_rhs = "r"
+    cypher = ("UNWIND $data AS r "
+              "CREATE (_%s) "
+              "SET _ = %s "
+              "RETURN id(_)" % (_label_string(labels), set_rhs))
+    for record in tx.run(cypher, data=list(data)):
         yield record[0]
 
 
@@ -98,13 +111,12 @@ def merge_nodes(tx, p_label, p_key, labels, data):
     :param p_label:
     :param p_key:
     :param labels:
-    :param data: list of (p_value, properties)
+    :param data: list of properties
     :return:
     """
-    assert isinstance(labels, frozenset)
-    label_string = ":".join(cypher_escape(label) for label in sorted(labels))
-    cypher = "UNWIND $x AS data MERGE (_:%s {%s:data[0]}) SET _:%s SET _ = data[1] RETURN id(_)" % (
-        cypher_escape(p_label), cypher_escape(p_key), label_string)
+    escaped_primary_key = cypher_escape(p_key)
+    cypher = "UNWIND $x AS data MERGE (_:%s {%s:data.%s}) SET _%s SET _ = data RETURN id(_)" % (
+        cypher_escape(p_label), escaped_primary_key, escaped_primary_key, _label_string(labels))
     for record in tx.run(cypher, x=data):
         yield record[0]
 
@@ -135,7 +147,7 @@ def create_subgraph(tx, subgraph):
     """
     graph = tx.graph
     for labels, nodes in _node_create_dict(n for n in subgraph.nodes if n.graph is None).items():
-        identities = create_nodes(tx, labels, list(map(dict, nodes)))
+        identities = create_nodes(tx, list(map(dict, nodes)), labels)
         for i, identity in enumerate(identities):
             node = nodes[i]
             node.graph = graph
@@ -164,12 +176,11 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
     for (pl, pk, labels), nodes in _node_merge_dict(p_label, p_key, (n for n in subgraph.nodes if n.graph is None)).items():
         if pl is None or pk is None:
             raise ValueError("Primary label and primary key are required for MERGE operation")
-        identities = list(merge_nodes(tx, pl, pk, labels,
-                                      list(map(lambda n: [n.get(pk), dict(n)], nodes))))
+        identities = list(merge_nodes(tx, pl, pk, labels, list(map(dict, nodes))))
         if len(identities) > len(nodes):
             raise UniquenessError("Found %d matching nodes for primary label %r and primary "
-                                 "key %r with labels %r but merging requires no more than "
-                                 "one" % (len(identities), pl, pk, set(labels)))
+                                  "key %r with labels %r but merging requires no more than "
+                                  "one" % (len(identities), pl, pk, set(labels)))
         for i, identity in enumerate(identities):
             node = nodes[i]
             node.graph = graph
