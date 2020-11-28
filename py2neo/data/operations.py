@@ -84,15 +84,26 @@ def _rel_create_dict(relationships):
     return d
 
 
-def _label_string(labels):
-    return "".join(":" + cypher_escape(label) for label in sorted(frozenset(labels or ())))
+def _label_string(labels, primary_label=None):
+    label_set = set(labels or ())
+    if primary_label:
+        label_set.add(primary_label)
+    return "".join(":" + cypher_escape(label) for label in sorted(label_set))
 
 
-def create_nodes(tx, data, labels=None, headers=None):
-    if headers:
+def create_nodes(tx, data, labels=None, keys=None):
+    """ Create nodes from an iterable sequence of raw node data.
+
+    :param tx:
+    :param data:
+    :param labels: 
+    :param keys:
+    :returns:
+    """
+    if keys:
         # data is list of lists
-        fields = [Literal("r[%d]" % i) for i in range(len(headers))]
-        set_rhs = cypher_repr(dict(zip(headers, fields)))
+        fields = [Literal("r[%d]" % i) for i in range(len(keys))]
+        set_rhs = cypher_repr(dict(zip(keys, fields)))
     else:
         # data is list of dicts
         set_rhs = "r"
@@ -104,20 +115,35 @@ def create_nodes(tx, data, labels=None, headers=None):
         yield record[0]
 
 
-def merge_nodes(tx, p_label, p_key, labels, data):
-    """
+def merge_nodes(tx, data, primary_label, primary_key, labels=None, keys=None):
+    """ Merge nodes from an iterable sequence of raw node data.
 
     :param tx:
-    :param p_label:
-    :param p_key:
-    :param labels:
     :param data: list of properties
-    :return:
+    :param primary_label:
+    :param primary_key:
+    :param labels:
+    :param keys:
+    :returns:
     """
-    escaped_primary_key = cypher_escape(p_key)
-    cypher = "UNWIND $x AS data MERGE (_:%s {%s:data.%s}) SET _%s SET _ = data RETURN id(_)" % (
-        cypher_escape(p_label), escaped_primary_key, escaped_primary_key, _label_string(labels))
-    for record in tx.run(cypher, x=data):
+    if keys:
+        # data is list of lists
+        primary_index = keys.index(primary_key)
+        fields = [Literal("r[%d]" % i) for i in range(len(keys))]
+        set_rhs = cypher_repr(dict(zip(keys, fields)))
+    else:
+        # data is list of dicts
+        primary_index = primary_key
+        set_rhs = "r"
+    cypher = ("UNWIND $data AS r "
+              "MERGE (_:%s {%s:r[$key]}) "
+              "SET _%s "
+              "SET _ = %s "
+              "RETURN id(_)" % (cypher_escape(primary_label),
+                                cypher_escape(primary_key),
+                                _label_string(labels, primary_label),
+                                set_rhs))
+    for record in tx.run(cypher, data=data, key=primary_index):
         yield record[0]
 
 
@@ -129,11 +155,11 @@ def merge_relationships(tx, r_type, data):
     :param data: list of (a_id, b_id, properties)
     :return:
     """
-    cypher = ("UNWIND $x AS data "
-              "MATCH (a) WHERE id(a) = data[0] "
-              "MATCH (b) WHERE id(b) = data[1] "
-              "MERGE (a)-[_:%s]->(b) SET _ = data[2] RETURN id(_)" % cypher_escape(r_type))
-    for record in tx.run(cypher, x=data):
+    cypher = ("UNWIND $data AS r "
+              "MATCH (a) WHERE id(a) = r[0] "
+              "MATCH (b) WHERE id(b) = r[1] "
+              "MERGE (a)-[_:%s]->(b) SET _ = r[2] RETURN id(_)" % cypher_escape(r_type))
+    for record in tx.run(cypher, data=data):
         yield record[0]
 
 
@@ -176,7 +202,7 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
     for (pl, pk, labels), nodes in _node_merge_dict(p_label, p_key, (n for n in subgraph.nodes if n.graph is None)).items():
         if pl is None or pk is None:
             raise ValueError("Primary label and primary key are required for MERGE operation")
-        identities = list(merge_nodes(tx, pl, pk, labels, list(map(dict, nodes))))
+        identities = list(merge_nodes(tx, list(map(dict, nodes)), pl, pk, labels))
         if len(identities) > len(nodes):
             raise UniquenessError("Found %d matching nodes for primary label %r and primary "
                                   "key %r with labels %r but merging requires no more than "
