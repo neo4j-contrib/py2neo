@@ -876,7 +876,8 @@ class Connector(object):
                           "default database" if graph_name is None else repr(graph_name))
                 routing_table.remove(profile)
         log.debug("Pruning idle connections to %r", profile)
-        self._pools[profile].prune()
+        if profile in self._pools:
+            self._pools[profile].prune()
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
