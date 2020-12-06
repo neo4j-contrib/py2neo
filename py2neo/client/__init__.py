@@ -875,8 +875,13 @@ class Connector(object):
                 log.debug("Removing profile %r from routing table for %s", profile,
                           "default database" if graph_name is None else repr(graph_name))
                 routing_table.remove(profile)
-        log.debug("Pruning idle connections to %r", profile)
-        self._pools[profile].prune()
+        try:
+            pool = self._pools[profile]
+        except KeyError:
+            pass  # no such pool
+        else:
+            log.debug("Pruning idle connections to %r", profile)
+            pool.prune()
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
