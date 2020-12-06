@@ -62,7 +62,7 @@ from six import raise_from
 from py2neo.client import Connection, Transaction, Result, Failure, Bookmark, \
     TransactionError, BrokenTransactionError, ConnectionUnavailable
 from py2neo.client.config import bolt_user_agent, ConnectionProfile
-from py2neo.client.packstream import pack, UnpackStream, PackStreamHydrant
+from py2neo.client.packstream import pack_into, UnpackStream, PackStreamHydrant
 from py2neo.wiring import Wire, WireError, BrokenWireError
 
 
@@ -129,8 +129,10 @@ class BoltMessageReader(object):
 
 class BoltMessageWriter(object):
 
-    def __init__(self, wire):
+    def __init__(self, wire, protocol_version):
         self.wire = wire
+        self.protocol_version = protocol_version
+        self.buffer = BytesIO()
 
     def _write_chunk(self, data):
         size = len(data)
@@ -139,9 +141,10 @@ class BoltMessageWriter(object):
         return size
 
     def write_message(self, tag, *fields):
-        buffer = BytesIO()
+        buffer = self.buffer
+        buffer.seek(0)
         buffer.write(bytearray([0xB0 + len(fields), tag]))
-        pack(buffer, *fields)
+        pack_into(buffer, *fields, version=self.protocol_version)
         buffer.seek(0)
         while self._write_chunk(buffer.read(0x7FFF)):
             pass
@@ -293,7 +296,7 @@ class Bolt1(Bolt):
         super(Bolt1, self).__init__(wire, profile, user_agent,
                                     on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         self._reader = BoltMessageReader(wire)
-        self._writer = BoltMessageWriter(wire)
+        self._writer = BoltMessageWriter(wire, self.protocol_version)
         self._responses = deque()
         self._transaction = None
         self._metadata = {}

@@ -82,16 +82,7 @@ if version_info >= (3,):
 
     long = int
     uchr = chr
-
-    def bstr(s, encoding="utf-8"):
-        """ Convert a value to a byte string, held in a Python `bytearray` object.
-        """
-        if isinstance(s, str):
-            return s.encode(encoding=encoding)
-        elif isinstance(s, bytes):
-            return s
-        else:
-            raise ValueError(s)
+    UNICODE = str
 
     def ustr(s, encoding="utf-8"):
         """ Convert a value to a Unicode string, held in a Python `str` object.
@@ -143,16 +134,7 @@ else:
 
     long = long
     uchr = unichr
-
-    def bstr(s, encoding="utf-8"):
-        """ Convert a value to byte string, held in a Python `bytearray` object.
-        """
-        if isinstance(s, str):
-            return s
-        elif isinstance(s, unicode):
-            return s.encode(encoding=encoding)
-        else:
-            raise ValueError(s)
+    UNICODE = unicode
 
     def ustr(s, encoding="utf-8"):
         """ Convert a value to a Unicode string, held in a Python `unicode` object.

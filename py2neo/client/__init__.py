@@ -931,8 +931,8 @@ class Connector(object):
         """ Run a Cypher query within a new auto-commit transaction.
         """
         cx = self.acquire(graph_name, readonly)
-        if hydrant:
-            parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
+        #if hydrant:
+        #    parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
         result = cx.auto_run(graph_name, cypher, parameters, readonly=readonly)
         cx.pull(result)
         try:
@@ -948,8 +948,8 @@ class Connector(object):
         """ Run a Cypher query within an open explicit transaction.
         """
         cx = self._get_connection(tx)
-        if hydrant:
-            parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
+        #if hydrant:
+        #    parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
         result = cx.run_in_tx(tx, cypher, parameters)
         cx.pull(result)
         try:

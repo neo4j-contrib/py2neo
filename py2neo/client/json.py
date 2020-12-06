@@ -162,3 +162,27 @@ class JSONHydrant(Hydrant):
             return list(map(self.dehydrate, data))
         else:
             raise TypeError("Neo4j does not support JSON parameters of type %s" % type(data).__name__)
+
+
+def dehydrate(data):
+    """ Dehydrate to JSON.
+    """
+    if data is None or data is True or data is False or isinstance(data, float) or isinstance(data, string_types):
+        return data
+    elif isinstance(data, integer_types):
+        if data < INT64_MIN or data > INT64_MAX:
+            raise ValueError("Integers must be within the signed 64-bit range")
+        return data
+    elif isinstance(data, bytearray):
+        return list(data)
+    elif isinstance(data, Mapping):
+        d = {}
+        for key in data:
+            if not isinstance(key, string_types):
+                raise TypeError("Dictionary keys must be strings")
+            d[key] = dehydrate(data[key])
+        return d
+    elif isinstance(data, Sequence):
+        return list(map(dehydrate, data))
+    else:
+        raise TypeError("Neo4j does not support JSON parameters of type %s" % type(data).__name__)

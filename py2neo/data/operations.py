@@ -91,13 +91,14 @@ def _label_string(labels, primary_label=None):
     return "".join(":" + cypher_escape(label) for label in sorted(label_set))
 
 
-def create_nodes(tx, data, labels=None, keys=None):
+def create_nodes(tx, data, labels=None, keys=None, return_expr=None):
     """ Create nodes from an iterable sequence of raw node data.
 
     :param tx:
     :param data:
     :param labels: 
     :param keys:
+    :param return_expr:
     :returns:
     """
     if keys:
@@ -109,13 +110,14 @@ def create_nodes(tx, data, labels=None, keys=None):
         set_rhs = "r"
     cypher = ("UNWIND $data AS r "
               "CREATE (_%s) "
-              "SET _ = %s "
-              "RETURN id(_)" % (_label_string(labels), set_rhs))
+              "SET _ = %s" % (_label_string(labels), set_rhs))
+    if return_expr:
+        cypher += " RETURN %s" % return_expr
     for record in tx.run(cypher, data=list(data)):
         yield record[0]
 
 
-def merge_nodes(tx, data, primary_label, primary_key, labels=None, keys=None):
+def merge_nodes(tx, data, primary_label, primary_key, labels=None, keys=None, return_expr=None):
     """ Merge nodes from an iterable sequence of raw node data.
 
     :param tx:
@@ -124,6 +126,7 @@ def merge_nodes(tx, data, primary_label, primary_key, labels=None, keys=None):
     :param primary_key:
     :param labels:
     :param keys:
+    :param return_expr:
     :returns:
     """
     if keys:
@@ -138,11 +141,12 @@ def merge_nodes(tx, data, primary_label, primary_key, labels=None, keys=None):
     cypher = ("UNWIND $data AS r "
               "MERGE (_:%s {%s:r[$key]}) "
               "SET _%s "
-              "SET _ = %s "
-              "RETURN id(_)" % (cypher_escape(primary_label),
-                                cypher_escape(primary_key),
-                                _label_string(labels, primary_label),
-                                set_rhs))
+              "SET _ = %s " % (cypher_escape(primary_label),
+                               cypher_escape(primary_key),
+                               _label_string(labels, primary_label),
+                               set_rhs))
+    if return_expr:
+        cypher += " RETURN %s" % return_expr
     for record in tx.run(cypher, data=data, key=primary_index):
         yield record[0]
 
@@ -173,7 +177,7 @@ def create_subgraph(tx, subgraph):
     """
     graph = tx.graph
     for labels, nodes in _node_create_dict(n for n in subgraph.nodes if n.graph is None).items():
-        identities = create_nodes(tx, list(map(dict, nodes)), labels)
+        identities = create_nodes(tx, list(map(dict, nodes)), labels=labels, return_expr="id(_)")
         for i, identity in enumerate(identities):
             node = nodes[i]
             node.graph = graph
@@ -202,7 +206,7 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
     for (pl, pk, labels), nodes in _node_merge_dict(p_label, p_key, (n for n in subgraph.nodes if n.graph is None)).items():
         if pl is None or pk is None:
             raise ValueError("Primary label and primary key are required for MERGE operation")
-        identities = list(merge_nodes(tx, list(map(dict, nodes)), pl, pk, labels))
+        identities = list(merge_nodes(tx, list(map(dict, nodes)), pl, pk, labels, "id(_)"))
         if len(identities) > len(nodes):
             raise UniquenessError("Found %d matching nodes for primary label %r and primary "
                                   "key %r with labels %r but merging requires no more than "

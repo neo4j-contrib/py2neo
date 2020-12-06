@@ -31,7 +31,7 @@ from py2neo.compat import urlsplit
 from py2neo.client import Connection, Transaction, Result, Bookmark, \
     TransactionError, BrokenTransactionError, ConnectionUnavailable
 from py2neo.client.config import http_user_agent
-from py2neo.client.json import JSONHydrant
+from py2neo.client.json import JSONHydrant, dehydrate
 
 
 log = getLogger(__name__)
@@ -296,7 +296,7 @@ class HTTP(Connection):
             statements = [
                 OrderedDict([
                     ("statement", statement),
-                    ("parameters", parameters or {}),
+                    ("parameters", dehydrate(parameters or {})),
                     ("resultDataContents", ["REST"]),
                     ("includeStats", True),
                 ])

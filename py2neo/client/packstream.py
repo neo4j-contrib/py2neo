@@ -20,10 +20,11 @@ from __future__ import division
 
 from codecs import decode
 from collections import namedtuple
+from io import BytesIO
 from struct import pack as struct_pack, unpack as struct_unpack
 
 from py2neo.client import Hydrant
-from py2neo.compat import Sequence, Mapping, bytes_types, integer_types, string_types, bstr
+from py2neo.compat import bytes_types, integer_types, UNICODE
 
 
 PACKED_UINT_8 = [struct_pack(">B", value) for value in range(0x100)]
@@ -69,13 +70,21 @@ class Structure:
         self.fields[key] = value
 
 
-def pack(buffer, *values):
+def pack_into(buffer, *values, version=()):
     """ Pack values into a buffer.
 
     :param buffer:
     :param values:
+    :param version
     :return:
     """
+    from datetime import date, time, datetime, timedelta
+    from neotime import Date, Time, DateTime, Duration
+    from pytz import utc
+    from py2neo.data.spatial import Point
+
+    unix_epoch_date = Date(1970, 1, 1)
+
     write_bytes = buffer.write
 
     def write_header(size, tiny, small=None, medium=None, large=None):
@@ -92,6 +101,56 @@ def pack(buffer, *values):
             write_bytes(struct_pack(">I", size))
         else:
             raise ValueError("Collection too large")
+
+    def write_time(t):
+        try:
+            nanoseconds = int(t.ticks * 1000000000)
+        except AttributeError:
+            nanoseconds = (3600000000000 * t.hour + 60000000000 * t.minute +
+                           1000000000 * t.second + 1000 * t.microsecond)
+        if t.tzinfo:
+            write_bytes(b"\xB2T")
+            pack_into(buffer, nanoseconds, t.tzinfo.utcoffset(t).seconds)
+        else:
+            write_bytes(b"\xB1t")
+            pack_into(buffer, nanoseconds)
+
+    def seconds_and_nanoseconds(dt):
+        if isinstance(dt, datetime):
+            dt = DateTime.from_native(dt)
+        zone_epoch = DateTime(1970, 1, 1, tzinfo=dt.tzinfo)
+        t = dt.to_clock_time() - zone_epoch.to_clock_time()
+        return t.seconds, t.nanoseconds
+
+    def write_datetime(dt):
+        tz = dt.tzinfo
+        if tz is None:
+            # without time zone
+            local_dt = utc.localize(dt)
+            seconds, nanoseconds = seconds_and_nanoseconds(local_dt)
+            write_bytes(b"\xB2d")
+            pack_into(buffer, seconds, nanoseconds)
+        elif hasattr(tz, "zone") and tz.zone:
+            # with named time zone
+            seconds, nanoseconds = seconds_and_nanoseconds(dt)
+            write_bytes(b"\xB3f")
+            pack_into(buffer, seconds, nanoseconds, tz.zone)
+        else:
+            # with time offset
+            seconds, nanoseconds = seconds_and_nanoseconds(dt)
+            write_bytes(b"\xB3F")
+            pack_into(buffer, seconds, nanoseconds, tz.utcoffset(dt).seconds)
+
+    def write_point(p):
+        dim = len(p)
+        write_bytes(bytearray([0xB1 + dim]))
+        if dim == 2:
+            write_bytes(b"X")
+        elif dim == 3:
+            write_bytes(b"Y")
+        else:
+            raise ValueError("Cannot dehydrate Point with %d dimensions" % dim)
+        pack_into(buffer, p.srid, *p)
 
     for value in values:
 
@@ -129,9 +188,14 @@ def pack(buffer, *values):
             else:
                 raise ValueError("Integer %s out of range" % value)
 
-        # String
-        elif isinstance(value, string_types):
-            encoded = bstr(value)
+        # String (from bytes)
+        elif isinstance(value, bytes):
+            write_header(len(value), 0x80, 0xD0, 0xD1, 0xD2)
+            write_bytes(value)
+
+        # String (from unicode)
+        elif isinstance(value, UNICODE):
+            encoded = value.encode("utf-8")
             write_header(len(encoded), 0x80, 0xD0, 0xD1, 0xD2)
             write_bytes(encoded)
 
@@ -143,23 +207,71 @@ def pack(buffer, *values):
         # List
         elif isinstance(value, list):
             write_header(len(value), 0x90, 0xD4, 0xD5, 0xD6)
-            pack(buffer, *value)
+            pack_into(buffer, *value, version=version)
 
-        # Map
+        # Dictionary
         elif isinstance(value, dict):
             write_header(len(value), 0xA0, 0xD8, 0xD9, 0xDA)
             for key, item in value.items():
-                pack(buffer, key, item)
+                if isinstance(key, (bytes, UNICODE)):
+                    pack_into(buffer, key, item, version=version)
+                else:
+                    raise TypeError("Dictionary key {!r} is not a string".format(key))
 
-        # Structure
-        elif isinstance(value, Structure):
-            write_header(len(value), 0xB0, None, None, None)
-            write_bytes(bytearray([value.tag]))
-            pack(buffer, *value.fields)
+        # Bolt 2 introduced temporal and spatial types
+        elif version < (2, 0):
+            raise TypeError("Values of type %s are not supported "
+                            "by Bolt %s" % (type(value), ".".join(version)))
+
+        # DateTime
+        #
+        # Note: The built-in datetime.datetime class extends the
+        # datetime.date class, so this needs to be listed first
+        # to avoid objects being encoded incorrectly.
+        #
+        elif isinstance(value, (datetime, DateTime)):
+            write_datetime(value)
+
+        # Date
+        elif isinstance(value, (date, Date)):
+            write_bytes(b"\xB1D")
+            pack_into(buffer, value.toordinal() - unix_epoch_date.toordinal())
+
+        # Time
+        elif isinstance(value, (time, Time)):
+            write_time(value)
+
+        # TimeDelta
+        elif isinstance(value, timedelta):
+            write_bytes(b"\xB4E")
+            pack_into(buffer,
+                      0,                                    # months
+                      value.days,                           # days
+                      value.seconds,                        # seconds
+                      1000 * value.microseconds)            # nanoseconds
+
+        # Duration
+        elif isinstance(value, Duration):
+            write_bytes(b"\xB4E")
+            pack_into(buffer,
+                      value.months,                         # months
+                      value.days,                           # days
+                      value.seconds,                        # seconds
+                      int(1000000000 * value.subseconds))   # nanoseconds
+
+        # Point
+        elif isinstance(value, Point):
+            write_point(value)
 
         # Other
         else:
             raise TypeError("Values of type %s are not supported" % type(value))
+
+
+def pack(*values, version=()):
+    buffer = BytesIO()
+    pack_into(buffer, *values, version=version)
+    return buffer.getvalue()
 
 
 class UnpackStream(object):
@@ -528,160 +640,3 @@ class PackStreamHydrant(Hydrant):
             })
 
         return hydrate_object(obj)
-
-    def dehydrate(self, data, version=None):
-        """ Dehydrate to PackStream.
-        """
-        from datetime import date, time, datetime, timedelta
-        from neotime import Duration, Date, Time, DateTime
-        from pytz import utc
-        from py2neo.data.spatial import Point
-
-        unix_epoch_date = Date(1970, 1, 1)
-
-        if version is None:
-            v = (1, 0)
-        elif isinstance(version, tuple):
-            v = version
-        else:
-            v = (version, 0)
-
-        def dehydrate_object(x):
-            t = type(x)
-            if t in functions:
-                f = functions[t]
-                return f(x)
-            elif x is None or x is True or x is False or isinstance(x, float) or isinstance(x, string_types):
-                return x
-            elif isinstance(x, integer_types):
-                if x < INT64_MIN or x > INT64_MAX:
-                    raise ValueError("Integers must be within the signed 64-bit range")
-                return x
-            elif isinstance(x, bytearray):
-                return x
-            elif isinstance(x, Mapping):
-                d = {}
-                for key in x:
-                    if not isinstance(key, string_types):
-                        raise TypeError("Dictionary keys must be strings")
-                    d[key] = dehydrate_object(x[key])
-                return d
-            elif isinstance(x, Sequence):
-                return list(map(dehydrate_object, x))
-            else:
-                raise TypeError("PackStream parameters of type %s are not supported" % type(x).__name__)
-
-        def dehydrate_date(value):
-            """ Dehydrator for `date` values.
-
-            :param value:
-            :type value: Date
-            :return:
-            """
-            return Structure(ord(b"D"), value.toordinal() - unix_epoch_date.toordinal())
-
-        def dehydrate_time(value):
-            """ Dehydrator for `time` values.
-
-            :param value:
-            :type value: Time
-            :return:
-            """
-            if isinstance(value, Time):
-                nanoseconds = int(value.ticks * 1000000000)
-            elif isinstance(value, time):
-                nanoseconds = (3600000000000 * value.hour + 60000000000 * value.minute +
-                               1000000000 * value.second + 1000 * value.microsecond)
-            else:
-                raise TypeError("Value must be a neotime.Time or a datetime.time")
-            if value.tzinfo:
-                return Structure(ord(b"T"), nanoseconds, value.tzinfo.utcoffset(value).seconds)
-            else:
-                return Structure(ord(b"t"), nanoseconds)
-
-        def dehydrate_datetime(value):
-            """ Dehydrator for `datetime` values.
-
-            :param value:
-            :type value: datetime
-            :return:
-            """
-
-            def seconds_and_nanoseconds(dt):
-                if isinstance(dt, datetime):
-                    dt = DateTime.from_native(dt)
-                zone_epoch = DateTime(1970, 1, 1, tzinfo=dt.tzinfo)
-                t = dt.to_clock_time() - zone_epoch.to_clock_time()
-                return t.seconds, t.nanoseconds
-
-            tz = value.tzinfo
-            if tz is None:
-                # without time zone
-                value = utc.localize(value)
-                seconds, nanoseconds = seconds_and_nanoseconds(value)
-                return Structure(ord(b"d"), seconds, nanoseconds)
-            elif hasattr(tz, "zone") and tz.zone:
-                # with named time zone
-                seconds, nanoseconds = seconds_and_nanoseconds(value)
-                return Structure(ord(b"f"), seconds, nanoseconds, tz.zone)
-            else:
-                # with time offset
-                seconds, nanoseconds = seconds_and_nanoseconds(value)
-                return Structure(ord(b"F"), seconds, nanoseconds, tz.utcoffset(value).seconds)
-
-        def dehydrate_duration(value):
-            """ Dehydrator for `duration` values.
-
-            :param value:
-            :type value: Duration
-            :return:
-            """
-            return Structure(ord(b"E"), value.months, value.days, value.seconds, int(1000000000 * value.subseconds))
-
-        def dehydrate_timedelta(value):
-            """ Dehydrator for `timedelta` values.
-
-            :param value:
-            :type value: timedelta
-            :return:
-            """
-            months = 0
-            days = value.days
-            seconds = value.seconds
-            nanoseconds = 1000 * value.microseconds
-            return Structure(ord(b"E"), months, days, seconds, nanoseconds)
-
-        def dehydrate_point(value):
-            """ Dehydrator for Point data.
-
-            :param value:
-            :type value: Point
-            :return:
-            """
-            dim = len(value)
-            if dim == 2:
-                return Structure(ord(b"X"), value.srid, *value)
-            elif dim == 3:
-                return Structure(ord(b"Y"), value.srid, *value)
-            else:
-                raise ValueError("Cannot dehydrate Point with %d dimensions" % dim)
-
-        functions = {}  # graph types cannot be used as parameters
-        if v >= (2, 0):
-            functions.update({
-                Date: dehydrate_date,
-                date: dehydrate_date,
-                Time: dehydrate_time,
-                time: dehydrate_time,
-                DateTime: dehydrate_datetime,
-                datetime: dehydrate_datetime,
-                Duration: dehydrate_duration,
-                timedelta: dehydrate_timedelta,
-                Point: dehydrate_point,
-            })
-            functions.update({
-                cls: dehydrate_point
-                for cls in Point.__subclasses__()
-            })
-
-        return dehydrate_object(data)

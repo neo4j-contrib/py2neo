@@ -18,14 +18,18 @@
 
 import random
 from collections import OrderedDict
+from datetime import date, time, datetime, timedelta
 from io import BytesIO
 from math import isnan
-from struct import pack_into
+from struct import pack_into as struct_pack_into
 
-from pytest import raises
+from neotime import Date, Time, DateTime, Duration
+from pytest import mark, raises
+from pytz import utc, FixedOffset
 
-from py2neo.client.packstream import UnpackStream, Structure, pack
+from py2neo.client.packstream import UnpackStream, pack_into, pack, Structure
 from py2neo.compat import unicode_types
+from py2neo.data.spatial import CartesianPoint, WGS84Point, Point
 
 
 class FakeString(unicode_types[0]):
@@ -78,16 +82,16 @@ class FakeDict(OrderedDict):
         return self.size
 
 
-def pack_and_unpack(value):
+def pack_and_unpack(value, version=()):
     buffer = BytesIO()
-    pack(buffer, value)
+    pack_into(buffer, value, version=version)
     b = buffer.getvalue()
     unpacked = UnpackStream(b).unpack()
     return b, unpacked
 
 
-def assert_packable(value, b):
-    assert pack_and_unpack(value) == (b, value)
+def assert_packable(value, b, protocol_version=()):
+    assert pack_and_unpack(value, protocol_version) == (b, value)
 
 
 def test_null():
@@ -115,42 +119,42 @@ def test_8bit_integer():
 def test_16bit_negative_integer():
     for i in range(-0x8000, -0x80):
         data = bytearray([0xC9, 0, 0])
-        pack_into(">h", data, 1, i)
+        struct_pack_into(">h", data, 1, i)
         assert_packable(i, data)
 
 
 def test_16bit_positive_integer():
     for i in range(0x80, 0x8000):
         data = bytearray([0xC9, 0, 0])
-        pack_into(">h", data, 1, i)
+        struct_pack_into(">h", data, 1, i)
         assert_packable(i, data)
 
 
 def test_32bit_negative_integer():
     for i in range(-0x80000000, -0x8000, 100001):
         data = bytearray([0xCA, 0, 0, 0, 0])
-        pack_into(">i", data, 1, i)
+        struct_pack_into(">i", data, 1, i)
         assert_packable(i, data)
 
 
 def test_32bit_positive_integer():
     for i in range(0x8000, 0x80000000, 100001):
         data = bytearray([0xCA, 0, 0, 0, 0])
-        pack_into(">i", data, 1, i)
+        struct_pack_into(">i", data, 1, i)
         assert_packable(i, data)
 
 
 def test_64bit_negative_integer():
     for i in range(-0x8000000000000000, -0x80000000, 1000000000000001):
         data = bytearray([0xCB, 0, 0, 0, 0, 0, 0, 0, 0])
-        pack_into(">q", data, 1, i)
+        struct_pack_into(">q", data, 1, i)
         assert_packable(i, data)
 
 
 def test_64bit_positive_integer():
     for i in range(0x80000000, 0x8000000000000000, 1000000000000001):
         data = bytearray([0xCB, 0, 0, 0, 0, 0, 0, 0, 0])
-        pack_into(">q", data, 1, i)
+        struct_pack_into(">q", data, 1, i)
         assert_packable(i, data)
 
 
@@ -171,48 +175,56 @@ def test_float():
     for _ in range(10000):
         n = random.uniform(-1e10, 1e10)
         data = bytearray([0xC1, 0, 0, 0, 0, 0, 0, 0, 0])
-        pack_into(">d", data, 1, n)
+        struct_pack_into(">d", data, 1, n)
         assert_packable(n, data)
 
 
 def test_float_positive_zero():
     n = float("+0.0")
     data = bytearray([0xC1, 0, 0, 0, 0, 0, 0, 0, 0])
-    pack_into(">d", data, 1, n)
+    struct_pack_into(">d", data, 1, n)
     assert_packable(n, data)
 
 
 def test_float_negative_zero():
     n = float("-0.0")
     data = bytearray([0xC1, 0, 0, 0, 0, 0, 0, 0, 0])
-    pack_into(">d", data, 1, n)
+    struct_pack_into(">d", data, 1, n)
     assert_packable(n, data)
 
 
 def test_float_positive_infinity():
     n = float("+inf")
     data = bytearray([0xC1, 0, 0, 0, 0, 0, 0, 0, 0])
-    pack_into(">d", data, 1, n)
+    struct_pack_into(">d", data, 1, n)
     assert_packable(n, data)
 
 
 def test_float_negative_infinity():
     n = float("-inf")
     data = bytearray([0xC1, 0, 0, 0, 0, 0, 0, 0, 0])
-    pack_into(">d", data, 1, n)
+    struct_pack_into(">d", data, 1, n)
     assert_packable(n, data)
 
 
 def test_float_nan():
     n = float("nan")
     data = bytearray([0xC1, 0, 0, 0, 0, 0, 0, 0, 0])
-    pack_into(">d", data, 1, n)
+    struct_pack_into(">d", data, 1, n)
     b, unpacked = pack_and_unpack(n)
     assert b == data
     assert isnan(unpacked)
 
 
-def test_inline_string():
+def test_inline_byte_string():
+    s = b"hello, world"
+    data = bytearray([0x8C]) + s
+    b, unpacked = pack_and_unpack(s)
+    assert b == data
+    assert unpacked == u"hello, world"
+
+
+def test_inline_unicode_string():
     for n in range(16):
         s = "A" * n
         data = bytearray([0x80 + n]) + s.encode("utf-8")
@@ -230,7 +242,7 @@ def test_medium_string():
     n = 0x100
     s = "A" * n
     data = bytearray([0xD1, 0, 0]) + s.encode("utf-8")
-    pack_into(">H", data, 1, n)
+    struct_pack_into(">H", data, 1, n)
     assert_packable(s, data)
 
 
@@ -238,7 +250,7 @@ def test_large_string():
     n = 0x10000
     s = "A" * n
     data = bytearray([0xD2, 0, 0, 0, 0]) + s.encode("utf-8")
-    pack_into(">I", data, 1, n)
+    struct_pack_into(">I", data, 1, n)
     assert_packable(s, data)
 
 
@@ -259,7 +271,7 @@ def test_medium_byte_array():
     n = 0x100
     b = bytearray(n)
     data = bytearray([0xCD, 0, 0]) + b
-    pack_into(">H", data, 1, n)
+    struct_pack_into(">H", data, 1, n)
     assert_packable(b, data)
 
 
@@ -267,7 +279,7 @@ def test_large_byte_array():
     n = 0x10000
     b = bytearray(n)
     data = bytearray([0xCE, 0, 0, 0, 0]) + b
-    pack_into(">I", data, 1, n)
+    struct_pack_into(">I", data, 1, n)
     assert_packable(b, data)
 
 
@@ -295,7 +307,7 @@ def test_medium_list():
     n = 0x100
     b = [0] * n
     data = bytearray([0xD5, 0, 0]) + b"\x00" * n
-    pack_into(">H", data, 1, n)
+    struct_pack_into(">H", data, 1, n)
     assert_packable(b, data)
 
 
@@ -303,7 +315,7 @@ def test_large_list():
     n = 0x10000
     b = [0] * n
     data = bytearray([0xD6, 0, 0, 0, 0]) + b"\x00" * n
-    pack_into(">I", data, 1, n)
+    struct_pack_into(">I", data, 1, n)
     assert_packable(b, data)
 
 
@@ -337,7 +349,7 @@ def test_medium_dict():
     b = OrderedDict.fromkeys(keys)
     data = bytearray([0xD9, 0, 0]) + b"".join(b"\x82" + key.encode("utf-8") + b"\xC0"
                                               for key in keys)
-    pack_into(">H", data, 1, n)
+    struct_pack_into(">H", data, 1, n)
     assert_packable(b, data)
 
 
@@ -347,7 +359,7 @@ def test_large_dict():
     b = OrderedDict.fromkeys(keys)
     data = bytearray([0xDA, 0, 0, 0, 0]) + b"".join(b"\x84" + key.encode("utf-8") + b"\xC0"
                                                     for key in keys)
-    pack_into(">I", data, 1, n)
+    struct_pack_into(">I", data, 1, n)
     assert_packable(b, data)
 
 
@@ -357,25 +369,86 @@ def test_extra_large_dict():
         pack_and_unpack(b)
 
 
-def test_struct():
-    for n in range(16):
-        fields = [0] * n
-        s = Structure(0x7F, *fields)
-        data = bytearray([0xB0 + n, 0x7F]) + b"\x00" * n
-        assert_packable(s, data)
-
-
-def test_extra_large_struct():
-    fields = [0] * 16
-    s = Structure(0x7F, *fields)
-    with raises(ValueError):
-        pack_and_unpack(s)
-
-
-def test_packing_unknown_type():
+def test_dict_fails_with_non_string_key():
     buffer = BytesIO()
     with raises(TypeError):
-        pack(buffer, object())
+        pack_into(buffer, {object(): 1})
+
+
+@mark.parametrize("cls", [date, Date])
+def test_date(cls):
+    b, unpacked = pack_and_unpack(cls(1970, 1, 1), version=(2, 0))
+    assert b == b"\xB1D\x00"
+    assert unpacked == Structure(ord(b"D"), 0)
+
+
+@mark.parametrize("cls", [time, Time])
+def test_naive_time(cls):
+    b, unpacked = pack_and_unpack(cls(0, 0, 0), version=(2, 0))
+    assert b == b"\xB1t\x00"
+    assert unpacked == Structure(ord(b"t"), 0)
+
+
+@mark.parametrize("cls", [time, Time])
+def test_aware_time(cls):
+    b, unpacked = pack_and_unpack(cls(0, 0, 0, tzinfo=utc), version=(2, 0))
+    assert b == b"\xB2T\x00\x00"
+    assert unpacked == Structure(ord(b"T"), 0, 0)
+
+
+@mark.parametrize("cls", [datetime, DateTime])
+def test_naive_datetime(cls):
+    b, unpacked = pack_and_unpack(cls(1970, 1, 1, 0, 0, 0), version=(2, 0))
+    assert b == b"\xB2d\x00\x00"
+    assert unpacked == Structure(ord(b"d"), 0, 0)
+
+
+@mark.parametrize("cls", [datetime, DateTime])
+def test_datetime_with_named_timezone(cls):
+    b, unpacked = pack_and_unpack(cls(1970, 1, 1, 0, 0, 0, tzinfo=utc), version=(2, 0))
+    assert b == b"\xB3f\x00\x00\x83UTC"
+    assert unpacked == Structure(ord(b"f"), 0, 0, "UTC")
+
+
+@mark.parametrize("cls", [datetime, DateTime])
+def test_datetime_with_timezone_offset(cls):
+    b, unpacked = pack_and_unpack(cls(1970, 1, 1, 0, 0, 0, tzinfo=FixedOffset(1)),
+                                  version=(2, 0))
+    assert b == b"\xB3F\x00\x00\x3C"
+    assert unpacked == Structure(ord(b"F"), 0, 0, 60)
+
+
+@mark.parametrize("cls", [timedelta, Duration])
+def test_timedelta_and_duration(cls):
+    b, unpacked = pack_and_unpack(cls(), version=(2, 0))
+    assert b == b"\xB4E\x00\x00\x00\x00"
+    assert unpacked == Structure(ord(b"E"), 0, 0, 0, 0)
+
+
+@mark.parametrize("cls,srid", [(CartesianPoint, 7203), (WGS84Point, 4326)])
+def test_2d_point(cls, srid):
+    b, unpacked = pack_and_unpack(cls((0, 0)), version=(2, 0))
+    assert b == b"\xB3X" + pack(srid) + b"\x00\x00"
+    assert unpacked == Structure(ord(b"X"), srid, 0, 0)
+
+
+@mark.parametrize("cls,srid", [(CartesianPoint, 9157), (WGS84Point, 4979)])
+def test_3d_point(cls, srid):
+    b, unpacked = pack_and_unpack(cls((0, 0, 0)), version=(2, 0))
+    assert b == b"\xB4Y" + pack(srid) + b"\x00\x00\x00"
+    assert unpacked == Structure(ord(b"Y"), srid, 0, 0, 0)
+
+
+def test_4d_point():
+    with raises(ValueError):
+        _ = pack(Point((0, 0, 0, 0)), version=(2, 0))
+
+
+@mark.parametrize("version", [(1, 0), (2, 0)])
+def test_packing_unknown_type(version):
+    buffer = BytesIO()
+    with raises(TypeError):
+        pack_into(buffer, object(), version=version)
 
 
 def test_unpacking_unknown_marker():
