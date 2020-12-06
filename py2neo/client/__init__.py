@@ -925,14 +925,12 @@ class Connector(object):
             self.prune(cx.profile)
             raise
 
-    def auto_run(self, graph_name, cypher, parameters=None, readonly=False, hydrant=None,
+    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a Cypher query within a new auto-commit transaction.
         """
         cx = self.acquire(graph_name, readonly)
-        #if hydrant:
-        #    parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
         result = cx.auto_run(graph_name, cypher, parameters, readonly=readonly)
         cx.pull(result)
         try:
@@ -944,12 +942,10 @@ class Connector(object):
         else:
             return result
 
-    def run_in_tx(self, tx, cypher, parameters=None, hydrant=None):
+    def run_in_tx(self, tx, cypher, parameters=None):
         """ Run a Cypher query within an open explicit transaction.
         """
         cx = self._get_connection(tx)
-        #if hydrant:
-        #    parameters = hydrant.dehydrate(parameters, version=cx.protocol_version)
         result = cx.run_in_tx(tx, cypher, parameters)
         cx.pull(result)
         try:

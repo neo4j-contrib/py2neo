@@ -121,11 +121,10 @@ class Transaction(object):
             hydrant = Connection.default_hydrant(self._connector.profile, self.graph)
             parameters = dict(parameters or {}, **kwparameters)
             if self._transaction:
-                result = self._connector.run_in_tx(self._transaction, cypher, parameters,
-                                                   hydrant=hydrant)
+                result = self._connector.run_in_tx(self._transaction, cypher, parameters)
             else:
                 result = self._connector.auto_run(self.graph.name, cypher, parameters,
-                                                  readonly=self.readonly, hydrant=hydrant)
+                                                  readonly=self.readonly)
             return Cursor(result, hydrant, entities)
         finally:
             if not self._transaction:
