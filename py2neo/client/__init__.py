@@ -466,7 +466,7 @@ class ConnectionPool(object):
                     # caller to make an alternative choice.
                     log.debug("Pool %r is full with all connections "
                               "in use", self)
-                    return ConnectionUnavailable("Pool is full")
+                    raise ConnectionUnavailable("Pool is full")
             else:
                 cx = self._sanitize(cx, force_reset=force_reset)
         log.debug("Acquired connection %r", cx)
