@@ -177,12 +177,21 @@ class Wire(object):
     def secure(self, verify=True, hostname=None):
         """ Apply a layer of security onto this connection.
         """
-        from ssl import SSLContext, PROTOCOL_TLS, CERT_NONE, CERT_REQUIRED
-        context = SSLContext(PROTOCOL_TLS)
+        from ssl import SSLContext
+        try:
+            # noinspection PyUnresolvedReferences
+            from ssl import PROTOCOL_TLS
+        except ImportError:
+            from ssl import PROTOCOL_SSLv23
+            context = SSLContext(PROTOCOL_SSLv23)
+        else:
+            context = SSLContext(PROTOCOL_TLS)
         if verify:
+            from ssl import CERT_REQUIRED
             context.verify_mode = CERT_REQUIRED
             context.check_hostname = bool(hostname)
         else:
+            from ssl import CERT_NONE
             context.verify_mode = CERT_NONE
         context.load_default_certs()
         try:
