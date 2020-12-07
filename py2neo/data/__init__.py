@@ -334,6 +334,14 @@ class Entity(PropertyDict, Walkable):
             name = u"_" + ustr(self.identity)
         return name or u""
 
+    def __or__(self, other):
+        # Python 3.9 added the | and |= operators to the dict
+        # class (PEP584). This broke Entity union operations by
+        # picking up the __or__ handler in PropertyDict before
+        # the one in Walkable. The hack below forces Entity to
+        # use the Walkable implementation.
+        return Walkable.__or__(self, other)
+
 
 class Node(Entity):
     """ A node is a fundamental unit of data storage within a property

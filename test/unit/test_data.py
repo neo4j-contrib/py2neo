@@ -46,6 +46,10 @@ subgraph = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob |
             carol_married_to_dave | dave_works_for_dave)
 
 
+def test_subgraph_union_produces_subgraph():
+    assert isinstance(subgraph, Subgraph)
+
+
 class DataListTestCase(TestCase):
 
     def test_simple_usage(self):
