@@ -50,8 +50,8 @@ def test_create_nodes_from_property_dicts(graph):
 def test_merge_nodes_from_property_lists(graph):
     graph.delete_all()
     with graph.begin() as tx:
-        merge_nodes(tx, DATA_LISTS, "Person", "name",
-                    labels={"Person", "Employee"}, keys=HEADERS)
+        list(merge_nodes(tx, DATA_LISTS, "Person", "name",
+                         labels={"Person", "Employee"}, keys=HEADERS))
     matched = graph.nodes.match("Person")
     assert matched.count() == 3
     assert all(node.labels == {"Person", "Employee"} for node in matched)
@@ -60,8 +60,8 @@ def test_merge_nodes_from_property_lists(graph):
 def test_merge_nodes_from_property_dicts(graph):
     graph.delete_all()
     with graph.begin() as tx:
-        merge_nodes(tx, DATA_DICTS, "Person", "name",
-                    labels={"Person", "Employee"})
+        list(merge_nodes(tx, DATA_DICTS, "Person", "name",
+                         labels={"Person", "Employee"}))
     matched = graph.nodes.match("Person")
     assert matched.count() == 3
     assert all(node.labels == {"Person", "Employee"} for node in matched)

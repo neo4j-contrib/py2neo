@@ -70,7 +70,7 @@ class Structure:
         self.fields[key] = value
 
 
-def pack_into(buffer, *values, version=()):
+def pack_into(buffer, *values, **kwargs):
     """ Pack values into a buffer.
 
     :param buffer:
@@ -82,6 +82,8 @@ def pack_into(buffer, *values, version=()):
     from neotime import Date, Time, DateTime, Duration
     from pytz import utc
     from py2neo.data.spatial import Point
+
+    version = kwargs.get("version", ())
 
     unix_epoch_date = Date(1970, 1, 1)
 
@@ -268,9 +270,9 @@ def pack_into(buffer, *values, version=()):
             raise TypeError("Values of type %s are not supported" % type(value))
 
 
-def pack(*values, version=()):
+def pack(*values, **kwargs):
     buffer = BytesIO()
-    pack_into(buffer, *values, version=version)
+    pack_into(buffer, *values, **kwargs)
     return buffer.getvalue()
 
 

@@ -206,7 +206,8 @@ def merge_subgraph(tx, subgraph, p_label, p_key):
     for (pl, pk, labels), nodes in _node_merge_dict(p_label, p_key, (n for n in subgraph.nodes if n.graph is None)).items():
         if pl is None or pk is None:
             raise ValueError("Primary label and primary key are required for MERGE operation")
-        identities = list(merge_nodes(tx, list(map(dict, nodes)), pl, pk, labels, "id(_)"))
+        identities = list(merge_nodes(tx, list(map(dict, nodes)), pl, pk, labels,
+                                      return_expr="id(_)"))
         if len(identities) > len(nodes):
             raise UniquenessError("Found %d matching nodes for primary label %r and primary "
                                   "key %r with labels %r but merging requires no more than "
