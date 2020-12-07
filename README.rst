@@ -77,7 +77,7 @@ Requirements
 
 The following versions of Python and Neo4j (all editions) are supported:
 
-- Python 2.7 / 3.5 / 3.6 / 3.7 / 3.8 / 3.9
+- Python 2.7 / 3.4 / 3.5 / 3.6 / 3.7 / 3.8 / 3.9
 - Neo4j 3.4 / 3.5 / 4.0 / 4.1 (the latest point release of each version is recommended)
 
 Py2neo provides support for the multi-database functionality added in Neo4j 4.0.
