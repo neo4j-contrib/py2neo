@@ -113,8 +113,7 @@ def create_nodes(tx, data, labels=None, keys=None, return_expr=None):
               "SET _ = %s" % (_label_string(labels), set_rhs))
     if return_expr:
         cypher += " RETURN %s" % return_expr
-    for record in tx.run(cypher, data=list(data)):
-        yield record[0]
+    return iter(record[0] for record in tx.run(cypher, data=list(data)))
 
 
 def merge_nodes(tx, data, primary_label, primary_key, labels=None, keys=None, return_expr=None):
@@ -147,8 +146,7 @@ def merge_nodes(tx, data, primary_label, primary_key, labels=None, keys=None, re
                                set_rhs))
     if return_expr:
         cypher += " RETURN %s" % return_expr
-    for record in tx.run(cypher, data=data, key=primary_index):
-        yield record[0]
+    return iter(record[0] for record in tx.run(cypher, data=data, key=primary_index))
 
 
 def merge_relationships(tx, r_type, data):
