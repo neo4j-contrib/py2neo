@@ -72,7 +72,6 @@ class HTTP(Connection):
                                    on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         self.http_pool = None
         self.headers = make_headers(basic_auth=":".join(profile.auth))
-        self.__transactions = set()
         self.__closed = False
         self._make_pool(profile)
 
@@ -210,14 +209,13 @@ class HTTP(Connection):
             rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
             location_path = urlsplit(r.headers["Location"]).path
             tx = HTTPTransaction(graph_name, location_path.rpartition("/")[-1])
-            self.__transactions.add(tx)
             self.release()
             rs.audit(tx)
             return tx
 
     def commit(self, tx):
-        self._assert_transaction_open(tx)
-        self.__transactions.remove(tx)
+        if tx.broken:
+            raise ValueError("Transaction is broken")
         try:
             r = self._post(tx.commit_uri())
         except ConnectionError as error:
@@ -239,8 +237,8 @@ class HTTP(Connection):
             return Bookmark()
 
     def rollback(self, tx):
-        self._assert_transaction_open(tx)
-        self.__transactions.remove(tx)
+        if tx.broken:
+            raise ValueError("Transaction is broken")
         try:
             r = self._delete(tx.uri())
         except ConnectionError as error:
@@ -284,12 +282,6 @@ class HTTP(Connection):
     def fetch(self, result):
         record = result.take_record()
         return record
-
-    def _assert_transaction_open(self, tx):
-        if tx not in self.__transactions:
-            raise ValueError("Transaction %r is not open on this connection", tx)
-        if tx.broken:
-            raise ValueError("Transaction is broken")
 
     def _post(self, url, statement=None, parameters=None):
         if statement:
