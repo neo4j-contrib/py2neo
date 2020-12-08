@@ -489,26 +489,27 @@ class ConnectionPool(object):
         if cx in self._free_list or cx in self._quarantine:
             return
         log.debug("Releasing connection %r", cx)
-        if cx in self._in_use_list:
-            self._in_use_list.remove(cx)
-            if self.size < self.max_size:
-                # If there is spare capacity in the pool, attempt to
-                # sanitize the connection and return it to the pool.
-                cx = self._sanitize(cx, force_reset=force_reset)
-                if cx:
-                    # Carry on only if sanitation succeeded.
-                    if self.size < self.max_size:
-                        # Check again if there is still capacity.
-                        self._free_list.append(cx)
-                        pass  # Removed waiting list mechanism (11 Nov 2020)
-                    else:
-                        # Otherwise, close the connection.
-                        cx.close()
-            else:
-                # If the pool is full, simply close the connection.
-                cx.close()
+        if cx not in self._in_use_list:
+            # Connection does not belong to this pool
+            log.debug("Connection %r does not belong to pool %r", cx, self)
+            return
+        self._in_use_list.remove(cx)
+        if self.size < self.max_size:
+            # If there is spare capacity in the pool, attempt to
+            # sanitize the connection and return it to the pool.
+            cx = self._sanitize(cx, force_reset=force_reset)
+            if cx:
+                # Carry on only if sanitation succeeded.
+                if self.size < self.max_size:
+                    # Check again if there is still capacity.
+                    self._free_list.append(cx)
+                    pass  # Removed waiting list mechanism (11 Nov 2020)
+                else:
+                    # Otherwise, close the connection.
+                    cx.close()
         else:
-            raise ValueError("Connection %r does not belong to this pool" % cx)
+            # If the pool is full, simply close the connection.
+            cx.close()
 
     def prune(self):
         """ Close all free connections.
