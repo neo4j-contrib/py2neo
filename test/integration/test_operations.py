@@ -32,7 +32,7 @@ DATA_DICTS = [dict(zip(HEADERS, record)) for record in DATA_LISTS]
 def test_create_nodes_from_property_lists(graph):
     graph.delete_all()
     with graph.begin() as tx:
-        list(create_nodes(tx, DATA_LISTS, labels={"Person", "Employee"}, keys=HEADERS))
+        create_nodes(tx, DATA_LISTS, labels={"Person", "Employee"}, keys=HEADERS)
     matched = graph.nodes.match("Person")
     assert matched.count() == 4
     assert all(node.labels == {"Person", "Employee"} for node in matched)
@@ -41,7 +41,7 @@ def test_create_nodes_from_property_lists(graph):
 def test_create_nodes_from_property_dicts(graph):
     graph.delete_all()
     with graph.begin() as tx:
-        list(create_nodes(tx, DATA_DICTS, labels={"Person", "Employee"}))
+        create_nodes(tx, DATA_DICTS, labels={"Person", "Employee"})
     matched = graph.nodes.match("Person")
     assert matched.count() == 4
     assert all(node.labels == {"Person", "Employee"} for node in matched)
@@ -50,8 +50,8 @@ def test_create_nodes_from_property_dicts(graph):
 def test_merge_nodes_from_property_lists(graph):
     graph.delete_all()
     with graph.begin() as tx:
-        list(merge_nodes(tx, DATA_LISTS, "Person", "name",
-                         labels={"Person", "Employee"}, keys=HEADERS))
+        merge_nodes(tx, DATA_LISTS, ("Person", "name"),
+                    labels={"Person", "Employee"}, keys=HEADERS)
     matched = graph.nodes.match("Person")
     assert matched.count() == 3
     assert all(node.labels == {"Person", "Employee"} for node in matched)
@@ -60,8 +60,8 @@ def test_merge_nodes_from_property_lists(graph):
 def test_merge_nodes_from_property_dicts(graph):
     graph.delete_all()
     with graph.begin() as tx:
-        list(merge_nodes(tx, DATA_DICTS, "Person", "name",
-                         labels={"Person", "Employee"}))
+        merge_nodes(tx, DATA_DICTS, ("Person", "name"),
+                    labels={"Person", "Employee"})
     matched = graph.nodes.match("Person")
     assert matched.count() == 3
     assert all(node.labels == {"Person", "Employee"} for node in matched)
