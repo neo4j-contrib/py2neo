@@ -168,7 +168,7 @@ class CypherEncoder(object):
             return u"`" + key.replace(u"`", u"``") + u"`"
 
     def encode_value(self, value):
-        from py2neo.cypher import Literal
+        from py2neo.cypher import CypherExpression
         from py2neo.data import Node, Relationship, Path
         from neotime import Date, Time, DateTime, Duration
         if value is None:
@@ -177,7 +177,7 @@ class CypherEncoder(object):
             return u"true"
         if value is False:
             return u"false"
-        if isinstance(value, Literal):
+        if isinstance(value, CypherExpression):
             return value.value
         if isinstance(value, numeric_types):
             return ustr(value)

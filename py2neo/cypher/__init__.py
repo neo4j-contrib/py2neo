@@ -17,8 +17,9 @@
 
 
 __all__ = [
-    "Literal",
+    "CypherExpression",
     "cypher_escape",
+    "cypher_join",
     "cypher_repr",
     "cypher_str",
 ]
@@ -28,7 +29,7 @@ from py2neo.cypher.encoding import CypherEncoder
 from py2neo.compat import string_types, unicode_types
 
 
-class Literal(object):
+class CypherExpression(object):
 
     def __init__(self, value):
         self.__value = value
@@ -38,7 +39,7 @@ class Literal(object):
         return self.__value
 
 
-def cypher_escape(identifier, **kwargs):
+def cypher_escape(identifier):
     """ Return a Cypher identifier, with escaping if required.
 
     Simple Cypher identifiers, which just contain alphanumerics
@@ -68,8 +69,39 @@ def cypher_escape(identifier, **kwargs):
     """
     if not isinstance(identifier, string_types):
         raise TypeError(type(identifier).__name__)
-    encoder = CypherEncoder(**kwargs)
+    encoder = CypherEncoder()
     return encoder.encode_key(identifier)
+
+
+def cypher_join(*clauses, **parameters):
+    """ Join multiple Cypher clauses, returning a (query, parameters)
+    tuple. Each clause may either be a simple string query or a
+    (query, parameters) tuple. Additional `parameters` may also be
+    supplied as keyword arguments.
+
+    :param clauses:
+    :param parameters:
+    :return: (query, parameters) tuple
+    """
+    query = []
+    params = {}
+    for clause in clauses:
+        if clause is None:
+            continue
+        if isinstance(clause, tuple):
+            try:
+                q, p = clause
+            except ValueError:
+                raise ValueError("Expected query or (query, parameters) tuple "
+                                 "for clause %r" % clause)
+        else:
+            q = clause
+            p = None
+        query.append(q)
+        if p:
+            params.update(p)
+    params.update(parameters)
+    return "\n".join(query), params
 
 
 def cypher_repr(value, **kwargs):

@@ -98,6 +98,7 @@ Cypher Language Tools
 
     cypher/index
     cypher/lexer
+    cypher/queries
 
 
 Command Line Usage

@@ -5,16 +5,14 @@
 .. automodule:: py2neo.data.operations
 
 
-Node Operations
-===============
+Bulk Load Operations
+====================
 
 .. autofunction:: create_nodes
 
 .. autofunction:: merge_nodes
 
-
-Relationship Operations
-=======================
+.. autofunction:: create_relationships
 
 .. autofunction:: merge_relationships
 
