@@ -207,7 +207,7 @@ def pack_into(buffer, *values, **kwargs):
             write_bytes(bytes(value))
 
         # List
-        elif isinstance(value, list):
+        elif isinstance(value, list) or type(value) is tuple:
             write_header(len(value), 0x90, 0xD4, 0xD5, 0xD6)
             pack_into(buffer, *value, version=version)
 
