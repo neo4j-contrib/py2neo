@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from collections import OrderedDict
+
 from py2neo.cypher import cypher_join, cypher_escape, cypher_repr, CypherExpression
 
 
@@ -149,4 +151,4 @@ def _set_properties_clause(value, keys):
     else:
         # data is list of lists
         fields = [CypherExpression("%s[%d]" % (value, i)) for i in range(len(keys))]
-        return "SET _ = " + cypher_repr(dict(zip(keys, fields)))
+        return "SET _ = " + cypher_repr(OrderedDict(zip(keys, fields)))

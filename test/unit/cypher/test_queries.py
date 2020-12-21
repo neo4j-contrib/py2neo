@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from collections import OrderedDict
+
 from pytest import mark, fixture
 
 from py2neo.cypher.queries import (
@@ -43,7 +45,7 @@ def node_data_lists():
 
 @fixture
 def node_data_dicts(node_data_lists, node_keys):
-    data = [dict(zip(node_keys, a)) for a in node_data_lists]
+    data = [OrderedDict(zip(node_keys, a)) for a in node_data_lists]
     data[1]["nickname"] = "Bobby"
     del data[2]["age"]
     return data
@@ -88,7 +90,7 @@ def rel_data_lists_no_key():
 
 @fixture
 def rel_data_dicts(rel_data_lists, rel_keys):
-    data = [[a, dict(zip(rel_keys, r)), b] for a, r, b in rel_data_lists]
+    data = [(a, OrderedDict(zip(rel_keys, r)), b) for a, r, b in rel_data_lists]
     return data
 
 
