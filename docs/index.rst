@@ -78,6 +78,7 @@ A comprehensive set of graph structure data types and operations are provided, a
     data/index
     data/spatial
     data/operations
+    bulk/index
 
 
 Object-Graph Mapping

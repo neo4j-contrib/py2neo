@@ -16,7 +16,25 @@
 # limitations under the License.
 
 
+"""
+This module contains facilities to carry out bulk data operations
+such as creating or merging nodes and relationships. Each function
+typically accepts a transaction object as its first argument; it is in
+this transaction that the operation is carried out. The remainder of
+the arguments depend on the nature of the operation.
+
+These functions wrap well-tuned Cypher queries, and can avoid the need
+to manually implement these operations. As an example,
+:func:`.create_nodes` uses the fast ``UNWIND ... CREATE`` method to
+iterate through a list of raw node data and create each node in turn.
+"""
+
+
 __all__ = [
+    "create_nodes",
+    "merge_nodes",
+    "create_relationships",
+    "merge_relationships",
     "NodeSet",
     "RelationshipSet",
     "Container",
@@ -32,6 +50,12 @@ from py2neo import ClientError
 from py2neo.bulk.queries import nodes_create_unwind, nodes_merge_unwind, \
                                    _query_create_rels_unwind, _query_merge_rels_unwind, \
                                    _params_create_rels_unwind_from_objects
+from py2neo.cypher.queries import (
+    unwind_create_nodes_query,
+    unwind_merge_nodes_query,
+    unwind_create_relationships_query,
+    unwind_merge_relationships_query,
+)
 
 
 log = logging.getLogger(__name__)
@@ -40,6 +64,208 @@ log = logging.getLogger(__name__)
 # make sure to never change/override the values here
 # consider implementing this in a safer way
 BATCHSIZE = '1000'
+
+
+def create_nodes(tx, data, labels=None, keys=None):
+    """ Create nodes from an iterable sequence of raw node data.
+
+    The raw node `data` is supplied as either a list of lists or a list
+    of dictionaries. If the former, then a list of `keys` must also be
+    provided in the same order as the values. This option will also
+    generally require fewer bytes to be sent to the server, since key
+    duplication is removed.
+
+    An iterable of extra `labels` can also be supplied, which will be
+    attached to all new nodes.
+
+    The example code below shows how to pass raw node data as a list of
+    lists:
+
+        >>> from py2neo import Graph
+        >>> from py2neo.bulk import create_nodes
+        >>> g = Graph()
+        >>> keys = ["name", "age"]
+        >>> data = [
+            ["Alice", 33],
+            ["Bob", 44],
+            ["Carol", 55],
+        ]
+        >>> create_nodes(g.auto(), data, labels={"Person"}, keys=keys)
+        >>> g.nodes.match("Person").count()
+        3
+
+    This second example shows how to pass raw node data as a list of
+    dictionaries. This alternative can be particularly useful if the
+    fields are not uniform across records.
+
+        >>> data = [
+            {"name": "Dave", "age": 66},
+            {"name": "Eve", "date_of_birth": "1943-10-01"},
+            {"name": "Frank"},
+        ]
+        >>> create_nodes(g.auto(), data, labels={"Person"})
+        >>> g.nodes.match("Person").count()
+        6
+
+    There are obviously practical limits to the amount of data that
+    should be included in a single bulk load of this type. For that
+    reason, it is advisable to batch the input data into chunks, and
+    carry out each in a separate transaction.
+
+    The example below shows how batching can be achieved using a simple
+    loop. This code assumes that `data` is an iterable of raw node data
+    (lists of values) and steps through that data in chunks of size
+    `batch_size` until everything has been consumed.
+
+        >>> from itertools import islice
+        >>> stream = iter(data)
+        >>> batch_size = 10000
+        >>> while True:
+        ...     batch = islice(stream, batch_size)
+        ...     if batch:
+        ...         create_nodes(g.auto(), batch, labels={"Person"})
+        ...     else:
+        ...         break
+
+    There is no universal `batch_size` that performs optimally for all
+    use cases. It is recommended to experiment with this value to
+    discover what size works best.
+
+    :param tx: :class:`.Transaction` in which to carry out this
+        operation
+    :param data: node data supplied as a list of lists (if `keys` are
+        provided) or a list of dictionaries (if `keys` is :const:`None`)
+    :param labels: labels to apply to the created nodes
+    :param keys: an optional set of keys for the supplied `data`
+    """
+    list(tx.run(*unwind_create_nodes_query(data, labels, keys)))
+
+
+def merge_nodes(tx, data, merge_key, labels=None, keys=None):
+    """ Merge nodes from an iterable sequence of raw node data.
+
+    In a similar way to :meth:`.create_nodes`, the raw node `data` can
+    be supplied as either lists (with `keys`) or dictionaries. This
+    method however uses an ``UNWIND ... MERGE`` construct in the
+    underlying Cypher query to create or update nodes depending
+    on what already exists.
+
+    The merge is performed on the basis of the label and keys
+    represented by the `merge_key`, updating a node if that combination
+    is already present in the graph, and creating a new node otherwise.
+    As with :meth:`.create_nodes`, extra `labels` may also be
+    specified; these will be applied to all nodes, pre-existing or new.
+    The label included in the `merge_key` does not need to be
+    separately included here.
+
+    The example code below shows a simple merge based on a `Person`
+    label and a `name` property:
+
+        >>> from py2neo import Graph
+        >>> from py2neo.bulk import merge_nodes
+        >>> g = Graph()
+        >>> keys = ["name", "age"]
+        >>> data = [
+            ["Alice", 33],
+            ["Bob", 44],
+            ["Carol", 55],
+            ["Carol", 66],
+            ["Alice", 77],
+        ]
+        >>> merge_nodes(g.auto(), data, ("Person", "name"), keys=keys)
+        >>> g.nodes.match("Person").count()
+        3
+
+    :param tx: :class:`.Transaction` in which to carry out this
+        operation
+    :param data: node data supplied as a list of lists (if `keys` are
+        provided) or a list of dictionaries (if `keys` is :const:`None`)
+    :param merge_key: tuple of (label, key1, key2...) on which to merge
+    :param labels: additional labels to apply to the merged nodes
+    :param keys: an optional set of keys for the supplied `data`
+    """
+    list(tx.run(*unwind_merge_nodes_query(data, merge_key, labels, keys)))
+
+
+def create_relationships(tx, data, rel_type, keys=None, start_node_key=None, end_node_key=None):
+    """ Create relationships from an iterable sequence of raw
+    relationship data.
+
+    The raw relationship `data` is supplied as a list of triples (or
+    3-item lists), each representing (start_node, detail, end_node).
+    The `rel_type` specifies the type of relationship to create, and is
+    fixed for the entire data set.
+
+    Start and end node information can either be provided as an
+    internal node ID or, in conjunction with a `start_node_key` or
+    `end_node_key`, a tuple or list of property values to ``MATCH``.
+    For example, to link people to their place of work, the code below
+    could be used:
+
+        >>> from py2neo import Graph
+        >>> from py2neo.bulk import create_relationships
+        >>> g = Graph()
+        >>> data = [
+            (("Alice", "Smith"), {"since": 1999}, "ACME"),
+            (("Bob", "Jones"), {"since": 2002}, "Bob Corp"),
+            (("Carol", "Singer"), {"since": 1981}, "The Daily Planet"),
+        ]
+        >>> create_relationships(g.auto(), data, "WORKS_FOR", \
+            start_node_key=("Person", "name", "family name"), \
+            end_node_key=("Company", "name"))
+
+    If the company node IDs were already known, the code could instead
+    look like this:
+
+        >>> data = [
+            (("Alice", "Smith"), {"since": 1999}, 123),
+            (("Bob", "Jones"), {"since": 2002}, 124),
+            (("Carol", "Singer"), {"since": 1981}, 201),
+        ]
+        >>> create_relationships(g.auto(), data, "WORKS_FOR", \
+            start_node_key=("Person", "name", "family name"))
+
+    As with other methods, such as :meth:`.create_nodes`, the
+    relationship `data` can also be supplied as a list of property
+    values, indexed by `keys`. This can avoid sending duplicated key
+    names over the network, and alters the method call as follows:
+
+        >>> data = [
+            (("Alice", "Smith"), [1999], 123),
+            (("Bob", "Jones"), [2002], 124),
+            (("Carol", "Singer"), [1981], 201),
+        ]
+        >>> create_relationships(g.auto(), data, "WORKS_FOR", keys=["since"] \
+            start_node_key=("Person", "name", "family name"))
+
+    :param tx: :class:`.Transaction` in which to carry out this
+        operation
+    :param data:
+    :param rel_type:
+    :param keys:
+    :param start_node_key:
+    :param end_node_key:
+    :return:
+    """
+    list(tx.run(*unwind_create_relationships_query(data, rel_type, keys,
+                                                   start_node_key, end_node_key)))
+
+
+def merge_relationships(tx, data, merge_key, keys=None, start_node_key=None, end_node_key=None):
+    """ Merge relationships from an iterable sequence of raw
+    relationship data.
+
+    :param tx: :class:`.Transaction` in which to carry out this
+        operation
+    :param data:
+    :param merge_key:
+    :param keys:
+    :param start_node_key:
+    :param end_node_key:
+    :return:
+    """
+    list(tx.run(*unwind_merge_relationships_query(data, merge_key, keys,
+                                                  start_node_key, end_node_key)))
 
 
 class NodeSet:
