@@ -16,35 +16,6 @@
 # limitations under the License.
 
 
-def nodes_create_unwind(labels, property_parameter=None):
-    """
-    Generate a :code:`CREATE` query using :code:`UNWIND` for batch creation of nodes.::
-
-        UNWIND $props AS properties CREATE (n:Gene) SET n = properties
-
-    Pass the node properties as parameter to the query, e.g. with a :py:obj:`py2neo.Graph`::
-
-        graph.run(query, props=[{'id': 1}, {'id': 2}, ...])
-
-    You can optionally set the name of the parameter with the argument :code:`property_parameter`::
-
-        query = nodes_create_unwind(['Foo'], query_parameter='mynodes')
-
-        graph.run(query, mynodes=[{'id': 1}, {'id': 2}, ...])
-
-
-    :param labels: Labels for the create query.
-    :type labels: list[str]
-    :param property_parameter: Optional name of the parameter used in the query. Default is 'props'.
-    :type property_parameter: str
-    :return: Query
-    """
-    if not property_parameter:
-        property_parameter = 'props'
-
-    return "UNWIND ${0} AS properties CREATE (n:{1}) SET n = properties".format(property_parameter, ":".join(labels))
-
-
 def nodes_merge_unwind(labels, merge_properties, property_parameter=None):
     """
     Generate a :code:`MERGE` query which uses defined properties to :code:`MERGE` upon::

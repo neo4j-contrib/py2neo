@@ -47,7 +47,7 @@ import logging
 from uuid import uuid4
 
 from py2neo import ClientError
-from py2neo.bulk.queries import nodes_create_unwind, nodes_merge_unwind, \
+from py2neo.bulk.queries import nodes_merge_unwind, \
                                    _query_create_rels_unwind, _query_merge_rels_unwind, \
                                    _params_create_rels_unwind_from_objects
 from py2neo.cypher.queries import (
@@ -361,17 +361,10 @@ class NodeSet:
             batch_size = self.batch_size
         log.debug('Batch Size: {}'.format(batch_size))
 
-        i = 1
-        for batch in _chunks(self.nodes, size=batch_size):
+        for i, batch in enumerate(_chunks(self.nodes, size=batch_size), start=1):
             batch = list(batch)
             log.debug('Batch {}'.format(i))
-
-            query = nodes_create_unwind(self.labels)
-            log.debug(query)
-
-            result = graph.run(query, props=batch)
-
-            i += 1
+            create_nodes(graph.auto(), batch, self.labels)
 
     # TODO remove py2neo Node here, the node is just a dict now
     def filter_nodes(self, filter_func):
@@ -422,14 +415,12 @@ class NodeSet:
         query = nodes_merge_unwind(self.labels, merge_properties)
         log.debug(query)
 
-        i = 1
-        for batch in _chunks(self.node_properties(), size=batch_size):
+        for i, batch in enumerate(_chunks(self.node_properties(), size=batch_size), start=1):
             batch = list(batch)
             log.debug('Batch {}'.format(i))
             log.debug(batch[0])
 
             graph.run(query, props=batch)
-            i += 1
 
     def map_to_1(self, graph, target_labels, target_properties, rel_type=None):
         """
