@@ -147,8 +147,8 @@ def _set_labels_clause(labels):
 def _set_properties_clause(value, keys):
     if keys is None:
         # data is list of dicts
-        return "SET _ = %s" % value
+        return "SET _ += %s" % value
     else:
         # data is list of lists
         fields = [CypherExpression("%s[%d]" % (value, i)) for i in range(len(keys))]
-        return "SET _ = " + cypher_repr(OrderedDict(zip(keys, fields)))
+        return "SET _ += " + cypher_repr(OrderedDict(zip(keys, fields)))

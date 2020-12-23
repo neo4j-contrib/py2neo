@@ -16,42 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.bulk.queries import nodes_create_unwind, nodes_merge_unwind
-
-
-class TestNodesCreateUnwind:
-
-    def test_single_label(self):
-        test_labels = ['Foo']
-        query = nodes_create_unwind(test_labels)
-        assert query == 'UNWIND $props AS properties CREATE (n:Foo) SET n = properties'
-
-    def test_mulitple_labels(self):
-        test_labels = ['Foo', 'Bar']
-        query = nodes_create_unwind(test_labels)
-        assert query == 'UNWIND $props AS properties CREATE (n:Foo:Bar) SET n = properties'
-
-    def test_own_param_name(self):
-        test_labels = ['Foo']
-        test_param_name = 'nodes'
-        query = nodes_create_unwind(test_labels, property_parameter=test_param_name)
-        assert query == 'UNWIND ${0} AS properties CREATE (n:{1}) SET n = properties'.format(test_param_name,
-                                                                                             test_labels[0])
-
-    def test_query_creates_nodes(self, clear_graph):
-        query = nodes_create_unwind(['Foo', 'Bar'])
-
-        clear_graph.run(query, props=[{'testid': 1}, {'testid': 2}])
-
-        result = clear_graph.run('MATCH (n:Foo:Bar) RETURN n.testid AS testid')
-
-        collected_ids = set()
-
-        for row in result:
-            assert row['testid']
-            collected_ids.add(row['testid'])
-
-        assert collected_ids == {1, 2}
+from py2neo.bulk.queries import nodes_merge_unwind
 
 
 class TestNodesMergeUnwind:
