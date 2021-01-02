@@ -31,7 +31,7 @@ def unwind_create_nodes_query(data, labels=None, keys=None):
     :return: (query, parameters) tuple
     """
     return cypher_join("UNWIND $data AS r",
-                       "CREATE (_%s)" % _label_string(*labels or ()),
+                       _create_clause("_", (tuple(labels or ()),)),
                        _set_properties_clause("r", keys),
                        data=list(data))
 
@@ -47,7 +47,7 @@ def unwind_merge_nodes_query(data, merge_key, labels=None, keys=None):
     :return: (query, parameters) tuple
     """
     return cypher_join("UNWIND $data AS r",
-                       _merge_clause("r", merge_key, keys, "(", ")"),
+                       _merge_clause("_", merge_key, "r", keys),
                        _set_labels_clause(labels),
                        _set_properties_clause("r", keys),
                        data=list(data))
@@ -66,9 +66,9 @@ def unwind_create_relationships_query(data, rel_type, keys=None,
     :return: (query, parameters) tuple
     """
     return cypher_join("UNWIND $data AS r",
-                       _match_clause("r[0]", "a", start_node_key),
-                       _match_clause("r[2]", "b", end_node_key),
-                       "CREATE (a)-[_:%s]->(b)" % cypher_escape(rel_type),
+                       _match_clause("a", start_node_key, "r[0]"),
+                       _match_clause("b", end_node_key, "r[2]"),
+                       _create_clause("_", rel_type, "(a)-[", "]->(b)"),
                        _set_properties_clause("r[1]", keys),
                        data=list(data))
 
@@ -86,60 +86,77 @@ def unwind_merge_relationships_query(data, merge_key, keys=None,
     :return: (query, parameters) tuple
     """
     return cypher_join("UNWIND $data AS r",
-                       _match_clause("r[0]", "a", start_node_key),
-                       _match_clause("r[2]", "b", end_node_key),
-                       _merge_clause("r[1]", merge_key, keys, "(a)-[", "]->(b)"),
+                       _match_clause("a", start_node_key, "r[0]"),
+                       _match_clause("b", end_node_key, "r[2]"),
+                       _merge_clause("_", merge_key, "r[1]", keys, "(a)-[", "]->(b)"),
                        _set_properties_clause("r[1]", keys),
                        data=list(data))
 
 
-def _label_string(*labels):
-    label_set = set(labels or ())
-    return "".join(":" + cypher_escape(label) for label in sorted(label_set))
+class NodeKey(object):
+
+    def __init__(self, node_key):
+        if isinstance(node_key, tuple):
+            self.__pl, self.__pk = node_key[0], node_key[1:]
+        else:
+            self.__pl, self.__pk = node_key, ()
+        if not isinstance(self.__pl, tuple):
+            self.__pl = (self.__pl,)
+
+    def label_string(self):
+        label_set = set(self.__pl)
+        return "".join(":" + cypher_escape(label) for label in sorted(label_set))
+
+    def keys(self):
+        return self.__pk
+
+    def key_value_string(self, value, ix):
+        return ", ".join("%s:%s[%s]" % (cypher_escape(key), value, cypher_repr(ix[i]))
+                         for i, key in enumerate(self.__pk))
 
 
-def _unpack_merge_key(merge_key):
-    if isinstance(merge_key, tuple):
-        return merge_key[0], merge_key[1:]
-    else:
-        return merge_key, ()
+def _create_clause(name, node_key, prefix="(", suffix=")"):
+    return "CREATE %s%s%s%s" % (prefix, name, NodeKey(node_key).label_string(), suffix)
 
 
-def _match_clause(value, name, node_key):
+def _match_clause(name, node_key, value, prefix="(", suffix=")"):
     if node_key is None:
         # ... add MATCH by id clause
-        return "MATCH (%s) WHERE id(%s) = %s" % (name, name, value)
+        return "MATCH %s%s%s WHERE id(%s) = %s" % (prefix, name, suffix, name, value)
     else:
         # ... add MATCH by label/property clause
-        pl, pk = _unpack_merge_key(node_key)
-        n_pk = len(pk)
+        nk = NodeKey(node_key)
+        n_pk = len(nk.keys())
         if n_pk == 0:
-            return "MATCH (%s:%s)" % (name, cypher_escape(pl))
+            return "MATCH %s%s%s%s" % (
+                prefix, name, nk.label_string(), suffix)
         elif n_pk == 1:
-            return "MATCH (%s:%s {%s:%s})" % (name, cypher_escape(pl), cypher_escape(pk[0]), value)
+            return "MATCH %s%s%s {%s:%s}%s" % (
+                prefix, name, nk.label_string(), cypher_escape(nk.keys()[0]), value, suffix)
         else:
-            match_key_string = ", ".join("%s:%s[%s]" % (cypher_escape(key), value, j)
-                                         for j, key in enumerate(pk))
-            return "MATCH (%s:%s {%s})" % (name, cypher_escape(pl), match_key_string)
+            return "MATCH %s%s%s {%s}%s" % (
+                prefix, name, nk.label_string(), nk.key_value_string(value, list(range(n_pk))),
+                suffix)
 
 
-def _merge_clause(value, merge_key, keys, prefix, suffix):
-    pl, pk = _unpack_merge_key(merge_key)
-    if keys is None:
-        ix = list(pk)
+def _merge_clause(name, merge_key, value, keys, prefix="(", suffix=")"):
+    nk = NodeKey(merge_key)
+    merge_keys = nk.keys()
+    if len(merge_keys) == 0:
+        return "MERGE %s%s%s%s" % (
+            prefix, name, nk.label_string(), suffix)
+    elif keys is None:
+        return "MERGE %s%s%s {%s}%s" % (
+            prefix, name, nk.label_string(), nk.key_value_string(value, merge_keys), suffix)
     else:
-        ix = [keys.index(key) for key in pk]
-    merge_key_string = ", ".join("%s:%s[%s]" % (cypher_escape(key), value, cypher_repr(ix[i]))
-                                 for i, key in enumerate(pk))
-    if merge_key_string:
-        return "MERGE %s_:%s {%s}%s" % (prefix, cypher_escape(pl), merge_key_string, suffix)
-    else:
-        return "MERGE %s_:%s%s" % (prefix, cypher_escape(pl), suffix)
+        return "MERGE %s%s%s {%s}%s" % (
+            prefix, name, nk.label_string(), nk.key_value_string(value, [keys.index(key) for key in
+                                                                 merge_keys]), suffix)
 
 
 def _set_labels_clause(labels):
     if labels:
-        return "SET _%s" % _label_string(*labels)
+        return "SET _%s" % NodeKey((tuple(labels),)).label_string()
     else:
         return None
 
