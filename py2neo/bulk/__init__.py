@@ -412,15 +412,12 @@ class NodeSet:
 
         log.debug('Batch Size: {}'.format(batch_size))
 
-        query = nodes_merge_unwind(self.labels, merge_properties)
-        log.debug(query)
-
         for i, batch in enumerate(_chunks(self.node_properties(), size=batch_size), start=1):
             batch = list(batch)
             log.debug('Batch {}'.format(i))
             log.debug(batch[0])
 
-            graph.run(query, props=batch)
+            merge_nodes(graph.auto(), batch, (tuple(self.labels),) + tuple(merge_properties))
 
     def map_to_1(self, graph, target_labels, target_properties, rel_type=None):
         """
