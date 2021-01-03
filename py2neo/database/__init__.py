@@ -730,8 +730,9 @@ class SystemGraph(Graph):
     *New in version 2020.0.*
     """
 
-    def __new__(cls, profile=None, **settings):
-        return super(SystemGraph, cls).__new__(profile, name="system", **settings)
+    def __init__(self, profile=None, **settings):
+        settings.pop("name", None)
+        super().__init__(profile, name="system", **settings)
 
     def __repr__(self):
         return "%s(%r)" % (self.__class__.__name__, self.service.uri)
