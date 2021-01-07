@@ -179,14 +179,7 @@ class GraphService(object):
         from py2neo.client import Connector
         from py2neo.client.config import ConnectionProfile
         profile = ConnectionProfile(profile, **settings)
-        connector_settings = {
-            "user_agent": settings.get("user_agent"),
-            "init_size": settings.get("init_size"),
-            "max_size": settings.get("max_size"),
-            "max_age": settings.get("max_age"),
-            "routing": settings.get("routing"),
-        }
-        self._connector = Connector(profile, **connector_settings)
+        self._connector = Connector(profile, **settings)
         self._graphs = {}
 
     def __repr__(self):

@@ -226,7 +226,7 @@ class Connection(object):
     def discard(self, result, n=-1):
         pass
 
-    def route(self, graph_name=None, context=None):
+    def route(self, graph_name=None, context=None, settings=None):
         """ Fetch the routing table for a given database.
 
         :param graph_name: the name of the graph database for which to
@@ -585,23 +585,23 @@ class Connector(object):
         cluster
     """
 
-    def __init__(self, profile, user_agent=None, init_size=None, max_size=None, max_age=None,
-                 routing=False):
-        self._profile = ConnectionProfile(profile)
-        self._user_agent = user_agent
-        self._init_size = init_size
-        self._max_size = max_size
-        self._max_age = max_age
+    def __init__(self, profile, **settings):
+        self._profile = ConnectionProfile(profile, **settings)
+        self._user_agent = settings.get("user_agent")
+        self._init_size = settings.get("init_size")
+        self._max_size = settings.get("max_size")
+        self._max_age = settings.get("max_age")
+        self.auth = {"user": settings.get("user"), "password": settings.get('password')}
         self._transactions = {}
         self._pools = {}
-        if routing:
+        if settings.get("routing"):
             self._routers = []
             self._routing_tables = {}
         else:
             self._routers = None
             self._routing_tables = None
         self.add_pools(self._profile)
-        if routing:
+        if settings.get("routing"):
             self._refresh_routing_table(None)
 
     def __repr__(self):
@@ -684,7 +684,7 @@ class Connector(object):
                 continue  # try the next router instead
             else:
                 try:
-                    routers, ro_runners, rw_runners, ttl = cx.route(graph_name)
+                    routers, ro_runners, rw_runners, ttl = cx.route(graph_name=graph_name, settings=self.auth)
                 except TransactionError as error:
                     log.warning(error.args[0])
                     continue
@@ -697,7 +697,9 @@ class Connector(object):
                     old = set(profile for profile in self._routers if profile not in routers)
                     if graph_name in self._routing_tables:
                         rt = self._routing_tables[graph_name]
-                        old.update(profile for profile in rt if profile not in routing_table)
+                        old.update(profile for profile in rt.runners() if profile not in routing_table.runners())
+                        old.update(profile for profile in rt.runners(readonly=True)
+                                   if profile not in routing_table.runners(readonly=True))
 
                     self._routers[:] = routers
                     self._routing_tables[graph_name] = routing_table

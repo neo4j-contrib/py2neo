@@ -475,7 +475,7 @@ class Bolt1(Bolt):
         result.append(response, final=True)
         return response
 
-    def _get_routing_info(self, graph_name, query, parameters):
+    def _get_routing_info(self, graph_name, query, parameters, settings):
         # This import is not ideal as it breaks abstraction layers,
         # but it's necessary until the ROUTE message is available.
         from py2neo import ClientError
@@ -485,8 +485,10 @@ class Bolt1(Bolt):
             for ttl, address_data in result.records():
                 addresses = {}
                 for a in address_data:
-                    addresses[a["role"]] = [ConnectionProfile(address=address)
-                                            for address in a["addresses"]]
+                    for address in a["addresses"]:
+                        addresses[a["role"]] = list()
+                        settings.update({"address": address})
+                        addresses[a["role"]].append(ConnectionProfile(settings))
                 return addresses["ROUTE"], addresses["READ"], addresses["WRITE"], ttl
         except ClientError as error:
             if error.title == "ProcedureNotFound":
@@ -494,7 +496,7 @@ class Bolt1(Bolt):
             else:
                 raise
 
-    def route(self, graph_name=None, context=None):
+    def route(self, graph_name=None, context=None, settings=None):
         #
         # Bolt 1 (< Neo4j 3.2) (Clusters only)
         #     cx.run("CALL dbms.cluster.routing.getServers"
@@ -508,7 +510,7 @@ class Bolt1(Bolt):
             raise TypeError("Multiple graph databases are not available prior to Bolt v4")
         query = "CALL dbms.cluster.routing.getRoutingTable($context)"
         parameters = {"context": context or {}}
-        return self._get_routing_info(None, query, parameters)
+        return self._get_routing_info(None, query, parameters, settings)
 
     def sync(self, result):
         self._send()
@@ -785,7 +787,7 @@ class Bolt4x0(Bolt3):
         result.append(response, final=(n == -1))
         return response
 
-    def route(self, graph_name=None, context=None):
+    def route(self, graph_name=None, context=None, settings=None):
         # In Neo4j 4.0 and above, routing is available for all
         # topologies, standalone or clustered.
         if graph_name is None:
@@ -796,7 +798,7 @@ class Bolt4x0(Bolt3):
             # Named database
             query = "CALL dbms.routing.getRoutingTable($context, $database)"
             parameters = {"context": context or {}, "database": graph_name}
-        return self._get_routing_info("system", query, parameters)
+        return self._get_routing_info("system", query, parameters, settings)
 
 
 class Bolt4x1(Bolt4x0):
