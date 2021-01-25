@@ -53,16 +53,16 @@ def unwind_merge_nodes_query(data, merge_key, labels=None, keys=None):
                        data=list(data))
 
 
-def unwind_create_relationships_query(data, rel_type, keys=None,
-                                      start_node_key=None, end_node_key=None):
+def unwind_create_relationships_query(data, rel_type, start_node_key=None, end_node_key=None,
+                                      keys=None):
     """ Generate a parameterised ``UNWIND...CREATE`` query for bulk
     loading relationships into Neo4j.
 
     :param data:
     :param rel_type:
-    :param keys:
     :param start_node_key:
     :param end_node_key:
+    :param keys:
     :return: (query, parameters) tuple
     """
     return cypher_join("UNWIND $data AS r",
@@ -73,16 +73,16 @@ def unwind_create_relationships_query(data, rel_type, keys=None,
                        data=list(data))
 
 
-def unwind_merge_relationships_query(data, merge_key, keys=None,
-                                     start_node_key=None, end_node_key=None):
+def unwind_merge_relationships_query(data, merge_key, start_node_key=None, end_node_key=None,
+                                     keys=None):
     """ Generate a parameterised ``UNWIND...MERGE`` query for bulk
     loading relationships into Neo4j.
 
     :param data:
     :param merge_key: tuple of (rel_type, key1, key2...)
-    :param keys:
     :param start_node_key:
     :param end_node_key:
+    :param keys:
     :return: (query, parameters) tuple
     """
     return cypher_join("UNWIND $data AS r",
@@ -101,7 +101,7 @@ class NodeKey(object):
         else:
             self.__pl, self.__pk = node_key, ()
         if not isinstance(self.__pl, tuple):
-            self.__pl = (self.__pl,)
+            self.__pl = (self.__pl or "",)
 
     def label_string(self):
         label_set = set(self.__pl)

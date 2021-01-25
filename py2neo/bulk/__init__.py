@@ -18,15 +18,7 @@
 
 """
 This module contains facilities to carry out bulk data operations
-such as creating or merging nodes and relationships. Each function
-typically accepts a transaction object as its first argument; it is in
-this transaction that the operation is carried out. The remainder of
-the arguments depend on the nature of the operation.
-
-These functions wrap well-tuned Cypher queries, and can avoid the need
-to manually implement these operations. As an example,
-:func:`.create_nodes` uses the fast ``UNWIND ... CREATE`` method to
-iterate through a list of raw node data and create each node in turn.
+such as creating or merging nodes and relationships.
 """
 
 
@@ -42,8 +34,7 @@ __all__ = [
 
 
 from itertools import chain, islice
-import json
-import logging
+from logging import getLogger
 from uuid import uuid4
 
 from py2neo import ClientError
@@ -58,12 +49,7 @@ from py2neo.cypher.queries import (
 )
 
 
-log = logging.getLogger(__name__)
-
-
-# make sure to never change/override the values here
-# consider implementing this in a safer way
-BATCHSIZE = '1000'
+log = getLogger(__name__)
 
 
 def create_nodes(tx, data, labels=None, keys=None):
@@ -73,10 +59,8 @@ def create_nodes(tx, data, labels=None, keys=None):
     of dictionaries. If the former, then a list of `keys` must also be
     provided in the same order as the values. This option will also
     generally require fewer bytes to be sent to the server, since key
-    duplication is removed.
-
-    An iterable of extra `labels` can also be supplied, which will be
-    attached to all new nodes.
+    duplication is removed. An iterable of extra `labels` can also be
+    supplied, which will be attached to all new nodes.
 
     The example code below shows how to pass raw node data as a list of
     lists:
@@ -112,8 +96,8 @@ def create_nodes(tx, data, labels=None, keys=None):
     reason, it is advisable to batch the input data into chunks, and
     carry out each in a separate transaction.
 
-    The example below shows how batching can be achieved using a simple
-    loop. This code assumes that `data` is an iterable of raw node data
+    The code below shows how batching can be achieved using a simple
+    loop. This assumes that `data` is an iterable of raw node data
     (lists of values) and steps through that data in chunks of size
     `batch_size` until everything has been consumed.
 
@@ -136,7 +120,8 @@ def create_nodes(tx, data, labels=None, keys=None):
     :param data: node data supplied as a list of lists (if `keys` are
         provided) or a list of dictionaries (if `keys` is :const:`None`)
     :param labels: labels to apply to the created nodes
-    :param keys: an optional set of keys for the supplied `data`
+    :param keys: optional set of keys for the supplied `data` (if
+        supplied as value lists)
     """
     list(tx.run(*unwind_create_nodes_query(data, labels, keys)))
 
@@ -144,16 +129,33 @@ def create_nodes(tx, data, labels=None, keys=None):
 def merge_nodes(tx, data, merge_key, labels=None, keys=None):
     """ Merge nodes from an iterable sequence of raw node data.
 
-    In a similar way to :meth:`.create_nodes`, the raw node `data` can
-    be supplied as either lists (with `keys`) or dictionaries. This
-    method however uses an ``UNWIND ... MERGE`` construct in the
+    In a similar way to :func:`.create_nodes`, the raw node `data` can
+    be supplied as either lists (with field `keys`) or as dictionaries.
+    This method however uses an ``UNWIND ... MERGE`` construct in the
     underlying Cypher query to create or update nodes depending
     on what already exists.
 
     The merge is performed on the basis of the label and keys
     represented by the `merge_key`, updating a node if that combination
     is already present in the graph, and creating a new node otherwise.
-    As with :meth:`.create_nodes`, extra `labels` may also be
+    The value of this argument may take one of several forms and is
+    used internally to construct an appropriate ``MERGE`` pattern. The
+    table below gives examples of the values permitted, and how each is
+    interpreted, using ``x`` as the input value from the source data.
+
+    .. table::
+        :widths: 40 60
+
+        =================================================  ===========================================================
+        Argument                                           ``MERGE`` Clause
+        =================================================  ===========================================================
+        ``("Person", "name")``                             ``MERGE (a:Person {name:x})``
+        ``("Person", "name", "family name")``              ``MERGE (a:Person {name:x[0], `family name`:x[1]})``
+        ``(("Person", "Female"), "name")``                 ``MERGE (a:Female:Person {name:x})``
+        ``(("Person", "Female"), "name", "family name")``  ``MERGE (a:Female:Person {name:x[0], `family name`:x[1]})``
+        =================================================  ===========================================================
+
+    As with :func:`.create_nodes`, extra `labels` may also be
     specified; these will be applied to all nodes, pre-existing or new.
     The label included in the `merge_key` does not need to be
     separately included here.
@@ -182,12 +184,13 @@ def merge_nodes(tx, data, merge_key, labels=None, keys=None):
         provided) or a list of dictionaries (if `keys` is :const:`None`)
     :param merge_key: tuple of (label, key1, key2...) on which to merge
     :param labels: additional labels to apply to the merged nodes
-    :param keys: an optional set of keys for the supplied `data`
+    :param keys: optional set of keys for the supplied `data` (if
+        supplied as value lists)
     """
     list(tx.run(*unwind_merge_nodes_query(data, merge_key, labels, keys)))
 
 
-def create_relationships(tx, data, rel_type, keys=None, start_node_key=None, end_node_key=None):
+def create_relationships(tx, data, rel_type, start_node_key=None, end_node_key=None, keys=None):
     """ Create relationships from an iterable sequence of raw
     relationship data.
 
@@ -210,22 +213,42 @@ def create_relationships(tx, data, rel_type, keys=None, start_node_key=None, end
             (("Bob", "Jones"), {"since": 2002}, "Bob Corp"),
             (("Carol", "Singer"), {"since": 1981}, "The Daily Planet"),
         ]
-        >>> create_relationships(g.auto(), data, "WORKS_FOR", \
-            start_node_key=("Person", "name", "family name"), \
-            end_node_key=("Company", "name"))
+        >>> create_relationships(g.auto(), data, "WORKS_FOR", \\
+            start_node_key=("Person", "name", "family name"), end_node_key=("Company", "name"))
 
-    If the company node IDs were already known, the code could instead
-    look like this:
+    If the company node IDs were already known by other means, the code
+    could instead look like this:
 
         >>> data = [
             (("Alice", "Smith"), {"since": 1999}, 123),
             (("Bob", "Jones"), {"since": 2002}, 124),
             (("Carol", "Singer"), {"since": 1981}, 201),
         ]
-        >>> create_relationships(g.auto(), data, "WORKS_FOR", \
+        >>> create_relationships(g.auto(), data, "WORKS_FOR", \\
             start_node_key=("Person", "name", "family name"))
 
-    As with other methods, such as :meth:`.create_nodes`, the
+    These `start_node_key` and `end_node_key` arguments are interpreted
+    in a similar way to the `merge_key` of :func:`merge_nodes`, except
+    that the values are instead used to construct ``MATCH`` patterns.
+    Additionally, passing :py:const:`None` indicates that a match by
+    node ID should be used. The table below shows example combinations,
+    where ``x`` is the input value drawn from the source data.
+
+    .. table::
+        :widths: 40 60
+
+        =================================================  ===========================================================
+        Argument                                           ``MATCH`` Clause
+        =================================================  ===========================================================
+        :py:const:`None`                                   ``MATCH (a) WHERE id(a) = x``
+        ``("Person", "name")``                             ``MATCH (a:Person {name:x})``
+        ``("Person", "name", "family name")``              ``MATCH (a:Person {name:x[0], `family name`:x[1]})``
+        ``(("Person", "Female"), "name")``                 ``MATCH (a:Female:Person {name:x})``
+        ``(("Person", "Female"), "name", "family name")``  ``MATCH (a:Female:Person {name:x[0], `family name`:x[1]})``
+        =================================================  ===========================================================
+
+
+    As with other methods, such as :func:`.create_nodes`, the
     relationship `data` can also be supplied as a list of property
     values, indexed by `keys`. This can avoid sending duplicated key
     names over the network, and alters the method call as follows:
@@ -235,254 +258,162 @@ def create_relationships(tx, data, rel_type, keys=None, start_node_key=None, end
             (("Bob", "Jones"), [2002], 124),
             (("Carol", "Singer"), [1981], 201),
         ]
-        >>> create_relationships(g.auto(), data, "WORKS_FOR", keys=["since"] \
-            start_node_key=("Person", "name", "family name"))
+        >>> create_relationships(g.auto(), data, "WORKS_FOR" \\
+            start_node_key=("Person", "name", "family name")), keys=["since"])
 
     :param tx: :class:`.Transaction` in which to carry out this
         operation
-    :param data:
-    :param rel_type:
-    :param keys:
-    :param start_node_key:
-    :param end_node_key:
+    :param data: relationship data supplied as a list of triples of
+        `(start_node, detail, end_node)`
+    :param rel_type: relationship type name to create
+    :param start_node_key: optional tuple of (label, key1, key2...) on
+        which to match relationship start nodes, matching by node ID
+        if not provided
+    :param end_node_key: optional tuple of (label, key1, key2...) on
+        which to match relationship end nodes, matching by node ID
+        if not provided
+    :param keys: optional set of field names for the relationship
+        `detail` (if supplied as value lists)
     :return:
     """
-    list(tx.run(*unwind_create_relationships_query(data, rel_type, keys,
-                                                   start_node_key, end_node_key)))
+    list(tx.run(*unwind_create_relationships_query(
+        data, rel_type, start_node_key, end_node_key, keys)))
 
 
-def merge_relationships(tx, data, merge_key, keys=None, start_node_key=None, end_node_key=None):
+def merge_relationships(tx, data, merge_key, start_node_key=None, end_node_key=None, keys=None):
     """ Merge relationships from an iterable sequence of raw
     relationship data.
 
+    The `merge_key` argument operates according to the the same general
+    principle as its namesake in :func:`.merge_nodes`, but instead of a
+    variable number of labels, exactly one relationship type must be
+    specified. This allows for the following input options:
+
+    .. table::
+        :widths: 40 60
+
+        =======================================  ============================================================
+        Argument                                 ``MERGE`` Clause
+        =======================================  ============================================================
+        ``"KNOWS"``                              ``MERGE (a)-[ab:KNOWS]->(b)``
+        ``("KNOWS",)``                           ``MERGE (a)-[ab:KNOWS]->(b)``
+        ``("KNOWS", "since")``                   ``MERGE (a)-[ab:KNOWS {since:$x}]->(b)``
+        ``("KNOWS", "since", "introduced by")``  ``MERGE (a)-[ab:KNOWS {since:$x, `introduced by`:$y}]->(b)``
+        =======================================  ============================================================
+
+    For details on how the `start_node_key` and `end_node_key`
+    arguments can be used, see :func:`.create_relationships`.
+
     :param tx: :class:`.Transaction` in which to carry out this
         operation
-    :param data:
-    :param merge_key:
-    :param keys:
-    :param start_node_key:
-    :param end_node_key:
+    :param data: relationship data supplied as a list of triples of
+        `(start_node, detail, end_node)`
+    :param merge_key: tuple of (rel_type, key1, key2...) on which to
+        merge
+    :param start_node_key: optional tuple of (label, key1, key2...) on
+        which to match relationship start nodes, matching by node ID
+        if not provided
+    :param end_node_key: optional tuple of (label, key1, key2...) on
+        which to match relationship end nodes, matching by node ID
+        if not provided
+    :param keys: optional set of field names for the relationship
+        `detail` (if supplied as value lists)
     :return:
     """
-    list(tx.run(*unwind_merge_relationships_query(data, merge_key, keys,
-                                                  start_node_key, end_node_key)))
+    list(tx.run(*unwind_merge_relationships_query(
+        data, merge_key, start_node_key, end_node_key, keys)))
 
 
 class NodeSet:
     """
     Container for a set of Nodes with the same labels and the same properties that define uniqueness.
+
+    :param data:
+    :param merge_key: optional tuple of (label, key1, key2...) on which
+        to :meth:`.merge`
+    :param labels: secondary labels to add (not part of the merge key)
+    :param keys:
     """
 
-    def __init__(self, labels, merge_keys=None, batch_size=None):
-        """
+    batch_size = 1000
 
-        :param labels: The labels for the nodes in this NodeSet.
-        :type labels: list[str]
-        :param merge_keys: The properties that define uniqueness of the nodes in this NodeSet.
-        :type merge_keys: list[str]
-        :param batch_size: Batch size for Neo4j operations.
-        :type batch_size: int
-        """
-        self.labels = labels
-        self.merge_keys = merge_keys
+    def __init__(self, data=None, merge_key=None, labels=None, keys=None):
+        self.__data = list(data or ())  # TODO: index for fast searching
+        self.__merge_key = merge_key
+        self.__labels = labels
+        self.__keys = keys
 
-        self.combined = '_'.join(sorted(self.labels)) + '_' + '_'.join(sorted(self.merge_keys))
-        self.uuid = str(uuid4())
+    def __contains__(self, properties):
+        return self.__normal(properties) in self.__data
 
-        if batch_size:
-            self.batch_size = batch_size
+    def __iter__(self):
+        for properties in self.__data:
+            yield properties
+
+    def __len__(self):
+        return len(self.__data)
+
+    def __normal(self, properties):
+        if self.__keys:
+            if isinstance(properties, (tuple, list)):
+                return properties
+            elif isinstance(properties, dict):
+                return [properties[key] for key in self.__keys]
+            else:
+                raise TypeError("Properties should be supplied as a dictionary, list or tuple")
         else:
-            self.batch_size = BATCHSIZE
+            if isinstance(properties, dict):
+                return properties
+            else:
+                raise TypeError("Properties should be supplied as a dictionary")
 
-        self.nodes = []
+    @property
+    def merge_key(self):
+        return self.merge_key
 
-    def add_node(self, properties):
-        """
-        Create a node in this NodeSet.
+    @property
+    def labels(self):
+        return self.labels
 
-        :param properties: Node properties.
-        :type properties: dict
-        """
-        self.nodes.append(properties)
-
-    def add_nodes(self, list_of_properties):
-        for properties in list_of_properties:
-            self.add_node(properties)
-
-    def add_unique(self, properties):
-        """
-        Add a node to this NodeSet only if a node with the same `merge_keys` does not exist yet.
-
-        Note: Right now this function iterates all nodes in the NodeSet. This is of course slow for large
-        numbers of nodes. A better solution would be to create an 'index' as is done for RelationshipSet.
+    def add(self, properties):
+        """ Create a node in this NodeSet.
 
         :param properties: Node properties.
-        :type properties: dict
+        :type properties: dict or list
         """
+        self.__data.append(self.__normal(properties))
 
-        compare_values = frozenset([properties[key] for key in self.merge_keys])
-
-        for other_node_properties in self.node_properties():
-            this_values = frozenset([other_node_properties[key] for key in self.merge_keys])
-            if this_values == compare_values:
-                return None
-
-        # add node if not found
-        self.add_node(properties)
-
-    def item_iterator(self):
-        """
-        Generator function that yields the node properties for all nodes in this NodeSet.
-
-        This is used to create chunks of the nodes without iterating all nodes. This can be removes in future
-        when NodeSet and RelationshipSet fully support generators (instead of lists of nodes/relationships).
-        """
-        for node in self.nodes:
-            yield node
-
-    def to_dict(self):
-        """
-        Create dictionary defining the nodeset.
-        """
-        return {"labels":self.labels,"merge_keys":self.merge_keys,"nodes":self.nodes}
-
-    @classmethod
-    def from_dict(cls,nodeset_dict,batch_size=None):
-        ns = cls(labels=nodeset_dict["labels"],merge_keys=nodeset_dict["merge_keys"])
-        ns.add_nodes(nodeset_dict["nodes"])
-        return ns
+    def remove(self, properties):
+        self.__data.remove(self.__normal(properties))
 
     def create(self, graph, batch_size=None):
         """
         Create all nodes from NodeSet.
         """
-        log.debug('Create NodeSet')
-        if not batch_size:
+        if batch_size is None:
             batch_size = self.batch_size
-        log.debug('Batch Size: {}'.format(batch_size))
 
-        for i, batch in enumerate(_chunks(self.nodes, size=batch_size), start=1):
-            batch = list(batch)
-            log.debug('Batch {}'.format(i))
-            create_nodes(graph.auto(), batch, self.labels)
+        log.debug("Beginning bulk node create with batch size %r", batch_size)
+        for n, batch in enumerate(_chunks(self.__data, size=batch_size), start=1):
+            log.debug("Creating batch %r", n)
+            create_nodes(graph.auto(), batch, self.__labels)
+        log.debug("Bulk node create completed")
 
-    # TODO remove py2neo Node here, the node is just a dict now
-    def filter_nodes(self, filter_func):
-        """
-        Filter node properties with a filter function, remove nodes that do not match from main list.
-        """
-        filtered_nodes = []
-        discarded_nodes = []
-        for n in self.nodes:
-            node_properties = dict(n)
-            if filter_func(node_properties):
-                filtered_nodes.append(n)
-            else:
-                discarded_nodes.append(n)
-
-        self.nodes = filtered_nodes
-        self.discarded_nodes = discarded_nodes
-
-    # TODO remove py2neo Node here, the node is just a dict now
-    def reduce_node_properties(self, *keep_props):
-        filtered_nodes = []
-        for n in self.nodes:
-            new_props = {}
-            for k, v in dict(n).items():
-                if k in keep_props:
-                    new_props[k] = v
-
-            filtered_nodes.append(Node(*self.labels, **new_props))
-
-        self.nodes = filtered_nodes
-
-    def merge(self, graph, merge_properties=None, batch_size=None):
+    def merge(self, graph, batch_size=None):
         """
         Merge nodes from NodeSet on merge properties.
-
-        :param merge_properties: The merge properties.
         """
-        log.debug('Merge NodeSet on {}'.format(merge_properties))
+        if self.__merge_key is None:
+            raise TypeError("Cannot merge nodes from a NodeSet defined without a merge key")
 
         if not batch_size:
             batch_size = self.batch_size
 
-        if not merge_properties:
-            merge_properties = self.merge_keys
-
-        log.debug('Batch Size: {}'.format(batch_size))
-
-        for i, batch in enumerate(_chunks(self.node_properties(), size=batch_size), start=1):
-            batch = list(batch)
-            log.debug('Batch {}'.format(i))
-            log.debug(batch[0])
-
-            merge_nodes(graph.auto(), batch, (tuple(self.labels),) + tuple(merge_properties))
-
-    def map_to_1(self, graph, target_labels, target_properties, rel_type=None):
-        """
-        Create relationships from all nodes in this NodeSet to 1 target node.
-
-        :param graph: The py2neo Graph
-        :param other_node: The target node.
-        :param rel_type: Relationship Type
-        """
-
-        if not rel_type:
-            rel_type = 'FROM_SET'
-
-        rels = RelationshipSet(rel_type, self.labels, target_labels, self.merge_keys, target_properties)
-
-        for node in self.nodes:
-            # get properties for merge_keys
-            node_properties = {}
-            for k in self.merge_keys:
-                node_properties[k] = node[k]
-
-            rels.add_relationship(node_properties, target_properties, {})
-
-        rels.create(graph)
-
-    def node_properties(self):
-        """
-        Yield properties of the nodes in this set. Used for create function.
-        """
-        for n in self.nodes:
-            yield dict(n)
-
-    def all_properties_in_nodeset(self):
-        """
-        Return a set of all property keys in this NodeSet
-
-        :return: A set of unique property keys of a NodeSet
-        """
-        all_props = set()
-
-        # collect properties
-        for props in self.node_properties():
-            for k in props:
-                all_props.add(k)
-
-        return all_props
-
-    def create_index(self, graph):
-        """
-        Create indices for all label/merge ky combinations as well as a composite index if multiple merge keys exist.
-
-        In Neo4j 3.x recreation of an index did not raise an error. In Neo4j 4 you cannot create an existing index.
-
-        Index creation syntax changed from Neo4j 3.5 to 4. So far the old syntax is still supported. All py2neo
-        functions (v4.4) work on both versions.
-        """
-        if self.merge_keys:
-            for label in self.labels:
-                # create individual indexes
-                for prop in self.merge_keys:
-                    _create_single_index(graph, label, prop)
-
-                # composite indexes
-                if len(self.merge_keys) > 1:
-                    _create_composite_index(graph, label, self.merge_keys)
+        log.debug("Beginning bulk node merge with batch size %r", batch_size)
+        for n, batch in enumerate(_chunks(self.__data, size=batch_size), start=1):
+            log.debug("Merging batch %r", n)
+            merge_nodes(graph.auto(), batch, self.__merge_key, self.__labels)
+        log.debug("Bulk node merge completed")
 
 
 class Relationship(object):
@@ -550,9 +481,13 @@ class RelationshipSet:
             self.batch_size = BATCHSIZE
 
         self.relationships = []
+        self.triples = []
 
         self.unique = False
         self.unique_rels = set()
+
+    def add(self, start_node, detail, end_node):
+        self.triples.append((start_node, detail, end_node))
 
     def add_relationship(self, start_node_properties, end_node_properties, properties):
         """
@@ -655,49 +590,33 @@ class RelationshipSet:
         log.debug('Batch Size: {}'.format(batch_size))
 
         # get query
-        query = _query_create_rels_unwind(self.start_node_labels, self.end_node_labels, self.start_node_properties,
-                                          self.end_node_properties, self.rel_type)
-        log.debug(query)
+        start_node_key = (tuple(self.start_node_labels),) + tuple(self.start_node_properties)
+        end_node_key = (tuple(self.end_node_labels),) + tuple(self.end_node_properties)
 
-        i = 1
         # iterate over chunks of rels
-        for batch in _chunks(self.relationships, size=batch_size):
+        for i, batch in enumerate(_chunks(self.triples, size=batch_size), start=1):
             batch = list(batch)
             log.debug('Batch {}'.format(i))
-            log.debug(batch[0])
-            # get parameters
-            query_parameters = _params_create_rels_unwind_from_objects(batch)
-            log.debug(json.dumps(query_parameters))
-
-            graph.run(query, **query_parameters)
-            i += 1
+            create_relationships(graph.auto(), batch, self.rel_type, start_node_key, end_node_key)
 
     def merge(self, graph, batch_size=None):
         """
         Create relationships in this RelationshipSet
         """
-        log.debug('Create RelationshipSet')
+        log.debug('Merge RelationshipSet')
         if not batch_size:
             batch_size = self.batch_size
         log.debug('Batch Size: {}'.format(batch_size))
 
         # get query
-        query = _query_merge_rels_unwind(self.start_node_labels, self.end_node_labels, self.start_node_properties,
-                                         self.end_node_properties, self.rel_type)
-        log.debug(query)
+        start_node_key = (tuple(self.start_node_labels),) + tuple(self.start_node_properties)
+        end_node_key = (tuple(self.end_node_labels),) + tuple(self.end_node_properties)
 
-        i = 1
         # iterate over chunks of rels
-        for batch in _chunks(self.relationships, size=batch_size):
+        for i, batch in enumerate(_chunks(self.triples, size=batch_size), start=1):
             batch = list(batch)
             log.debug('Batch {}'.format(i))
-            log.debug(batch[0])
-            # get parameters
-            query_parameters = _params_create_rels_unwind_from_objects(batch)
-            log.debug(json.dumps(query_parameters))
-
-            graph.run(query, **query_parameters)
-            i += 1
+            merge_relationships(graph.auto(), batch, self.rel_type, start_node_key, end_node_key)
 
     def create_index(self, graph):
         """
@@ -763,7 +682,7 @@ class Container:
 
     def get_nodeset(self, labels, merge_keys):
         for nodeset in self.nodesets:
-            if set(nodeset.labels) == set(labels) and set(nodeset.merge_keys) == set(merge_keys):
+            if set(nodeset.__labels) == set(labels) and set(nodeset.merge_keys) == set(merge_keys):
                 return nodeset
 
     def add(self, object):

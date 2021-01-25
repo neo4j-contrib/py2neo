@@ -243,8 +243,8 @@ class TestUnwindCreateRelationshipsQuery(object):
     def test_with_start_node_double_key(self, rel_data_lists_double_key, rel_keys,
                                         rel_type, start_node_double_key):
         q, p = unwind_create_relationships_query(rel_data_lists_double_key, rel_type,
-                                                 keys=rel_keys,
-                                                 start_node_key=start_node_double_key)
+                                                 start_node_key=start_node_double_key,
+                                                 keys=rel_keys)
         assert q == ("UNWIND $data AS r\n"
                      "MATCH (a:Person {name:r[0][0], `family name`:r[0][1]})\n"
                      "MATCH (b) WHERE id(b) = r[2]\n"
@@ -255,8 +255,8 @@ class TestUnwindCreateRelationshipsQuery(object):
     def test_with_start_node_no_keys(self, rel_data_lists_no_key, rel_type, rel_keys,
                                      start_node_key):
         q, p = unwind_create_relationships_query(rel_data_lists_no_key, rel_type,
-                                                 keys=rel_keys, start_node_key=start_node_key,
-                                                 end_node_key="Company")
+                                                 start_node_key=start_node_key,
+                                                 end_node_key="Company", keys=rel_keys)
         assert q == ("UNWIND $data AS r\n"
                      "MATCH (a:Person {name:r[0]})\n"
                      "MATCH (b:Company)\n"
