@@ -206,6 +206,9 @@ class ConnectionProfile(Mapping):
                 self.__secure = True
             elif self.__scheme in ["bolt", "http"]:
                 self.__secure = False
+            else:
+                raise ValueError("Unsupported scheme %r "
+                                 "(for routing, use routing=True)" % self.__scheme)
             if self.__scheme in ["bolt+ssc", "http+ssc"]:
                 self.__verify = False
             else:
