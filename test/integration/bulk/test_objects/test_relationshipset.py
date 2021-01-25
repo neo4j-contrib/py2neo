@@ -23,15 +23,19 @@
 import pytest
 from py2neo.bulk import NodeSet, RelationshipSet
 
+from pansi.console import watch
+watch("py2neo")
+
 
 @pytest.fixture
 def small_relationshipset(make_unique_id):
     rs = RelationshipSet('TEST', ['Test'], ['Foo'], ['uuid'], ['uuid'])
 
     for i in range(100):
-        rs.add_relationship(
-            {'uuid': i}, {'uuid': i}, {}
-        )
+        #rs.add_relationship(
+        #    {'uuid': i}, {'uuid': i}, {}
+        #)
+        rs.add(i, {}, i)
 
     return rs
 
@@ -110,18 +114,4 @@ class TestRelationshipSetMerge:
         )
         print(result)
         print(result[0])
-        assert result[0][0] == 100
-
-    def test_to_dict(self, small_relationshipset):
-        d = small_relationshipset.to_dict()
-        assert isinstance(d, dict)
-        assert len(d["relationships"]) == 100
-
-    def test_from_dict(self, small_relationshipset):
-        d = small_relationshipset.to_dict()
-        rs2 = RelationshipSet.from_dict(d)
-        assert rs2.rel_type == small_relationshipset.rel_type
-        assert rs2.start_node_labels == small_relationshipset.start_node_labels
-        assert rs2.end_node_labels == small_relationshipset.end_node_labels
-        assert rs2.start_node_properties == small_relationshipset.start_node_properties
-        assert rs2.end_node_properties == small_relationshipset.end_node_properties
+        assert graph.relationships.match(r_type="TEST").count() == 100
