@@ -126,10 +126,12 @@ class ClientConsole(Console):
             self.write()
 
         self.profile = ConnectionProfile(profile, **settings)
+        routing = settings.get("routing", False)
         try:
-            self.graph = Graph(self.profile)    # TODO: use Connector instead
+            self.graph = Graph(self.profile, routing=routing)    # TODO: use Connector instead
         except OSError as error:
-            self.critical("Could not connect to <%s> (%s)", self.profile.uri, " ".join(map(str, error.args)))
+            self.critical("Could not connect to <%s> (%s)",
+                          self.profile.uri, " ".join(map(str, error.args)))
             raise
         else:
             self.debug("Connected to <%s>", self.graph.service.uri)
