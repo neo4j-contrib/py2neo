@@ -156,7 +156,9 @@ class ConnectionProfile(Mapping):
             self._apply_base_uri(profile)
         elif isinstance(profile, Mapping):
             self._apply_base_defaults()
-            settings = dict(profile, **settings)
+            base_settings = dict(profile)
+            self._apply_auth(**base_settings)
+            self._apply_components(**base_settings)
         else:
             raise TypeError("Profile %r is neither a ConnectionProfile "
                             "nor a string URI" % profile)
