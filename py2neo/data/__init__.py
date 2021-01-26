@@ -134,6 +134,13 @@ class Subgraph(object):
     def __or__(self, other):
         return Subgraph(set(self.nodes) | set(other.nodes), set(self.relationships) | set(other.relationships))
 
+    def __ior__(self, other):
+        if isinstance(self, Walkable):
+            self = Subgraph(self.nodes, self.relationships)
+        self.__nodes |= other.nodes
+        self.__relationships |= other.relationships
+        return self
+
     def __and__(self, other):
         return Subgraph(set(self.nodes) & set(other.nodes), set(self.relationships) & set(other.relationships))
 
