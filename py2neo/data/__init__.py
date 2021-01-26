@@ -136,9 +136,9 @@ class Subgraph(object):
 
     def __ior__(self, other):
         if isinstance(self, Walkable):
-            self = Subgraph(self.nodes, self.relationships)
-        self.__nodes |= other.nodes
-        self.__relationships |= other.relationships
+            self = Subgraph(self.__nodes, self.__relationships)
+        self.__nodes |= other.__nodes
+        self.__relationships |= other.__relationships
         return self
 
     def __and__(self, other):
