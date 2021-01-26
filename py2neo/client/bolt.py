@@ -488,7 +488,7 @@ class Bolt1(Bolt):
             for ttl, address_data in result.records():
                 addresses = {}
                 for a in address_data:
-                    addresses[a["role"]] = [ConnectionProfile(address=address)
+                    addresses[a["role"]] = [ConnectionProfile(self.profile, address=address)
                                             for address in a["addresses"]]
                 return addresses["ROUTE"], addresses["READ"], addresses["WRITE"], ttl
         except ClientError as error:
