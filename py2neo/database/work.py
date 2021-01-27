@@ -136,19 +136,26 @@ class Transaction(object):
 
     def commit(self):
         """ Commit the transaction.
+
+        :returns: :class:`.TransactionSummary` object
         """
         self._assert_unfinished("Cannot commit finished transaction")
         try:
-            return self._connector.commit(self._transaction)
+            bookmark = self._connector.commit(self._transaction)
+            return TransactionSummary(bookmark=bookmark)
         finally:
             self._finished = True
 
     def rollback(self):
-        """ Roll back the current transaction, undoing all actions previously taken.
+        """ Roll back the current transaction, undoing all actions
+        previously taken.
+
+        :returns: :class:`.TransactionSummary` object
         """
         self._assert_unfinished("Cannot rollback finished transaction")
         try:
-            return self._connector.rollback(self._transaction)
+            bookmark = self._connector.rollback(self._transaction)
+            return TransactionSummary(bookmark=bookmark)
         finally:
             self._finished = True
 
@@ -310,6 +317,15 @@ class Transaction(object):
             raise TypeError("No method defined to separate object %r" % subgraph)
         else:
             separate(self)
+
+
+class TransactionSummary(object):
+    """ Summary information produced as the result of a
+    :class:`.Transaction` commit or rollback.
+    """
+
+    def __init__(self, bookmark=None):
+        self.bookmark = bookmark
 
 
 class Cursor(object):
