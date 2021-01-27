@@ -288,6 +288,14 @@ class Wire(object):
         """
         return Address(self.__socket.getpeername())
 
+    @property
+    def bytes_sent(self):
+        return self.__bytes_sent
+
+    @property
+    def bytes_received(self):
+        return self.__bytes_received
+
     def __set_broken(self, message):
         idle_time = monotonic() - self.__active_time
         message += (" after %.01fs idle (%r bytes sent, "
