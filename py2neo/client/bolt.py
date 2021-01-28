@@ -276,6 +276,14 @@ class Bolt(Connection):
     def local_port(self):
         return self.__local_port
 
+    @property
+    def bytes_sent(self):
+        return self._wire.bytes_sent
+
+    @property
+    def bytes_received(self):
+        return self._wire.bytes_received
+
     def _assert_open(self):
         # TODO: better errors and hooks back into the pool, for
         #  deactivating and/or removing addresses from the routing table

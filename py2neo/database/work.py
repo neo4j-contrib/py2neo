@@ -141,8 +141,8 @@ class Transaction(object):
         """
         self._assert_unfinished("Cannot commit finished transaction")
         try:
-            bookmark = self._connector.commit(self._transaction)
-            return TransactionSummary(bookmark=bookmark)
+            summary = self._connector.commit(self._transaction)
+            return TransactionSummary(**summary)
         finally:
             self._finished = True
 
@@ -154,8 +154,8 @@ class Transaction(object):
         """
         self._assert_unfinished("Cannot rollback finished transaction")
         try:
-            bookmark = self._connector.rollback(self._transaction)
-            return TransactionSummary(bookmark=bookmark)
+            summary = self._connector.rollback(self._transaction)
+            return TransactionSummary(**summary)
         finally:
             self._finished = True
 
@@ -324,8 +324,10 @@ class TransactionSummary(object):
     :class:`.Transaction` commit or rollback.
     """
 
-    def __init__(self, bookmark=None):
+    def __init__(self, bookmark=None, profile=None, time=None):
         self.bookmark = bookmark
+        self.profile = profile
+        self.time = time
 
 
 class Cursor(object):

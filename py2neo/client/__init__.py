@@ -18,7 +18,6 @@
 
 from collections import deque
 from logging import getLogger
-from threading import Event
 from uuid import uuid4
 
 from monotonic import monotonic
@@ -150,6 +149,14 @@ class Connection(object):
 
     @property
     def local_port(self):
+        raise NotImplementedError
+
+    @property
+    def bytes_sent(self):
+        raise NotImplementedError
+
+    @property
+    def bytes_received(self):
         raise NotImplementedError
 
     @property
@@ -331,6 +338,10 @@ class ConnectionPool(object):
         self._quarantine = deque()
         self._free_list = deque()
         self._supports_multi = False
+        # stats
+        self._opened_list = deque()
+        self._bytes_sent = 0
+        self._bytes_received = 0
 
     def __repr__(self):
         return "<{} profile={!r} in_use={!r} free={!r} spare={!r}>".format(
@@ -394,6 +405,20 @@ class ConnectionPool(object):
         """
         return len(self._in_use_list) + len(self._free_list)
 
+    @property
+    def bytes_sent(self):
+        b = self._bytes_sent
+        for cx in list(self._opened_list):
+            b += cx.bytes_sent
+        return b
+
+    @property
+    def bytes_received(self):
+        b = self._bytes_received
+        for cx in list(self._opened_list):
+            b += cx.bytes_received
+        return b
+
     def _sanitize(self, cx, force_reset=False):
         """ Attempt to clean up a connection, such that it can be
         reused.
@@ -418,6 +443,26 @@ class ConnectionPool(object):
         self._quarantine.remove(cx)
         return cx
 
+    def connect(self):
+        """ Open a new connection, adding it to a list of opened
+        connections in order to collect statistics. This method also
+        collects stats from closed or broken connections into a
+        pool-wide running total.
+        """
+        for _ in range(len(self._opened_list)):
+            cx = self._opened_list.popleft()
+            if cx.closed or cx.broken:
+                self._bytes_sent += cx.bytes_sent
+                self._bytes_received += cx.bytes_received
+            else:
+                self._opened_list.append(cx)
+        cx = Connection.open(self.profile, user_agent=self.user_agent,
+                             on_bind=self._on_bind, on_unbind=self._on_unbind,
+                             on_release=lambda c: self.release(c),
+                             on_broken=lambda msg: self.__on_broken(msg))
+        self._opened_list.append(cx)
+        return cx
+
     def acquire(self, force_reset=False):
         """ Acquire a connection from the pool.
 
@@ -439,7 +484,7 @@ class ConnectionPool(object):
         :raises: :class:`.ConnectionUnavailable` if no connection can
             be acquired
         """
-        log.debug("Trying to acquiring connection from pool %r", self)
+        log.debug("Trying to acquire connection from pool %r", self)
         cx = None
         while cx is None or cx.broken or cx.closed:
             if self.max_size == 0:
@@ -454,10 +499,7 @@ class ConnectionPool(object):
                     # a new connection. This may raise a
                     # ConnectionUnavailable exception, which
                     # should bubble up to the caller.
-                    cx = Connection.open(self.profile, user_agent=self.user_agent,
-                                         on_bind=self._on_bind, on_unbind=self._on_unbind,
-                                         on_release=lambda c: self.release(c),
-                                         on_broken=lambda msg: self.__on_broken(msg))
+                    cx = self.connect()
                     if cx.supports_multi():
                         self._supports_multi = True
                 else:
@@ -680,7 +722,7 @@ class Connector(object):
         for router in self._routers + [self.profile]:
             # TODO: don't open a new connection every time, use the pool if free
             try:
-                cx = Connection.open(router, self._user_agent)
+                cx = self._pools[router].connect()
             except ConnectionUnavailable:
                 continue  # try the next router instead
             else:
@@ -729,6 +771,20 @@ class Connector(object):
         """
         return {profile: pool.in_use
                 for profile, pool in self._pools.items()}
+
+    @property
+    def bytes_sent(self):
+        b = 0
+        for pool in list(self._pools.values()):
+            b += pool.bytes_sent
+        return b
+
+    @property
+    def bytes_received(self):
+        b = 0
+        for pool in list(self._pools.values()):
+            b += pool.bytes_received
+        return b
 
     def acquire(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
         """ Acquire a connection from a pool owned by this connector.
@@ -903,33 +959,39 @@ class Connector(object):
         """ Commit a transaction.
 
         :param tx: the transaction to commit
-        :returns: a :class:`.Bookmark` representing the point in
-            transactional history immediately after this transaction
+        :returns: dictionary of transaction summary information
         :raises ValueError: if the transaction is not valid to be committed
         :raises BrokenTransactionError: if the transaction fails to commit
         """
         cx = self._get_connection(tx)
         try:
-            return cx.commit(tx)
+            bookmark = cx.commit(tx)
         except TransactionError:
             self.prune(cx.profile)
             raise
+        else:
+            return {"bookmark": bookmark,
+                    "profile": cx.profile,
+                    "time": tx.age}
 
     def rollback(self, tx):
         """ Roll back a transaction.
 
         :param tx: the transaction to rollback
-        :returns: a :class:`.Bookmark` representing the point in
-            transactional history immediately after this transaction
+        :returns: dictionary of transaction summary information
         :raises ValueError: if the transaction is not valid to be rolled back
         :raises BrokenTransactionError: if the transaction fails to rollback
         """
         cx = self._get_connection(tx)
         try:
-            return cx.rollback(tx)
+            bookmark = cx.rollback(tx)
         except TransactionError:
             self.prune(cx.profile)
             raise
+        else:
+            return {"bookmark": bookmark,
+                    "profile": cx.profile,
+                    "time": tx.age}
 
     def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
@@ -1053,6 +1115,7 @@ class Transaction(object):
         self.txid = txid or uuid4()
         self.readonly = readonly
         self.__broken = False
+        self.__time_created = monotonic()
 
     def __hash__(self):
         return hash((self.graph_name, self.txid))
@@ -1072,6 +1135,10 @@ class Transaction(object):
 
     def mark_broken(self):
         self.__broken = True
+
+    @property
+    def age(self):
+        return monotonic() - self.__time_created
 
 
 class Result(object):

@@ -626,6 +626,8 @@ class Graph(object):
             pass into the function
         :param readonly: set to :py:const:`True` or :py:const:`False` to
             override the readonly attribute of the work function
+        :returns: list of :class:`.TransactionSummary` objects, one for
+            each attempt made to execute the transaction
 
         *New in version 2020.0.*
         """
@@ -651,7 +653,7 @@ class Graph(object):
             tx.rollback()
             raise
         else:
-            return tx.commit()
+            return [tx.commit()]
 
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
