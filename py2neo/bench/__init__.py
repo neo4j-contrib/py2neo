@@ -54,6 +54,7 @@ class Bench(Console):
         try:
             out = self.graph.play(work, readonly=(mode == "ro"))
         except Exception:
+            # TODO: stats in exceptions
             self.bad_tx += 1
         else:
             for summary in out:
