@@ -115,28 +115,28 @@ class TestUnwindCreateNodesQuery(object):
         q, p = unwind_create_nodes_query(node_data_dicts)
         assert q == ("UNWIND $data AS r\n"
                      "CREATE (_)\n"
-                     "SET _ = r")
+                     "SET _ += r")
         assert p == {"data": node_data_dicts}
 
     def test_list_data(self, node_data_lists, node_keys):
         q, p = unwind_create_nodes_query(node_data_lists, keys=node_keys)
         assert q == ("UNWIND $data AS r\n"
                      "CREATE (_)\n"
-                     "SET _ = {name: r[0], `family name`: r[1], age: r[2]}")
+                     "SET _ += {name: r[0], `family name`: r[1], age: r[2]}")
         assert p == {"data": node_data_lists}
 
     def test_with_one_label(self, node_data_dicts):
         q, p = unwind_create_nodes_query(node_data_dicts, labels=["Person"])
         assert q == ("UNWIND $data AS r\n"
                      "CREATE (_:Person)\n"
-                     "SET _ = r")
+                     "SET _ += r")
         assert p == {"data": node_data_dicts}
 
     def test_with_two_labels(self, node_data_dicts):
         q, p = unwind_create_nodes_query(node_data_dicts, labels=["Person", "Employee"])
         assert q == ("UNWIND $data AS r\n"
                      "CREATE (_:Employee:Person)\n"
-                     "SET _ = r")
+                     "SET _ += r")
         assert p == {"data": node_data_dicts}
 
 
@@ -146,14 +146,14 @@ class TestUnwindMergeNodesQuery(object):
         q, p = unwind_merge_nodes_query(node_data_dicts, ("Person", "name"))
         assert q == ("UNWIND $data AS r\n"
                      "MERGE (_:Person {name:r['name']})\n"
-                     "SET _ = r")
+                     "SET _ += r")
         assert p == {"data": node_data_dicts}
 
     def test_list_data(self, node_data_lists, node_keys):
         q, p = unwind_merge_nodes_query(node_data_lists, ("Person", "name"), keys=node_keys)
         assert q == ("UNWIND $data AS r\n"
                      "MERGE (_:Person {name:r[0]})\n"
-                     "SET _ = {name: r[0], `family name`: r[1], age: r[2]}")
+                     "SET _ += {name: r[0], `family name`: r[1], age: r[2]}")
         assert p == {"data": node_data_lists}
 
     def test_with_extra_labels(self, node_data_dicts):
@@ -162,7 +162,7 @@ class TestUnwindMergeNodesQuery(object):
         assert q == ("UNWIND $data AS r\n"
                      "MERGE (_:Person {name:r['name']})\n"
                      "SET _:Employee:Human\n"
-                     "SET _ = r")
+                     "SET _ += r")
         assert p == {"data": node_data_dicts}
 
     @mark.parametrize("merge_key", ["Person", ("Person",)])
@@ -170,21 +170,21 @@ class TestUnwindMergeNodesQuery(object):
         q, p = unwind_merge_nodes_query(node_data_dicts, "Person")
         assert q == ("UNWIND $data AS r\n"
                      "MERGE (_:Person)\n"
-                     "SET _ = r")
+                     "SET _ += r")
         assert p == {"data": node_data_dicts}
 
     def test_with_one_merge_key(self, node_data_dicts):
         q, p = unwind_merge_nodes_query(node_data_dicts, ("Person", "name"))
         assert q == ("UNWIND $data AS r\n"
                      "MERGE (_:Person {name:r['name']})\n"
-                     "SET _ = r")
+                     "SET _ += r")
         assert p == {"data": node_data_dicts}
 
     def test_with_two_merge_keys(self, node_data_dicts):
         q, p = unwind_merge_nodes_query(node_data_dicts, ("Person", "name", "family name"))
         assert q == ("UNWIND $data AS r\n"
                      "MERGE (_:Person {name:r['name'], `family name`:r['family name']})\n"
-                     "SET _ = r")
+                     "SET _ += r")
         assert p == {"data": node_data_dicts}
 
 
@@ -196,7 +196,7 @@ class TestUnwindCreateRelationshipsQuery(object):
                      "MATCH (a) WHERE id(a) = r[0]\n"
                      "MATCH (b) WHERE id(b) = r[2]\n"
                      "CREATE (a)-[_:WORKS_FOR]->(b)\n"
-                     "SET _ = r[1]")
+                     "SET _ += r[1]")
         assert p == {"data": rel_data_dicts}
 
     def test_list_data(self, rel_data_lists, rel_type, rel_keys):
@@ -205,7 +205,7 @@ class TestUnwindCreateRelationshipsQuery(object):
                      "MATCH (a) WHERE id(a) = r[0]\n"
                      "MATCH (b) WHERE id(b) = r[2]\n"
                      "CREATE (a)-[_:WORKS_FOR]->(b)\n"
-                     "SET _ = {`employee id`: r[1][0], `job title`: r[1][1], since: r[1][2]}")
+                     "SET _ += {`employee id`: r[1][0], `job title`: r[1][1], since: r[1][2]}")
         assert p == {"data": rel_data_lists}
 
     def test_with_start_node_key(self, rel_data_dicts, rel_type, start_node_key):
@@ -215,7 +215,7 @@ class TestUnwindCreateRelationshipsQuery(object):
                      "MATCH (a:Person {name:r[0]})\n"
                      "MATCH (b) WHERE id(b) = r[2]\n"
                      "CREATE (a)-[_:WORKS_FOR]->(b)\n"
-                     "SET _ = r[1]")
+                     "SET _ += r[1]")
         assert p == {"data": rel_data_dicts}
 
     def test_with_end_node_key(self, rel_data_dicts, rel_type, end_node_key):
@@ -225,7 +225,7 @@ class TestUnwindCreateRelationshipsQuery(object):
                      "MATCH (a) WHERE id(a) = r[0]\n"
                      "MATCH (b:Company {name:r[2]})\n"
                      "CREATE (a)-[_:WORKS_FOR]->(b)\n"
-                     "SET _ = r[1]")
+                     "SET _ += r[1]")
         assert p == {"data": rel_data_dicts}
 
     def test_with_start_and_end_node_keys(self, rel_data_dicts, rel_type,
@@ -237,31 +237,31 @@ class TestUnwindCreateRelationshipsQuery(object):
                      "MATCH (a:Person {name:r[0]})\n"
                      "MATCH (b:Company {name:r[2]})\n"
                      "CREATE (a)-[_:WORKS_FOR]->(b)\n"
-                     "SET _ = r[1]")
+                     "SET _ += r[1]")
         assert p == {"data": rel_data_dicts}
 
     def test_with_start_node_double_key(self, rel_data_lists_double_key, rel_keys,
                                         rel_type, start_node_double_key):
         q, p = unwind_create_relationships_query(rel_data_lists_double_key, rel_type,
-                                                 keys=rel_keys,
-                                                 start_node_key=start_node_double_key)
+                                                 start_node_key=start_node_double_key,
+                                                 keys=rel_keys)
         assert q == ("UNWIND $data AS r\n"
                      "MATCH (a:Person {name:r[0][0], `family name`:r[0][1]})\n"
                      "MATCH (b) WHERE id(b) = r[2]\n"
                      "CREATE (a)-[_:WORKS_FOR]->(b)\n"
-                     "SET _ = {`employee id`: r[1][0], `job title`: r[1][1], since: r[1][2]}")
+                     "SET _ += {`employee id`: r[1][0], `job title`: r[1][1], since: r[1][2]}")
         assert p == {"data": rel_data_lists_double_key}
 
     def test_with_start_node_no_keys(self, rel_data_lists_no_key, rel_type, rel_keys,
                                      start_node_key):
         q, p = unwind_create_relationships_query(rel_data_lists_no_key, rel_type,
-                                                 keys=rel_keys, start_node_key=start_node_key,
-                                                 end_node_key="Company")
+                                                 start_node_key=start_node_key,
+                                                 end_node_key="Company", keys=rel_keys)
         assert q == ("UNWIND $data AS r\n"
                      "MATCH (a:Person {name:r[0]})\n"
                      "MATCH (b:Company)\n"
                      "CREATE (a)-[_:WORKS_FOR]->(b)\n"
-                     "SET _ = {`employee id`: r[1][0], `job title`: r[1][1], since: r[1][2]}")
+                     "SET _ += {`employee id`: r[1][0], `job title`: r[1][1], since: r[1][2]}")
         assert p == {"data": rel_data_lists_no_key}
 
 
@@ -273,7 +273,7 @@ class TestUnwindMergeRelationshipsQuery(object):
                      "MATCH (a) WHERE id(a) = r[0]\n"
                      "MATCH (b) WHERE id(b) = r[2]\n"
                      "MERGE (a)-[_:WORKS_FOR {`employee id`:r[1]['employee id']}]->(b)\n"
-                     "SET _ = r[1]")
+                     "SET _ += r[1]")
         assert p == {"data": rel_data_dicts}
 
     def test_list_data(self, rel_data_lists, rel_type, rel_keys):
@@ -283,7 +283,7 @@ class TestUnwindMergeRelationshipsQuery(object):
                      "MATCH (a) WHERE id(a) = r[0]\n"
                      "MATCH (b) WHERE id(b) = r[2]\n"
                      "MERGE (a)-[_:WORKS_FOR {`employee id`:r[1][0]}]->(b)\n"
-                     "SET _ = {`employee id`: r[1][0], `job title`: r[1][1], since: r[1][2]}")
+                     "SET _ += {`employee id`: r[1][0], `job title`: r[1][1], since: r[1][2]}")
         assert p == {"data": rel_data_lists}
 
     def test_with_start_node_key(self, rel_data_dicts, rel_type, start_node_key):
@@ -293,7 +293,7 @@ class TestUnwindMergeRelationshipsQuery(object):
                      "MATCH (a:Person {name:r[0]})\n"
                      "MATCH (b) WHERE id(b) = r[2]\n"
                      "MERGE (a)-[_:WORKS_FOR {`employee id`:r[1]['employee id']}]->(b)\n"
-                     "SET _ = r[1]")
+                     "SET _ += r[1]")
         assert p == {"data": rel_data_dicts}
 
     def test_with_end_node_key(self, rel_data_dicts, rel_type, end_node_key):
@@ -303,7 +303,7 @@ class TestUnwindMergeRelationshipsQuery(object):
                      "MATCH (a) WHERE id(a) = r[0]\n"
                      "MATCH (b:Company {name:r[2]})\n"
                      "MERGE (a)-[_:WORKS_FOR {`employee id`:r[1]['employee id']}]->(b)\n"
-                     "SET _ = r[1]")
+                     "SET _ += r[1]")
         assert p == {"data": rel_data_dicts}
 
     def test_with_start_and_end_node_keys(self, rel_data_dicts, rel_type,
@@ -315,5 +315,5 @@ class TestUnwindMergeRelationshipsQuery(object):
                      "MATCH (a:Person {name:r[0]})\n"
                      "MATCH (b:Company {name:r[2]})\n"
                      "MERGE (a)-[_:WORKS_FOR {`employee id`:r[1]['employee id']}]->(b)\n"
-                     "SET _ = r[1]")
+                     "SET _ += r[1]")
         assert p == {"data": rel_data_dicts}

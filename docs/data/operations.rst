@@ -4,22 +4,6 @@
 
 .. automodule:: py2neo.data.operations
 
-
-Bulk Load Operations
-====================
-
-.. autofunction:: create_nodes
-
-.. autofunction:: merge_nodes
-
-.. autofunction:: create_relationships
-
-.. autofunction:: merge_relationships
-
-
-Subgraph Operations
-===================
-
 .. autofunction:: create_subgraph
 
 .. autofunction:: delete_subgraph

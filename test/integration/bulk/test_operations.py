@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.data.operations import create_nodes, merge_nodes
+from py2neo.bulk import create_nodes, merge_nodes
 
 
 HEADERS = ["name", "age"]
