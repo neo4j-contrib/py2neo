@@ -25,6 +25,11 @@ from struct import pack as struct_pack, unpack as struct_unpack
 
 from py2neo.client import Hydrant
 from py2neo.compat import bytes_types, integer_types, UNICODE
+from py2neo.data import Node, Relationship, Path
+from py2neo.data.spatial import Point
+
+from neotime import Duration, Date, Time, DateTime
+from pytz import FixedOffset, timezone
 
 
 PACKED_UINT_8 = [struct_pack(">B", value) for value in range(0x100)]
@@ -508,11 +513,6 @@ class PackStreamHydrant(Hydrant):
                      for i, value in enumerate(values))
 
     def _hydrate(self, obj, inst=None, version=None):
-        from neotime import Duration, Date, Time, DateTime
-        from pytz import FixedOffset, timezone
-        from py2neo.data import Node, Relationship, Path
-        from py2neo.data.spatial import Point
-
         unix_epoch_date = Date(1970, 1, 1)
         unix_epoch_date_ordinal = unix_epoch_date.to_ordinal()
 
