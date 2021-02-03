@@ -42,6 +42,9 @@ INT64_MIN = -(2 ** 63)
 INT64_MAX = 2 ** 63
 
 
+unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
+
+
 class Structure:
 
     def __init__(self, tag, *fields):
@@ -510,7 +513,6 @@ class PackStreamHydrant(Hydrant):
         from py2neo.data import Node, Relationship, Path
         from py2neo.data.spatial import Point
 
-        unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
         unix_epoch_date = Date(1970, 1, 1)
         unix_epoch_date_ordinal = unix_epoch_date.to_ordinal()
 
