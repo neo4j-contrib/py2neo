@@ -177,7 +177,7 @@ class Wire(object):
     def secure(self, verify=True, hostname=None):
         """ Apply a layer of security onto this connection.
         """
-        from ssl import SSLContext
+        from ssl import SSLContext, SSLError
         try:
             # noinspection PyUnresolvedReferences
             from ssl import PROTOCOL_TLS
@@ -196,9 +196,13 @@ class Wire(object):
         context.load_default_certs()
         try:
             self.__socket = context.wrap_socket(self.__socket, server_hostname=hostname)
-        except (IOError, OSError):
+        except (IOError, OSError) as error:
             # TODO: add connection failure/diagnostic callback
-            raise WireError("Unable to establish secure connection with remote peer")
+            if error.errno == 0:
+                raise BrokenWireError("Peer closed connection during TLS handshake; "
+                                      "server may not be configured for secure connections")
+            else:
+                raise WireError("Unable to establish secure connection with remote peer")
         else:
             self.__active_time = monotonic()
 
