@@ -71,7 +71,8 @@ class HTTP(Connection):
         super(HTTP, self).__init__(profile, user_agent,
                                    on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         self.http_pool = None
-        self.headers = make_headers(basic_auth=":".join(profile.auth))
+        self.headers = make_headers(basic_auth=":".join(profile.auth),
+                                    user_agent=self.user_agent)
         self.__closed = False
         self._make_pool(profile)
 
