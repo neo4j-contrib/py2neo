@@ -498,7 +498,10 @@ class Bolt1(Bolt):
                 for a in address_data:
                     addresses[a["role"]] = [ConnectionProfile(self.profile, address=address)
                                             for address in a["addresses"]]
-                return addresses["ROUTE"], addresses["READ"], addresses["WRITE"], ttl
+                return (addresses.get("ROUTE", []),
+                        addresses.get("READ", []),
+                        addresses.get("WRITE", []),
+                        ttl)
         except ClientError as error:
             if error.title == "ProcedureNotFound":
                 raise_from(TypeError("Neo4j service does not support routing"), error)
