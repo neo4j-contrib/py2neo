@@ -24,7 +24,7 @@ as well as classes for modelling IP addresses, based on tuples.
 """
 
 
-from socket import AF_INET, AF_INET6
+from socket import AF_INET, AF_INET6, SHUT_WR
 
 from monotonic import monotonic
 from six import raise_from
@@ -257,7 +257,7 @@ class Wire(object):
         """ Close the connection.
         """
         try:
-            # TODO: shutdown
+            self.__socket.shutdown(SHUT_WR)
             self.__socket.close()
         except (IOError, OSError):
             self.__set_broken("Wire broken")
