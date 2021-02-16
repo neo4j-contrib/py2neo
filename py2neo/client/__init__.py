@@ -16,21 +16,47 @@
 # limitations under the License.
 
 
-from collections import deque
+from collections import deque, namedtuple, OrderedDict
+from datetime import timedelta
 from logging import getLogger
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from monotonic import monotonic
+from packaging.version import Version
 
+from py2neo import ClientError
 from py2neo.client.config import ConnectionProfile
 from py2neo.compat import string_types
 from py2neo.timing import repeater
+from py2neo.wiring import Address
 
 
 DEFAULT_MAX_CONNECTIONS = 40
 
 
 log = getLogger(__name__)
+
+
+ConnectionRecord = namedtuple("ConnectionRecord",
+                              ["cxid", "since", "client_address",
+                               "server_profile", "user_agent"])
+TransactionRecord = namedtuple("TransactionRecord",
+                               ["txid", "since", "cxid", "client_address",
+                                "server_profile", "metadata", "database",
+                                "current_qid", "current_query", "status",
+                                "stats"])
+QueryRecord = namedtuple("QueryRecord",
+                         ["qid", "since", "cxid", "client_address",
+                          "server_profile", "metadata", "database",
+                          "query", "parameters", "planner", "runtime",
+                          "indexes", "status", "stats"])
+
+
+def _millis_to_timedelta(t):
+    if t is None:
+        return None
+    else:
+        return timedelta(milliseconds=t)
 
 
 class Bookmark(object):
@@ -84,8 +110,6 @@ class Connection(object):
 
     protocol_version = None
 
-    neo4j_version = None
-
     server_agent = None
 
     connection_id = None
@@ -93,7 +117,7 @@ class Connection(object):
     # TODO: ping method
 
     @classmethod
-    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None,
+    def open(cls, profile=None, user_agent=None, on_bind=None, on_unbind=None,
              on_release=None, on_broken=None):
         """ Open a connection to a server.
 
@@ -110,6 +134,8 @@ class Connection(object):
         :raises: ValueError if the profile references an unsupported
             scheme
         """
+        if profile is None:
+            profile = ConnectionProfile()  # default connection profile
         if profile.protocol == "bolt":
             from py2neo.client.bolt import Bolt
             return Bolt.open(profile, user_agent=user_agent,
@@ -126,6 +152,8 @@ class Connection(object):
     def __init__(self, profile, user_agent, on_bind=None, on_unbind=None, on_release=None):
         self.profile = profile
         self.user_agent = user_agent
+        self._neo4j_version = None
+        self._neo4j_edition = None
         self._on_bind = on_bind
         self._on_unbind = on_unbind
         self._on_release = on_release
@@ -165,6 +193,50 @@ class Connection(object):
         """
         from monotonic import monotonic
         return monotonic() - self.__t_opened
+
+    @property
+    def neo4j_version(self):
+        """ The version of Neo4j to which this connection is
+        established.
+        """
+        if self._neo4j_version is None:
+            self._get_version_and_edition()
+        return self._neo4j_version
+
+    @property
+    def neo4j_edition(self):
+        """ The edition of Neo4j to which this connection is
+        established.
+        """
+        if self._neo4j_edition is None:
+            self._get_version_and_edition()
+        return self._neo4j_edition
+
+    def _system_call(self, tx, procedure):
+        cypher = "CALL " + procedure
+        try:
+            if tx is None:
+                result = self.auto_run(None, cypher)
+            else:
+                result = self.run_in_tx(tx, cypher)
+            self.pull(result)
+            result.buffer()
+        except ClientError as error:
+            if error.title == "ProcedureNotFound":
+                raise TypeError("This Neo4j installation does not support the "
+                                "procedure %r" % procedure)
+            else:
+                raise
+        else:
+            fields = result.fields()
+            for record in result.records():
+                yield OrderedDict(zip(fields, record))
+
+    def _get_version_and_edition(self):
+        for record in self._system_call(None, "dbms.components"):
+            if record["name"] == "Neo4j Kernel":
+                self._neo4j_version = Version(record["versions"][0])
+                self._neo4j_edition = record["edition"]
 
     def _hello(self):
         pass
@@ -277,6 +349,181 @@ class Connection(object):
         """ Detect whether or not this connection supports
         multi-database.
         """
+
+    def get_cluster_overview(self, tx=None):
+        """ Fetch an overview of the cluster of which the server is a
+        member. If the server is not part of a cluster, a
+        :exc:`TypeError` is raised.
+
+        :param tx: transaction in which this call should be carried
+            out, if any
+        :returns: dictionary of cluster membership, keyed by unique
+            server ID
+        :raises: :exc:`TypeError` if the server is not a member of a
+            cluster
+        """
+        overview = {}
+        for record in self._system_call(tx, "dbms.cluster.overview"):
+            addresses = {}
+            for address in record["addresses"]:
+                profile = ConnectionProfile(address)
+                addresses[profile.scheme] = profile.address
+            overview[UUID(record["id"])] = {
+                "addresses": addresses,
+                "databases": record["databases"],
+                "groups": record["groups"],
+            }
+        return overview
+
+    def get_config(self, tx=None):
+        """ Fetch a dictionary of configuration for the server to which
+        this connection is established.
+
+        :param tx: transaction in which this call should be carried
+            out, if any
+        :returns: dictionary of name-value pairs for each setting
+        """
+        return {record["name"]: record["value"]
+                for record in self._system_call(tx, "dbms.listConfig")}
+
+    def get_connections(self, tx=None):
+        """ Fetch a list of connections to the server to which this
+        connection is established.
+
+        This method calls the dbms.listConnections procedure, which is
+        available with the following versions of Neo4j:
+
+        - Community Edition - version 4.2 and above
+        - Enterprise Edition - all versions
+
+        :returns: list of :class:`.ConnectionRecord` objects
+        :raises TypeError: if the dbms.listConnections procedure is not
+            supported by the underlying Neo4j installation
+        """
+        from neotime import DateTime
+        records = []
+        for record in self._system_call(tx, "dbms.listConnections"):
+            server_profile = ConnectionProfile(scheme=record["connector"],
+                                               address=record["serverAddress"],
+                                               user=record["username"])
+            connect_time = DateTime.from_iso_format(record["connectTime"].
+                                                    replace("Z", "+00:00")).to_native()
+            records.append(ConnectionRecord(cxid=record["connectionId"],
+                                            since=connect_time,
+                                            client_address=Address.parse(record["clientAddress"]),
+                                            server_profile=server_profile,
+                                            user_agent=record["userAgent"]))
+        return records
+
+    def get_transactions(self, tx=None):
+        """ Fetch a list of transactions currently active on the server
+        to which this connection is established.
+
+        This method calls the dbms.listTransactions procedure, which is
+        available with the following versions of Neo4j:
+
+        - Community Edition - version 4.2 and above
+        - Enterprise Edition - all versions
+
+        :returns: list of :class:`.TransactionRecord` objects
+        :raises TypeError: if the dbms.listTransactions procedure is not
+            supported by the underlying Neo4j installation
+        """
+        from neotime import DateTime
+        records = []
+        for record in self._system_call(tx, "dbms.listTransactions"):
+            server_profile = ConnectionProfile(scheme=record["protocol"],
+                                               address=record["requestUri"],
+                                               user=record["username"])
+            start_time = DateTime.from_iso_format(record["startTime"].
+                                                  replace("Z", "+00:00")).to_native()
+            records.append(TransactionRecord(txid=record["transactionId"],
+                                             since=start_time,
+                                             cxid=record.get("connectionId"),
+                                             client_address=Address.parse(record["clientAddress"]),
+                                             server_profile=server_profile,
+                                             metadata=record["metaData"],
+                                             database=record.get("database"),
+                                             current_qid=record["currentQueryId"],
+                                             current_query=record["currentQuery"],
+                                             status=record["status"],
+                                             stats={
+                                                 "active_lock_count": record["activeLockCount"],
+                                                 "elapsed_time": _millis_to_timedelta(record["elapsedTimeMillis"]),
+                                                 "cpu_time": _millis_to_timedelta(record["cpuTimeMillis"]),
+                                                 "wait_time": _millis_to_timedelta(record["waitTimeMillis"]),
+                                                 "idle_time": _millis_to_timedelta(record["idleTimeMillis"]),
+                                                 "page_hits": record["pageHits"],
+                                                 "page_faults": record["pageFaults"],
+                                                 "allocated_bytes": record["allocatedBytes"],
+                                                 "allocated_direct_bytes": record["allocatedDirectBytes"],
+                                                 "estimated_used_heap_memory": record.get("estimatedUsedHeapMemory"),
+                                             }))
+        return records
+
+    def get_queries(self, tx=None):
+        """ Fetch a list of queries currently active on the server
+        to which this connection is established.
+
+        This method calls the dbms.listQueries procedure, which is
+        available with the following versions of Neo4j:
+
+        - Community Edition - version 4.2 and above
+        - Enterprise Edition - all versions
+
+        :returns: list of :class:`.QueryRecord` objects
+        :raises TypeError: if the dbms.listQueries procedure is not
+            supported by the underlying Neo4j installation
+        """
+        from neotime import DateTime
+        records = []
+        for record in self._system_call(tx, "dbms.listQueries"):
+            server_profile = ConnectionProfile(scheme=record["protocol"],
+                                               address=record["requestUri"],
+                                               user=record["username"])
+            start_time = DateTime.from_iso_format(record["startTime"].
+                                                  replace("Z", "+00:00")).to_native()
+            records.append(QueryRecord(qid=record["queryId"],
+                                       since=start_time,
+                                       cxid=record.get("connectionId"),
+                                       client_address=Address.parse(record["clientAddress"]),
+                                       server_profile=server_profile,
+                                       metadata=record["metaData"],
+                                       database=record.get("database"),
+                                       query=record["query"],
+                                       parameters=record["parameters"],
+                                       planner=record["planner"],
+                                       runtime=record["runtime"],
+                                       indexes=record["indexes"],
+                                       status=record["status"],
+                                       stats={
+                                           "active_lock_count": record["activeLockCount"],
+                                           "elapsed_time": _millis_to_timedelta(record["elapsedTimeMillis"]),
+                                           "cpu_time": _millis_to_timedelta(record["cpuTimeMillis"]),
+                                           "wait_time": _millis_to_timedelta(record["waitTimeMillis"]),
+                                           "idle_time": _millis_to_timedelta(record["idleTimeMillis"]),
+                                           "page_hits": record["pageHits"],
+                                           "page_faults": record["pageFaults"],
+                                           "allocated_bytes": record["allocatedBytes"],
+                                       }))
+        return records
+
+    def get_management_data(self, tx=None):
+        """ Fetch a dictionary of management data for the server to
+        which this connection is established. This method calls the
+        dbms.queryJmx procedure.
+
+        The structure and format of the data returned may vary
+        depending on the underlying version and edition of Neo4j.
+        """
+        data = {}
+        for record in self._system_call(tx, "dbms.queryJmx('*:*') YIELD name, attributes"):
+            name = record["name"]
+            attributes = record["attributes"]
+            data[name] = {key: value["value"]
+                          for key, value in attributes.items()
+                          if key not in ("ObjectName",)}
+        return data
 
 
 class ConnectionPool(object):

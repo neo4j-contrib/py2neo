@@ -30,7 +30,7 @@ from urllib3.exceptions import ConnectionError, HTTPError
 from py2neo.compat import urlsplit
 from py2neo.client import Connection, Transaction, Result, Bookmark, \
     TransactionError, BrokenTransactionError, ConnectionUnavailable
-from py2neo.client.config import http_user_agent
+from py2neo.client.config import http_user_agent, ConnectionProfile
 from py2neo.client.json import JSONHydrant, dehydrate
 
 
@@ -44,7 +44,7 @@ class HTTP(Connection):
         return JSONHydrant(graph)
 
     @classmethod
-    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None,
+    def open(cls, profile=None, user_agent=None, on_bind=None, on_unbind=None,
              on_release=None, on_broken=None):
         """ Open an HTTP connection to a server.
 
@@ -59,6 +59,8 @@ class HTTP(Connection):
         :raises: :class:`.ConnectionUnavailable` if a connection cannot
             be opened
         """
+        if profile is None:
+            profile = ConnectionProfile(scheme="http")
         try:
             http = cls(profile, (user_agent or http_user_agent()),
                        on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
@@ -125,7 +127,8 @@ class HTTP(Connection):
             #   "neo4j_version" : "4.0.0",
             #   "neo4j_edition" : "community"
             # }
-            self.neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 4.x
+            self._neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 4.x
+            self._neo4j_edition = metadata["neo4j_edition"]
         else:                               # Neo4j 3.x
             # {
             #   "data" : "http://localhost:7474/db/data/",
@@ -152,8 +155,8 @@ class HTTP(Connection):
             #   "node_labels" : "http://localhost:7474/db/data/labels",
             #   "neo4j_version" : "3.5.12"
             # }
-            self.neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 3.x
-        self.server_agent = "Neo4j/{}".format(self.neo4j_version)
+            self._neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 3.x
+        self.server_agent = "Neo4j/{}".format(self._neo4j_version)
 
         # Given the root discovery endpoint isn't authenticated, we don't
         # catch incorrect passwords here, and this wouldn't then be signalled
@@ -307,7 +310,7 @@ class HTTP(Connection):
                                       headers=dict(self.headers))
 
     def supports_multi(self):
-        return self.neo4j_version >= Version("4.0")
+        return self._neo4j_version >= Version("4.0")
 
 
 class HTTPTransaction(Transaction):

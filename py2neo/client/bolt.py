@@ -189,7 +189,7 @@ class Bolt(Connection):
         return [bolt.protocol_version for bolt in Bolt._walk_subclasses()]
 
     @classmethod
-    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None,
+    def open(cls, profile=None, user_agent=None, on_bind=None, on_unbind=None,
              on_release=None, on_broken=None):
         """ Open a Bolt connection to a server.
 
@@ -204,6 +204,8 @@ class Bolt(Connection):
         :raises: :class:`.ConnectionUnavailable` if a connection cannot
             be opened, or a protocol version cannot be agreed
         """
+        if profile is None:
+            profile = ConnectionProfile(scheme="bolt")
         try:
             wire = cls._connect(profile, on_broken=on_broken)
             protocol_version = cls._handshake(wire)
@@ -330,9 +332,7 @@ class Bolt1(Bolt):
         self._audit(response)
         self.connection_id = response.metadata.get("connection_id")
         self.server_agent = response.metadata.get("server")
-        if self.server_agent.startswith("Neo4j/"):
-            self.neo4j_version = Version(self.server_agent[6:])
-        else:
+        if not self.server_agent.startswith("Neo4j/"):
             raise RuntimeError("Unexpected server agent {!r}".format(self.server_agent))
 
     def reset(self, force=False):
@@ -347,8 +347,8 @@ class Bolt1(Bolt):
         self._assert_open()
         self._assert_no_transaction()
         if graph_name and not self.supports_multi():
-            raise TypeError("Neo4j {} does not support "
-                            "named graphs".format(self.neo4j_version))
+            raise TypeError("This Neo4j installation does not support "
+                            "named graphs")
         if metadata:
             raise TypeError("Transaction metadata not supported until Bolt v3")
         if timeout:
