@@ -149,8 +149,8 @@ class BoltMessageWriter(object):
         while self._write_chunk(buffer.read(0x7FFF)):
             pass
 
-    def send(self):
-        return self.wire.send()
+    def send(self, final=False):
+        return self.wire.send(final=final)
 
 
 class Bolt(Connection):
@@ -563,8 +563,8 @@ class Bolt1(Bolt):
         self._responses.append(response)
         return response
 
-    def _send(self):
-        sent = self._writer.send()
+    def _send(self, final=False):
+        sent = self._writer.send(final=final)
         if sent:
             log.debug("[#%04X] C: (Sent %r bytes)", self.local_port, sent)
 
@@ -671,7 +671,7 @@ class Bolt3(Bolt2):
     def _goodbye(self):
         log.debug("[#%04X] C: GOODBYE", self.local_port)
         self._write_request(0x02)
-        self._send()
+        self._send(final=True)
 
     def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None

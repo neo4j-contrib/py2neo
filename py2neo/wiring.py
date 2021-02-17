@@ -239,7 +239,7 @@ class Wire(object):
         """
         self.__output.extend(b)
 
-    def send(self):
+    def send(self, final=False):
         """ Send the contents of the output buffer to the network.
         """
         if self.__closed:
@@ -255,13 +255,17 @@ class Wire(object):
                 self.__bytes_sent += n
                 self.__output[:n] = []
                 sent += n
+        if final:
+            try:
+                self.__socket.shutdown(SHUT_WR)
+            except (IOError, OSError):
+                self.__set_broken("Wire broken")
         return sent
 
     def close(self):
         """ Close the connection.
         """
         try:
-            self.__socket.shutdown(SHUT_WR)
             self.__socket.close()
         except (IOError, OSError):
             self.__set_broken("Wire broken")
