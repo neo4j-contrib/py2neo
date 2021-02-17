@@ -57,6 +57,9 @@ class FakeSocket(object):
             raise OSError("Socket closed")
         self._out_packets.append(bytes(b))
 
+    def shutdown(self, flags):
+        pass
+
     def close(self):
         self._closed = True
 
