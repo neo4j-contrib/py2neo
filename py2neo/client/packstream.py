@@ -506,21 +506,25 @@ class PackStreamHydrant(Hydrant):
         assert isinstance(values, list)
         if entities is None:
             for i, value in enumerate(values):
-                values[i] = self._hydrate_object(value)
+                if isinstance(value, (list, dict, Structure)):
+                    values[i] = self._hydrate_object(value)
         else:
             for i, value in enumerate(values):
-                values[i] = self._hydrate_object(value, entities.get(keys[i]))
+                if isinstance(value, (list, dict, Structure)):
+                    values[i] = self._hydrate_object(value, entities.get(keys[i]))
         return values
 
     def _hydrate_object(self, obj, inst=None, version=None):
         if isinstance(obj, list):
             for i, value in enumerate(obj):
-                obj[i] = self._hydrate_object(value, version=version)
+                if isinstance(value, (list, dict, Structure)):
+                    obj[i] = self._hydrate_object(value, version=version)
             return obj
 
         elif isinstance(obj, dict):
             for key, value in obj.items():
-                obj[key] = self._hydrate_object(value, version=version)
+                if isinstance(value, (list, dict, Structure)):
+                    obj[key] = self._hydrate_object(value, version=version)
             return obj
 
         elif isinstance(obj, Structure):
