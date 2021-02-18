@@ -497,150 +497,151 @@ class PackStreamHydrant(Hydrant):
 
     def __init__(self, graph):
         self.graph = graph
+        unix_epoch_date = Date(1970, 1, 1)
+        self.unix_epoch_date_ordinal = unix_epoch_date.to_ordinal()
 
     def hydrate(self, keys, values, entities=None, version=None):
         """ Convert PackStream values into native values.
         """
-        if version is None:
-            v = (1, 0)
-        elif isinstance(version, tuple):
-            v = version
-        else:
-            v = (version, 0)
+        assert isinstance(values, list)
         if entities is None:
-            entities = {}
-        return tuple(self._hydrate(value, entities.get(keys[i]), v)
-                     for i, value in enumerate(values))
+            for i, value in enumerate(values):
+                values[i] = self._hydrate_object(value)
+        else:
+            for i, value in enumerate(values):
+                values[i] = self._hydrate_object(value, entities.get(keys[i]))
+        return values
 
-    def _hydrate(self, obj, inst=None, version=None):
-        unix_epoch_date = Date(1970, 1, 1)
-        unix_epoch_date_ordinal = unix_epoch_date.to_ordinal()
+    def _hydrate_object(self, obj, inst=None, version=None):
+        if isinstance(obj, list):
+            for i, value in enumerate(obj):
+                obj[i] = self._hydrate_object(value, version=version)
+            return obj
 
-        def hydrate_object(o):
-            if isinstance(o, Structure):
-                tag = o.tag if isinstance(o.tag, bytes) else bytes(bytearray([o.tag]))
-                try:
-                    f = functions[tag]
-                except KeyError:
-                    # If we don't recognise the structure type, just return it as-is
-                    return o
-                else:
-                    return f(*o.fields)
-            elif isinstance(o, list):
-                return list(map(hydrate_object, o))
-            elif isinstance(o, dict):
-                return {key: hydrate_object(value) for key, value in o.items()}
+        elif isinstance(obj, dict):
+            for key, value in obj.items():
+                obj[key] = self._hydrate_object(value, version=version)
+            return obj
+
+        elif isinstance(obj, Structure):
+            tag = obj.tag if isinstance(obj.tag, bytes) else bytes(bytearray([obj.tag]))
+
+            # Introduced with Bolt 1 (Neo4j 3.0)
+            if tag == b"N":
+                return self._hydrate_node(inst, *obj.fields)
+            elif tag == b"R":
+                return self._hydrate_relationship(inst, *obj.fields)
+            elif tag == b"P":
+                return self._hydrate_path(*obj.fields)
+
+            # Introduced with Bolt 2 (Neo4j 3.4)
+            elif tag == b"D":
+                return self._hydrate_date(*obj.fields)
+            elif tag in (b"T", b"t"):
+                return self._hydrate_time(*obj.fields)
+            elif tag in (b"F", b"f", b"d"):
+                return self._hydrate_datetime(*obj.fields)
+            elif tag == b"E":
+                return self._hydrate_duration(*obj.fields)
+            elif tag in (b"X", b"Y"):
+                return self._hydrate_point(*obj.fields)
+
+            # If we don't recognise the structure type,
+            # just return it as-is. Should we error here instead?
             else:
-                return o
+                return obj
+        else:
+            return obj
 
-        def hydrate_node(identity, labels, properties):
-            return Node.hydrate(self.graph, identity, labels, hydrate_object(properties), into=inst)
+    def _hydrate_node(self, inst, identity, labels, properties):
+        return Node.hydrate(self.graph, identity, labels, self._hydrate_object(properties), into=inst)
 
-        def hydrate_relationship(identity, start_node_id, end_node_id, r_type, properties):
-            return Relationship.hydrate(self.graph, identity, start_node_id, end_node_id,
-                                        r_type, hydrate_object(properties), into=inst)
+    def _hydrate_relationship(self, inst, identity, start_node_id, end_node_id, r_type, properties):
+        return Relationship.hydrate(self.graph, identity, start_node_id, end_node_id,
+                                    r_type, self._hydrate_object(properties), into=inst)
 
-        def hydrate_path(nodes, relationships, sequence):
-            nodes = [Node.hydrate(self.graph, n_id, n_label, hydrate_object(n_properties))
-                     for n_id, n_label, n_properties in nodes]
-            u_rels = []
-            for r_id, r_type, r_properties in relationships:
-                u_rel = unbound_relationship(r_id, r_type, hydrate_object(r_properties))
-                u_rels.append(u_rel)
-            return Path.hydrate(self.graph, nodes, u_rels, sequence)
+    def _hydrate_path(self, nodes, relationships, sequence):
+        nodes = [Node.hydrate(self.graph, n_id, n_label, self._hydrate_object(n_properties))
+                 for n_id, n_label, n_properties in nodes]
+        u_rels = []
+        for r_id, r_type, r_properties in relationships:
+            u_rel = unbound_relationship(r_id, r_type, self._hydrate_object(r_properties))
+            u_rels.append(u_rel)
+        return Path.hydrate(self.graph, nodes, u_rels, sequence)
 
-        def hydrate_date(days):
-            """ Hydrator for `Date` values.
+    def _hydrate_date(self, days):
+        """ Hydrator for `Date` values.
 
-            :param days:
-            :return: Date
-            """
-            return Date.from_ordinal(unix_epoch_date_ordinal + days)
+        :param days:
+        :return: Date
+        """
+        return Date.from_ordinal(self.unix_epoch_date_ordinal + days)
 
-        def hydrate_time(nanoseconds, tz=None):
-            """ Hydrator for `Time` and `LocalTime` values.
+    def _hydrate_time(self, nanoseconds, tz=None):
+        """ Hydrator for `Time` and `LocalTime` values.
 
-            :param nanoseconds:
-            :param tz:
-            :return: Time
-            """
-            seconds, nanoseconds = map(int, divmod(nanoseconds, 1000000000))
-            minutes, seconds = map(int, divmod(seconds, 60))
-            hours, minutes = map(int, divmod(minutes, 60))
-            seconds = (1000000000 * seconds + nanoseconds) / 1000000000
-            t = Time(hours, minutes, seconds)
-            if tz is None:
-                return t
+        :param nanoseconds:
+        :param tz:
+        :return: Time
+        """
+        seconds, nanoseconds = map(int, divmod(nanoseconds, 1000000000))
+        minutes, seconds = map(int, divmod(seconds, 60))
+        hours, minutes = map(int, divmod(minutes, 60))
+        seconds = (1000000000 * seconds + nanoseconds) / 1000000000
+        t = Time(hours, minutes, seconds)
+        if tz is None:
+            return t
+        tz_offset_minutes, tz_offset_seconds = divmod(tz, 60)
+        zone = FixedOffset(tz_offset_minutes)
+        return zone.localize(t)
+
+    def _hydrate_datetime(self, seconds, nanoseconds, tz=None):
+        """ Hydrator for `DateTime` and `LocalDateTime` values.
+
+        :param seconds:
+        :param nanoseconds:
+        :param tz:
+        :return: datetime
+        """
+        minutes, seconds = map(int, divmod(seconds, 60))
+        hours, minutes = map(int, divmod(minutes, 60))
+        days, hours = map(int, divmod(hours, 24))
+        seconds = (1000000000 * seconds + nanoseconds) / 1000000000
+        t = DateTime.combine(Date.from_ordinal(self.unix_epoch_date_ordinal + days),
+                             Time(hours, minutes, seconds))
+        if tz is None:
+            return t
+        if isinstance(tz, int):
             tz_offset_minutes, tz_offset_seconds = divmod(tz, 60)
             zone = FixedOffset(tz_offset_minutes)
-            return zone.localize(t)
+        else:
+            zone = timezone(tz)
+        return zone.localize(t)
 
-        def hydrate_datetime(seconds, nanoseconds, tz=None):
-            """ Hydrator for `DateTime` and `LocalDateTime` values.
+    def _hydrate_duration(self, months, days, seconds, nanoseconds):
+        """ Hydrator for `Duration` values.
 
-            :param seconds:
-            :param nanoseconds:
-            :param tz:
-            :return: datetime
-            """
-            minutes, seconds = map(int, divmod(seconds, 60))
-            hours, minutes = map(int, divmod(minutes, 60))
-            days, hours = map(int, divmod(hours, 24))
-            seconds = (1000000000 * seconds + nanoseconds) / 1000000000
-            t = DateTime.combine(Date.from_ordinal(unix_epoch_date_ordinal + days), Time(hours, minutes, seconds))
-            if tz is None:
-                return t
-            if isinstance(tz, int):
-                tz_offset_minutes, tz_offset_seconds = divmod(tz, 60)
-                zone = FixedOffset(tz_offset_minutes)
-            else:
-                zone = timezone(tz)
-            return zone.localize(t)
+        :param months:
+        :param days:
+        :param seconds:
+        :param nanoseconds:
+        :return: `duration` namedtuple
+        """
+        return Duration(months=months, days=days, seconds=seconds, nanoseconds=nanoseconds)
 
-        def hydrate_duration(months, days, seconds, nanoseconds):
-            """ Hydrator for `Duration` values.
-
-            :param months:
-            :param days:
-            :param seconds:
-            :param nanoseconds:
-            :return: `duration` namedtuple
-            """
-            return Duration(months=months, days=days, seconds=seconds, nanoseconds=nanoseconds)
-
-        def hydrate_point(srid, *coordinates):
-            """ Create a new instance of a Point subclass from a raw
-            set of fields. The subclass chosen is determined by the
-            given SRID; a ValueError will be raised if no such
-            subclass can be found.
-            """
-            try:
-                point_class, dim = Point.class_for_srid(srid)
-            except KeyError:
-                point = Point(coordinates)
-                point.srid = srid
-                return point
-            else:
-                if len(coordinates) != dim:
-                    raise ValueError("SRID %d requires %d coordinates (%d provided)" % (srid, dim, len(coordinates)))
-                return point_class(coordinates)
-
-        functions = {
-            b"N": hydrate_node,
-            b"R": hydrate_relationship,
-            b"P": hydrate_path,
-        }
-        if version >= (2, 0):
-            functions.update({
-                b"D": hydrate_date,
-                b"T": hydrate_time,         # time zone offset
-                b"t": hydrate_time,         # no time zone
-                b"F": hydrate_datetime,     # time zone offset
-                b"f": hydrate_datetime,     # time zone name
-                b"d": hydrate_datetime,     # no time zone
-                b"E": hydrate_duration,
-                b"X": hydrate_point,
-                b"Y": hydrate_point,
-            })
-
-        return hydrate_object(obj)
+    def _hydrate_point(self, srid, *coordinates):
+        """ Create a new instance of a Point subclass from a raw
+        set of fields. The subclass chosen is determined by the
+        given SRID; a ValueError will be raised if no such
+        subclass can be found.
+        """
+        try:
+            point_class, dim = Point.class_for_srid(srid)
+        except KeyError:
+            point = Point(coordinates)
+            point.srid = srid
+            return point
+        else:
+            if len(coordinates) != dim:
+                raise ValueError("SRID %d requires %d coordinates (%d provided)" % (srid, dim, len(coordinates)))
+            return point_class(coordinates)
