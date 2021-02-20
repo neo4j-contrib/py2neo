@@ -171,6 +171,7 @@ class Wire(object):
         self.__bytes_received = 0
         self.__bytes_sent = 0
         self.__input = bytearray()
+        self.__input_len = 0
         self.__output = bytearray()
         self.__on_broken = on_broken
 
@@ -209,9 +210,9 @@ class Wire(object):
     def read(self, n):
         """ Read bytes from the network.
         """
-        while len(self.__input) < n:
-            required = n - len(self.__input)
-            requested = max(required, 8192)
+        while self.__input_len < n:
+            required = n - self.__input_len
+            requested = max(required, 16384)
             try:
                 received = self.__socket.recv(requested)
             except (IOError, OSError):
@@ -219,14 +220,17 @@ class Wire(object):
             else:
                 if received:
                     self.__active_time = monotonic()
-                    self.__bytes_received += len(received)
+                    new_bytes_received = len(received)
                     self.__input.extend(received)
+                    self.__input_len += new_bytes_received
+                    self.__bytes_received += new_bytes_received
                 else:
                     self.__set_broken("Network read incomplete "
                                       "(received %d of %d bytes)" %
-                                      (len(self.__input), n))
+                                      (self.__input_len, n))
         data = self.__input[:n]
         self.__input[:n] = []
+        self.__input_len -= n
         return data
 
     def peek(self):

@@ -80,13 +80,13 @@ def test_current_updates_after_move(graph):
     n = 0
     while cursor.forward():
         n += 1
-        assert cursor.current == Record(zip(["n"], [n]))
+        assert cursor.current == Record(["n"], [n])
 
 
 def test_select_picks_next(graph):
     cursor = graph.run("RETURN 1")
     record = next(cursor)
-    assert record == Record(zip(["1"], [1]))
+    assert record == Record(["1"], [1])
 
 
 def test_cannot_select_past_end(graph):
@@ -107,7 +107,7 @@ def test_selection_triggers_move(graph):
 def test_can_use_next_function(graph):
     cursor = graph.run("RETURN 1")
     record = next(cursor)
-    assert record == Record(zip(["1"], [1]))
+    assert record == Record(["1"], [1])
 
 
 def test_raises_stop_iteration(graph):
@@ -126,27 +126,27 @@ def test_can_get_data(graph):
 def test_stream_yields_all(graph):
     cursor = graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
     record_list = list(cursor)
-    assert record_list == [Record(zip(["n", "n_sq"], [1, 1])),
-                           Record(zip(["n", "n_sq"], [2, 4])),
-                           Record(zip(["n", "n_sq"], [3, 9])),
-                           Record(zip(["n", "n_sq"], [4, 16])),
-                           Record(zip(["n", "n_sq"], [5, 25])),
-                           Record(zip(["n", "n_sq"], [6, 36])),
-                           Record(zip(["n", "n_sq"], [7, 49])),
-                           Record(zip(["n", "n_sq"], [8, 64])),
-                           Record(zip(["n", "n_sq"], [9, 81])),
-                           Record(zip(["n", "n_sq"], [10, 100]))]
+    assert record_list == [Record(["n", "n_sq"], [1, 1]),
+                           Record(["n", "n_sq"], [2, 4]),
+                           Record(["n", "n_sq"], [3, 9]),
+                           Record(["n", "n_sq"], [4, 16]),
+                           Record(["n", "n_sq"], [5, 25]),
+                           Record(["n", "n_sq"], [6, 36]),
+                           Record(["n", "n_sq"], [7, 49]),
+                           Record(["n", "n_sq"], [8, 64]),
+                           Record(["n", "n_sq"], [9, 81]),
+                           Record(["n", "n_sq"], [10, 100])]
 
 
 def test_stream_yields_remainder(graph):
     cursor = graph.run("UNWIND range(1, 10) AS n RETURN n, n * n as n_sq")
     cursor.forward(5)
     record_list = list(cursor)
-    assert record_list == [Record(zip(["n", "n_sq"], [6, 36])),
-                           Record(zip(["n", "n_sq"], [7, 49])),
-                           Record(zip(["n", "n_sq"], [8, 64])),
-                           Record(zip(["n", "n_sq"], [9, 81])),
-                           Record(zip(["n", "n_sq"], [10, 100]))]
+    assert record_list == [Record(["n", "n_sq"], [6, 36]),
+                           Record(["n", "n_sq"], [7, 49]),
+                           Record(["n", "n_sq"], [8, 64]),
+                           Record(["n", "n_sq"], [9, 81]),
+                           Record(["n", "n_sq"], [10, 100])]
 
 
 def test_can_evaluate_single_value(graph):

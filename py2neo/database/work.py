@@ -378,8 +378,12 @@ class Cursor(object):
 
     def __init__(self, result, hydrant=None, entities=None):
         self._result = result
+        self._fields = self._result.fields()
         self._hydrant = hydrant
-        self._entities = entities
+        if entities:
+            self._entities = [entities.get(key) for key in self._fields]
+        else:
+            self._entities = [None for _ in self._fields]
         self._current = None
         self._closed = False
 
@@ -423,7 +427,7 @@ class Cursor(object):
     def keys(self):
         """ Return the field names for the records in the stream.
         """
-        return self._result.fields()
+        return self._fields
 
     def summary(self):
         """ Return the result summary.
@@ -488,17 +492,14 @@ class Cursor(object):
             raise ValueError("Cursor can only move forwards")
         amount = int(amount)
         moved = 0
-        v = self._result.protocol_version
         while moved != amount:
             values = self._result.fetch()
             if values is None:
                 break
-            else:
-                keys = self._result.fields()  # TODO: don't do this for every record
-                if self._hydrant:
-                    values = self._hydrant.hydrate(keys, values, entities=self._entities, version=v)
-                self._current = Record(zip(keys, values))
-                moved += 1
+            if self._hydrant:
+                values = self._hydrant.hydrate_record(values, self._entities)
+            self._current = Record(self._fields, values)
+            moved += 1
         return moved
 
     def preview(self, limit=1):
@@ -511,15 +512,13 @@ class Cursor(object):
         """
         if limit < 0:
             raise ValueError("Illegal preview size")
-        v = self._result.protocol_version
         records = []
-        keys = self._result.fields()
-        if keys:
+        if self._fields:
             for values in self._result.peek_records(int(limit)):
                 if self._hydrant:
-                    values = self._hydrant.hydrate(keys, values, entities=self._entities, version=v)
+                    values = self._hydrant.hydrate_record(values, self._entities)
                 records.append(values)
-            return Table(records, keys)
+            return Table(records, self._fields)
         else:
             return None
 
@@ -729,14 +728,9 @@ class Record(tuple, Mapping):
 
     __keys = None
 
-    def __new__(cls, iterable=()):
-        keys = []
-        values = []
-        for key, value in iter_items(iterable):
-            keys.append(key)
-            values.append(value)
+    def __new__(cls, keys, values):
         inst = tuple.__new__(cls, values)
-        inst.__keys = tuple(keys)
+        inst.__keys = keys
         return inst
 
     def __repr__(self):

@@ -56,8 +56,7 @@ from itertools import islice
 from logging import getLogger
 from struct import pack as struct_pack, unpack as struct_unpack
 
-from packaging.version import Version
-from six import raise_from
+from six import PY2, raise_from
 
 from py2neo.client import Connection, Transaction, Result, Failure, Bookmark, \
     TransactionError, BrokenTransactionError, ConnectionUnavailable
@@ -73,33 +72,36 @@ class BoltMessageReader(object):
 
     def __init__(self, wire):
         self.wire = wire
-
-    def _read_chunk(self):
-        size, = struct_unpack(">H", self.wire.read(2))
-        if size:
-            return self.wire.read(size)
-        else:
-            return b""
+        if PY2:
+            self.read_message = self.read_message_py2
 
     def read_message(self):
         chunks = []
-        more = True
-        while more:
-            chunk = self._read_chunk()
-            if chunk:
-                chunks.append(chunk)
-            elif chunks:
-                more = False
-        try:
-            message = b"".join(chunks)
-        except TypeError:
-            # Python 2 compatibility
-            message = bytearray(b"".join(map(bytes, chunks)))
+        while True:
+            hi, lo = self.wire.read(2)
+            if hi == lo == 0:
+                break
+            size = hi << 8 | lo
+            chunks.append(self.wire.read(size))
+        message = b"".join(chunks)
         _, n = divmod(message[0], 0x10)
-        tag = message[1]
-        unpacker = UnpackStream(message[2:])
-        fields = tuple(unpacker.unpack() for _ in range(n))
-        return tag, fields
+        unpacker = UnpackStream(message, offset=2)
+        fields = [unpacker.unpack() for _ in range(n)]
+        return message[1], fields
+
+    def read_message_py2(self):
+        chunks = []
+        while True:
+            hi, lo = self.wire.read(2)
+            if hi == lo == 0:
+                break
+            size = hi << 8 | lo
+            chunks.append(self.wire.read(size))
+        message = bytearray(b"".join(map(bytes, chunks)))
+        _, n = divmod(message[0], 0x10)
+        unpacker = UnpackStream(message, offset=2)
+        fields = [unpacker.unpack() for _ in range(n)]
+        return message[1], fields
 
     def peek_message(self):
         """ If another complete message exists, return the tag for
@@ -588,14 +590,13 @@ class Bolt1(Bolt):
             # If a RECORD is received, check for more records
             # in the buffer immediately following, and log and
             # add them all at the same time
-            value_lists = list(fields)
             while self._reader.peek_message() == 0x71:
                 _, extra_fields = self._reader.read_message()
-                value_lists.extend(extra_fields)
-            more = len(value_lists) - 1
-            log.debug("[#%04X] S: RECORD %r%s", self.local_port, value_lists[0],
+                fields.extend(extra_fields)
+            more = len(fields) - 1
+            log.debug("[#%04X] S: RECORD %r%s", self.local_port, fields[0],
                       " (...and %d more)" % more if more else "")
-            rs.add_records(value_lists)
+            rs.add_records(fields)
         elif tag == 0x7F:
             log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
             rs.set_failure(**fields[0])
@@ -843,6 +844,7 @@ class ItemizedTask(Task):
 
     def __init__(self):
         self._items = deque()
+        self._items_len = 0
         self._complete = False
 
     def __bool__(self):
@@ -855,6 +857,7 @@ class ItemizedTask(Task):
 
     def append(self, item, final=False):
         self._items.append(item)
+        self._items_len += 1
         if final:
             self.set_complete()
 
@@ -883,9 +886,13 @@ class ItemizedTask(Task):
         """ Flag to indicate whether the list of items is complete and
         all items are done.
         """
-        if self.complete():
-            last = self.last()
-            return (last and last.done()) or not last
+        if self._complete:
+            try:
+                last = self._items[-1]
+            except IndexError:
+                return True
+            else:
+                return last.done()
         else:
             return False
 
@@ -943,6 +950,7 @@ class BoltResult(ItemizedTask, Result):
         self.__record_type = None
         self.__cx = cx
         self.append(response)
+        self._last_taken = 0
 
     @property
     def graph_name(self):
@@ -967,7 +975,8 @@ class BoltResult(ItemizedTask, Result):
                                               "while buffering"), error)
 
     def header(self):
-        self.buffer()
+        if not self.done():
+            self.buffer()
         return self._items[0]
 
     def fields(self):
@@ -981,23 +990,36 @@ class BoltResult(ItemizedTask, Result):
         return self.__cx.fetch(self)
 
     def has_records(self):
-        return any(response.has_records()
-                   for response in self._items)
+        i = self._last_taken
+        while i < self._items_len:
+            response = self._items[i]
+            if response.records:
+                return True
+            i += 1
+        return False
 
     def take_record(self):
-        for response in self._items:
-            record = response.take_record()
-            if record is None:
-                continue
-            return record
+        i = self._last_taken
+        while i < self._items_len:
+            response = self._items[i]
+            try:
+                record = response.records.popleft()
+            except IndexError:
+                i += 1
+            else:
+                self._last_taken = i
+                return record
         return None
 
     def peek_records(self, limit):
         records = []
-        for response in self._items:
+        i = self._last_taken
+        while i < self._items_len:
+            response = self._items[i]
             records.extend(response.peek_records(limit - len(records)))
             if len(records) == limit:
                 break
+            i += 1
         return records
 
 
@@ -1013,7 +1035,7 @@ class BoltResponse(Task):
         super(BoltResponse, self).__init__()
         self.capacity = capacity
         self.vital = vital
-        self._records = deque()
+        self.records = deque()
         self._status = 0
         self._metadata = {}
         self._failure = None
@@ -1029,19 +1051,10 @@ class BoltResponse(Task):
             return "<BoltResponse ?>"
 
     def add_records(self, value_lists):
-        self._records.extend(value_lists)
-
-    def has_records(self):
-        return bool(self._records)
-
-    def take_record(self):
-        try:
-            return self._records.popleft()
-        except IndexError:
-            return None
+        self.records.extend(value_lists)
 
     def peek_records(self, n):
-        return islice(self._records, 0, n)
+        return islice(self.records, 0, n)
 
     def set_success(self, **metadata):
         self._status = 1
@@ -1060,7 +1073,7 @@ class BoltResponse(Task):
 
     def full(self):
         if self.capacity >= 0:
-            return len(self._records) >= self.capacity
+            return len(self.records) >= self.capacity
         else:
             return False
 

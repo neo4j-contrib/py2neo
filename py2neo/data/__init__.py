@@ -18,7 +18,7 @@
 
 from __future__ import absolute_import
 
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from itertools import chain
 from uuid import uuid4
 
@@ -847,3 +847,28 @@ class Path(Walkable):
 
 
 walk = Path.walk
+
+
+class Hydrant(object):
+
+    unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
+
+    def __init__(self, graph):
+        self.graph = graph
+
+    def hydrate_node(self, node_id, labels, properties, into=None):
+        return Node.hydrate(self.graph, node_id, labels, properties, into=into)
+
+    def hydrate_relationship(self, rel_id, start_node_id, end_node_id, rel_type, properties,
+                             into=None):
+        return Relationship.hydrate(self.graph, rel_id, start_node_id, end_node_id,
+                                    rel_type, properties, into=into)
+
+    def hydrate_path(self, nodes, relationships, sequence):
+        nodes = [Node.hydrate(self.graph, n_id, n_label, n_properties)
+                 for n_id, n_label, n_properties in nodes]
+        u_rels = []
+        for r_id, r_type, r_properties in relationships:
+            u_rel = self.unbound_relationship(r_id, r_type, r_properties)
+            u_rels.append(u_rel)
+        return Path.hydrate(self.graph, nodes, u_rels, sequence)

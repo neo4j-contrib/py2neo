@@ -1105,12 +1105,12 @@ class SymmetricDifferenceTestCase(TestCase):
 
 
 def test_record_repr():
-    person = Record([("name", "Alice"), ("age", 33)])
+    person = Record(["name", "age"], ["Alice", 33])
     assert repr(person) == "Record({'name': 'Alice', 'age': 33})"
 
 
 def test_record_str():
-    person = Record([("name", "Alice"), ("age", 33)])
+    person = Record(["name", "age"], ["Alice", 33])
     assert str(person) == "'Alice'\t33"
 
 

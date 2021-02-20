@@ -1536,7 +1536,7 @@ class ConnectionUnavailable(Exception):
 
 class Hydrant(object):
 
-    def hydrate(self, keys, values, entities=None, version=None):
+    def hydrate_record(self, values, entities):
         raise NotImplementedError
 
     def dehydrate(self, data, version=None):

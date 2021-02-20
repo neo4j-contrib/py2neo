@@ -110,7 +110,7 @@ def test_records(connector):
     cursor = Cursor(connector.auto_run(None, "UNWIND range(1, $x) AS n RETURN n, n * n AS n_sq", {"x": 3}))
     expected = deque([(1, 1), (2, 4), (3, 9)])
     for actual_record in cursor:
-        expected_record = Record(zip(["n", "n_sq"], expected.popleft()))
+        expected_record = Record(["n", "n_sq"], expected.popleft())
         assert expected_record == actual_record
 
 

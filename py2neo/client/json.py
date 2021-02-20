@@ -19,6 +19,7 @@
 from collections import namedtuple
 
 from py2neo.client import Hydrant
+from py2neo.client.packstream import Structure
 from py2neo.compat import Sequence, Mapping, integer_types, string_types
 from py2neo.matching import RelationshipMatcher
 
@@ -48,7 +49,6 @@ class JSONHydrant(Hydrant):
         proper hydration. This code needs to die horribly in a freak
         yachting accident.
         """
-        from py2neo.client.packstream import Structure
         # TODO: other partial hydration
         if "self" in data:
             if "type" in data:
@@ -77,68 +77,66 @@ class JSONHydrant(Hydrant):
             #      "and may be unintentionally hydrated as graph objects")
             return data
 
-    def hydrate(self, keys, values, entities=None, version=None):
+    def hydrate_record(self, values, entities):
         """ Convert JSON values into native values. This is the other half
         of the HTTP hydration process, and is basically a copy of the
         Bolt/PackStream hydration code. It needs to be combined with the
         code in `json_to_packstream` so that hydration is done in a single
         pass.
         """
+        assert isinstance(values, list)
+        for i, value in enumerate(values):
+            if isinstance(value, (list, dict, Structure)):
+                values[i] = self.hydrate_object(value, entities[i])
+        return values
 
-        graph = self.graph
-        if entities is None:
-            entities = {}
-
-        def hydrate_object(obj, inst=None):
-            from py2neo.data import Node, Relationship, Path
-            from py2neo.client.packstream import Structure
-            if isinstance(obj, Structure):
-                tag = obj.tag
-                fields = obj.fields
-                if tag == ord(b"N"):
-                    return Node.hydrate(self.graph, fields[0], fields[1], hydrate_object(fields[2]), into=inst)
-                elif tag == ord(b"R"):
-                    return Relationship.hydrate(self.graph, fields[0],
-                                                     fields[1], fields[2],
-                                                     fields[3], hydrate_object(fields[4]), into=inst)
-                elif tag == ord(b"P"):
-                    # Herein lies a dirty hack to retrieve missing relationship
-                    # detail for paths received over HTTP.
-                    nodes = [hydrate_object(node) for node in fields[0]]
-                    u_rels = []
-                    typeless_u_rel_ids = []
-                    for r in fields[1]:
-                        u_rel = self.unbound_relationship(*map(hydrate_object, r))
-                        assert u_rel.type is None
-                        typeless_u_rel_ids.append(u_rel.id)
-                        u_rels.append(u_rel)
-                    if typeless_u_rel_ids:
-                        r_dict = {r.identity: r for r in RelationshipMatcher(graph).get(typeless_u_rel_ids)}
-                        for i, u_rel in enumerate(u_rels):
-                            if u_rel.type is None:
-                                u_rels[i] = self.unbound_relationship(
-                                    u_rel.id,
-                                    type(r_dict[u_rel.id]).__name__,
-                                    u_rel.properties
-                                )
-                    sequence = fields[2]
-                    return Path.hydrate(self.graph, nodes, u_rels, sequence)
-                else:
-                    try:
-                        f = self.hydration_functions[tag]
-                    except KeyError:
-                        # If we don't recognise the structure type, just return it as-is
-                        return obj
-                    else:
-                        return f(*map(hydrate_object, obj.fields))
-            elif isinstance(obj, list):
-                return list(map(hydrate_object, obj))
-            elif isinstance(obj, dict):
-                return {key: hydrate_object(value) for key, value in obj.items()}
+    def hydrate_object(self, obj, inst=None):
+        from py2neo.data import Node, Relationship, Path
+        if isinstance(obj, Structure):
+            tag = obj.tag
+            fields = obj.fields
+            if tag == ord(b"N"):
+                return Node.hydrate(self.graph, fields[0], fields[1], self.hydrate_object(fields[2]), into=inst)
+            elif tag == ord(b"R"):
+                return Relationship.hydrate(self.graph, fields[0],
+                                            fields[1], fields[2],
+                                            fields[3], self.hydrate_object(fields[4]), into=inst)
+            elif tag == ord(b"P"):
+                # Herein lies a dirty hack to retrieve missing relationship
+                # detail for paths received over HTTP.
+                nodes = [self.hydrate_object(node) for node in fields[0]]
+                u_rels = []
+                typeless_u_rel_ids = []
+                for r in fields[1]:
+                    u_rel = self.unbound_relationship(*map(self.hydrate_object, r))
+                    assert u_rel.type is None
+                    typeless_u_rel_ids.append(u_rel.id)
+                    u_rels.append(u_rel)
+                if typeless_u_rel_ids:
+                    r_dict = {r.identity: r for r in RelationshipMatcher(self.graph).get(typeless_u_rel_ids)}
+                    for i, u_rel in enumerate(u_rels):
+                        if u_rel.type is None:
+                            u_rels[i] = self.unbound_relationship(
+                                u_rel.id,
+                                type(r_dict[u_rel.id]).__name__,
+                                u_rel.properties
+                            )
+                sequence = fields[2]
+                return Path.hydrate(self.graph, nodes, u_rels, sequence)
             else:
-                return obj
-
-        return tuple(hydrate_object(value, entities.get(keys[i])) for i, value in enumerate(values))
+                try:
+                    f = self.hydration_functions[tag]
+                except KeyError:
+                    # If we don't recognise the structure type, just return it as-is
+                    return obj
+                else:
+                    return f(*map(self.hydrate_object, obj.fields))
+        elif isinstance(obj, list):
+            return list(map(self.hydrate_object, obj))
+        elif isinstance(obj, dict):
+            return {key: self.hydrate_object(value) for key, value in obj.items()}
+        else:
+            return obj
 
     def dehydrate(self, data, version=None):
         """ Dehydrate to JSON.
