@@ -54,7 +54,7 @@ UNIX_EPOCH_DATE_ORDINAL = Date(1970, 1, 1).to_ordinal()
 unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
 
 
-class Structure:
+class Structure(object):
 
     def __init__(self, tag, *fields):
         self.tag = tag
