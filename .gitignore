@@ -62,3 +62,6 @@ venv
 
 # Scratch files
 scratch
+
+# Profile output
+*.prof
