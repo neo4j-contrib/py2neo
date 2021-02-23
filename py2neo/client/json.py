@@ -77,7 +77,7 @@ class JSONHydrant(Hydrant):
             #      "and may be unintentionally hydrated as graph objects")
             return data
 
-    def hydrate_record(self, values, entities):
+    def hydrate_list(self, values):
         """ Convert JSON values into native values. This is the other half
         of the HTTP hydration process, and is basically a copy of the
         Bolt/PackStream hydration code. It needs to be combined with the
@@ -87,20 +87,20 @@ class JSONHydrant(Hydrant):
         assert isinstance(values, list)
         for i, value in enumerate(values):
             if isinstance(value, (list, dict, Structure)):
-                values[i] = self.hydrate_object(value, entities[i])
+                values[i] = self.hydrate_object(value)
         return values
 
-    def hydrate_object(self, obj, inst=None):
+    def hydrate_object(self, obj):
         from py2neo.data import Node, Relationship, Path
         if isinstance(obj, Structure):
             tag = obj.tag
             fields = obj.fields
             if tag == ord(b"N"):
-                return Node.hydrate(self.graph, fields[0], fields[1], self.hydrate_object(fields[2]), into=inst)
+                return Node.hydrate(self.graph, fields[0], fields[1], self.hydrate_object(fields[2]))
             elif tag == ord(b"R"):
                 return Relationship.hydrate(self.graph, fields[0],
                                             fields[1], fields[2],
-                                            fields[3], self.hydrate_object(fields[4]), into=inst)
+                                            fields[3], self.hydrate_object(fields[4]))
             elif tag == ord(b"P"):
                 # Herein lies a dirty hack to retrieve missing relationship
                 # detail for paths received over HTTP.

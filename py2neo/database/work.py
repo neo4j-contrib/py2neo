@@ -61,7 +61,6 @@ class Transaction(object):
                  ):
         self._graph = graph
         self._autocommit = autocommit
-        self._entities = deque()
         self._connector = self.graph.service.connector
         if autocommit:
             self._transaction = None
@@ -89,10 +88,6 @@ class Transaction(object):
         return self._graph
 
     @property
-    def entities(self):
-        return self._entities
-
-    @property
     def readonly(self):
         return self._readonly
 
@@ -112,10 +107,6 @@ class Transaction(object):
         """
         from py2neo.client import Connection
         self._assert_unfinished("Cannot run query in finished transaction")
-        try:
-            entities = self._entities.popleft()
-        except IndexError:
-            entities = {}
 
         try:
             hydrant = Connection.default_hydrant(self._connector.profile, self.graph)
@@ -125,7 +116,7 @@ class Transaction(object):
             else:
                 result = self._connector.auto_run(self.graph.name, cypher, parameters,
                                                   readonly=self.readonly)
-            return Cursor(result, hydrant, entities)
+            return Cursor(result, hydrant)
         finally:
             if not self._transaction:
                 self.finish()
@@ -376,14 +367,10 @@ class Cursor(object):
 
     """
 
-    def __init__(self, result, hydrant=None, entities=None):
+    def __init__(self, result, hydrant=None):
         self._result = result
         self._fields = self._result.fields()
         self._hydrant = hydrant
-        if entities:
-            self._entities = [entities.get(key) for key in self._fields]
-        else:
-            self._entities = [None for _ in self._fields]
         self._current = None
         self._closed = False
 
@@ -497,7 +484,7 @@ class Cursor(object):
             if values is None:
                 break
             if self._hydrant:
-                values = self._hydrant.hydrate_record(values, self._entities)
+                values = self._hydrant.hydrate_list(values)
             self._current = Record(self._fields, values)
             moved += 1
         return moved
@@ -516,7 +503,7 @@ class Cursor(object):
         if self._fields:
             for values in self._result.peek_records(int(limit)):
                 if self._hydrant:
-                    values = self._hydrant.hydrate_record(values, self._entities)
+                    values = self._hydrant.hydrate_list(values)
                 records.append(values)
             return Table(records, self._fields)
         else:

@@ -205,25 +205,32 @@ def pull_subgraph(tx, subgraph):
     :param subgraph:
     :return:
     """
-    graph = tx.graph
-    nodes = {node: None for node in subgraph.nodes}
-    relationships = list(subgraph.relationships)
-    for node in nodes:
-        if node.graph is graph:
-            tx.entities.append({"_": node})
-            cursor = tx.run("MATCH (_) WHERE id(_) = $x RETURN _", x=node.identity)
-            nodes[node] = cursor
-    for relationship in relationships:
-        if relationship.graph is graph:
-            tx.entities.append({"_": relationship})
-            list(tx.run("MATCH ()-[_]->() WHERE id(_) = $x RETURN _", x=relationship.identity))
-    for node, cursor in nodes.items():
-        new_labels = cursor.evaluate(1)
-        if new_labels:
-            node._remote_labels = frozenset(new_labels)
-            labels = node._labels
-            labels.clear()
-            labels.update(new_labels)
+    # Pull nodes
+    nodes = {}
+    for node in subgraph.nodes:
+        if node.graph != tx.graph:
+            raise ValueError("Node %r does not belong to graph %r" % (node, tx.graph))
+        nodes[node.identity] = node
+    query = tx.run("MATCH (_) WHERE id(_) in $x "
+                   "RETURN id(_), labels(_), properties(_)", x=list(nodes.keys()))
+    for identity, new_labels, new_properties in query:
+        node = nodes[identity]
+        node._labels.clear()
+        node._labels.update(new_labels)
+        node.clear()
+        node.update(new_properties)
+    # Pull relationships
+    relationships = {}
+    for relationship in subgraph.relationships:
+        if relationship.graph != tx.graph:
+            raise ValueError("Relationship %r does not belong to graph %r" % (relationship, tx.graph))
+        relationships[relationship.identity] = relationship
+    query = tx.run("MATCH ()-[_]->() WHERE id(_) in $x "
+                   "RETURN id(_), properties(_)", x=list(relationships.keys()))
+    for identity, new_properties in query:
+        relationship = relationships[identity]
+        relationship.clear()
+        relationship.update(new_properties)
 
 
 def push_subgraph(tx, subgraph):

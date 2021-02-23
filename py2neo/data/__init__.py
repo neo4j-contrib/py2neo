@@ -306,7 +306,7 @@ class Entity(PropertyDict, Walkable):
     class is essentially a container for a :class:`.Resource` instance.
     """
 
-    graph = None
+    __graph = None
     identity = None
 
     def __init__(self, iterable, properties):
@@ -341,6 +341,14 @@ class Entity(PropertyDict, Walkable):
         # the one in Walkable. The hack below forces Entity to
         # use the Walkable implementation.
         return Walkable.__or__(self, other)
+
+    @property
+    def graph(self):
+        return self.__graph
+
+    @graph.setter
+    def graph(self, value):
+        self.__graph = value
 
 
 class Node(Entity):
@@ -394,23 +402,18 @@ class Node(Entity):
         return inst
 
     @classmethod
-    def hydrate(cls, graph, identity, labels=None, properties=None, into=None):
+    def hydrate(cls, graph, identity, labels=None, properties=None):
         """ Hydrate a new or existing Node object from the attributes provided.
         """
-        if into is None:
 
-            def instance_constructor():
-                new_instance = cls()
-                new_instance.graph = graph
-                new_instance.identity = identity
-                new_instance._stale.update({"labels", "properties"})
-                return new_instance
+        def instance_constructor():
+            new_instance = cls()
+            new_instance.graph = graph
+            new_instance.identity = identity
+            new_instance._stale.update({"labels", "properties"})
+            return new_instance
 
-            into = instance_constructor()
-        else:
-            assert isinstance(into, cls)
-            into.graph = graph
-            into.identity = identity
+        into = instance_constructor()
 
         if properties is not None:
             into._stale.discard("properties")
@@ -613,34 +616,21 @@ class Relationship(Entity):
         return Relationship(start_node, get_type(t), end_node, **properties)
 
     @classmethod
-    def hydrate(cls, graph, identity, start, end, type=None, properties=None, into=None):
-        if into is None:
+    def hydrate(cls, graph, identity, start, end, type=None, properties=None):
 
-            def instance_constructor():
-                if properties is None:
-                    new_instance = cls(Node.hydrate(graph, start), type,
-                                       Node.hydrate(graph, end))
-                    new_instance._stale.add("properties")
-                else:
-                    new_instance = cls(Node.hydrate(graph, start), type,
-                                       Node.hydrate(graph, end), **properties)
-                new_instance.graph = graph
-                new_instance.identity = identity
-                return new_instance
-
-            into = instance_constructor()
-        else:
-            assert isinstance(into, Relationship)
-            into.graph = graph
-            into.identity = identity
-            Node.hydrate(graph, start, into=into.start_node)
-            Node.hydrate(graph, end, into=into.end_node)
-            into._type = type
+        def instance_constructor():
             if properties is None:
-                into._stale.add("properties")
+                new_instance = cls(Node.hydrate(graph, start), type,
+                                   Node.hydrate(graph, end))
+                new_instance._stale.add("properties")
             else:
-                into.clear()
-                into.update(properties)
+                new_instance = cls(Node.hydrate(graph, start), type,
+                                   Node.hydrate(graph, end), **properties)
+            new_instance.graph = graph
+            new_instance.identity = identity
+            return new_instance
+
+        into = instance_constructor()
         return into
 
     def __init__(self, *nodes, **properties):
@@ -847,28 +837,3 @@ class Path(Walkable):
 
 
 walk = Path.walk
-
-
-class Hydrant(object):
-
-    unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
-
-    def __init__(self, graph):
-        self.graph = graph
-
-    def hydrate_node(self, node_id, labels, properties, into=None):
-        return Node.hydrate(self.graph, node_id, labels, properties, into=into)
-
-    def hydrate_relationship(self, rel_id, start_node_id, end_node_id, rel_type, properties,
-                             into=None):
-        return Relationship.hydrate(self.graph, rel_id, start_node_id, end_node_id,
-                                    rel_type, properties, into=into)
-
-    def hydrate_path(self, nodes, relationships, sequence):
-        nodes = [Node.hydrate(self.graph, n_id, n_label, n_properties)
-                 for n_id, n_label, n_properties in nodes]
-        u_rels = []
-        for r_id, r_type, r_properties in relationships:
-            u_rel = self.unbound_relationship(r_id, r_type, r_properties)
-            u_rels.append(u_rel)
-        return Path.hydrate(self.graph, nodes, u_rels, sequence)

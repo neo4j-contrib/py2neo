@@ -567,19 +567,6 @@ class PackStreamHydrant(Hydrant):
     def __init__(self, graph):
         self.graph = graph
 
-    def hydrate_record(self, values, entities):
-        """ Convert PackStream values into native values.
-        """
-        for i, value in enumerate(values):
-            t = type(value)
-            if t is list:
-                values[i] = self.hydrate_list(value)
-            elif t is dict:
-                values[i] = self.hydrate_dict(value)
-            elif t is Structure:
-                values[i] = self.hydrate_structure(value, entities[i])
-        return values
-
     def hydrate_list(self, obj):
         for i, value in enumerate(obj):
             t = type(value)
@@ -602,23 +589,23 @@ class PackStreamHydrant(Hydrant):
                 obj[key] = self.hydrate_structure(value)
         return obj
 
-    def hydrate_structure(self, obj, inst=None):
+    def hydrate_structure(self, obj):
         tag = obj.tag
         if tag == 78:
-            return self._hydrate_node(inst, *obj.fields)
+            return self._hydrate_node(*obj.fields)
         elif tag == 82:
-            return self._hydrate_relationship(inst, *obj.fields)
+            return self._hydrate_relationship(*obj.fields)
         elif tag == 80:
             return self._hydrate_path(*obj.fields)
         else:
             return obj
 
-    def _hydrate_node(self, inst, identity, labels, properties):
-        return Node.hydrate(self.graph, identity, labels, properties, into=inst)
+    def _hydrate_node(self, identity, labels, properties):
+        return Node.hydrate(self.graph, identity, labels, properties)
 
-    def _hydrate_relationship(self, inst, identity, start_node_id, end_node_id, r_type, properties):
+    def _hydrate_relationship(self, identity, start_node_id, end_node_id, r_type, properties):
         return Relationship.hydrate(self.graph, identity, start_node_id, end_node_id,
-                                    r_type, properties, into=inst)
+                                    r_type, properties)
 
     def _hydrate_path(self, nodes, relationships, sequence):
         nodes = [Node.hydrate(self.graph, n_id, n_label, n_properties)
