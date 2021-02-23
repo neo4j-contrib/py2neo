@@ -696,12 +696,12 @@ class RelationshipMatch(object):
             clauses.append("MATCH (a)-[_" + relationship_detail + "]->(b)")
         elif isinstance(self._nodes, Sequence):
             if len(self._nodes) >= 1 and self._nodes[0] is not None:
-                start_node = Node.cast(self._nodes[0])
+                start_node = self._nodes[0]
                 verify_node(start_node)
                 clauses.append("MATCH (a) WHERE id(a) = $x")
                 parameters["x"] = start_node.identity
             if len(self._nodes) >= 2 and self._nodes[1] is not None:
-                end_node = Node.cast(self._nodes[1])
+                end_node = self._nodes[1]
                 verify_node(end_node)
                 clauses.append("MATCH (b) WHERE id(b) = $y")
                 parameters["y"] = end_node.identity
@@ -711,12 +711,12 @@ class RelationshipMatch(object):
         elif isinstance(self._nodes, Set):
             nodes = {node for node in self._nodes if node is not None}
             if len(nodes) >= 1:
-                start_node = Node.cast(nodes.pop())
+                start_node = nodes.pop()
                 verify_node(start_node)
                 clauses.append("MATCH (a) WHERE id(a) = $x")
                 parameters["x"] = start_node.identity
             if len(nodes) >= 1:
-                end_node = Node.cast(nodes.pop())
+                end_node = nodes.pop()
                 verify_node(end_node)
                 clauses.append("MATCH (b) WHERE id(b) = $y")
                 parameters["y"] = end_node.identity

@@ -306,8 +306,12 @@ class Entity(PropertyDict, Walkable):
     class is essentially a container for a :class:`.Resource` instance.
     """
 
-    __graph = None
+    _graph = None
     identity = None
+
+    @classmethod
+    def ref(cls, graph, identity):
+        raise NotImplementedError
 
     def __init__(self, iterable, properties):
         Walkable.__init__(self, iterable)
@@ -316,6 +320,7 @@ class Entity(PropertyDict, Walkable):
         while "0" <= uuid[-7] <= "9":
             uuid = str(uuid4())
         self.__uuid__ = uuid
+        self._stale = set()
 
     def __bool__(self):
         return len(self) > 0
@@ -344,11 +349,15 @@ class Entity(PropertyDict, Walkable):
 
     @property
     def graph(self):
-        return self.__graph
+        return self._graph
 
     @graph.setter
     def graph(self, value):
-        self.__graph = value
+        self._graph = value
+
+    def clear(self):
+        self._stale.discard("properties")
+        super(Entity, self).clear()
 
 
 class Node(Entity):
@@ -378,61 +387,18 @@ class Node(Entity):
     """
 
     @classmethod
-    def cast(cls, obj):
-        """ Cast an arbitrary object to a :class:`Node`. This method
-        takes its best guess on how to interpret the supplied object
-        as a :class:`Node`.
-        """
-        if obj is None or isinstance(obj, Node):
-            return obj
-
-        def apply(x):
-            if isinstance(x, dict):
-                inst.update(x)
-            elif is_collection(x):
-                for item in x:
-                    apply(item)
-            elif isinstance(x, string_types):
-                inst.add_label(ustr(x))
-            else:
-                raise TypeError("Cannot cast %s to Node" % obj.__class__.__name__)
-
-        inst = Node()
-        apply(obj)
-        return inst
-
-    @classmethod
-    def hydrate(cls, graph, identity, labels=None, properties=None):
-        """ Hydrate a new or existing Node object from the attributes provided.
-        """
-
-        def instance_constructor():
-            new_instance = cls()
-            new_instance.graph = graph
-            new_instance.identity = identity
-            new_instance._stale.update({"labels", "properties"})
-            return new_instance
-
-        into = instance_constructor()
-
-        if properties is not None:
-            into._stale.discard("properties")
-            into.clear()
-            into.update(properties)
-
-        if labels is not None:
-            into._stale.discard("labels")
-            into._remote_labels = frozenset(labels)
-            into.clear_labels()
-            into.update_labels(labels)
-
-        return into
+    def ref(cls, graph, identity):
+        obj = cls()
+        obj.graph = graph
+        obj.identity = identity
+        obj._stale.add("labels")
+        obj._stale.add("properties")
+        return obj
 
     def __init__(self, *labels, **properties):
         self._remote_labels = frozenset()
         self._labels = set(labels)
         Entity.__init__(self, (self,), properties)
-        self._stale = set()
 
     def __repr__(self):
         args = list(map(repr, sorted(self.labels)))
@@ -456,7 +422,8 @@ class Node(Entity):
         try:
             if any(x is None for x in [self.graph, other.graph, self.identity, other.identity]):
                 return False
-            return issubclass(type(self), Node) and issubclass(type(other), Node) and self.graph == other.graph and self.identity == other.identity
+            return (issubclass(type(self), Node) and issubclass(type(other), Node) and
+                    self.graph == other.graph and self.identity == other.identity)
         except (AttributeError, TypeError):
             return False
 
@@ -516,7 +483,7 @@ class Node(Entity):
     def clear_labels(self):
         """ Remove all labels from this node.
         """
-        self.__ensure_labels()
+        self._stale.discard("labels")
         self._labels.clear()
 
     def update_labels(self, labels):
@@ -570,68 +537,12 @@ class Relationship(Entity):
         return type(xstr(name), (Relationship,), {})
 
     @classmethod
-    def cast(cls, obj, entities=None):
-
-        def get_type(r):
-            if isinstance(r, string_types):
-                return r
-            elif isinstance(r, Relationship):
-                return type(r).__name__
-            elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string_types):
-                return r[0]
-            else:
-                raise ValueError("Cannot determine relationship type from %r" % r)
-
-        def get_properties(r):
-            if isinstance(r, string_types):
-                return {}
-            elif isinstance(r, Relationship):
-                return dict(r)
-            elif hasattr(r, "properties"):
-                return r.properties
-            elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string_types):
-                return dict(r[1])
-            else:
-                raise ValueError("Cannot determine properties from %r" % r)
-
-        if isinstance(obj, Relationship):
-            return obj
-        elif isinstance(obj, tuple):
-            if len(obj) == 3:
-                start_node, t, end_node = obj
-                properties = get_properties(t)
-            elif len(obj) == 4:
-                start_node, t, end_node, properties = obj
-                properties = dict(get_properties(t), **properties)
-            else:
-                raise TypeError("Cannot cast relationship from %r" % obj)
-        else:
-            raise TypeError("Cannot cast relationship from %r" % obj)
-
-        if entities:
-            if isinstance(start_node, integer_types):
-                start_node = entities[start_node]
-            if isinstance(end_node, integer_types):
-                end_node = entities[end_node]
-        return Relationship(start_node, get_type(t), end_node, **properties)
-
-    @classmethod
-    def hydrate(cls, graph, identity, start, end, type=None, properties=None):
-
-        def instance_constructor():
-            if properties is None:
-                new_instance = cls(Node.hydrate(graph, start), type,
-                                   Node.hydrate(graph, end))
-                new_instance._stale.add("properties")
-            else:
-                new_instance = cls(Node.hydrate(graph, start), type,
-                                   Node.hydrate(graph, end), **properties)
-            new_instance.graph = graph
-            new_instance.identity = identity
-            return new_instance
-
-        into = instance_constructor()
-        return into
+    def ref(cls, graph, identity, *nodes):
+        obj = cls(*nodes)
+        obj.graph = graph
+        obj.identity = identity
+        obj._stale.add("properties")
+        return obj
 
     def __init__(self, *nodes, **properties):
         n = []
@@ -640,8 +551,10 @@ class Relationship(Entity):
                 n.append(None)
             elif isinstance(value, string_types):
                 n.append(value)
+            elif isinstance(value, Node):
+                n.append(value)
             else:
-                n.append(Node.cast(value))
+                raise TypeError("Unknown node type for %r" % value)
 
         num_args = len(n)
         if num_args == 0:
@@ -664,8 +577,6 @@ class Relationship(Entity):
         else:
             raise TypeError("Hyperedges not supported")
         Entity.__init__(self, (n[0], self, n[1]), properties)
-
-        self._stale = set()
 
     def __repr__(self):
         args = [repr(self.nodes[0]), repr(self.nodes[-1])]
@@ -757,14 +668,15 @@ class Path(Walkable):
             next_node = nodes[sequence[2 * i + 1]]
             if rel_index > 0:
                 u_rel = u_rels[rel_index - 1]
-                rel = Relationship.hydrate(graph, u_rel.id,
-                                           last_node.identity, next_node.identity,
-                                           u_rel.type, u_rel.properties)
+                start_node = Node.ref(graph, last_node.identity)
+                end_node = Node.ref(graph, next_node.identity)
             else:
                 u_rel = u_rels[-rel_index - 1]
-                rel = Relationship.hydrate(graph, u_rel.id,
-                                           next_node.identity, last_node.identity,
-                                           u_rel.type, u_rel.properties)
+                start_node = Node.ref(graph, next_node.identity)
+                end_node = Node.ref(graph, last_node.identity)
+            rel = Relationship.ref(graph, u_rel.id, start_node, u_rel.type, end_node)
+            rel.clear()
+            rel.update(u_rel.properties)
             steps.append(rel)
             last_node = next_node
         return cls(*steps)

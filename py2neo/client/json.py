@@ -96,11 +96,23 @@ class JSONHydrant(Hydrant):
             tag = obj.tag
             fields = obj.fields
             if tag == ord(b"N"):
-                return Node.hydrate(self.graph, fields[0], fields[1], self.hydrate_object(fields[2]))
+                obj = Node.ref(self.graph, fields[0])
+                if fields[1] is not None:
+                    obj._remote_labels = frozenset(fields[1])
+                    obj.clear_labels()
+                    obj.update_labels(fields[1])
+                if fields[2] is not None:
+                    obj.clear()
+                    obj.update(self.hydrate_object(fields[2]))
+                return obj
             elif tag == ord(b"R"):
-                return Relationship.hydrate(self.graph, fields[0],
-                                            fields[1], fields[2],
-                                            fields[3], self.hydrate_object(fields[4]))
+                start_node = Node.ref(self.graph, fields[1])
+                end_node = Node.ref(self.graph, fields[2])
+                obj = Relationship.ref(self.graph, fields[0], start_node, fields[3], end_node)
+                if fields[4] is not None:
+                    obj.clear()
+                    obj.update(self.hydrate_object(fields[4]))
+                return obj
             elif tag == ord(b"P"):
                 # Herein lies a dirty hack to retrieve missing relationship
                 # detail for paths received over HTTP.

@@ -90,12 +90,12 @@ def test_relationship_creation_on_existing_node(graph):
 
 
 def test_only_one_relationship_in_a_relationship(graph):
-    rel = Relationship({}, "KNOWS", {})
+    rel = Relationship(Node(), "KNOWS", Node())
     assert len(rel.relationships) == 1
 
 
 def test_relationship_equality_with_none(graph):
-    rel = Relationship({}, "KNOWS", {})
+    rel = Relationship(Node(), "KNOWS", Node())
     none = None
     assert rel != none
 
@@ -145,8 +145,3 @@ def test_blank_type_automatically_updates(graph):
     assert r.identity is not None
     assert r._type is None
     assert type(r).__name__ == "TO"
-
-
-def test_cannot_cast_from_odd_object(graph):
-    with raises(TypeError):
-        _ = Relationship.cast(object())

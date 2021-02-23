@@ -54,7 +54,7 @@ def test_schema_index(graph, make_unique_id):
     node_matcher = NodeMatcher(graph)
     label_1 = make_unique_id()
     label_2 = make_unique_id()
-    munich = Node.cast({'name': "München", 'key': "09162000"})
+    munich = Node(name="München", key="09162000")
     graph.create(munich)
     munich.clear_labels()
     munich.update_labels({label_1, label_2})

@@ -97,7 +97,7 @@ def test_pull_node_property_if_stale(graph):
 
 
 def test_can_create_concrete_node(graph):
-    alice = Node.cast({"name": "Alice", "age": 34})
+    alice = Node(name="Alice", age=34)
     graph.create(alice)
     assert isinstance(alice, Node)
     assert alice["name"] == "Alice"
@@ -118,7 +118,7 @@ def test_all_property_types(graph):
         "int_list": [1, 1, 2, 3, 5, 8, 13, 21, 35],
         "str_list": ["red", "orange", "yellow", "green", "blue", "indigo", "violet"]
     }
-    foo = Node.cast(data)
+    foo = Node(**data)
     graph.create(foo)
     for key, value in data.items():
         assert foo[key] == value

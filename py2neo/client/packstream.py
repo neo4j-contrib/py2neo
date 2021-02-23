@@ -601,14 +601,23 @@ class PackStreamHydrant(Hydrant):
             return obj
 
     def _hydrate_node(self, identity, labels, properties):
-        return Node.hydrate(self.graph, identity, labels, properties)
+        node = Node.ref(self.graph, identity)
+        node.clear_labels()
+        node.update_labels(labels)
+        node.clear()
+        node.update(properties)
+        return node
 
     def _hydrate_relationship(self, identity, start_node_id, end_node_id, r_type, properties):
-        return Relationship.hydrate(self.graph, identity, start_node_id, end_node_id,
-                                    r_type, properties)
+        start_node = Node.ref(self.graph, start_node_id)
+        end_node = Node.ref(self.graph, end_node_id)
+        rel = Relationship.ref(self.graph, identity, start_node, r_type, end_node)
+        rel.clear()
+        rel.update(properties)
+        return rel
 
     def _hydrate_path(self, nodes, relationships, sequence):
-        nodes = [Node.hydrate(self.graph, n_id, n_label, n_properties)
+        nodes = [self._hydrate_node(n_id, n_label, n_properties)
                  for n_id, n_label, n_properties in nodes]
         u_rels = []
         for r_id, r_type, r_properties in relationships:
