@@ -211,7 +211,7 @@ def pull_subgraph(tx, subgraph):
     for node in nodes:
         if node.graph is graph:
             tx.entities.append({"_": node})
-            cursor = tx.run("MATCH (_) WHERE id(_) = $x RETURN _, labels(_)", x=node.identity)
+            cursor = tx.run("MATCH (_) WHERE id(_) = $x RETURN _", x=node.identity)
             nodes[node] = cursor
     for relationship in relationships:
         if relationship.graph is graph:
