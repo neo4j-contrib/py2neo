@@ -95,6 +95,12 @@ def rel_data_dicts(rel_data_lists, rel_keys):
 
 
 @fixture
+def rel_data_dicts_with_mono_tuples(rel_data_lists, rel_keys):
+    data = [((a,), OrderedDict(zip(rel_keys, r)), (b,)) for a, r, b in rel_data_lists]
+    return data
+
+
+@fixture
 def start_node_key():
     return "Person", "name"
 
@@ -263,6 +269,15 @@ class TestUnwindCreateRelationshipsQuery(object):
                      "CREATE (a)-[_:WORKS_FOR]->(b)\n"
                      "SET _ += {`employee id`: r[1][0], `job title`: r[1][1], since: r[1][2]}")
         assert p == {"data": rel_data_lists_no_key}
+
+    def test_with_mono_tuples(self, rel_data_dicts, rel_data_dicts_with_mono_tuples, rel_type):
+        q, p = unwind_create_relationships_query(rel_data_dicts_with_mono_tuples, rel_type)
+        assert q == ("UNWIND $data AS r\n"
+                     "MATCH (a) WHERE id(a) = r[0]\n"
+                     "MATCH (b) WHERE id(b) = r[2]\n"
+                     "CREATE (a)-[_:WORKS_FOR]->(b)\n"
+                     "SET _ += r[1]")
+        assert p == {"data": rel_data_dicts}
 
 
 class TestUnwindMergeRelationshipsQuery(object):
