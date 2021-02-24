@@ -120,6 +120,25 @@ class Transaction(object):
             if not self._transaction:
                 self.finish()
 
+    def evaluate(self, cypher, parameters=None, **kwparameters):
+        """ Execute a single Cypher statement and return the value from
+        the first column of the first record.
+
+        :param cypher: Cypher statement
+        :param parameters: dictionary of parameters
+        :returns: single return value or :const:`None`
+        """
+        return self.run(cypher, parameters, **kwparameters).evaluate(0)
+
+    def update(self, cypher, parameters=None, **kwparameters):
+        """ Execute a single Cypher statement and discard any result
+        returned.
+
+        :param cypher: Cypher statement
+        :param parameters: dictionary of parameters
+        """
+        self.run(cypher, parameters, **kwparameters).close()
+
     def finish(self):
         self._assert_unfinished("Transaction already finished")
         self._finished = True
@@ -148,16 +167,6 @@ class Transaction(object):
             return TransactionSummary(**summary)
         finally:
             self._finished = True
-
-    def evaluate(self, cypher, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement and return the value from
-        the first column of the first record.
-
-        :param cypher: Cypher statement
-        :param parameters: dictionary of parameters
-        :returns: single return value or :const:`None`
-        """
-        return self.run(cypher, parameters, **kwparameters).evaluate(0)
 
     def create(self, subgraph):
         """ Create remote nodes and relationships that correspond to those in a
