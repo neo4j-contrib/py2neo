@@ -172,7 +172,7 @@ class HTTP(Connection):
     def fast_forward(self, bookmark):
         raise NotImplementedError("Bookmarking is not yet supported over HTTP")
 
-    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
+    def run_prog(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         if graph_name and not self.supports_multi():
@@ -263,7 +263,7 @@ class HTTP(Connection):
             rs.audit(tx)
             return Bookmark()
 
-    def run_in_tx(self, tx, cypher, parameters=None):
+    def run_query(self, tx, cypher, parameters=None):
         r = self._post(tx.uri(), cypher, parameters)
         if r.status != 200:
             tx.mark_broken()

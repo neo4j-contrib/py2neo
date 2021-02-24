@@ -358,7 +358,7 @@ class Bolt1(Bolt):
         self._transaction = BoltTransactionRef(graph_name, self.protocol_version,
                                                readonly, after)
 
-    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
+    def run_prog(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         self._set_transaction(graph_name, readonly=readonly,
@@ -455,7 +455,7 @@ class Bolt1(Bolt):
             if callable(self._on_unbind):
                 self._on_unbind(self._transaction)
 
-    def run_in_tx(self, tx, cypher, parameters=None):
+    def run_query(self, tx, cypher, parameters=None):
         self._assert_open()
         self._assert_transaction_open(tx)
         return self._run(tx.graph_name, cypher, parameters or {})
@@ -493,7 +493,7 @@ class Bolt1(Bolt):
         # but it's necessary until the ROUTE message is available.
         from py2neo import ClientError
         try:
-            result = self.auto_run(graph_name, query, parameters)
+            result = self.run_prog(graph_name, query, parameters)
             self.pull(result)
             for ttl, address_data in result.records():
                 addresses = {}
@@ -674,7 +674,7 @@ class Bolt3(Bolt2):
         self._write_request(0x02)
         self._send(final=True)
 
-    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
+    def run_prog(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         self._assert_open()

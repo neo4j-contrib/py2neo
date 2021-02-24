@@ -216,9 +216,9 @@ class Connection(object):
         cypher = "CALL " + procedure
         try:
             if tx is None:
-                result = self.auto_run(None, cypher)
+                result = self.run_prog(None, cypher)
             else:
-                result = self.run_in_tx(tx, cypher)
+                result = self.run_query(tx, cypher)
             self.pull(result)
             result.buffer()
         except ClientError as error:
@@ -247,7 +247,7 @@ class Connection(object):
     def reset(self, force=False):
         pass
 
-    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
+    def run_prog(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a single query within an auto-commit transaction. This
@@ -296,7 +296,7 @@ class Connection(object):
             rolled back
         """
 
-    def run_in_tx(self, tx, cypher, parameters=None):
+    def run_query(self, tx, cypher, parameters=None):
         pass  # may have network activity
 
     def pull(self, result, n=-1):
@@ -1240,13 +1240,13 @@ class Connector(object):
                     "profile": cx.profile,
                     "time": tx.age}
 
-    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
+    def run_prog(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a Cypher query within a new auto-commit transaction.
         """
         cx = self.acquire(graph_name, readonly)
-        result = cx.auto_run(graph_name, cypher, parameters, readonly=readonly)
+        result = cx.run_prog(graph_name, cypher, parameters, readonly=readonly)
         cx.pull(result)
         try:
             cx.sync(result)
@@ -1257,11 +1257,11 @@ class Connector(object):
         else:
             return result
 
-    def run_in_tx(self, tx, cypher, parameters=None):
+    def run_query(self, tx, cypher, parameters=None):
         """ Run a Cypher query within an open explicit transaction.
         """
         cx = self._get_connection(tx)
-        result = cx.run_in_tx(tx, cypher, parameters)
+        result = cx.run_query(tx, cypher, parameters)
         cx.pull(result)
         try:
             cx.sync(result)
@@ -1283,7 +1283,7 @@ class Connector(object):
         if self.supports_multi():
             cx = self.acquire("system", readonly=True)
             try:
-                result = cx.auto_run("system", "SHOW DATABASES")
+                result = cx.run_prog("system", "SHOW DATABASES")
                 cx.pull(result)
                 cx.sync(result)
                 return result
