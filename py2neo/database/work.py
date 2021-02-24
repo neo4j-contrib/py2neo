@@ -23,13 +23,12 @@ execution of Cypher queries and transactions.
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-from collections import deque, OrderedDict
+from collections import OrderedDict
 from functools import reduce
 from io import StringIO
 from operator import xor as xor_operator
 from warnings import warn
 
-from py2neo.collections import iter_items
 from py2neo.compat import Mapping, numeric_types, ustr, xstr
 from py2neo.cypher import cypher_repr, cypher_str
 
