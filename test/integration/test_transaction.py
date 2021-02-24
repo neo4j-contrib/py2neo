@@ -16,36 +16,33 @@
 # limitations under the License.
 
 
-def test_run_in_auto_tx(graph):
-    tx = graph.auto()
-    for record in tx.run("RETURN 1"):
-        assert record[0] == 1
+class TestAutoCommitTransaction(object):
+
+    def test_run(self, graph):
+        for record in graph.run("RETURN 1"):
+            assert record[0] == 1
+
+    def test_evaluate(self, graph):
+        assert graph.evaluate("RETURN 1") == 1
+
+    def test_update(self, graph):
+        graph.update("CREATE ()")
 
 
-def test_run_in_explicit_tx(graph):
-    tx = graph.begin()
-    for record in tx.run("RETURN 1"):
-        assert record[0] == 1
-    tx.commit()
+class TestExplicitTransaction(object):
 
+    def test_run(self, graph):
+        tx = graph.begin()
+        for record in tx.run("RETURN 1"):
+            assert record[0] == 1
+        graph.commit(tx)
 
-def test_evaluate_in_auto_tx(graph):
-    tx = graph.auto()
-    assert tx.evaluate("RETURN 1") == 1
+    def test_evaluate(self, graph):
+        tx = graph.begin()
+        assert tx.evaluate("RETURN 1") == 1
+        graph.commit(tx)
 
-
-def test_evaluate_in_explicit_tx(graph):
-    tx = graph.begin()
-    assert tx.evaluate("RETURN 1") == 1
-    tx.commit()
-
-
-def test_update_in_auto_tx(graph):
-    tx = graph.auto()
-    tx.update("CREATE ()")
-
-
-def test_update_in_explicit_tx(graph):
-    tx = graph.begin()
-    tx.update("CREATE ()")
-    tx.commit()
+    def test_update(self, graph):
+        tx = graph.begin()
+        tx.update("CREATE ()")
+        graph.commit(tx)

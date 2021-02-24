@@ -29,8 +29,76 @@ from io import StringIO
 from operator import xor as xor_operator
 from warnings import warn
 
-from py2neo.compat import Mapping, numeric_types, ustr, xstr
+from py2neo.compat import Mapping, numeric_types, ustr, xstr, deprecated
 from py2neo.cypher import cypher_repr, cypher_str
+
+
+class TransactionManager(object):
+    """ Transaction manager.
+
+    *New in version 2021.1.*
+    """
+
+    def __init__(self, graph):
+        self.graph = graph
+        self._connector = self.graph.service.connector
+
+    def auto(self, readonly=False,
+             # after=None, metadata=None, timeout=None
+             ):
+        """ Create a new auto-commit :class:`~py2neo.database.work.Transaction`.
+
+        :param readonly: if :py:const:`True`, will begin a readonly
+            transaction, otherwise will begin as read-write
+        """
+        return Transaction(self, autocommit=True, readonly=readonly,
+                           # after, metadata, timeout
+                           )
+
+    def begin(self, readonly=False,
+              # after=None, metadata=None, timeout=None
+              ):
+        """ Begin a new :class:`~py2neo.database.work.Transaction`.
+
+        :param readonly: if :py:const:`True`, will begin a readonly
+            transaction, otherwise will begin as read-write
+        :returns: new :class:`~py2neo.database.work.Transaction`.
+            object
+        """
+        return Transaction(self, autocommit=False, readonly=readonly,
+                           # after, metadata, timeout
+                           )
+
+    def commit(self, tx):
+        """ Commit the transaction.
+
+        :returns: :class:`.TransactionSummary` object
+        """
+        if not isinstance(tx, Transaction):
+            raise TypeError("Bad transaction %r" % tx)
+        if tx.finished():
+            raise TypeError("Cannot commit finished transaction")
+        try:
+            summary = self._connector.commit(tx._transaction)
+            return TransactionSummary(**summary)
+        finally:
+            tx.finish()
+
+    def rollback(self, tx):
+        """ Roll back the current transaction, undoing all actions
+        previously taken.
+
+        :returns: :class:`.TransactionSummary` object
+        """
+        if not isinstance(tx, Transaction):
+            raise TypeError("Bad transaction %r" % tx)
+        if tx.finished():
+            raise TypeError("Cannot rollback finished transaction")
+        try:
+            summary = self._connector.rollback(tx._transaction)
+            return TransactionSummary(**summary)
+        finally:
+            tx.finish()
 
 
 class Transaction(object):
@@ -55,16 +123,16 @@ class Transaction(object):
 
     _finished = False
 
-    def __init__(self, graph, autocommit=False, readonly=False,
+    def __init__(self, manager, autocommit=False, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
-        self._graph = graph
+        self._tx_manager = manager
         self._autocommit = autocommit
-        self._connector = self.graph.service.connector
+        self._connector = self._tx_manager.graph.service.connector
         if autocommit:
             self._transaction = None
         else:
-            self._transaction = self._connector.begin(self._graph.name, readonly=readonly,
+            self._transaction = self._connector.begin(self._tx_manager.graph.name, readonly=readonly,
                                                       # after, metadata, timeout
                                                       )
         self._readonly = readonly
@@ -74,9 +142,9 @@ class Transaction(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_type is None:
-            self.commit()
+            self._tx_manager.commit(self)
         else:
-            self.rollback()
+            self._tx_manager.rollback(self)
 
     def _assert_unfinished(self, message):
         if self._finished:
@@ -84,7 +152,7 @@ class Transaction(object):
 
     @property
     def graph(self):
-        return self._graph
+        return self._tx_manager.graph
 
     @property
     def readonly(self):
@@ -143,30 +211,24 @@ class Transaction(object):
         self._assert_unfinished("Transaction already finished")
         self._finished = True
 
+    @deprecated("The transaction.commit() method is deprecated, "
+                "use graph.commit(transaction) instead")
     def commit(self):
         """ Commit the transaction.
 
         :returns: :class:`.TransactionSummary` object
         """
-        self._assert_unfinished("Cannot commit finished transaction")
-        try:
-            summary = self._connector.commit(self._transaction)
-            return TransactionSummary(**summary)
-        finally:
-            self._finished = True
+        return self._tx_manager.commit(self)
 
+    @deprecated("The transaction.rollback() method is deprecated, "
+                "use graph.rollback(transaction) instead")
     def rollback(self):
         """ Roll back the current transaction, undoing all actions
         previously taken.
 
         :returns: :class:`.TransactionSummary` object
         """
-        self._assert_unfinished("Cannot rollback finished transaction")
-        try:
-            summary = self._connector.rollback(self._transaction)
-            return TransactionSummary(**summary)
-        finally:
-            self._finished = True
+        return self._tx_manager.rollback(self)
 
     def create(self, subgraph):
         """ Create remote nodes and relationships that correspond to those in a

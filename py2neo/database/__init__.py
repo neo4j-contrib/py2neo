@@ -111,10 +111,9 @@ Keyword       Description                                Type   Default
 from __future__ import absolute_import
 
 from time import sleep
-from warnings import warn
 
 from py2neo.cypher import cypher_escape
-from py2neo.database.work import Transaction
+from py2neo.database.work import TransactionManager, Transaction
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 
 
@@ -359,6 +358,7 @@ class Graph(object):
         self.__name__ = name
         self.schema = Schema(self)
         self._procedures = ProcedureLibrary(self)
+        self._tx_manager = TransactionManager(self)
 
     def __repr__(self):
         if self.name is None:
@@ -393,30 +393,38 @@ class Graph(object):
 
         *New in version 2020.0.*
         """
-        return Transaction(self, True, readonly,
-                           # after, metadata, timeout
-                           )
+        return self._tx_manager.auto(readonly,
+                                     # after, metadata, timeout
+                                     )
 
-    def begin(self, autocommit=False, readonly=False,
+    def begin(self, readonly=False,
               # after=None, metadata=None, timeout=None
               ):
         """ Begin a new :class:`~py2neo.database.work.Transaction`.
 
-        :param autocommit: (deprecated) if :py:const:`True`, the
-            transaction will automatically commit after the first
-            operation
         :param readonly: if :py:const:`True`, will begin a readonly
             transaction, otherwise will begin as read-write
 
-        *Changed in version 2020.0: the 'autocommit' argument is now
-        deprecated. Use the 'auto' method instead.*
+        *Changed in version 2021.1: the 'autocommit' argument has been
+        removed. Use the 'auto' method instead.*
         """
-        if autocommit:
-            warn("Graph.begin(autocommit=True) is deprecated, "
-                 "use Graph.auto() instead", category=DeprecationWarning, stacklevel=2)
-        return Transaction(self, autocommit, readonly,
-                           # after, metadata, timeout
-                           )
+        return self._tx_manager.begin(readonly,
+                                      # after, metadata, timeout
+                                      )
+
+    def commit(self, tx):
+        """ Commit a transaction.
+
+        *New in version 2021.1.*
+        """
+        return self._tx_manager.commit(tx)
+
+    def rollback(self, tx):
+        """ Rollback a transaction.
+
+        *New in version 2021.1.*
+        """
+        return self._tx_manager.rollback(tx)
 
     @property
     def call(self):
@@ -722,6 +730,17 @@ class Graph(object):
                        :class:`.Subgraph`
         """
         self.auto().separate(subgraph)
+
+    def update(self, cypher, parameters=None, **kwparameters):
+        """ Run a :meth:`~py2neo.database.work.Transaction.update` operation within an
+        auto-commit :class:`~py2neo.database.work.Transaction`.
+
+        :param cypher: Cypher statement
+        :param parameters: dictionary of parameters
+        :return: first value from the first record returned or
+                 :py:const:`None`.
+        """
+        return self.auto().update(cypher, parameters, **kwparameters)
 
 
 class SystemGraph(Graph):
