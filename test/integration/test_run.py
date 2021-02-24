@@ -23,14 +23,12 @@ from py2neo import Node
 
 def test_can_run_single_statement_transaction(graph):
     tx = graph.begin()
-    assert not tx.finished()
     cursor = tx.run("CREATE (a) RETURN a")
     tx.commit()
     records = list(cursor)
     assert len(records) == 1
     for record in records:
         assert isinstance(record["a"], Node)
-    assert tx.finished()
 
 
 def test_can_run_query_that_returns_map_literal(graph):
@@ -41,16 +39,8 @@ def test_can_run_query_that_returns_map_literal(graph):
     assert value == {"foo": "bar"}
 
 
-def test_can_run_transaction_as_with_statement(graph):
-    with graph.begin() as tx:
-        assert not tx.finished()
-        tx.run("CREATE (a) RETURN a")
-    assert tx.finished()
-
-
 def test_can_run_multi_statement_transaction(graph):
     tx = graph.begin()
-    assert not tx.finished()
     cursor_1 = tx.run("CREATE (a) RETURN a")
     cursor_2 = tx.run("CREATE (a) RETURN a")
     cursor_3 = tx.run("CREATE (a) RETURN a")
@@ -60,13 +50,11 @@ def test_can_run_multi_statement_transaction(graph):
         assert len(records) == 1
         for record in records:
             assert isinstance(record["a"], Node)
-    assert tx.finished()
 
 
 def test_can_run_multi_execute_transaction(graph):
     tx = graph.begin()
     for i in range(10):
-        assert not tx.finished()
         cursor_1 = tx.run("CREATE (a) RETURN a")
         cursor_2 = tx.run("CREATE (a) RETURN a")
         cursor_3 = tx.run("CREATE (a) RETURN a")
@@ -76,13 +64,11 @@ def test_can_run_multi_execute_transaction(graph):
             for record in records:
                 assert isinstance(record["a"], Node)
     tx.commit()
-    assert tx.finished()
 
 
 def test_can_rollback_transaction(graph):
     tx = graph.begin()
     for i in range(10):
-        assert not tx.finished()
         cursor_1 = tx.run("CREATE (a) RETURN a")
         cursor_2 = tx.run("CREATE (a) RETURN a")
         cursor_3 = tx.run("CREATE (a) RETURN a")
@@ -93,7 +79,6 @@ def test_can_rollback_transaction(graph):
             for record in records:
                 assert isinstance(record["a"], Node)
     tx.rollback()
-    assert tx.finished()
 
 
 def test_cannot_append_after_transaction_finished(graph):

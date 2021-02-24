@@ -76,13 +76,13 @@ class TransactionManager(object):
         """
         if not isinstance(tx, Transaction):
             raise TypeError("Bad transaction %r" % tx)
-        if tx.finished():
+        if tx._finished:
             raise TypeError("Cannot commit finished transaction")
         try:
             summary = self._connector.commit(tx._transaction)
             return TransactionSummary(**summary)
         finally:
-            tx.finish()
+            tx._finished = True
 
     def rollback(self, tx):
         """ Roll back the current transaction, undoing all actions
@@ -92,13 +92,13 @@ class TransactionManager(object):
         """
         if not isinstance(tx, Transaction):
             raise TypeError("Bad transaction %r" % tx)
-        if tx.finished():
+        if tx._finished:
             raise TypeError("Cannot rollback finished transaction")
         try:
             summary = self._connector.rollback(tx._transaction)
             return TransactionSummary(**summary)
         finally:
-            tx.finish()
+            tx._finished = True
 
 
 class Transaction(object):
@@ -146,10 +146,6 @@ class Transaction(object):
         else:
             self._tx_manager.rollback(self)
 
-    def _assert_unfinished(self, message):
-        if self._finished:
-            raise TypeError(message)
-
     @property
     def graph(self):
         return self._tx_manager.graph
@@ -157,12 +153,6 @@ class Transaction(object):
     @property
     def readonly(self):
         return self._readonly
-
-    def finished(self):
-        """ Indicates whether or not this transaction has been completed
-        or is still open.
-        """
-        return self._finished
 
     def run(self, cypher, parameters=None, **kwparameters):
         """ Send a Cypher query to the server for execution and return
@@ -173,7 +163,8 @@ class Transaction(object):
         :returns: :py:class:`.Cursor` object
         """
         from py2neo.client import Connection
-        self._assert_unfinished("Cannot run query in finished transaction")
+        if self._finished:
+            raise TypeError("Cannot run query in finished transaction")
 
         try:
             hydrant = Connection.default_hydrant(self._connector.profile, self.graph)
@@ -186,7 +177,7 @@ class Transaction(object):
             return Cursor(result, hydrant)
         finally:
             if not self._transaction:
-                self.finish()
+                self._finished = True
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
         """ Execute a single Cypher statement and return the value from
@@ -206,10 +197,6 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         """
         self.run(cypher, parameters, **kwparameters).close()
-
-    def finish(self):
-        self._assert_unfinished("Transaction already finished")
-        self._finished = True
 
     @deprecated("The transaction.commit() method is deprecated, "
                 "use graph.commit(transaction) instead")
