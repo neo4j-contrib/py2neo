@@ -70,7 +70,7 @@ def unwind_create_relationships_query(data, rel_type, start_node_key=None, end_n
                        _match_clause("b", end_node_key, "r[2]"),
                        _create_clause("_", rel_type, "(a)-[", "]->(b)"),
                        _set_properties_clause("r[1]", keys),
-                       data=list(data))
+                       data=_relationship_data(data))
 
 
 def unwind_merge_relationships_query(data, merge_key, start_node_key=None, end_node_key=None,
@@ -90,7 +90,7 @@ def unwind_merge_relationships_query(data, merge_key, start_node_key=None, end_n
                        _match_clause("b", end_node_key, "r[2]"),
                        _merge_clause("_", merge_key, "r[1]", keys, "(a)-[", "]->(b)"),
                        _set_properties_clause("r[1]", keys),
-                       data=list(data))
+                       data=_relationship_data(data))
 
 
 class NodeKey(object):
@@ -169,3 +169,20 @@ def _set_properties_clause(value, keys):
         # data is list of lists
         fields = [CypherExpression("%s[%d]" % (value, i)) for i in range(len(keys))]
         return "SET _ += " + cypher_repr(OrderedDict(zip(keys, fields)))
+
+
+def _relationship_data(data):
+    norm_data = []
+    for item in data:
+        start_node, detail, end_node = item
+        norm_start = type(start_node) is tuple and len(start_node) == 1
+        norm_end = type(end_node) is tuple and len(end_node) == 1
+        if norm_start and norm_end:
+            norm_data.append((start_node[0], detail, end_node[0]))
+        elif norm_start:
+            norm_data.append((start_node[0], detail, end_node))
+        elif norm_end:
+            norm_data.append((start_node, detail, end_node[0]))
+        else:
+            norm_data.append(item)
+    return norm_data
