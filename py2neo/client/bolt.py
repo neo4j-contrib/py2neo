@@ -43,7 +43,7 @@ __all__ = [
     "Bolt3",
     "Bolt4x0",
     "Bolt4x1",
-    "BoltTransaction",
+    "BoltTransactionRef",
     "BoltResult",
     "BoltResponse",
     "BoltProtocolError",
@@ -58,7 +58,7 @@ from struct import pack as struct_pack, unpack as struct_unpack
 
 from six import PY2, raise_from
 
-from py2neo.client import Connection, Transaction, Result, Failure, Bookmark, \
+from py2neo.client import Connection, TransactionRef, Result, Failure, Bookmark, \
     TransactionError, BrokenTransactionError, ConnectionUnavailable
 from py2neo.client.config import bolt_user_agent, ConnectionProfile
 from py2neo.client.packstream import pack_into, UnpackStream, PackStreamHydrant
@@ -355,8 +355,8 @@ class Bolt1(Bolt):
             raise TypeError("Transaction metadata not supported until Bolt v3")
         if timeout:
             raise TypeError("Transaction timeout not supported until Bolt v3")
-        self._transaction = BoltTransaction(graph_name, self.protocol_version,
-                                            readonly, after)
+        self._transaction = BoltTransactionRef(graph_name, self.protocol_version,
+                                               readonly, after)
 
     def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
@@ -679,9 +679,9 @@ class Bolt3(Bolt2):
                  ):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransaction(graph_name, self.protocol_version, readonly,
-                                            # after, metadata, timeout
-                                            )
+        self._transaction = BoltTransactionRef(graph_name, self.protocol_version, readonly,
+                                               # after, metadata, timeout
+                                               )
         result = self._run(graph_name, cypher, parameters or {},
                            self._transaction.extra, final=True)
         try:
@@ -702,9 +702,9 @@ class Bolt3(Bolt2):
               ):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransaction(graph_name, self.protocol_version, readonly,
-                                            # after, metadata, timeout
-                                            )
+        self._transaction = BoltTransactionRef(graph_name, self.protocol_version, readonly,
+                                               # after, metadata, timeout
+                                               )
         log.debug("[#%04X] C: BEGIN %r", self.local_port, self._transaction.extra)
         response = self._write_request(0x11, self._transaction.extra)
         try:
@@ -904,7 +904,7 @@ class ItemizedTask(Task):
             item.audit()
 
 
-class BoltTransaction(ItemizedTask, Transaction):
+class BoltTransactionRef(ItemizedTask, TransactionRef):
 
     def __init__(self, graph_name, protocol_version,
                  readonly=False, after=None, metadata=None, timeout=None
@@ -913,7 +913,7 @@ class BoltTransaction(ItemizedTask, Transaction):
             raise TypeError("Database selection is not supported "
                             "prior to Neo4j 4.0")
         ItemizedTask.__init__(self)
-        Transaction.__init__(self, graph_name, readonly=readonly)
+        TransactionRef.__init__(self, graph_name, readonly=readonly)
         self.after = after
         self.metadata = metadata
         self.timeout = timeout

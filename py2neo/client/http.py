@@ -28,7 +28,7 @@ from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 from urllib3.exceptions import ConnectionError, HTTPError
 
 from py2neo.compat import urlsplit
-from py2neo.client import Connection, Transaction, Result, Bookmark, \
+from py2neo.client import Connection, TransactionRef, Result, Bookmark, \
     TransactionError, BrokenTransactionError, ConnectionUnavailable
 from py2neo.client.config import http_user_agent, ConnectionProfile
 from py2neo.client.json import JSONHydrant, dehydrate
@@ -180,7 +180,7 @@ class HTTP(Connection):
                             "named graphs".format(self.neo4j_version))
         if readonly:
             raise TypeError("Readonly transactions are not supported over HTTP")
-        r = self._post(HTTPTransaction.autocommit_uri(graph_name), cypher, parameters)
+        r = self._post(HTTPTransactionRef.autocommit_uri(graph_name), cypher, parameters)
         rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
         self.release()
         rs.audit()
@@ -201,7 +201,7 @@ class HTTP(Connection):
         # if timeout:
         #     raise TypeError("Transaction timeouts are not supported over HTTP")
         try:
-            r = self._post(HTTPTransaction.begin_uri(graph_name))
+            r = self._post(HTTPTransactionRef.begin_uri(graph_name))
         except ConnectionError as error:
             raise_from(TransactionError("Transaction failed to begin"), error)
         except HTTPError as error:
@@ -212,7 +212,7 @@ class HTTP(Connection):
                                        "due to HTTP status %r" % r.status)
             rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
             location_path = urlsplit(r.headers["Location"]).path
-            tx = HTTPTransaction(graph_name, location_path.rpartition("/")[-1])
+            tx = HTTPTransactionRef(graph_name, location_path.rpartition("/")[-1])
             self.release()
             rs.audit(tx)
             return tx
@@ -313,10 +313,10 @@ class HTTP(Connection):
         return self._neo4j_version >= Version("4.0")
 
 
-class HTTPTransaction(Transaction):
+class HTTPTransactionRef(TransactionRef):
 
     def __init__(self, graph_name, txid=None, readonly=False):
-        super(HTTPTransaction, self).__init__(graph_name, txid, readonly)
+        super(HTTPTransactionRef, self).__init__(graph_name, txid, readonly)
         self.failure = None
 
     def __bool__(self):

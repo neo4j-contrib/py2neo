@@ -1355,7 +1355,9 @@ class RoutingTable(object):
             pass  # ignore, not present
 
 
-class Transaction(object):
+class TransactionRef(object):
+    """ Reference to a protocol-level transaction.
+    """
 
     def __init__(self, graph_name, txid=None, readonly=False):
         self.graph_name = graph_name
@@ -1368,7 +1370,7 @@ class Transaction(object):
         return hash((self.graph_name, self.txid))
 
     def __eq__(self, other):
-        if isinstance(other, Transaction):
+        if isinstance(other, TransactionRef):
             return self.graph_name == other.graph_name and self.txid == other.txid
         else:
             return False

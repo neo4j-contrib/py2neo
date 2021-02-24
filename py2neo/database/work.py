@@ -79,7 +79,7 @@ class TransactionManager(object):
         if tx._finished:
             raise TypeError("Cannot commit finished transaction")
         try:
-            summary = self._connector.commit(tx._transaction)
+            summary = self._connector.commit(tx._tx_ref)
             return TransactionSummary(**summary)
         finally:
             tx._finished = True
@@ -95,7 +95,7 @@ class TransactionManager(object):
         if tx._finished:
             raise TypeError("Cannot rollback finished transaction")
         try:
-            summary = self._connector.rollback(tx._transaction)
+            summary = self._connector.rollback(tx._tx_ref)
             return TransactionSummary(**summary)
         finally:
             tx._finished = True
@@ -130,11 +130,11 @@ class Transaction(object):
         self._autocommit = autocommit
         self._connector = self._tx_manager.graph.service.connector
         if autocommit:
-            self._transaction = None
+            self._tx_ref = None
         else:
-            self._transaction = self._connector.begin(self._tx_manager.graph.name, readonly=readonly,
-                                                      # after, metadata, timeout
-                                                      )
+            self._tx_ref = self._connector.begin(self._tx_manager.graph.name, readonly=readonly,
+                                                 # after, metadata, timeout
+                                                 )
         self._readonly = readonly
 
     def __enter__(self):
@@ -169,14 +169,14 @@ class Transaction(object):
         try:
             hydrant = Connection.default_hydrant(self._connector.profile, self.graph)
             parameters = dict(parameters or {}, **kwparameters)
-            if self._transaction:
-                result = self._connector.run_in_tx(self._transaction, cypher, parameters)
+            if self._tx_ref:
+                result = self._connector.run_in_tx(self._tx_ref, cypher, parameters)
             else:
                 result = self._connector.auto_run(self.graph.name, cypher, parameters,
                                                   readonly=self.readonly)
             return Cursor(result, hydrant)
         finally:
-            if not self._transaction:
+            if not self._tx_ref:
                 self._finished = True
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
