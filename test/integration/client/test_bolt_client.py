@@ -18,7 +18,7 @@
 
 from pytest import fixture, skip, raises
 
-from py2neo.client.bolt import Bolt, BoltProtocolError
+from py2neo.client.bolt import Bolt
 
 
 @fixture(scope="session")
@@ -36,13 +36,13 @@ def test_hello_goodbye(bolt_profile):
 
 def test_out_of_order_pull(bolt_profile):
     bolt = Bolt.open(bolt_profile)
-    with raises(BoltProtocolError):
+    with raises(TypeError):
         bolt.pull(None)
     bolt.close()
 
 
 def test_out_of_order_discard(bolt_profile):
     bolt = Bolt.open(bolt_profile)
-    with raises(BoltProtocolError):
+    with raises(TypeError):
         bolt.discard(None)
     bolt.close()

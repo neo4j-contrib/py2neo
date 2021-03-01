@@ -23,6 +23,7 @@ from uuid import UUID, uuid4
 
 from monotonic import monotonic
 from packaging.version import Version
+from six import raise_from
 
 from py2neo import ClientError
 from py2neo.client.config import ConnectionProfile
@@ -1033,7 +1034,19 @@ class Connector(object):
             b += pool.bytes_received
         return b
 
-    def acquire(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
+    def _acquire(self, tx):
+        """ Lookup and return the connection bound to this
+        transaction, if any, otherwise acquire a new connection.
+
+        :param tx: a bound transaction
+        :raise TypeError: if the given transaction is invalid or not bound
+        """
+        try:
+            return self._transactions[tx]
+        except KeyError:
+            return self._acquire_new(tx.graph_name, tx.readonly)
+
+    def _acquire_new(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
         """ Acquire a connection from a pool owned by this connector.
 
         In the simplest case, this will return an existing open
@@ -1062,7 +1075,7 @@ class Connector(object):
             could not be acquired within the time limit
         """
         # TODO: improve logging for this method
-        for n in repeater(at_least=3, timeout=timeout):
+        for _ in repeater(at_least=3, timeout=timeout):
             log.debug("Attempting to acquire connection to %s", self._repr_graph_name(graph_name))
             try:
                 pools = self.get_pools(graph_name, readonly=readonly)
@@ -1074,24 +1087,13 @@ class Connector(object):
                     try:
                         cx = pool.acquire(force_reset=force_reset)
                     except ConnectionUnavailable as error:
-                        log.debug("Connection unavailable; %r", error.args[0])
+                        self.prune(pool.profile)
                         continue
                     else:
                         if cx is not None:
                             return cx
         else:
             raise ConnectionUnavailable("Timed out trying to acquire connection")
-
-    def release(self, cx, force_reset=False):
-        """ Release a connection back into the pool.
-        """
-        for pool in self._pools:
-            try:
-                pool.release(cx, force_reset=force_reset)
-            except ValueError:
-                continue
-            else:
-                break
 
     def prune(self, profile):
         """ Close all free connections for the given profile.
@@ -1127,18 +1129,6 @@ class Connector(object):
         """
         for pool in self._pools.values():
             pool.close()
-
-    def _get_connection(self, tx):
-        """ Lookup and return the connection bound to this
-        transaction, if any, otherwise acquire a new connection.
-
-        :param tx: a bound transaction
-        :raise TypeError: if the given transaction is invalid or not bound
-        """
-        try:
-            return self._transactions[tx]
-        except KeyError:
-            return self.acquire(tx.graph_name, tx.readonly)
 
     def _on_bind(self, tx, cx):
         """ Bind a transaction to a connection.
@@ -1191,16 +1181,27 @@ class Connector(object):
               # after=None, metadata=None, timeout=None
               ):
         """ Begin a new explicit transaction.
+
+        :param graph_name:
+        :param readonly:
+        :returns: new :class:`.Transaction` object
+        :raises TransactionError: if a transaction fails to begin
         """
-        cx = self.acquire(graph_name, readonly=readonly)
         try:
-            return cx.begin(graph_name, readonly=readonly,
-                            # after=after, metadata=metadata, timeout=timeout
-                            )
-        except TransactionError:
-            # TODO: retry on failure (TransactionError)
-            self.prune(cx.profile)
-            raise
+            cx = self._acquire_new(graph_name, readonly=readonly)
+        except ConnectionUnavailable as error:
+            raise_from(TransactionError("Failed to acquire server connection"), error)
+        else:
+            try:
+                return cx.begin(graph_name, readonly=readonly,
+                                # after=after, metadata=metadata, timeout=timeout
+                                )
+            except ConnectionUnavailable as error:
+                self.prune(cx.profile)
+                raise_from(TransactionError("Failed to acquire server connection"), error)
+            except TransactionError:
+                self.prune(cx.profile)
+                raise
 
     def commit(self, tx):
         """ Commit a transaction.
@@ -1208,18 +1209,26 @@ class Connector(object):
         :param tx: the transaction to commit
         :returns: dictionary of transaction summary information
         :raises ValueError: if the transaction is not valid to be committed
-        :raises BrokenTransactionError: if the transaction fails to commit
+        :raises TransactionError: if a commit attempt cannot be made
+        :raises BrokenTransactionError: if a commit attempt is made, but fails
         """
-        cx = self._get_connection(tx)
         try:
-            bookmark = cx.commit(tx)
-        except TransactionError:
-            self.prune(cx.profile)
-            raise
+            cx = self._acquire(tx)
+        except ConnectionUnavailable as error:
+            raise_from(TransactionError("Failed to acquire server connection"), error)
         else:
-            return {"bookmark": bookmark,
-                    "profile": cx.profile,
-                    "time": tx.age}
+            try:
+                bookmark = cx.commit(tx)
+            except ConnectionUnavailable as error:
+                self.prune(cx.profile)
+                raise_from(TransactionError("Failed to acquire server connection"), error)
+            except TransactionError:
+                self.prune(cx.profile)
+                raise
+            else:
+                return {"bookmark": bookmark,
+                        "profile": cx.profile,
+                        "time": tx.age}
 
     def rollback(self, tx):
         """ Roll back a transaction.
@@ -1227,49 +1236,71 @@ class Connector(object):
         :param tx: the transaction to rollback
         :returns: dictionary of transaction summary information
         :raises ValueError: if the transaction is not valid to be rolled back
-        :raises BrokenTransactionError: if the transaction fails to rollback
+        :raises TransactionError: if a rollback attempt cannot be made
+        :raises BrokenTransactionError: if a rollback attempt is made, but fails
         """
-        cx = self._get_connection(tx)
         try:
-            bookmark = cx.rollback(tx)
-        except TransactionError:
-            self.prune(cx.profile)
-            raise
+            cx = self._acquire(tx)
+        except ConnectionUnavailable as error:
+            raise_from(TransactionError("Failed to acquire server connection"), error)
         else:
-            return {"bookmark": bookmark,
-                    "profile": cx.profile,
-                    "time": tx.age}
+            try:
+                cx = self._acquire(tx)
+                bookmark = cx.rollback(tx)
+            except ConnectionUnavailable as error:
+                self.prune(cx.profile)
+                raise_from(TransactionError("Failed to acquire server connection"), error)
+            except TransactionError:
+                self.prune(cx.profile)
+                raise
+            else:
+                return {"bookmark": bookmark,
+                        "profile": cx.profile,
+                        "time": tx.age}
 
     def run_prog(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a Cypher query within a new auto-commit transaction.
         """
-        cx = self.acquire(graph_name, readonly)
-        result = cx.run_prog(graph_name, cypher, parameters, readonly=readonly)
-        cx.pull(result)
         try:
-            cx.sync(result)
-        except TransactionError:
-            # TODO: retry on failure (TransactionError)
-            self.prune(cx.profile)
-            raise
+            cx = self._acquire_new(graph_name, readonly)
+        except ConnectionUnavailable as error:
+            raise_from(TransactionError("Failed to acquire server connection"), error)
         else:
-            return result
+            try:
+                result = cx.run_prog(graph_name, cypher, parameters, readonly=readonly)
+                cx.pull(result)
+                cx.sync(result)
+            except ConnectionUnavailable as error:
+                self.prune(cx.profile)
+                raise_from(TransactionError("Failed to acquire server connection"), error)
+            except TransactionError:
+                self.prune(cx.profile)
+                raise
+            else:
+                return result
 
     def run_query(self, tx, cypher, parameters=None):
         """ Run a Cypher query within an open explicit transaction.
         """
-        cx = self._get_connection(tx)
-        result = cx.run_query(tx, cypher, parameters)
-        cx.pull(result)
         try:
-            cx.sync(result)
-        except TransactionError:
-            self.prune(cx.profile)
-            raise
+            cx = self._acquire(tx)
+        except ConnectionUnavailable as error:
+            raise_from(TransactionError("Failed to acquire server connection"), error)
         else:
-            return result
+            try:
+                result = cx.run_query(tx, cypher, parameters)
+                cx.pull(result)
+                cx.sync(result)
+            except ConnectionUnavailable as error:
+                self.prune(cx.profile)
+                raise_from(TransactionError("Failed to acquire server connection"), error)
+            except TransactionError:
+                self.prune(cx.profile)
+                raise
+            else:
+                return result
 
     def supports_multi(self):
         assert self._pools  # this will break if no pools exist
@@ -1281,7 +1312,7 @@ class Connector(object):
 
     def _show_databases(self):
         if self.supports_multi():
-            cx = self.acquire("system", readonly=True)
+            cx = self._acquire_new("system", readonly=True)
             try:
                 result = cx.run_prog("system", "SHOW DATABASES")
                 cx.pull(result)

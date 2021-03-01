@@ -180,7 +180,7 @@ class Bolt(Connection):
         for subclass in cls._walk_subclasses():
             if subclass.protocol_version == protocol_version:
                 return subclass
-        raise BoltProtocolError("Unsupported protocol version %d.%d" % protocol_version)
+        raise TypeError("Unsupported protocol version %d.%d" % protocol_version)
 
     @classmethod
     def default_hydrant(cls, profile, graph):
@@ -213,13 +213,13 @@ class Bolt(Connection):
             protocol_version = cls._handshake(wire)
             subclass = cls._get_subclass(protocol_version)
             if subclass is None:
-                raise BoltProtocolError("Unable to agree supported protocol version")
+                raise TypeError("Unable to agree supported protocol version")
             bolt = subclass(wire, profile, (user_agent or bolt_user_agent()),
                             on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
             bolt.__local_port = wire.local_address.port_number
             bolt._hello()
             return bolt
-        except (BoltProtocolError, WireError) as error:
+        except (TypeError, WireError) as error:
             raise_from(ConnectionUnavailable("Cannot open connection to %r" % profile), error)
 
     @classmethod
@@ -246,8 +246,8 @@ class Bolt(Connection):
         wire.send()
         v = bytearray(wire.read(4))
         if v == bytearray([0, 0, 0, 0]):
-            raise BoltProtocolError("Unable to negotiate compatible "
-                                    "protocol version from {!r}".format(versions))
+            raise TypeError("Unable to negotiate compatible "
+                            "protocol version from {!r}".format(versions))
         log.debug("[#%04X] S: <PROTOCOL> %d.%d", local_port, v[-1], v[-2])
         return v[-1], v[-2]
 
@@ -289,12 +289,10 @@ class Bolt(Connection):
         return self._wire.bytes_received
 
     def _assert_open(self):
-        # TODO: better errors and hooks back into the pool, for
-        #  deactivating and/or removing addresses from the routing table
         if self.closed:
-            raise RuntimeError("Connection has been closed")
+            raise ConnectionUnavailable("Connection has been closed")
         if self.broken:
-            raise RuntimeError("Connection is broken")
+            raise ConnectionUnavailable("Connection is broken")
 
     def supports_multi(self):
         return self.protocol_version >= (4, 0)
@@ -542,8 +540,8 @@ class Bolt1(Bolt):
 
     def _assert_no_transaction(self):
         if self._transaction:
-            raise BoltProtocolError("Cannot open multiple simultaneous transactions "
-                                    "on a Bolt connection")
+            raise TypeError("Cannot open multiple simultaneous transactions "
+                            "on a Bolt connection")
 
     def _assert_transaction_open(self, tx):
         if tx is not self._transaction:
@@ -553,7 +551,7 @@ class Bolt1(Bolt):
 
     def _assert_result_consumable(self, result):
         if not self._transaction:
-            raise BoltProtocolError("Cannot consume result without open transaction")
+            raise TypeError("Cannot consume result without open transaction")
         if result is not self._transaction.last():
             raise TypeError("Random query access is not supported before Bolt 4.0")
 
@@ -1091,8 +1089,3 @@ class BoltResponse(Task):
     @property
     def metadata(self):
         return self._metadata
-
-
-class BoltProtocolError(Exception):
-
-    pass

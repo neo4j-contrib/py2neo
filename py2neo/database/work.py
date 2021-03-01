@@ -25,6 +25,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 from collections import OrderedDict
 from functools import reduce
+from inspect import isgenerator
 from io import StringIO
 from operator import xor as xor_operator
 from warnings import warn
@@ -99,6 +100,55 @@ class TransactionManager(object):
             return TransactionSummary(**summary)
         finally:
             tx._finished = True
+
+    def play(self, work, args=None, kwargs=None, readonly=None,
+             # after=None, metadata=None, timeout=None
+             ):
+        """ Call a function representing a transactional unit of work.
+
+        The function must always accept a :class:`~py2neo.database.work.Transaction`
+        object as its first argument. Additional arguments can be
+        passed though the `args` and `kwargs` arguments of this method.
+
+        A unit of work can be designated "readonly" if the work
+        function has an attribute called `readonly` which is set to
+        :py:const:`True`. This can be overridden by using the
+        `readonly` argument to this method which, if set to either
+        :py:const:`True` or :py:const:`False`, will take precedence.
+
+        :param work: function containing the unit of work
+        :param args: sequence of additional positional arguments to
+            pass into the function
+        :param kwargs: mapping of additional keyword arguments to
+            pass into the function
+        :param readonly: set to :py:const:`True` or :py:const:`False` to
+            override the readonly attribute of the work function
+        :returns: list of :class:`.TransactionSummary` objects, one for
+            each attempt made to execute the transaction
+        """
+        if not callable(work):
+            raise TypeError("Unit of work is not callable")
+        kwargs = dict(kwargs or {})
+        if readonly is None:
+            readonly = getattr(work, "readonly", False)
+        if readonly and not self._connector.supports_readonly_transactions():
+            raise TypeError("The underlying connection profile "
+                            "does not support readonly transactions")
+        # if not timeout:
+
+        #     timeout = getattr(work, "timeout", None)
+        tx = self.begin(readonly=readonly,
+                        # after=after, metadata=metadata, timeout=timeout
+                        )
+        try:
+            value = work(tx, *args or (), **kwargs or {})
+            if isgenerator(value):
+                _ = list(value)     # exhaust the generator
+        except Exception:  # TODO: catch transient and retry, if within limit
+            tx.rollback()
+            raise
+        else:
+            return [tx.commit()]
 
 
 class Transaction(object):
