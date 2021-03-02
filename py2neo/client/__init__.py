@@ -270,7 +270,7 @@ class Connection(object):
         :param graph_name:
         :param readonly:
         :returns: new :class:`.Transaction` object
-        :raises TransactionError: if a new transaction cannot be created
+        :raises Failure: if a new transaction cannot be created
         """
 
     def commit(self, tx):
@@ -1187,7 +1187,7 @@ class Connector(object):
         :returns: new :class:`.Transaction` object
         :raises ConnectionUnavailable: if a begin attempt cannot be made
         :raises ConnectionBroken: if a begin attempt is made, but fails due to disconnection
-        :raises TransactionError: if the server signals a failure condition
+        :raises Failure: if the server signals a failure condition
         """
         cx = self._acquire_new(graph_name, readonly=readonly)
         try:
@@ -1206,7 +1206,7 @@ class Connector(object):
         :raises ValueError: if the transaction is not valid to be committed
         :raises ConnectionUnavailable: if a commit attempt cannot be made
         :raises ConnectionBroken: if a commit attempt is made, but fails due to disconnection
-        :raises TransactionError: if the server signals a failure condition
+        :raises Failure: if the server signals a failure condition
         """
         cx = self._acquire(tx)
         try:
@@ -1227,7 +1227,7 @@ class Connector(object):
         :raises ValueError: if the transaction is not valid to be rolled back
         :raises ConnectionUnavailable: if a rollback attempt cannot be made
         :raises ConnectionBroken: if a rollback attempt is made, but fails due to disconnection
-        :raises TransactionError: if the server signals a failure condition
+        :raises Failure: if the server signals a failure condition
         """
         cx = self._acquire(tx)
         try:
@@ -1253,7 +1253,7 @@ class Connector(object):
         :returns: :class:`.Result` object
         :raises ConnectionUnavailable: if an attempt to run cannot be made
         :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
-        :raises TransactionError: if the server signals a failure condition
+        :raises Failure: if the server signals a failure condition
         """
         cx = self._acquire_new(graph_name, readonly)
         try:
@@ -1275,7 +1275,7 @@ class Connector(object):
         :returns: :class:`.Result` object
         :raises ConnectionUnavailable: if an attempt to run cannot be made
         :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
-        :raises TransactionError: if the server signals a failure condition
+        :raises Failure: if the server signals a failure condition
         """
         cx = self._acquire(tx)
         try:
@@ -1525,6 +1525,7 @@ class Result(object):
 
 
 class Failure(Exception):
+    # TODO: collapse Failure and Neo4jError into one class
 
     def __init__(self, message, code):
         super(Failure, self).__init__(message)
