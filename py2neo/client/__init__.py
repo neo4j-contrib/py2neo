@@ -281,7 +281,7 @@ class Connection(object):
         :returns: bookmark
         :raises ValueError: if the supplied :class:`.Transaction`
             object is not valid for committing
-        :raises BrokenTransactionError: if the transaction cannot be
+        :raises ConnectionBroken: if the transaction cannot be
             committed
         """
 
@@ -293,7 +293,7 @@ class Connection(object):
         :returns: bookmark
         :raises ValueError: if the supplied :class:`.Transaction`
             object is not valid for rolling back
-        :raises BrokenTransactionError: if the transaction cannot be
+        :raises ConnectionBroken: if the transaction cannot be
             rolled back
         """
 
@@ -976,7 +976,7 @@ class Connector(object):
             else:
                 try:
                     routers, ro_runners, rw_runners, ttl = cx.route(graph_name)
-                except TransactionError as error:
+                except ConnectionUnavailable as error:
                     log.warning(error.args[0])
                     continue
                 else:
@@ -1185,23 +1185,18 @@ class Connector(object):
         :param graph_name:
         :param readonly:
         :returns: new :class:`.Transaction` object
-        :raises TransactionError: if a transaction fails to begin
+        :raises ConnectionUnavailable: if a begin attempt cannot be made
+        :raises ConnectionBroken: if a begin attempt is made, but fails due to disconnection
+        :raises TransactionError: if the server signals a failure condition
         """
+        cx = self._acquire_new(graph_name, readonly=readonly)
         try:
-            cx = self._acquire_new(graph_name, readonly=readonly)
-        except ConnectionUnavailable as error:
-            raise_from(TransactionError("Failed to acquire server connection"), error)
-        else:
-            try:
-                return cx.begin(graph_name, readonly=readonly,
-                                # after=after, metadata=metadata, timeout=timeout
-                                )
-            except ConnectionUnavailable as error:
-                self.prune(cx.profile)
-                raise_from(TransactionError("Failed to acquire server connection"), error)
-            except TransactionError:
-                self.prune(cx.profile)
-                raise
+            return cx.begin(graph_name, readonly=readonly,
+                            # after=after, metadata=metadata, timeout=timeout
+                            )
+        except (ConnectionUnavailable, ConnectionBroken):
+            self.prune(cx.profile)
+            raise
 
     def commit(self, tx):
         """ Commit a transaction.
@@ -1209,26 +1204,20 @@ class Connector(object):
         :param tx: the transaction to commit
         :returns: dictionary of transaction summary information
         :raises ValueError: if the transaction is not valid to be committed
-        :raises TransactionError: if a commit attempt cannot be made
-        :raises BrokenTransactionError: if a commit attempt is made, but fails
+        :raises ConnectionUnavailable: if a commit attempt cannot be made
+        :raises ConnectionBroken: if a commit attempt is made, but fails due to disconnection
+        :raises TransactionError: if the server signals a failure condition
         """
+        cx = self._acquire(tx)
         try:
-            cx = self._acquire(tx)
-        except ConnectionUnavailable as error:
-            raise_from(TransactionError("Failed to acquire server connection"), error)
+            bookmark = cx.commit(tx)
+        except (ConnectionUnavailable, ConnectionBroken):
+            self.prune(cx.profile)
+            raise
         else:
-            try:
-                bookmark = cx.commit(tx)
-            except ConnectionUnavailable as error:
-                self.prune(cx.profile)
-                raise_from(TransactionError("Failed to acquire server connection"), error)
-            except TransactionError:
-                self.prune(cx.profile)
-                raise
-            else:
-                return {"bookmark": bookmark,
-                        "profile": cx.profile,
-                        "time": tx.age}
+            return {"bookmark": bookmark,
+                    "profile": cx.profile,
+                    "time": tx.age}
 
     def rollback(self, tx):
         """ Roll back a transaction.
@@ -1236,71 +1225,68 @@ class Connector(object):
         :param tx: the transaction to rollback
         :returns: dictionary of transaction summary information
         :raises ValueError: if the transaction is not valid to be rolled back
-        :raises TransactionError: if a rollback attempt cannot be made
-        :raises BrokenTransactionError: if a rollback attempt is made, but fails
+        :raises ConnectionUnavailable: if a rollback attempt cannot be made
+        :raises ConnectionBroken: if a rollback attempt is made, but fails due to disconnection
+        :raises TransactionError: if the server signals a failure condition
         """
+        cx = self._acquire(tx)
         try:
             cx = self._acquire(tx)
-        except ConnectionUnavailable as error:
-            raise_from(TransactionError("Failed to acquire server connection"), error)
+            bookmark = cx.rollback(tx)
+        except (ConnectionUnavailable, ConnectionBroken):
+            self.prune(cx.profile)
+            raise
         else:
-            try:
-                cx = self._acquire(tx)
-                bookmark = cx.rollback(tx)
-            except ConnectionUnavailable as error:
-                self.prune(cx.profile)
-                raise_from(TransactionError("Failed to acquire server connection"), error)
-            except TransactionError:
-                self.prune(cx.profile)
-                raise
-            else:
-                return {"bookmark": bookmark,
-                        "profile": cx.profile,
-                        "time": tx.age}
+            return {"bookmark": bookmark,
+                    "profile": cx.profile,
+                    "time": tx.age}
 
     def run_prog(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a Cypher query within a new auto-commit transaction.
+
+        :param graph_name:
+        :param cypher:
+        :param parameters:
+        :param readonly:
+        :returns: :class:`.Result` object
+        :raises ConnectionUnavailable: if an attempt to run cannot be made
+        :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
+        :raises TransactionError: if the server signals a failure condition
         """
+        cx = self._acquire_new(graph_name, readonly)
         try:
-            cx = self._acquire_new(graph_name, readonly)
-        except ConnectionUnavailable as error:
-            raise_from(TransactionError("Failed to acquire server connection"), error)
+            result = cx.run_prog(graph_name, cypher, parameters, readonly=readonly)
+            cx.pull(result)
+            cx.sync(result)
+        except (ConnectionUnavailable, ConnectionBroken):
+            self.prune(cx.profile)
+            raise
         else:
-            try:
-                result = cx.run_prog(graph_name, cypher, parameters, readonly=readonly)
-                cx.pull(result)
-                cx.sync(result)
-            except ConnectionUnavailable as error:
-                self.prune(cx.profile)
-                raise_from(TransactionError("Failed to acquire server connection"), error)
-            except TransactionError:
-                self.prune(cx.profile)
-                raise
-            else:
-                return result
+            return result
 
     def run_query(self, tx, cypher, parameters=None):
         """ Run a Cypher query within an open explicit transaction.
+
+        :param tx:
+        :param cypher:
+        :param parameters:
+        :returns: :class:`.Result` object
+        :raises ConnectionUnavailable: if an attempt to run cannot be made
+        :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
+        :raises TransactionError: if the server signals a failure condition
         """
+        cx = self._acquire(tx)
         try:
-            cx = self._acquire(tx)
-        except ConnectionUnavailable as error:
-            raise_from(TransactionError("Failed to acquire server connection"), error)
+            result = cx.run_query(tx, cypher, parameters)
+            cx.pull(result)
+            cx.sync(result)
+        except (ConnectionUnavailable, ConnectionBroken):
+            self.prune(cx.profile)
+            raise
         else:
-            try:
-                result = cx.run_query(tx, cypher, parameters)
-                cx.pull(result)
-                cx.sync(result)
-            except ConnectionUnavailable as error:
-                self.prune(cx.profile)
-                raise_from(TransactionError("Failed to acquire server connection"), error)
-            except TransactionError:
-                self.prune(cx.profile)
-                raise
-            else:
-                return result
+            return result
 
     def supports_multi(self):
         assert self._pools  # this will break if no pools exist
@@ -1452,7 +1438,7 @@ class Result(object):
         may carry out network activity.
 
         :returns: query ID or :const:`None`
-        :raises: :class:`.BrokenTransactionError` if the transaction is
+        :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
         """
         return None
@@ -1461,7 +1447,7 @@ class Result(object):
         """ Fetch the remainder of the result into memory. This method
         may carry out network activity.
 
-        :raises: :class:`.BrokenTransactionError` if the transaction is
+        :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
         """
         raise NotImplementedError
@@ -1471,7 +1457,7 @@ class Result(object):
         This method may carry out network activity.
 
         :returns: list of field names
-        :raises: :class:`.BrokenTransactionError` if the transaction is
+        :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
         """
         raise NotImplementedError
@@ -1481,7 +1467,7 @@ class Result(object):
         turn. This method may carry out network activity.
 
         :returns: record iterator
-        :raises: :class:`.BrokenTransactionError` if the transaction is
+        :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
         """
         self.buffer()
@@ -1506,7 +1492,7 @@ class Result(object):
         out network activity.
 
         :returns: the next available record, or :const:`None`
-        :raises: :class:`.BrokenTransactionError` if the transaction is
+        :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
         """
         raise NotImplementedError
@@ -1553,18 +1539,23 @@ class Failure(Exception):
         return self.args[0]
 
 
-class TransactionError(Exception):
-    """ Raised when an error occurs in relation to a transaction."""
-
-
-class BrokenTransactionError(TransactionError):
-    """ Raised when a transaction is broken by the network or remote peer.
-    """
-
-
 class ConnectionUnavailable(Exception):
-    """ Raised when a connection cannot be established.
+    """ Raised when a connection cannot be acquired.
     """
+
+
+class ConnectionBroken(Exception):
+    """ Raised when a connection breaks during use.
+    """
+
+
+class ProtocolError(Exception):
+    """ Raised when a protocol violation or other unrecoverable
+    protocol error occurs. These errors cannot be recovered from
+    automatically, and may result from a bug in the driver or server
+    software.
+    """
+    # TODO: add hints for users when they see this error
 
 
 class Hydrant(object):

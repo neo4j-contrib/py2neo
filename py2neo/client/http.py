@@ -25,11 +25,11 @@ from json import dumps as json_dumps, loads as json_loads
 from packaging.version import Version
 from six import raise_from
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
-from urllib3.exceptions import ConnectionError, HTTPError
+from urllib3.exceptions import HTTPError
 
 from py2neo.compat import urlsplit
 from py2neo.client import Connection, TransactionRef, Result, Bookmark, \
-    TransactionError, BrokenTransactionError, ConnectionUnavailable
+    ConnectionUnavailable, ProtocolError
 from py2neo.client.config import http_user_agent, ConnectionProfile
 from py2neo.client.json import JSONHydrant, dehydrate
 
@@ -200,41 +200,23 @@ class HTTP(Connection):
         #     raise TypeError("Transaction metadata is not supported over HTTP")
         # if timeout:
         #     raise TypeError("Transaction timeouts are not supported over HTTP")
-        try:
-            r = self._post(HTTPTransactionRef.begin_uri(graph_name))
-        except ConnectionError as error:
-            raise_from(TransactionError("Transaction failed to begin"), error)
-        except HTTPError as error:
-            raise_from(TransactionError("Transaction failed to begin"), error)
-        else:
-            if r.status != 201:
-                raise TransactionError("Transaction failed to begin "
-                                       "due to HTTP status %r" % r.status)
-            rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-            location_path = urlsplit(r.headers["Location"]).path
-            tx = HTTPTransactionRef(graph_name, location_path.rpartition("/")[-1])
-            self.release()
-            rs.audit(tx)
-            return tx
+        r = self._post(HTTPTransactionRef.begin_uri(graph_name))
+        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
+        location_path = urlsplit(r.headers["Location"]).path
+        tx = HTTPTransactionRef(graph_name, location_path.rpartition("/")[-1])
+        self.release()
+        rs.audit(tx)
+        return tx
 
     def commit(self, tx):
         if tx.broken:
             raise ValueError("Transaction is broken")
         try:
             r = self._post(tx.commit_uri())
-        except ConnectionError as error:
+        except ProtocolError:
             tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by disconnection "
-                                              "during commit"), error)
-        except HTTPError as error:
-            tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by HTTP error "
-                                              "during commit"), error)
+            raise
         else:
-            if r.status != 200:
-                tx.mark_broken()
-                raise BrokenTransactionError("Transaction broken by HTTP %d status "
-                                             "during commit" % r.status)
             rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
             self.release()
             rs.audit(tx)
@@ -245,34 +227,26 @@ class HTTP(Connection):
             raise ValueError("Transaction is broken")
         try:
             r = self._delete(tx.uri())
-        except ConnectionError as error:
+        except ProtocolError:
             tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by disconnection "
-                                              "during rollback"), error)
-        except HTTPError as error:
-            tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by HTTP error "
-                                              "during rollback"), error)
+            raise
         else:
-            if r.status != 200:
-                tx.mark_broken()
-                raise BrokenTransactionError("Transaction broken by HTTP %d status "
-                                             "during rollback" % r.status)
             rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
             self.release()
             rs.audit(tx)
             return Bookmark()
 
     def run_query(self, tx, cypher, parameters=None):
-        r = self._post(tx.uri(), cypher, parameters)
-        if r.status != 200:
+        try:
+            r = self._post(tx.uri(), cypher, parameters)
+        except ProtocolError:
             tx.mark_broken()
-            raise BrokenTransactionError("Transaction broken by HTTP %d status "
-                                         "during query execution" % r.status)
-        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-        self.release()
-        rs.audit(tx)
-        return HTTPResult(tx.graph_name, rs.result(), profile=self.profile)
+            raise
+        else:
+            rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
+            self.release()
+            rs.audit(tx)
+            return HTTPResult(tx.graph_name, rs.result(), profile=self.profile)
 
     def pull(self, result, n=-1):
         pass
@@ -299,15 +273,21 @@ class HTTP(Connection):
             ]
         else:
             statements = []
-        return self.http_pool.request(method="POST",
-                                      url=url,
-                                      headers=dict(self.headers, **{"Content-Type": "application/json"}),
-                                      body=json_dumps({"statements": statements}))
+        try:
+            return self.http_pool.request(method="POST",
+                                          url=url,
+                                          headers=dict(self.headers, **{"Content-Type": "application/json"}),
+                                          body=json_dumps({"statements": statements}))
+        except HTTPError as error:
+            raise_from(ProtocolError("Failed to POST to %r" % url), error)
 
     def _delete(self, url):
-        return self.http_pool.request(method="DELETE",
-                                      url=url,
-                                      headers=dict(self.headers))
+        try:
+            return self.http_pool.request(method="DELETE",
+                                          url=url,
+                                          headers=dict(self.headers))
+        except HTTPError as error:
+            raise_from(ProtocolError("Failed to DELETE %r" % url), error)
 
     def supports_multi(self):
         return self._neo4j_version >= Version("4.0")
@@ -402,7 +382,12 @@ class HTTPResponse(object):
 
     @classmethod
     def from_json(cls, status, data):
-        return cls(status, json_loads(data, object_hook=JSONHydrant.json_to_packstream))
+        try:
+            content = json_loads(data, object_hook=JSONHydrant.json_to_packstream)
+        except ValueError as error:
+            raise_from(ProtocolError("Cannot decode response content as JSON"), error)
+        else:
+            return cls(status, content)
 
     def __init__(self, status, content):
         self._status = status
