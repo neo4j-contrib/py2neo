@@ -77,7 +77,6 @@ A comprehensive set of graph structure data types and operations are provided, a
     matching
     data/index
     data/spatial
-    data/operations
     bulk/index
 
 

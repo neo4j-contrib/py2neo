@@ -18,22 +18,18 @@
 
 from __future__ import absolute_import
 
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict
 from itertools import chain
 from uuid import uuid4
 
-from py2neo.collections import is_collection, SetView, PropertyDict
-from py2neo.compat import integer_types, string_types, ustr, xstr
-from py2neo.cypher import cypher_repr
+from py2neo.collections import SetView, PropertyDict
+from py2neo.compat import string_types, ustr, xstr
+from py2neo.cypher import cypher_escape, cypher_repr, cypher_join
 from py2neo.cypher.encoding import CypherEncoder, LabelSetView
-from py2neo.data.operations import (
-    create_subgraph,
-    merge_subgraph,
-    delete_subgraph,
-    separate_subgraph,
-    pull_subgraph,
-    push_subgraph,
-    subgraph_exists,
+from py2neo.cypher.queries import (
+    unwind_create_nodes_query,
+    unwind_merge_nodes_query,
+    unwind_merge_relationships_query,
 )
 
 
@@ -148,25 +144,224 @@ class Subgraph(object):
         return Subgraph(n, r)
 
     def __db_create__(self, tx):
-        create_subgraph(tx, self)
+        """ Create new data in a remote :class:`.Graph` from this
+        :class:`.Subgraph`.
+
+        :param tx:
+        """
+        graph = tx.graph
+
+        # Convert nodes into a dictionary of
+        #   {frozenset(labels): [Node, Node, ...]}
+        node_dict = {}
+        for node in self.nodes:
+            if node.graph is None:
+                key = frozenset(node.labels)
+                node_dict.setdefault(key, []).append(node)
+
+        # Convert relationships into a dictionary of
+        #   {rel_type: [Rel, Rel, ...]}
+        rel_dict = {}
+        for relationship in self.relationships:
+            if relationship.graph is None:
+                key = type(relationship).__name__
+                rel_dict.setdefault(key, []).append(relationship)
+
+        for labels, nodes in node_dict.items():
+            pq = unwind_create_nodes_query(list(map(dict, nodes)), labels=labels)
+            pq = cypher_join(pq, "RETURN id(_)")
+            records = tx.run(*pq)
+            for i, record in enumerate(records):
+                node = nodes[i]
+                node.graph = graph
+                node.identity = record[0]
+                node._remote_labels = labels
+        for r_type, relationships in rel_dict.items():
+            data = map(lambda r: [r.start_node.identity, dict(r), r.end_node.identity],
+                       relationships)
+            pq = unwind_merge_relationships_query(data, r_type)
+            pq = cypher_join(pq, "RETURN id(_)")
+            for i, record in enumerate(tx.run(*pq)):
+                relationship = relationships[i]
+                relationship.graph = graph
+                relationship.identity = record[0]
 
     def __db_delete__(self, tx):
-        delete_subgraph(tx, self)
+        """ Delete data in a remote :class:`.Graph` based on this
+        :class:`.Subgraph`.
+
+        :param tx:
+        """
+        graph = tx.graph
+        node_identities = []
+        for relationship in self.relationships:
+            if relationship.graph is graph:
+                relationship.graph = None
+                relationship.identity = None
+        for node in self.nodes:
+            if node.graph is graph:
+                node_identities.append(node.identity)
+                node.graph = None
+                node.identity = None
+        # TODO: this might delete remote relationships that aren't
+        #  represented in the local subgraph - is this OK?
+        list(tx.run("MATCH (_) WHERE id(_) IN $x DETACH DELETE _", x=node_identities))
 
     def __db_exists__(self, tx):
-        return subgraph_exists(tx, self)
+        """ Determine whether one or more graph entities all exist
+        within the database. Note that if any nodes or relationships in
+        this :class:`.Subgraph` are not bound to remote counterparts,
+        this method will return ``False``.
+
+        :param tx:
+        :returns: ``True`` if all entities exist remotely, ``False``
+            otherwise
+        """
+        graph = tx.graph
+        node_ids = set()
+        relationship_ids = set()
+        for i, node in enumerate(self.nodes):
+            if node.graph is graph:
+                node_ids.add(node.identity)
+            else:
+                return False
+        for i, relationship in enumerate(self.relationships):
+            if relationship.graph is graph:
+                relationship_ids.add(relationship.identity)
+            else:
+                return False
+        statement = ("OPTIONAL MATCH (a) WHERE id(a) IN $x "
+                     "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN $y "
+                     "RETURN count(DISTINCT a) + count(DISTINCT r)")
+        parameters = {"x": list(node_ids), "y": list(relationship_ids)}
+        return tx.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
-        merge_subgraph(tx, self, primary_label, primary_key)
+        """ Merge data into a remote :class:`.Graph` from this
+        :class:`.Subgraph`.
+
+        :param tx:
+        :param primary_label:
+        :param primary_key:
+        """
+        graph = tx.graph
+
+        # Convert nodes into a dictionary of
+        #   {(p_label, p_key, frozenset(labels)): [Node, Node, ...]}
+        node_dict = {}
+        for node in self.nodes:
+            if node.graph is None:
+                p_label = getattr(node, "__primarylabel__", None) or primary_label
+                p_key = getattr(node, "__primarykey__", None) or primary_key
+                key = (p_label, p_key, frozenset(node.labels))
+                node_dict.setdefault(key, []).append(node)
+
+        # Convert relationships into a dictionary of
+        #   {rel_type: [Rel, Rel, ...]}
+        rel_dict = {}
+        for relationship in self.relationships:
+            if relationship.graph is None:
+                key = type(relationship).__name__
+                rel_dict.setdefault(key, []).append(relationship)
+
+        for (pl, pk, labels), nodes in node_dict.items():
+            if pl is None or pk is None:
+                raise ValueError("Primary label and primary key are required for MERGE operation")
+            pq = unwind_merge_nodes_query(map(dict, nodes), (pl, pk), labels)
+            pq = cypher_join(pq, "RETURN id(_)")
+            identities = [record[0] for record in tx.run(*pq)]
+            if len(identities) > len(nodes):
+                raise UniquenessError("Found %d matching nodes for primary label %r and primary "
+                                      "key %r with labels %r but merging requires no more than "
+                                      "one" % (len(identities), pl, pk, set(labels)))
+            for i, identity in enumerate(identities):
+                node = nodes[i]
+                node.graph = graph
+                node.identity = identity
+                node._remote_labels = labels
+        for r_type, relationships in rel_dict.items():
+            data = map(lambda r: [r.start_node.identity, dict(r), r.end_node.identity],
+                       relationships)
+            pq = unwind_merge_relationships_query(data, r_type)
+            pq = cypher_join(pq, "RETURN id(_)")
+            for i, record in enumerate(tx.run(*pq)):
+                relationship = relationships[i]
+                relationship.graph = graph
+                relationship.identity = record[0]
 
     def __db_pull__(self, tx):
-        pull_subgraph(tx, self)
+        """ Copy data from a remote :class:`.Graph` into this
+        :class:`.Subgraph`.
+
+        :param tx:
+        """
+        # Pull nodes
+        nodes = {}
+        for node in self.nodes:
+            if node.graph != tx.graph:
+                raise ValueError("Node %r does not belong to graph %r" % (node, tx.graph))
+            nodes[node.identity] = node
+        query = tx.run("MATCH (_) WHERE id(_) in $x "
+                       "RETURN id(_), labels(_), properties(_)", x=list(nodes.keys()))
+        for identity, new_labels, new_properties in query:
+            node = nodes[identity]
+            node.clear_labels()
+            node.update_labels(new_labels)
+            node.clear()
+            node.update(new_properties)
+        # Pull relationships
+        relationships = {}
+        for relationship in self.relationships:
+            if relationship.graph != tx.graph:
+                raise ValueError(
+                    "Relationship %r does not belong to graph %r" % (relationship, tx.graph))
+            relationships[relationship.identity] = relationship
+        query = tx.run("MATCH ()-[_]->() WHERE id(_) in $x "
+                       "RETURN id(_), properties(_)", x=list(relationships.keys()))
+        for identity, new_properties in query:
+            relationship = relationships[identity]
+            relationship.clear()
+            relationship.update(new_properties)
 
     def __db_push__(self, tx):
-        push_subgraph(tx, self)
+        """ Copy data into a remote :class:`.Graph` from this
+        :class:`.Subgraph`.
+
+        :param tx:
+        """
+        graph = tx.graph
+        for node in self.nodes:
+            if node.graph is graph:
+                clauses = ["MATCH (_) WHERE id(_) = $x", "SET _ = $y"]
+                parameters = {"x": node.identity, "y": dict(node)}
+                old_labels = node._remote_labels - node._labels
+                if old_labels:
+                    clauses.append("REMOVE _:%s" % ":".join(map(cypher_escape, old_labels)))
+                new_labels = node._labels - node._remote_labels
+                if new_labels:
+                    clauses.append("SET _:%s" % ":".join(map(cypher_escape, new_labels)))
+                tx.run("\n".join(clauses), parameters)
+        for relationship in self.relationships:
+            if relationship.graph is graph:
+                clauses = ["MATCH ()-[_]->() WHERE id(_) = $x", "SET _ = $y"]
+                parameters = {"x": relationship.identity, "y": dict(relationship)}
+                tx.run("\n".join(clauses), parameters)
 
     def __db_separate__(self, tx):
-        separate_subgraph(tx, self)
+        """ Delete relationships in a remote :class:`.Graph` based on
+        those present in this :class:`.Subgraph`.
+
+        :param tx:
+        :return:
+        """
+        graph = tx.graph
+        relationship_identities = []
+        for relationship in self.relationships:
+            if relationship.graph is graph:
+                relationship_identities.append(relationship.identity)
+                relationship.graph = None
+                relationship.identity = None
+        list(tx.run("MATCH ()-[_]->() WHERE id(_) IN $x DELETE _", x=relationship_identities))
 
     @property
     def graph(self):
@@ -749,3 +944,10 @@ class Path(Walkable):
 
 
 walk = Path.walk
+
+
+# TODO: find a better home for this class
+class UniquenessError(Exception):
+    """ Raised when a condition assumed to be unique is determined
+    non-unique.
+    """
