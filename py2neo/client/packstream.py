@@ -87,7 +87,7 @@ def pack_into(buffer, *values, **kwargs):
 
     :param buffer:
     :param values:
-    :param version
+    :param kwargs:
     :return:
     """
     from datetime import date, time, datetime, timedelta
