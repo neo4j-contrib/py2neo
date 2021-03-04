@@ -972,8 +972,10 @@ class BoltResult(ItemizedTask, Result):
         return self.header().metadata.get("fields")
 
     def summary(self):
-        return dict(self._items[-1].metadata,
-                    connection=dict(self.__cx.profile))
+        d = {"connection": self.__cx.profile.to_dict()}
+        for item in self.items():
+            d.update(item.metadata)
+        return d
 
     def fetch(self):
         return self.__cx.fetch(self)
