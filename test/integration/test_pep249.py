@@ -16,10 +16,14 @@
 # limitations under the License.
 
 
+from datetime import date, time, datetime
+
 from pytest import mark, fixture, raises
 
+from py2neo import Neo4jError
 from py2neo.client import Connection as _Connection
-from py2neo.pep249 import connect, OperationalError, ProgrammingError
+from py2neo.pep249 import connect, OperationalError, ProgrammingError, \
+    DateFromTicks, TimeFromTicks, TimestampFromTicks
 
 
 class BrokenConnection(_Connection):
@@ -48,6 +52,44 @@ class BrokenConnection(_Connection):
         return 0
 
 
+class DodgyConnection(_Connection):
+
+    def __init__(self):
+        super(DodgyConnection, self).__init__(None, None)
+
+    @property
+    def closed(self):
+        return False
+
+    @property
+    def broken(self):
+        return False
+
+    @property
+    def local_port(self):
+        return 0
+
+    @property
+    def bytes_sent(self):
+        return 0
+
+    @property
+    def bytes_received(self):
+        return 0
+
+    def begin(self, *args, **kwargs):
+        raise Neo4jError.hydrate({"code": "Neo.DatabaseError.General.UnknownError",
+                                  "description": "A fake error has occurred"})
+
+    def commit(self, tx):
+        raise Neo4jError.hydrate({"code": "Neo.DatabaseError.General.UnknownError",
+                                  "description": "A fake error has occurred"})
+
+    def rollback(self, tx):
+        raise Neo4jError.hydrate({"code": "Neo.DatabaseError.General.UnknownError",
+                                  "description": "A fake error has occurred"})
+
+
 @fixture(scope="function")
 def clean_db(request):
     request.cls.con = con = connect()
@@ -66,8 +108,25 @@ def cursor_1_to_10(request, clean_db):
     cursor.close()
 
 
+def test_date_from_ticks():
+    assert isinstance(DateFromTicks(0), date)
+
+
+def test_time_from_ticks():
+    assert isinstance(TimeFromTicks(0), time)
+
+
+def test_timestamp_from_ticks():
+    assert isinstance(TimestampFromTicks(0), datetime)
+
+
 @mark.usefixtures("clean_db")
 class TestConnection(object):
+
+    def test_begin_with_error(self):
+        self.con._cx = DodgyConnection()
+        with raises(OperationalError):
+            self.con.begin()
 
     def test_commit(self):
         self.con.execute("CREATE ()")
@@ -87,6 +146,12 @@ class TestConnection(object):
 
     def test_commit_after_break(self):
         self.con._cx = BrokenConnection()
+        with raises(OperationalError):
+            self.con.commit()
+
+    def test_commit_with_error(self):
+        self.con.execute("CREATE ()")
+        self.con._cx = DodgyConnection()
         with raises(OperationalError):
             self.con.commit()
 
@@ -115,6 +180,12 @@ class TestConnection(object):
 
     def test_rollback_after_break(self):
         self.con._cx = BrokenConnection()
+        with raises(OperationalError):
+            self.con.rollback()
+
+    def test_rollback_with_error(self):
+        self.con.execute("CREATE ()")
+        self.con._cx = DodgyConnection()
         with raises(OperationalError):
             self.con.rollback()
 
@@ -187,6 +258,12 @@ class TestConnection(object):
     def test_connection_failure(self):
         with raises(OperationalError):
             _ = connect("bolt://no.such.server:666")
+
+    def test_bad_query(self):
+        from pansi.console import watch
+        watch("py2neo")
+        with raises(OperationalError):
+            self.con.execute("X")
 
 
 @mark.usefixtures("cursor_1_to_10")
@@ -433,3 +510,7 @@ class TestCursor(object):
 
     def test_setoutputsize(self):
         self.cur.setoutputsize(10)
+
+    def test_bad_query(self):
+        with raises(OperationalError):
+            self.cur.execute("X")
