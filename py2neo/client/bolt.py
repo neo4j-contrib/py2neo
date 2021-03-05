@@ -19,9 +19,9 @@
 """
 This module contains client implementations for the Bolt messaging
 protocol. It contains a base :class:`.Bolt` class, which is a type of
-:class:`.Connection`, and which is further extended by a separate class
-for each protocol version. :class:`.Bolt1` extends :class:`.Bolt`,
-:class:`.Bolt2` extends :class:`.Bolt1`, and so on.
+:class:`~py2neo.client.Connection`, and which is further extended by a
+separate class for each protocol version. :class:`.Bolt1` extends
+:class:`.Bolt`, :class:`.Bolt2` extends :class:`.Bolt1`, and so on.
 
 Each subclass therefore introduces deltas atop the previous protocol
 version. This reduces duplication of client code at the expense of more
@@ -972,8 +972,10 @@ class BoltResult(ItemizedTask, Result):
         return self.header().metadata.get("fields")
 
     def summary(self):
-        return dict(self._items[-1].metadata,
-                    connection=dict(self.__cx.profile))
+        d = {"connection": self.__cx.profile.to_dict()}
+        for item in self.items():
+            d.update(item.metadata)
+        return d
 
     def fetch(self):
         return self.__cx.fetch(self)

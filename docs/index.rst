@@ -78,6 +78,7 @@ A comprehensive set of graph structure data types and operations are provided, a
     data/index
     data/spatial
     bulk/index
+    pep249/index
 
 
 Object-Graph Mapping

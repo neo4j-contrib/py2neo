@@ -443,9 +443,10 @@ class Graph(object):
             --------------|------------|-----------
              Neo4j Kernel | ['3.5.12'] | community
 
-        The object returned from the call is a :class:`.Cursor` object,
-        identical to that obtained from running a normal Cypher query,
-        and can therefore be consumed in a similar way.
+        The object returned from the call is a
+        :class:`~py2neo.database.work.Cursor` object, identical to
+        that obtained from running a normal Cypher query, and can
+        therefore be consumed in a similar way.
 
         Procedure names can alternatively be supplied as a string::
 

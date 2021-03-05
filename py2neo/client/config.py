@@ -435,3 +435,16 @@ class ConnectionProfile(Mapping):
         parser = ConfigParser()
         parser.read(filenames)
         return cls.from_config_parser(parser, section, prefix)
+
+    def to_dict(self, include_password=False):
+        """ Convert this profile to a dictionary, optionally including
+        password information.
+
+        :param include_password: if True then include the password in
+            the return value, otherwise omit this information (default)
+        """
+        if include_password:
+            return dict(self)
+        else:
+            return {key: value for key, value in self.items()
+                    if key not in ("auth", "password")}
