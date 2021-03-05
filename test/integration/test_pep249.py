@@ -255,6 +255,11 @@ class TestConnection(object):
         self.con._cx = BrokenConnection()
         self.con.close()
 
+    def test_close_after_execute_with_error(self):
+        self.con.execute("CREATE ()")
+        self.con._cx = DodgyConnection()
+        self.con.close()
+
     def test_connection_failure(self):
         with raises(OperationalError):
             _ = connect("bolt://no.such.server:666")

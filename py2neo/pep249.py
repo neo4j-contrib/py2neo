@@ -265,17 +265,23 @@ class Connection(object):
         cursor.executemany(query, seq_of_parameters)
 
     def close(self):
-        """ Close the connection now.
+        """ Close the connection immediately.
 
-        The connection will be unusable from this point forward; an
-        :class:`.Error` exception will be raised if any operation is
-        attempted with the connection. The same applies to all cursor
-        objects trying to use the connection. Note that closing a
-        connection without committing the changes first will cause an
-        implicit rollback to be performed.
+        The connection will be unusable from this point forward; a
+        :class:`.ProgrammingError` exception will be raised if any
+        operation is attempted with the connection. The same applies to
+        all cursor objects trying to use the connection. Note that
+        closing a connection without committing the changes first will
+        cause an implicit rollback to be performed.
         """
         if self._cx is not None and not self._cx.closed and not self._cx.broken:
-            self.rollback()
+            if self._tx is not None:
+                try:
+                    self._cx.rollback(self._tx)
+                except Neo4jError:
+                    pass
+                finally:
+                    self._tx = None
             self._cx.close()
             self._cx = None
 
@@ -337,7 +343,7 @@ class Cursor(object):
         return self._result.summary()
 
     def close(self):
-        """ Close the cursor.
+        """ Close the cursor immediately.
         """
         if not self._closed:
             if self._result is not None:
@@ -346,6 +352,9 @@ class Cursor(object):
 
     def execute(self, query, parameters=None):
         """ Execute a query.
+
+        :raises ProgrammingError: if the cursor or the connection is closed
+        :raises OperationalError: if the connection is broken
         """
         self.__check__()
         if self._result is not None:
@@ -356,16 +365,21 @@ class Cursor(object):
         return self
 
     def executemany(self, query, seq_of_parameters):
-        """ Execute query multiple times with different parameters sets.
+        """ Execute query multiple times with different parameter sets.
+
+        :raises ProgrammingError: if the cursor or the connection is closed
+        :raises OperationalError: if the connection is broken
         """
         self.__check__()
         for parameters in seq_of_parameters:
             self.execute(query, parameters)
 
     def fetchone(self):
-        """
+        """ Fetch the next record, if available.
 
-        :return:
+        :returns: record tuple or :py:const:`None`
+        :raises ProgrammingError: if the cursor or the connection is closed
+        :raises OperationalError: if the connection is broken
         """
         self.__check__()
         if self._result is None:
@@ -376,10 +390,12 @@ class Cursor(object):
         return tuple(record)
 
     def fetchmany(self, size=None):
-        """
+        """ Fetch up to `size` records.
 
         :param size:
-        :return:
+        :returns: list of record tuples
+        :raises ProgrammingError: if the cursor or the connection is closed
+        :raises OperationalError: if the connection is broken
         """
         self.__check__()
         if self._result is None:
@@ -395,9 +411,11 @@ class Cursor(object):
         return records
 
     def fetchall(self):
-        """
+        """ Fetch all remaining records.
 
-        :return:
+        :returns: list of record tuples
+        :raises ProgrammingError: if the cursor or the connection is closed
+        :raises OperationalError: if the connection is broken
         """
         self.__check__()
         if self._result is None:
@@ -411,19 +429,10 @@ class Cursor(object):
         return records
 
     def setinputsizes(self, sizes):
-        """
-
-        :param sizes:
-        :return:
-        """
+        pass
 
     def setoutputsize(self, size, column=None):
-        """
-
-        :param size:
-        :param column:
-        :return:
-        """
+        pass
 
 
 def connect(profile=None, **settings):
