@@ -116,7 +116,7 @@ with Release():
             "packaging",
             "pansi>=2020.7.3",
             "prompt_toolkit~=2.0.7; python_version < '3.6'",
-            "prompt_toolkit~=3.0.0; python_version >= '3.6'",
+            "prompt_toolkit>=2.0.7; python_version >= '3.6'",
             "pygments>=2.0.0",
             "pytz",
             "six>=1.15.0",
