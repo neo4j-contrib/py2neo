@@ -155,20 +155,9 @@ class Transaction(object):
     """ Logical context for one or more graph operations.
 
     Transaction objects are typically constructed by the
-    :meth:`.Graph.auto` and :meth:`.Graph.begin` methods. User
-    applications should not generally need to create these objects
-    directly.
-
-    Each transaction has a lifetime which ends by a call to either
-    :meth:`.commit` or :meth:`.rollback`. In the case of an error, the
-    server can also prematurely end transactions. The
-    :meth:`.finished` method can be used to determine whether or not
-    any of these cases have occurred.
-
-    The :meth:`.run` and :meth:`.evaluate` methods are used to execute
-    Cypher queries within the transactional context. The remaining
-    methods operate on :class:`.Subgraph` objects, including
-    derivatives such as :class:`.Node` and :class:`.Relationship`.
+    :meth:`.Graph.auto` and :meth:`.Graph.begin` methods.
+    Likewise, the :meth:`.Graph.commit` and :meth:`.Graph.rollback`
+    methods can be used to finish a transaction.
     """
 
     _finished = False
@@ -198,10 +187,15 @@ class Transaction(object):
 
     @property
     def graph(self):
+        """ :class:`.Graph` to which this transaction is bound.
+        """
         return self._tx_manager.graph
 
     @property
     def readonly(self):
+        """ :py:const:`True` if this is a readonly transaction,
+        :py:const:`False` otherwise.
+        """
         return self._readonly
 
     def run(self, cypher, parameters=None, **kwparameters):
@@ -230,7 +224,7 @@ class Transaction(object):
                 self._finished = True
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement and return the value from
+        """ Execute a single Cypher query and return the value from
         the first column of the first record.
 
         :param cypher: Cypher statement
