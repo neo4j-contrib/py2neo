@@ -128,10 +128,16 @@ class TestProfile(object):
 # TODO: test with full certificates
 if QUICK_TEST:
     neo4j_service_profiles = [
-        ServiceProfile(release=(4, 0), topology="CE", schemes=["bolt"]),
+        ServiceProfile(release=(4, 2), topology="CE", schemes=["bolt"]),
     ]
 else:
     neo4j_service_profiles = [
+        ServiceProfile(release=(4, 2), topology="CE", schemes=UNSECURED_SCHEMES),
+        ServiceProfile(release=(4, 2), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+        # ServiceProfile(release=(4, 2), topology="CE", cert="full", schemes=ALL_SCHEMES),
+        ServiceProfile(release=(4, 1), topology="CE", schemes=UNSECURED_SCHEMES),
+        ServiceProfile(release=(4, 1), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+        # ServiceProfile(release=(4, 1), topology="CE", cert="full", schemes=ALL_SCHEMES),
         ServiceProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
         ServiceProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
         # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),

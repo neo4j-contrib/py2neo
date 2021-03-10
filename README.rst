@@ -71,14 +71,14 @@ Requirements
    :target: https://www.python.org/
    :alt: Python versions
 
-.. image:: https://img.shields.io/badge/neo4j-3.4%20%7C%203.5%20%7C%204.0%20%7C%204.1-blue.svg
+.. image:: https://img.shields.io/badge/neo4j-3.4%20%7C%203.5%20%7C%204.0%20%7C%204.1%20%7C%204.2%20%7C%204.3-blue.svg
    :target: https://neo4j.com/
    :alt: Neo4j versions
 
 The following versions of Python and Neo4j (all editions) are supported:
 
 - Python 2.7 / 3.4 / 3.5 / 3.6 / 3.7 / 3.8 / 3.9
-- Neo4j 3.4 / 3.5 / 4.0 / 4.1 (the latest point release of each version is recommended)
+- Neo4j 3.4 / 3.5 / 4.0 / 4.1 / 4.2 / 4.3 (the latest point release of each version is recommended)
 
 Py2neo provides support for the multi-database functionality added in Neo4j 4.0.
 More about this can be found in the documentation for the ``Graph`` class.

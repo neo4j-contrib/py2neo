@@ -194,10 +194,6 @@ class Bolt(Connection):
         return PackStreamHydrant(graph)
 
     @classmethod
-    def protocol_catalogue(cls):
-        return [bolt.protocol_version for bolt in Bolt._walk_subclasses()]
-
-    @classmethod
     def open(cls, profile=None, user_agent=None, on_bind=None, on_unbind=None,
              on_release=None, on_broken=None):
         """ Open a Bolt connection to a server.
@@ -245,16 +241,15 @@ class Bolt(Connection):
         local_port = wire.local_address.port_number
         log.debug("[#%04X] C: <BOLT>", local_port)
         wire.write(b"\x60\x60\xB0\x17")
-        versions = list(reversed(cls.protocol_catalogue()))[:4]
-        log.debug("[#%04X] C: <PROTOCOL> %s",
-                  local_port, " | ".join("%d.%d" % v for v in versions))
-        wire.write(b"".join(bytes(bytearray([0, 0, minor, major]))
-                            for major, minor in versions).ljust(16, b"\x00"))
+        log.debug("[#%04X] C: <PROTOCOL> 4.3-4.0 | 4.0 | 3.0 | 2.0", local_port)
+        wire.write(b"\x00\x03\x03\x04"      # Neo4j 4.3.x and Neo4j 4.2, 4.1, 4.0 (patched)
+                   b"\x00\x00\x00\x04"      # Neo4j 4.2, 4.1, 4.0 (unpatched)
+                   b"\x00\x00\x00\x03"      # Neo4j 3.5.x
+                   b"\x00\x00\x00\x02")     # Neo4j 3.4.x
         wire.send()
         v = bytearray(wire.read(4))
         if v == bytearray([0, 0, 0, 0]):
-            raise TypeError("Unable to negotiate compatible "
-                            "protocol version from {!r}".format(versions))
+            raise TypeError("Unable to negotiate compatible protocol version")
         log.debug("[#%04X] S: <PROTOCOL> %d.%d", local_port, v[-1], v[-2])
         return v[-1], v[-2]
 
@@ -808,9 +803,14 @@ class Bolt4x1(Bolt4x0):
     protocol_version = (4, 1)
 
 
-# class Bolt4x2(Bolt4x1):
-#
-#     protocol_version = (4, 2)
+class Bolt4x2(Bolt4x1):
+
+    protocol_version = (4, 2)
+
+
+class Bolt4x3(Bolt4x2):
+
+    protocol_version = (4, 3)
 
 
 class Task(object):
