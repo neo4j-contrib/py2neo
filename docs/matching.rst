@@ -139,3 +139,40 @@ As with raw Cypher queries, ordering and limiting can also be applied::
     [Node('Person', born=1964, name='Keanu Reeves'),
      Node('Person', born=1957, name='Kelly McGillis'),
      Node('Person', born=1962, name='Kelly Preston')]
+
+
+Raw Cypher queries
+===================
+
+Can be used in a similar way to the bolt driver. Parameters can only be sent via a dict. The returning data must match the class and use the underscore variable. Don't include the RETURN clause::
+
+    
+    >>> nodes.match("Person").raw_query("""Match (m:Movie)<-[:ACTED_IN]-(_:Person)
+        WHERE m.title IN $movie_titles""", {"movie_titles":["Top Gun","Jerry Maguire"]})
+    [Node('Person', born=1962, name='Tom Cruise'), 
+     Node('Person', born=1957, name='Kelly McGillis'), 
+     Node('Person', born=1961, name='Meg Ryan'), 
+     Node('Person', born=1959, name='Val Kilmer'), 
+     Node('Person', born=1962, name='Anthony Edwards'), 
+     Node('Person', born=1933, name='Tom Skerritt'), 
+     Node('Person', born=1974, name="Jerry O'Connell"), 
+     Node('Person', born=1961, name='Bonnie Hunt'), 
+     Node('Person', born=1968, name='Cuba Gooding Jr.'), 
+     Node('Person', born=1962, name='Tom Cruise'), 
+     Node('Person', born=1970, name='Jay Mohr'), 
+     Node('Person', born=1996, name='Jonathan Lipnicki'), 
+     Node('Person', born=1971, name='Regina King'), 
+     Node('Person', born=1962, name='Kelly Preston'), 
+     Node('Person', born=1969, name='Renee Zellweger')]
+
+
+    >>> nodes.match("Person").raw_query("""Match (m:Movie)<-[:ACTED_IN]-(_:Person)-[:ACTED_IN]->(n:Movie)
+        WHERE m.title = $movie1 AND n.title = $movie2""", {"movie1":"Top Gun", "movie2":"Jerry Maguire"})
+    [Node('Person', born=1962, name='Tom Cruise')]
+
+*Helpful hint. If your query needs you to use a return statement, try the CALL clause*
+    
+    >>> Person.raw_query("""CALL {
+        MATCH (_:Person) RETURN _ ORDER BY _.born ASC LIMIT 1
+        }""")
+    [Node('Person', born=1929, name='Max von Sydow')]

@@ -584,3 +584,20 @@ def test_property_default(movie_repo):
 
     # then
     assert film.tag_line == "Bit boring"
+
+def test_raw_query_returns_actors_of_either_film(movie_repo):
+    actors = Person.match(movie_repo).raw_query("""Match (m:Movie)<-[:ACTED_IN]-(_:Person)
+        WHERE m.title IN $movie_titles""", {"movie_titles":["Top Gun","Jerry Maguire"]})
+    
+    assert len(actors) == 15
+
+    for actor in actors:
+        if actor.name == "Regina King":
+            return
+    assert 0, "Regina King was not found"
+
+def test_raw_query_returns_actors_of_both_films(movie_repo):
+    actor = Person.match(movie_repo).raw_query("""Match (m:Movie)<-[:ACTED_IN]-(_:Person)-[:ACTED_IN]->(n:Movie)
+        WHERE m.title = $movie1 AND n.title = $movie2""", {"movie1":"Top Gun", "movie2":"Jerry Maguire"})
+    
+    assert actor[0].name == "Tom Cruise"
