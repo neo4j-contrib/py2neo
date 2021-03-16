@@ -1026,8 +1026,6 @@ class Table(list):
                 k = records.keys()
             except AttributeError:
                 raise ValueError("Missing keys")
-        if not k:
-            raise ValueError("Missing keys")
         width = len(k)
         t = [set() for _ in range(width)]
         o = [False] * width
