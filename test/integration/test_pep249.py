@@ -265,8 +265,6 @@ class TestConnection(object):
             _ = connect("bolt://no.such.server:666")
 
     def test_bad_query(self):
-        from pansi.console import watch
-        watch("py2neo")
         with raises(OperationalError):
             self.con.execute("X")
 
