@@ -216,7 +216,7 @@ class Connection(object):
         cypher = "CALL " + procedure
         try:
             if tx is None:
-                result = self.run_prog(None, cypher)
+                result = self.auto_run(None, cypher)
             else:
                 result = self.run_query(tx, cypher)
             self.pull(result)
@@ -247,7 +247,7 @@ class Connection(object):
     def reset(self, force=False):
         pass
 
-    def run_prog(self, graph_name, cypher, parameters=None, readonly=False,
+    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a single query within an auto-commit transaction. This
@@ -1250,7 +1250,7 @@ class Connector(object):
                     "profile": cx.profile,
                     "time": tx.age}
 
-    def run_prog(self, graph_name, cypher, parameters=None, readonly=False,
+    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a Cypher query within a new auto-commit transaction.
@@ -1266,7 +1266,7 @@ class Connector(object):
         """
         cx = self._acquire_new(graph_name, readonly)
         try:
-            result = cx.run_prog(graph_name, cypher, parameters, readonly=readonly)
+            result = cx.auto_run(graph_name, cypher, parameters, readonly=readonly)
             cx.pull(result)
             cx.sync(result)
         except (ConnectionUnavailable, ConnectionBroken):
@@ -1306,7 +1306,7 @@ class Connector(object):
         if self.supports_multi():
             cx = self._acquire_new("system", readonly=True)
             try:
-                result = cx.run_prog("system", "SHOW DATABASES")
+                result = cx.auto_run("system", "SHOW DATABASES")
                 cx.pull(result)
                 cx.sync(result)
                 return result

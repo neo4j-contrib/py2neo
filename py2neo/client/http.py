@@ -173,7 +173,7 @@ class HTTP(Connection):
     def fast_forward(self, bookmark):
         raise NotImplementedError("Bookmarking is not yet supported over HTTP")
 
-    def run_prog(self, graph_name, cypher, parameters=None, readonly=False,
+    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         if graph_name and not self.supports_multi():

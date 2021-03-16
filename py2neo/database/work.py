@@ -230,7 +230,7 @@ class Transaction(object):
             if self._tx_ref:
                 result = self._connector.run_query(self._tx_ref, cypher, parameters)
             else:
-                result = self._connector.run_prog(self.graph.name, cypher, parameters,
+                result = self._connector.auto_run(self.graph.name, cypher, parameters,
                                                   readonly=self.readonly)
             return Cursor(result, hydrant)
         finally:
