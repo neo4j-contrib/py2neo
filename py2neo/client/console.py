@@ -169,6 +169,12 @@ class ClientConsole(Console):
         self.tx = None
         self.qid = 0
 
+    def __del__(self):
+        try:
+            self._Console__log.removeHandler(self._Console__handler)
+        except ValueError:
+            pass
+
     def process_all(self, lines, times=1):
         gap = False
         for _ in range(times):
@@ -410,3 +416,9 @@ class ClientConsole(Console):
                         pass
                 records.append((key, value))
         Table(records, ["key", "value"]).write(auto_align=False, padding=0, separator=u" = ")
+
+    def exit(self):
+        """ Exit the console.
+        """
+        super(ClientConsole, self).exit()
+        self._Console__log.removeHandler(self._Console__handler)

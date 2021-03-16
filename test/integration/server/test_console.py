@@ -38,6 +38,7 @@ def console(neo4j_service, captured):
     con.verbosity = 1
     con.service = neo4j_service
     yield con
+    con.exit()
 
 
 def test_console_env(console, caplog):

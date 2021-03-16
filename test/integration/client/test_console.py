@@ -50,7 +50,9 @@ class CapturedClientConsole(ClientConsole):
 
 @fixture()
 def console(uri):
-    return CapturedClientConsole(uri)
+    console = CapturedClientConsole(uri)
+    yield console
+    console.exit()
 
 
 def assert_prologue(console):

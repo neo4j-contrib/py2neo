@@ -61,6 +61,12 @@ class _CommandConsole(Console):
         self.add_command("help", self.help)
         self.add_command("exit", self.exit)
 
+    def __del__(self):
+        try:
+            self._Console__log.removeHandler(self._Console__handler)
+        except ValueError:
+            pass
+
     def add_command(self, name, f):
         parser = self.__command_parsers.add_parser(name, add_help=False)
         try:
@@ -158,6 +164,7 @@ class _CommandConsole(Console):
         """ Exit the console.
         """
         super(_CommandConsole, self).exit()
+        self._Console__log.removeHandler(self._Console__handler)
 
 
 class Neo4jConsole(_CommandConsole):
