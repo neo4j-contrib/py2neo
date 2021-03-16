@@ -30,11 +30,9 @@ from io import StringIO
 from operator import xor as xor_operator
 from warnings import warn
 
-from py2neo.client import Connection, ConnectionUnavailable, ConnectionBroken
 from py2neo.compat import Mapping, numeric_types, ustr, deprecated
 from py2neo.cypher import cypher_repr, cypher_str
 from py2neo.errors import Neo4jError
-from py2neo.timing import repeater
 
 
 class TransactionManager(object):
@@ -136,6 +134,8 @@ class TransactionManager(object):
         :raises TransactionFailed: if the unit of work does not
             successfully complete
         """
+        from py2neo.client import ConnectionUnavailable, ConnectionBroken
+        from py2neo.timing import repeater
         # TODO: logging
         if not callable(work):
             raise TypeError("Unit of work is not callable")
@@ -220,6 +220,7 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
+        from py2neo.client import Connection
         if self._finished:
             raise TypeError("Cannot run query in finished transaction")
 
