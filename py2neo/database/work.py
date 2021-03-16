@@ -499,7 +499,6 @@ class Cursor(object):
         self._fields = self._result.fields()
         self._hydrant = hydrant
         self._current = None
-        self._closed = False
 
     def __repr__(self):
         preview = self.preview(3)
@@ -531,12 +530,14 @@ class Cursor(object):
         """
         return self._current
 
+    @property
+    def closed(self):
+        return self._result.offline
+
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        if not self._closed:
-            self._result.buffer()   # force consumption of remaining data
-            self._closed = True
+        self._result.buffer()
 
     def keys(self):
         """ Return the field names for the records in the stream.
@@ -662,6 +663,7 @@ class Cursor(object):
             >>> g.run("MATCH (a) WHERE a.email=$x RETURN a.name", x="bob@acme.com").evaluate()
             'Bob Robertson'
         """
+        self._result.buffer()
         if self.forward():
             try:
                 return self[field]

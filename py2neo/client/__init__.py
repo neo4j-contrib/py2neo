@@ -1439,6 +1439,7 @@ class Result(object):
         """
         return None
 
+    @property
     def query_id(self):
         """ Return the ID of the query behind this result. This method
         may carry out network activity.
@@ -1448,6 +1449,10 @@ class Result(object):
             broken by an unexpected network event.
         """
         return None
+
+    @property
+    def offline(self):
+        raise NotImplementedError
 
     def buffer(self):
         """ Fetch the remainder of the result into memory. This method

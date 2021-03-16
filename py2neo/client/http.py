@@ -347,6 +347,10 @@ class HTTPResult(Result):
             self._summary["connection"] = profile.to_dict()
         self._cursor = 0
 
+    @property
+    def offline(self):
+        return True
+
     def buffer(self):
         pass
 

@@ -944,12 +944,16 @@ class BoltResult(ItemizedTask, Result):
         return self._items[-1].metadata.get("db", super(BoltResult, self).graph_name)
 
     @property
+    def protocol_version(self):
+        return self.__cx.protocol_version
+
+    @property
     def query_id(self):
         return self.header().metadata.get("qid")
 
     @property
-    def protocol_version(self):
-        return self.__cx.protocol_version
+    def offline(self):
+        return self.done() or self.__cx.closed or self.__cx.broken
 
     def buffer(self):
         if self.done():
