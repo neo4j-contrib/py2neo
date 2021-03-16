@@ -37,6 +37,9 @@ jobs:
     - name: Perform legal checks
       run: bin/check-legal
 
+    - name: Perform installation check
+      run: bin/check-install
+
     - name: Run tests
       run: bin/test -v -x
 
@@ -45,6 +48,3 @@ jobs:
       env:
         COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Perform installation check
-      run: bin/check-install
