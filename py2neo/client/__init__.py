@@ -23,11 +23,10 @@ from uuid import UUID, uuid4
 
 from monotonic import monotonic
 from packaging.version import Version
-from six import raise_from
 
-from py2neo import ClientError
 from py2neo.client.config import ConnectionProfile
 from py2neo.compat import string_types
+from py2neo.errors import Neo4jError
 from py2neo.timing import repeater
 from py2neo.wiring import Address
 
@@ -222,7 +221,7 @@ class Connection(object):
                 result = self.run_query(tx, cypher)
             self.pull(result)
             result.buffer()
-        except ClientError as error:
+        except Neo4jError as error:
             if error.title == "ProcedureNotFound":
                 raise TypeError("This Neo4j installation does not support the "
                                 "procedure %r" % procedure)
@@ -930,6 +929,16 @@ class Connector(object):
         else:
             return repr(graph_name)
 
+    def invalidate_routing_table(self, graph_name):
+        """ Invalidate the routing table for the given graph.
+        """
+        if self._routing_tables is None:
+            return
+        try:
+            del self._routing_tables[graph_name]
+        except KeyError:
+            pass
+
     def get_pools(self, graph_name=None, readonly=False):
         """ Obtain a list of connection pools for a particular
         graph database and read/write mode.
@@ -1293,9 +1302,6 @@ class Connector(object):
         return all(pool.supports_multi()
                    for pool in self._pools.values())
 
-    def supports_readonly_transactions(self):
-        return self.profile.protocol == "bolt"
-
     def _show_databases(self):
         if self.supports_multi():
             cx = self._acquire_new("system", readonly=True)
@@ -1522,22 +1528,6 @@ class Result(object):
         :returns: list of records
         """
         raise NotImplementedError
-
-
-class Failure(Exception):
-    # TODO: collapse Failure and Neo4jError into one class
-
-    def __init__(self, message, code):
-        super(Failure, self).__init__(message)
-        self.code = code
-        _, self.classification, self.category, self.title = self.code.split(".")
-
-    def __str__(self):
-        return "[%s] %s" % (self.code, super(Failure, self).__str__())
-
-    @property
-    def message(self):
-        return self.args[0]
 
 
 class ConnectionUnavailable(Exception):

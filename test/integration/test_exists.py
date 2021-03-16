@@ -21,5 +21,4 @@ from pytest import raises
 
 def test_cannot_check_existence_of_non_graphy_thing(graph):
     with raises(TypeError):
-        with graph.begin() as tx:
-            tx.exists("this string is definitely not graphy")
+        graph.exists("this string is definitely not graphy")

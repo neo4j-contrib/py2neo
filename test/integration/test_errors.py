@@ -18,16 +18,16 @@
 
 from pytest import raises, skip
 
-from py2neo import ClientError
+from py2neo import Neo4jError
 
 
 def test_can_generate_transaction_error(graph):
     tx = graph.begin()
-    with raises(ClientError) as e:
+    with raises(Neo4jError) as e:
         tx.run("X")
     assert e.value.code == "Neo.ClientError.Statement.SyntaxError"
     with raises(TypeError):
-        tx.commit()
+        graph.commit(tx)
 
 
 def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(graph):
@@ -41,10 +41,10 @@ def test_unique_path_not_unique_raises_cypher_transaction_error_in_transaction(g
     tx.run(statement, parameters)
     statement = ("MATCH (a) WHERE id(a)=$A MATCH (b) WHERE id(b)=$B "
                  "CREATE UNIQUE (a)-[:KNOWS]->(b)")
-    with raises(ClientError) as e:
+    with raises(Neo4jError) as e:
         tx.run(statement, parameters)
     if e.value.code == "Neo.ClientError.Statement.SyntaxError":
         skip("CREATE UNIQUE is not supported on this version of Neo4j")
     assert e.value.code == "Neo.ClientError.Statement.ConstraintVerificationFailed"
     with raises(TypeError):
-        tx.commit()
+        graph.commit(tx)

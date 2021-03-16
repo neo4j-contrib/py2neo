@@ -30,8 +30,11 @@ from io import StringIO
 from operator import xor as xor_operator
 from warnings import warn
 
-from py2neo.compat import Mapping, numeric_types, ustr, xstr, deprecated
+from py2neo.client import Connection, ConnectionUnavailable, ConnectionBroken
+from py2neo.compat import Mapping, numeric_types, ustr, deprecated
 from py2neo.cypher import cypher_repr, cypher_str
+from py2neo.errors import Neo4jError
+from py2neo.timing import repeater
 
 
 class TransactionManager(object):
@@ -75,6 +78,8 @@ class TransactionManager(object):
 
         :returns: :class:`.TransactionSummary` object
         """
+        if tx is None:
+            return
         if not isinstance(tx, Transaction):
             raise TypeError("Bad transaction %r" % tx)
         if tx._finished:
@@ -91,6 +96,8 @@ class TransactionManager(object):
 
         :returns: :class:`.TransactionSummary` object
         """
+        if tx is None:
+            return
         if not isinstance(tx, Transaction):
             raise TypeError("Bad transaction %r" % tx)
         if tx._finished:
@@ -101,8 +108,8 @@ class TransactionManager(object):
         finally:
             tx._finished = True
 
-    def play(self, work, args=None, kwargs=None, readonly=None,
-             # after=None, metadata=None, timeout=None
+    def play(self, work, args=None, kwargs=None, readonly=None, timeout=None
+             # after=None, metadata=None,
              ):
         """ Call a function representing a transactional unit of work.
 
@@ -123,32 +130,48 @@ class TransactionManager(object):
             pass into the function
         :param readonly: set to :py:const:`True` or :py:const:`False` to
             override the readonly attribute of the work function
+        :param timeout:
         :returns: list of :class:`.TransactionSummary` objects, one for
             each attempt made to execute the transaction
+        :raises TransactionFailed: if the unit of work does not
+            successfully complete
         """
+        # TODO: logging
         if not callable(work):
             raise TypeError("Unit of work is not callable")
         kwargs = dict(kwargs or {})
         if readonly is None:
             readonly = getattr(work, "readonly", False)
-        if readonly and not self._connector.supports_readonly_transactions():
-            raise TypeError("The underlying connection profile "
-                            "does not support readonly transactions")
-        # if not timeout:
-
-        #     timeout = getattr(work, "timeout", None)
-        tx = self.begin(readonly=readonly,
-                        # after=after, metadata=metadata, timeout=timeout
-                        )
-        try:
-            value = work(tx, *args or (), **kwargs or {})
-            if isgenerator(value):
-                _ = list(value)     # exhaust the generator
-        except Exception:  # TODO: catch transient and retry, if within limit
-            tx.rollback()
-            raise
-        else:
-            return [tx.commit()]
+        if not timeout:
+            timeout = getattr(work, "timeout", None)
+        summaries = []
+        for _ in repeater(at_least=3, timeout=timeout):
+            tx = None
+            try:
+                tx = self.begin(readonly=readonly,
+                                # after=after, metadata=metadata, timeout=timeout
+                                )
+                value = work(tx, *args or (), **kwargs or {})
+                if isgenerator(value):
+                    _ = list(value)     # exhaust the generator
+            except (ConnectionUnavailable, ConnectionBroken):
+                summaries.append(self.rollback(tx))
+                continue
+            except Neo4jError as error:
+                summaries.append(self.rollback(tx))
+                if error.should_invalidate_routing_table():
+                    self._connector.invalidate_routing_table(self.graph.name)
+                if error.should_retry():
+                    continue
+                else:
+                    raise
+            except Exception:
+                summaries.append(self.rollback(tx))
+                raise
+            else:
+                summaries.append(self.commit(tx))
+                return summaries
+        raise TransactionFailed("Failed after %r tries" % len(summaries), summaries)
 
 
 class Transaction(object):
@@ -176,15 +199,6 @@ class Transaction(object):
                                                  )
         self._readonly = readonly
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type is None:
-            self._tx_manager.commit(self)
-        else:
-            self._tx_manager.rollback(self)
-
     @property
     def graph(self):
         """ :class:`.Graph` to which this transaction is bound.
@@ -206,7 +220,6 @@ class Transaction(object):
         :param parameters: dictionary of parameters
         :returns: :py:class:`.Cursor` object
         """
-        from py2neo.client import Connection
         if self._finished:
             raise TypeError("Cannot run query in finished transaction")
 
@@ -284,6 +297,9 @@ class Transaction(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                     creatable object
         """
+        if self._autocommit:
+            raise TypeError("Create operations are not supported inside "
+                            "auto-commit transactions")
         try:
             create = subgraph.__db_create__
         except AttributeError:
@@ -420,6 +436,16 @@ class TransactionSummary(object):
         self.bookmark = bookmark
         self.profile = profile
         self.time = time
+
+
+class TransactionFailed(Exception):
+    """ Raised when a transactional unit of work cannot be successfully
+    completed.
+    """
+
+    def __init__(self, message, summaries):
+        super(TransactionFailed, self).__init__(message)
+        self.summaries = summaries
 
 
 class Cursor(object):
@@ -1364,75 +1390,3 @@ class CypherPlan(Mapping):
 
     def keys(self):
         return ["operator_type", "identifiers", "children", "args"]
-
-
-class Neo4jError(Exception):
-    """ Base exception for all errors signalled by Neo4j.
-    """
-
-    classification = None
-    category = None
-    title = None
-    code = None
-    message = None
-
-    @classmethod
-    def hydrate(cls, data):
-        try:
-            code = data["code"]
-            message = data["message"]
-        except KeyError:
-            classification = None
-            category = None
-            title = None
-            code = None
-            message = None
-        else:
-            _, classification, category, title = code.split(".")
-        if classification == "ClientError":
-            error_cls = ClientError
-        elif classification == "DatabaseError":
-            error_cls = DatabaseError
-        elif classification == "TransientError":
-            error_cls = TransientError
-        else:
-            error_cls = cls
-        error_text = message or "<Unknown>"
-        if category or title:
-            error_text = "[%s.%s] %s" % (category, title, error_text)
-        inst = error_cls(error_text)
-        inst.classification = classification
-        inst.category = category
-        inst.title = title
-        inst.code = code
-        inst.message = message
-        return inst
-
-    def __new__(cls, *args, **kwargs):
-        try:
-            exception = kwargs["exception"]
-            error_cls = type(xstr(exception), (cls,), {})
-        except KeyError:
-            error_cls = cls
-        return Exception.__new__(error_cls, *args)
-
-    def __init__(self, *args, **kwargs):
-        Exception.__init__(self, *args)
-        for key, value in kwargs.items():
-            setattr(self, key.lower(), value)
-
-
-class ClientError(Neo4jError):
-    """ The Client sent a bad request - changing the request might yield a successful outcome.
-    """
-
-
-class DatabaseError(Neo4jError):
-    """ The database failed to service the request.
-    """
-
-
-class TransientError(Neo4jError):
-    """ The database cannot service the request right now, retrying
-    later might yield a successful outcome.
-    """

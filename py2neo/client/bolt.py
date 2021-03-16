@@ -57,10 +57,11 @@ from struct import pack as struct_pack, unpack as struct_unpack
 
 from six import PY2, raise_from
 
-from py2neo.client import Connection, TransactionRef, Result, Failure, Bookmark, \
+from py2neo.client import Connection, TransactionRef, Result, Bookmark, \
     ConnectionUnavailable, ConnectionBroken, ProtocolError
 from py2neo.client.config import bolt_user_agent, ConnectionProfile
 from py2neo.client.packstream import pack_into, UnpackStream, PackStreamHydrant
+from py2neo.errors import Neo4jError
 from py2neo.wiring import Wire, WireError, BrokenWireError
 
 
@@ -413,9 +414,9 @@ class Bolt1(Bolt):
         else:
             try:
                 self._audit(self._transaction)
-            except Failure as failure:
+            except Neo4jError as error:
                 tx.mark_broken()
-                raise_from(ConnectionBroken("Failed to commit transaction"), failure)
+                raise_from(ConnectionBroken("Failed to commit transaction"), error)
             else:
                 return Bookmark()
         finally:
@@ -438,9 +439,9 @@ class Bolt1(Bolt):
         else:
             try:
                 self._audit(self._transaction)
-            except Failure as failure:
+            except Neo4jError as error:
                 tx.mark_broken()
-                raise_from(ConnectionBroken("Failed to rollback transaction"), failure)
+                raise_from(ConnectionBroken("Failed to rollback transaction"), error)
             else:
                 return Bookmark()
         finally:
@@ -481,9 +482,6 @@ class Bolt1(Bolt):
         return response
 
     def _get_routing_info(self, graph_name, query, parameters):
-        # This import is not ideal as it breaks abstraction layers,
-        # but it's necessary until the ROUTE message is available.
-        from py2neo import ClientError
         try:
             result = self.run_prog(graph_name, query, parameters)
             self.pull(result)
@@ -496,7 +494,7 @@ class Bolt1(Bolt):
                         addresses.get("READ", []),
                         addresses.get("WRITE", []),
                         ttl)
-        except ClientError as error:
+        except Neo4jError as error:
             if error.title == "ProcedureNotFound":
                 raise_from(TypeError("Neo4j service does not support routing"), error)
             else:
@@ -631,7 +629,7 @@ class Bolt1(Bolt):
         """
         try:
             task.audit()
-        except Failure:
+        except Neo4jError:
             self.reset(force=True)
             raise
 
@@ -721,9 +719,9 @@ class Bolt3(Bolt2):
         else:
             try:
                 self._audit(self._transaction)
-            except Failure as failure:
+            except Neo4jError as error:
                 tx.mark_broken()
-                raise_from(ConnectionBroken("Failed to commit transaction"), failure)
+                raise_from(ConnectionBroken("Failed to commit transaction"), error)
             else:
                 return Bookmark(response.metadata.get("bookmark"))
         finally:
@@ -745,9 +743,9 @@ class Bolt3(Bolt2):
         else:
             try:
                 self._audit(self._transaction)
-            except Failure as failure:
+            except Neo4jError as error:
                 tx.mark_broken()
-                raise_from(ConnectionBroken("Failed to rollback transaction"), failure)
+                raise_from(ConnectionBroken("Failed to rollback transaction"), error)
             else:
                 return Bookmark(response.metadata.get("bookmark"))
         finally:
@@ -1053,10 +1051,6 @@ class BoltResponse(Task):
 
     def set_failure(self, **metadata):
         self._status = 2
-        # FIXME: This currently clumsily breaks through abstraction
-        #   layers. This should create a Failure instead of a
-        #   Neo4jError. See also HTTPResponse.audit
-        from py2neo.database.work import Neo4jError
         self._failure = Neo4jError.hydrate(metadata)
 
     def set_ignored(self):

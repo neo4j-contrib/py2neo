@@ -36,10 +36,11 @@ from pygments.styles.native import NativeStyle
 from pygments.token import Token
 
 from py2neo import __version__
-from py2neo.client import ConnectionProfile, Failure
+from py2neo.client import ConnectionProfile
 from py2neo.cypher.lexer import CypherLexer
 from py2neo.database import Graph
-from py2neo.database.work import Table, Neo4jError
+from py2neo.database.work import Table
+from py2neo.errors import Neo4jError
 
 
 EDITOR = environ.get("EDITOR", "vim")
@@ -188,11 +189,7 @@ class ClientConsole(Console):
                 self.run_command(line)
             else:
                 self.run_source(line)
-        except (Neo4jError, Failure) as error:
-            # TODO: once this class wraps a Connector instead of a
-            #   Graph and the errors raised by that class are only
-            #   Failures and not Neo4jErrors, this only needs to
-            #   catch Failure.
+        except Neo4jError as error:
             if hasattr(error, "title") and hasattr(error, "message"):
                 self.error("%s: %s", error.title, error.message)
             else:

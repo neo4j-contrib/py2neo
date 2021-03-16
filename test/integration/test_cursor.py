@@ -57,9 +57,10 @@ def test_keys_are_populated_after_moving(graph):
 
 
 def test_keys_are_populated_before_moving_within_a_transaction(graph):
-    with graph.begin() as tx:
-        cursor = tx.run("RETURN 1 AS n")
-        assert list(cursor.keys()) == ["n"]
+    tx = graph.begin()
+    cursor = tx.run("RETURN 1 AS n")
+    assert list(cursor.keys()) == ["n"]
+    graph.rollback(tx)
 
 
 def test_stats_available(graph):

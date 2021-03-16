@@ -25,8 +25,7 @@ def test_can_delete_relationship(graph):
     r = Relationship(a, "TO", b)
     graph.create(r)
     assert graph.exists(r)
-    with graph.begin() as tx:
-        tx.delete(r)
+    graph.delete(r)
     assert not graph.exists(r)
     assert not graph.exists(a)
     assert not graph.exists(b)

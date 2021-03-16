@@ -32,6 +32,7 @@ from py2neo.client import Connection, TransactionRef, Result, Bookmark, \
     ConnectionUnavailable, ProtocolError
 from py2neo.client.config import http_user_agent, ConnectionProfile
 from py2neo.client.json import JSONHydrant, dehydrate
+from py2neo.errors import Neo4jError
 
 
 log = getLogger(__name__)
@@ -179,7 +180,7 @@ class HTTP(Connection):
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
         if readonly:
-            raise TypeError("Readonly transactions are not supported over HTTP")
+            log.warning("Readonly transactions are not supported over HTTP")
         r = self._post(HTTPTransactionRef.autocommit_uri(graph_name), cypher, parameters)
         rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
         self.release()
@@ -193,7 +194,7 @@ class HTTP(Connection):
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
         if readonly:
-            raise TypeError("Readonly transactions are not supported over HTTP")
+            log.warning("Readonly transactions are not supported over HTTP")
         # if after:
         #     raise TypeError("Bookmarks are not supported over HTTP")
         # if metadata:
@@ -262,6 +263,7 @@ class HTTP(Connection):
         return record
 
     def _post(self, url, statement=None, parameters=None):
+        log.debug("POST %r %r %r", url, statement, parameters)
         if statement:
             statements = [
                 OrderedDict([
@@ -282,6 +284,7 @@ class HTTP(Connection):
             raise_from(ProtocolError("Failed to POST to %r" % url), error)
 
     def _delete(self, url):
+        log.debug("DELETE %r", url)
         try:
             return self.http_pool.request(method="DELETE",
                                           url=url,
@@ -419,10 +422,6 @@ class HTTPResponse(object):
 
     def audit(self, tx=None):
         if self.errors():
-            # FIXME: This currently clumsily breaks through abstraction
-            #   layers. This should create a Failure instead of a
-            #   Neo4jError. See also BoltResponse.set_failure
-            from py2neo.database.work import Neo4jError
             failure = Neo4jError.hydrate(self.errors().pop(0))
             if tx is not None:
                 tx.mark_broken()

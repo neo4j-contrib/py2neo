@@ -44,7 +44,7 @@ def test_can_run_cypher_while_in_transaction(graph):
     outer_result = tx.run("UNWIND range(1, 10) AS n RETURN n")
     inner_result = graph.run("CREATE (a) RETURN a")
     outer_result_list = list(map(tuple, outer_result))
-    tx.rollback()
+    graph.rollback(tx)
     record = next(inner_result)
     created = record[0]
     assert outer_result_list == [(1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,), (10,)]
@@ -75,8 +75,5 @@ def test_can_call_procedure_by_name(graph):
 
 
 def test_readonly_query(graph):
-    if not graph.service.connector.supports_readonly_transactions():
-        skip("The underlying connection profile "
-             "does not support readonly transactions")
     data = graph.read("RETURN 1 AS x").data()
     assert data[0]["x"] == 1

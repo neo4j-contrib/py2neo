@@ -17,11 +17,15 @@
 
 
 from collections import namedtuple
+from logging import getLogger
 
 from py2neo.client import Hydrant
 from py2neo.client.packstream import Structure
 from py2neo.compat import Sequence, Mapping, integer_types, string_types
 from py2neo.matching import RelationshipMatcher
+
+
+log = getLogger(__name__)
 
 
 INT64_MIN = -(2 ** 63)
@@ -91,6 +95,7 @@ class JSONHydrant(Hydrant):
         return values
 
     def hydrate_object(self, obj):
+        log.debug("Hydrating object %r", obj)
         from py2neo.data import Node, Relationship, Path
         if isinstance(obj, Structure):
             tag = obj.tag

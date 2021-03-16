@@ -24,7 +24,7 @@ from py2neo import Node
 def test_can_run_single_statement_transaction(graph):
     tx = graph.begin()
     cursor = tx.run("CREATE (a) RETURN a")
-    tx.commit()
+    graph.commit(tx)
     records = list(cursor)
     assert len(records) == 1
     for record in records:
@@ -34,7 +34,7 @@ def test_can_run_single_statement_transaction(graph):
 def test_can_run_query_that_returns_map_literal(graph):
     tx = graph.begin()
     cursor = tx.run("RETURN {foo:'bar'}")
-    tx.commit()
+    graph.commit(tx)
     value = cursor.evaluate()
     assert value == {"foo": "bar"}
 
@@ -44,7 +44,7 @@ def test_can_run_multi_statement_transaction(graph):
     cursor_1 = tx.run("CREATE (a) RETURN a")
     cursor_2 = tx.run("CREATE (a) RETURN a")
     cursor_3 = tx.run("CREATE (a) RETURN a")
-    tx.commit()
+    graph.commit(tx)
     for cursor in (cursor_1, cursor_2, cursor_3):
         records = list(cursor)
         assert len(records) == 1
@@ -63,7 +63,7 @@ def test_can_run_multi_execute_transaction(graph):
             assert len(records) == 1
             for record in records:
                 assert isinstance(record["a"], Node)
-    tx.commit()
+    graph.commit(tx)
 
 
 def test_can_rollback_transaction(graph):
@@ -78,11 +78,11 @@ def test_can_rollback_transaction(graph):
             assert len(records) == 1
             for record in records:
                 assert isinstance(record["a"], Node)
-    tx.rollback()
+    graph.rollback(tx)
 
 
 def test_cannot_append_after_transaction_finished(graph):
     tx = graph.begin()
-    tx.rollback()
+    graph.rollback(tx)
     with raises(TypeError):
         tx.run("CREATE (a) RETURN a")

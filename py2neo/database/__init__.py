@@ -469,8 +469,7 @@ class Graph(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
-        with self.begin() as tx:
-            tx.create(subgraph)
+        self.play(lambda tx: tx.create(subgraph))
 
     def delete(self, subgraph):
         """ Run a :meth:`~py2neo.database.work.Transaction.delete` operation within an
@@ -484,7 +483,7 @@ class Graph(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
         """
-        self.auto().delete(subgraph)
+        self.play(lambda tx: tx.delete(subgraph))
 
     def delete_all(self):
         """ Delete all nodes and relationships from this :class:`.Graph`.
@@ -514,8 +513,7 @@ class Graph(object):
                        :class:`.Subgraph` object
         :return:
         """
-        readonly = self.service.connector.supports_readonly_transactions()
-        return self.auto(readonly=readonly).exists(subgraph)
+        return self.auto(readonly=True).exists(subgraph)
 
     def match(self, nodes=None, r_type=None, limit=None):
         """ Match and return all relationships with specific criteria.
@@ -578,8 +576,7 @@ class Graph(object):
         :param label: label on which to match any existing nodes
         :param property_keys: property keys on which to match any existing nodes
         """
-        with self.begin() as tx:
-            tx.merge(subgraph, label, *property_keys)
+        self.play(lambda tx: tx.merge(subgraph, label, *property_keys))
 
     @property
     def name(self):
@@ -640,46 +637,21 @@ class Graph(object):
 
         *New in version 2020.0.*
         """
-        if not callable(work):
-            raise TypeError("Unit of work is not callable")
-        kwargs = dict(kwargs or {})
-        if readonly is None:
-            readonly = getattr(work, "readonly", False)
-        if readonly and not self.service.connector.supports_readonly_transactions():
-            raise TypeError("The underlying connection profile "
-                            "does not support readonly transactions")
-        # if not timeout:
-        #     timeout = getattr(work, "timeout", None)
-        tx = self.begin(readonly=readonly,
-                        # after=after, metadata=metadata, timeout=timeout
-                        )
-        try:
-            from inspect import isgenerator
-            value = work(tx, *args or (), **kwargs or {})
-            if isgenerator(value):
-                _ = list(value)     # exhaust the generator
-        except Exception:  # TODO: catch transient and retry, if within limit
-            tx.rollback()
-            raise
-        else:
-            return [tx.commit()]
+        return self._tx_manager.play(work, args, kwargs, readonly)
 
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
 
         :param subgraph: the collection of nodes and relationships to pull
         """
-        readonly = self.service.connector.supports_readonly_transactions()
-        with self.begin(readonly=readonly) as tx:
-            tx.pull(subgraph)
+        self.play(lambda tx: tx.pull(subgraph), readonly=True)
 
     def push(self, subgraph):
         """ Push data from one or more entities to their remote counterparts.
 
         :param subgraph: the collection of nodes and relationships to push
         """
-        with self.begin() as tx:
-            tx.push(subgraph)
+        self.play(lambda tx: tx.push(subgraph))
 
     def read(self, cypher, parameters=None, **kwparameters):
         """ Run a single readonly query within an auto-commit
@@ -693,9 +665,6 @@ class Graph(object):
         :raises TypeError: if the underlying connection profile does not
             support readonly transactions
         """
-        if not self.service.connector.supports_readonly_transactions():
-            raise TypeError("The underlying connection profile "
-                            "does not support readonly transactions")
         return self.auto(readonly=True).run(cypher, parameters, **kwparameters)
 
     @property
@@ -730,7 +699,7 @@ class Graph(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
-        self.auto().separate(subgraph)
+        self.play(lambda tx: tx.separate(subgraph))
 
     def update(self, cypher, parameters=None, **kwparameters):
         """ Run a :meth:`~py2neo.database.work.Transaction.update` operation within an
@@ -738,10 +707,8 @@ class Graph(object):
 
         :param cypher: Cypher statement
         :param parameters: dictionary of parameters
-        :return: first value from the first record returned or
-                 :py:const:`None`.
         """
-        return self.auto().update(cypher, parameters, **kwparameters)
+        self.play(lambda tx: tx.update(cypher, parameters, **kwparameters))
 
 
 class SystemGraph(Graph):

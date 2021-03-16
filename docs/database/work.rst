@@ -8,7 +8,7 @@
 ``Transaction`` objects
 =======================
 
-.. autoclass:: Transaction(autocommit=False)
+.. autoclass:: Transaction(manager, autocommit=False, readonly=False)
 
     .. autoattribute:: graph
 
@@ -106,29 +106,4 @@ Query result summaries
 ----------------------
 
 .. autoclass:: CypherPlan
-   :members:
-
-
-Errors
-======
-
-.. autoclass:: Neo4jError
-   :members:
-
-``ClientError`` exceptions
---------------------------
-
-.. autoclass:: ClientError
-   :members:
-
-``DatabaseError`` exceptions
-----------------------------
-
-.. autoclass:: DatabaseError
-   :members:
-
-``TransientError`` exceptions
------------------------------
-
-.. autoclass:: TransientError
    :members:

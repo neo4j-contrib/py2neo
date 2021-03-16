@@ -74,6 +74,7 @@ A comprehensive set of graph structure data types and operations are provided, a
 
     database/index
     database/work
+    errors
     matching
     data/index
     data/spatial

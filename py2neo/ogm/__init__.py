@@ -222,8 +222,7 @@ class RelatedObjects(object):
         if self.__related_objects is None:
             self.__related_objects = []
             if self.node.graph:
-                with self.node.graph.begin() as tx:
-                    self.__db_pull__(tx)
+                self.node.graph.play(lambda tx: self.__db_pull__(tx))
         return self.__related_objects
 
     def triples(self):
