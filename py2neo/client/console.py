@@ -38,7 +38,7 @@ from pygments.token import Token
 from py2neo import __version__
 from py2neo.client import ConnectionProfile
 from py2neo.cypher.lexer import CypherLexer
-from py2neo.database import Graph
+from py2neo.database import GraphService
 from py2neo.database.work import Table
 from py2neo.errors import Neo4jError
 
@@ -84,6 +84,7 @@ Slash commands provide access to supplementary functionality.
 
 \b
 Execution commands:
+  /use      select a graph database by name (~ for default)
   /play     run a query from a file
 
 \b
@@ -108,7 +109,7 @@ def is_command(source):
         return False
     if source.startswith("/*"):
         return False
-    return source.startswith("/")
+    return source.startswith("/") or source.startswith(":")
 
 
 class ClientConsole(Console):
@@ -127,15 +128,16 @@ class ClientConsole(Console):
             self.write()
 
         self.profile = ConnectionProfile(profile, **settings)
+        self.graph_name = None
         routing = settings.get("routing", False)
         try:
-            self.graph = Graph(self.profile, routing=routing)    # TODO: use Connector instead
+            self.dbms = GraphService(self.profile, routing=routing)    # TODO: use Connector instead
         except OSError as error:
             self.critical("Could not connect to <%s> (%s)",
                           self.profile.uri, " ".join(map(str, error.args)))
             raise
         else:
-            self.debug("Connected to <%s>", self.graph.service.uri)
+            self.debug("Connected to <%s>", self.dbms.uri)
         try:
             makedirs(HISTORY_FILE_DIR)
         except OSError:
@@ -147,23 +149,43 @@ class ClientConsole(Console):
         self.commands = {
 
             "//": self.set_multi_line,
+            "::": self.set_multi_line,
             "/e": self.edit,
+            "/edit": self.edit,
+            ":e": self.edit,
+            ":edit": self.edit,
 
             "/?": self.help,
             "/h": self.help,
             "/help": self.help,
+            ":?": self.help,
+            ":h": self.help,
+            ":help": self.help,
 
             "/x": self.exit,
             "/exit": self.exit,
+            ":x": self.exit,
+            ":q": self.exit,
+            ":q!": self.exit,
+            ":wq": self.exit,
+            ":exit": self.exit,
 
+            "/use": self.use,
+            ":use": self.use,
             "/play": self.play,
+            ":play": self.play,
 
             "/csv": self.set_csv_result_writer,
+            ":csv": self.set_csv_result_writer,
             "/table": self.set_tabular_result_writer,
+            ":table": self.set_tabular_result_writer,
             "/tsv": self.set_tsv_result_writer,
+            ":tsv": self.set_tsv_result_writer,
 
             "/config": self.config,
+            ":config": self.config,
             "/kernel": self.kernel,
+            ":kernel": self.kernel,
 
         }
         self.tx = None
@@ -174,6 +196,10 @@ class ClientConsole(Console):
             self._Console__log.removeHandler(self._Console__handler)
         except ValueError:
             pass
+
+    @property
+    def graph(self):
+        return self.dbms[self.graph_name]
 
     def process_all(self, lines, times=1):
         gap = False
@@ -241,25 +267,29 @@ class ClientConsole(Console):
             "style": merge_styles([
                 style_from_pygments_cls(NativeStyle),
                 style_from_pygments_dict({
-                    Token.Prompt.User: "#ansiteal",
-                    Token.Prompt.At: "#ansiteal",
-                    Token.Prompt.Host: "#ansiteal",
+                    Token.Prompt.User: "#ansigreen",
+                    Token.Prompt.At: "#ansigreen",
+                    Token.Prompt.Host: "#ansigreen",
+                    Token.Prompt.Slash: "#ansigreen",
+                    Token.Prompt.Graph: "#ansiblue",
                     Token.Prompt.QID: "#ansiyellow",
                     Token.Prompt.Arrow: "#808080",
                 })
             ])
         }
 
-        self.write()
         if self.multi_line:
             self.multi_line = False
             return prompt(u"", multiline=True, **prompt_args)
 
         def get_prompt_tokens():
+            graph_name = "~" if self.graph_name is None else self.graph_name
             tokens = [
                 ("class:pygments.prompt.user", self.profile.user),
                 ("class:pygments.prompt.at", "@"),
                 ("class:pygments.prompt.host", self.profile.host),
+                ("class:pygments.prompt.slash", "/"),
+                ("class:pygments.prompt.graph", graph_name),
             ]
             if self.tx is None:
                 tokens.append(("class:pygments.prompt.arrow", " -> "))
@@ -356,6 +386,16 @@ class ClientConsole(Console):
         self.info(DESCRIPTION)
         self.info(u"")
         self.info(FULL_HELP.replace("\b\n", ""))
+
+    def use(self, graph_name):
+        if graph_name == "~":
+            graph_name = None
+        try:
+            _ = self.dbms[graph_name]
+        except KeyError:
+            self.error("Graph database %r not found", graph_name)
+        else:
+            self.graph_name = graph_name
 
     def play(self, file_name):
         work = self.load_unit_of_work(file_name=file_name)

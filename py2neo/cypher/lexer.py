@@ -450,7 +450,10 @@ class CypherLexer(RegexLexer):
         'keywords': word_list(cypher_keywords, Keyword),
         'pseudo-keywords': word_list(cypher_pseudo_keywords, Keyword),
 
-        'escape-commands': [(r'^\s*!.*$', Comment.Single)],
+        'escape-commands': [
+            (r'^\s*\/(?!\/).*$', Comment.Single),
+            (r'^\s*:.*$', Comment.Single),
+        ],
 
         'labels': [
             (r'(:)(\s*)(`(?:``|[^`])+`)', bygroups(Punctuation, Whitespace, Name.Label)),
