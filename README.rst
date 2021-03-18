@@ -8,9 +8,9 @@ Py2neo
    :target: https://www.apache.org/licenses/LICENSE-2.0
    :alt: License
 
-.. image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-runner.svg
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-runner"
-   :alt: Test Status
+.. image:: https://img.shields.io/github/workflow/status/technige/py2neo/Run%20tests%20(Ubuntu%2018.04)
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"Run%20tests%20(Ubuntu%2018.04)"
+   :alt: GitHub Workflow Status
 
 .. image:: https://coveralls.io/repos/github/technige/py2neo/badge.svg?branch=master
    :target: https://coveralls.io/github/technige/py2neo?branch=master
