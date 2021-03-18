@@ -262,7 +262,7 @@ class TestConnection(object):
 
     def test_connection_failure(self):
         with raises(OperationalError):
-            _ = connect("bolt://no.such.server:666")
+            _ = connect("bolt://localhost:666")
 
     def test_bad_query(self):
         with raises(OperationalError):
