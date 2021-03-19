@@ -174,6 +174,9 @@ class ConnectionProfile(Mapping):
     def __repr__(self):
         return "%s(%r)" % (self.__class__.__name__, self.uri)
 
+    def __str__(self):
+        return "«{}»".format(self.uri)
+
     def __getitem__(self, key):
         if key in self.__keys:
             return getattr(self, key)

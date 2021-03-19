@@ -94,15 +94,16 @@ class TransactionManager(object):
 
         :returns: :class:`.TransactionSummary` object
         """
-        if tx is None:
+        from py2neo.client import ConnectionUnavailable, ConnectionBroken
+        if tx is None or tx._finished:
             return
         if not isinstance(tx, Transaction):
             raise TypeError("Bad transaction %r" % tx)
-        if tx._finished:
-            raise TypeError("Cannot rollback finished transaction")
         try:
             summary = self._connector.rollback(tx._tx_ref)
             return TransactionSummary(**summary)
+        except (ConnectionUnavailable, ConnectionBroken):
+            pass
         finally:
             tx._finished = True
 
@@ -154,6 +155,7 @@ class TransactionManager(object):
                 value = work(tx, *args or (), **kwargs or {})
                 if isgenerator(value):
                     _ = list(value)     # exhaust the generator
+                summaries.append(self.commit(tx))
             except (ConnectionUnavailable, ConnectionBroken):
                 summaries.append(self.rollback(tx))
                 continue
@@ -169,7 +171,6 @@ class TransactionManager(object):
                 summaries.append(self.rollback(tx))
                 raise
             else:
-                summaries.append(self.commit(tx))
                 return summaries
         raise TransactionFailed("Failed after %r tries" % len(summaries), summaries)
 

@@ -185,6 +185,9 @@ class GraphService(object):
             "max_age": settings.get("max_age"),
             "routing": settings.get("routing"),
         }
+        if connector_settings["init_size"] is None and not connector_settings["routing"]:
+            # Ensures credentials are checked on construction
+            connector_settings["init_size"] = 1
         self._connector = Connector(profile, **connector_settings)
         self._graphs = {}
 

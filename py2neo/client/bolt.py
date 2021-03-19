@@ -242,7 +242,7 @@ class Bolt(Connection):
         local_port = wire.local_address.port_number
         log.debug("[#%04X] C: <BOLT>", local_port)
         wire.write(b"\x60\x60\xB0\x17")
-        log.debug("[#%04X] C: <PROTOCOL> 4.3-4.0 | 4.0 | 3.0 | 2.0", local_port)
+        log.debug("[#%04X] C: <PROTOCOL> 4.3~0 | 4.0 | 3.0 | 2.0", local_port)
         wire.write(b"\x00\x03\x03\x04"      # Neo4j 4.3.x and Neo4j 4.2, 4.1, 4.0 (patched)
                    b"\x00\x00\x00\x04"      # Neo4j 4.2, 4.1, 4.0 (unpatched)
                    b"\x00\x00\x00\x03"      # Neo4j 3.5.x

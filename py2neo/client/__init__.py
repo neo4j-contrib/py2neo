@@ -19,6 +19,7 @@
 from collections import deque, namedtuple, OrderedDict
 from datetime import timedelta
 from logging import getLogger
+from os import linesep
 from uuid import UUID, uuid4
 
 from monotonic import monotonic
@@ -113,6 +114,8 @@ class Connection(object):
     server_agent = None
 
     connection_id = None
+
+    tag = None
 
     # TODO: ping method
 
@@ -530,9 +533,9 @@ class ConnectionPool(object):
     """ A pool of connections targeting a single Neo4j server.
     """
 
-    default_init_size = 1
+    default_init_size = 0
 
-    default_max_size = 100
+    default_max_size = 40
 
     default_max_age = 3600
 
@@ -598,6 +601,14 @@ class ConnectionPool(object):
             len(self._free_list),
             (self.max_size - self.size),
         )
+
+    def __str__(self):
+        capacity = self.max_size
+        in_use = list(self._in_use_list)
+        free = len(self._free_list)
+        in_use_str = "".join(str(cx.tag)[0] if cx.tag else "X" for cx in in_use)
+        return "%s [%s%s%s]" % (self.profile.address, in_use_str, "." * free,
+                                " " * (capacity - len(in_use) - free))
 
     def __hash__(self):
         return hash(self._profile)
@@ -710,7 +721,7 @@ class ConnectionPool(object):
         self._opened_list.append(cx)
         return cx
 
-    def acquire(self, force_reset=False):
+    def acquire(self, force_reset=False, can_overfill=False):
         """ Acquire a connection from the pool.
 
         In the simplest case, this will return an existing open
@@ -727,6 +738,10 @@ class ConnectionPool(object):
         :param force_reset: if true, the connection will be forcibly
             reset before being returned; if false, this will only occur
             if the connection is not already in a clean state
+        :param can_overfill: if true, the maximum capacity can be
+            exceeded for this acquisition; this can be used to ensure
+            system calls (such as fetching the routing table) can
+            succeed even when at capacity
         :returns: a Bolt connection object
         :raises: :class:`.ConnectionUnavailable` if no connection can
             be acquired
@@ -741,7 +756,7 @@ class ConnectionPool(object):
                 # Plan A: select a free connection from the pool
                 cx = self._free_list.popleft()
             except IndexError:
-                if self.size < self.max_size:
+                if self.size < self.max_size or can_overfill:
                     # Plan B: if the pool isn't full, open
                     # a new connection. This may raise a
                     # ConnectionUnavailable exception, which
@@ -783,6 +798,7 @@ class ConnectionPool(object):
             log.debug("Connection %r does not belong to pool %r", cx, self)
             return
         self._in_use_list.remove(cx)
+        cx.tag = None
         if self.size < self.max_size:
             # If there is spare capacity in the pool, attempt to
             # sanitize the connection and return it to the pool.
@@ -801,8 +817,12 @@ class ConnectionPool(object):
             cx.close()
 
     def prune(self):
-        """ Close all free connections.
+        """ Release all broken connections marked as "in use" and then
+        close all free connections.
         """
+        for cx in list(self._in_use_list):
+            if cx.broken:
+                self.release(cx)
         self.__close(self._free_list)
 
     def close(self):
@@ -875,8 +895,8 @@ class Connector(object):
         cluster
     """
 
-    def __init__(self, profile, user_agent=None, init_size=None, max_size=None, max_age=None,
-                 routing=False):
+    def __init__(self, profile=None, user_agent=None, init_size=None,
+                 max_size=None, max_age=None, routing=False):
         self._profile = ConnectionProfile(profile)
         self._user_agent = user_agent
         self._init_size = init_size
@@ -896,6 +916,9 @@ class Connector(object):
 
     def __repr__(self):
         return "<{} to {!r}>".format(self.__class__.__name__, self.profile)
+
+    def __str__(self):
+        return linesep.join(map(str, self._pools.values()))
 
     def __hash__(self):
         return hash(self.profile)
@@ -976,37 +999,41 @@ class Connector(object):
         log.debug("Attempting to refresh routing table for %s",
                   "default database" if graph_name is None else repr(graph_name))
         assert self._routers is not None
-        for router in self._routers + [self.profile]:
-            # TODO: don't open a new connection every time, use the pool if free
+        known_routers = self._routers + [self.profile]
+        log.debug("Known routers are: %s", ", ".join(map(repr, known_routers)))
+        for router in known_routers:
+            log.debug("Asking %r for routing table", router)
+            pool = self._pools[router]
             try:
-                cx = self._pools[router].connect()
-            except ConnectionUnavailable:
+                cx = pool.acquire(can_overfill=True)
+            except (ConnectionUnavailable, ConnectionBroken):
                 continue  # try the next router instead
             else:
                 try:
                     routers, ro_runners, rw_runners, ttl = cx.route(graph_name)
-                except ConnectionUnavailable as error:
-                    log.warning(error.args[0])
+                except (ConnectionUnavailable, ConnectionBroken) as error:
+                    log.debug(error.args[0])
                     continue
                 else:
                     # TODO: comment this algorithm
                     self.add_pools(*ro_runners)
                     self.add_pools(*rw_runners)
                     routing_table = RoutingTable(ro_runners, rw_runners, monotonic() + ttl)
-                    # TODO: housekeep old pools (maybe in connection pool after connection failure)
-                    old = set(profile for profile in self._routers if profile not in routers)
+                    old_profiles = set(profile for profile in self._routers
+                                       if profile not in routers)
                     if graph_name in self._routing_tables:
                         rt = self._routing_tables[graph_name]
-                        old.update(profile for profile in rt if profile not in routing_table)
+                        old_profiles.update(profile for profile in rt
+                                            if profile not in routing_table)
 
                     self._routers[:] = routers
                     self._routing_tables[graph_name] = routing_table
-                    for profile in old:
-                        self._pools[profile].prune()
+                    for profile in old_profiles:
+                        self.prune(profile)
                     return
                 finally:
-                    cx.close()
-        raise ConnectionUnavailable("No suitable routers found")  # TODO: better exception
+                    pool.release(cx)
+        raise ConnectionUnavailable("Cannot connect to any known routers")
 
     @property
     def profile(self):
@@ -1095,24 +1122,34 @@ class Connector(object):
                     log.debug("Using connection pool %r", pool)
                     try:
                         cx = pool.acquire(force_reset=force_reset)
-                    except ConnectionUnavailable as error:
+                    except (ConnectionUnavailable, ConnectionBroken) as error:
                         self.prune(pool.profile)
                         continue
                     else:
                         if cx is not None:
+                            cx.tag = "R" if readonly else "W"
                             return cx
         else:
             raise ConnectionUnavailable("Timed out trying to acquire connection")
 
     def prune(self, profile):
-        """ Close all free connections for the given profile.
+        """ Release all broken connections for a given profile, then
+        close these and all other free connections. If this empties the
+        pool, then that pool will be removed completely. This method
+        should therefore only be used if a connection in the pool is
+        known to have failed, and it is likely that the server has
+        gone.
         """
+        log.debug("Pruning idle connections to %r", profile)
         try:
             pool = self._pools[profile]
         except KeyError:
             pass
         else:
             pool.prune()
+            if pool.size == 0:
+                log.debug("Removing connection pool for profile %r", profile)
+                del self._pools[profile]
 
     def close(self):
         """ Close all connections immediately.
@@ -1167,7 +1204,8 @@ class Connector(object):
     def _on_broken(self, profile, message):
         """ Handle a broken connection.
         """
-        log.warning("Connection to %r broken\n%s", profile, message)
+        log.debug("Connection to %r broken\n%s", profile, message)
+        # TODO: clean up broken connections from reader and writer entries too
         if self._routers is not None:
             log.debug("Removing profile %r from router list", profile)
             try:
@@ -1178,13 +1216,7 @@ class Connector(object):
                 log.debug("Removing profile %r from routing table for %s", profile,
                           "default database" if graph_name is None else repr(graph_name))
                 routing_table.remove(profile)
-        try:
-            pool = self._pools[profile]
-        except KeyError:
-            pass  # no such pool
-        else:
-            log.debug("Pruning idle connections to %r", profile)
-            pool.prune()
+        self.prune(profile)
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
@@ -1360,6 +1392,12 @@ class RoutingTable(object):
     def __repr__(self):
         return "%s(%r, %r, %r)" % (self.__class__.__name__,
                                    self._ro_runners, self._rw_runners, self.expiry_time)
+
+    def __iter__(self):
+        return iter(set(self._ro_runners + self._rw_runners))
+
+    def __contains__(self, profile):
+        return profile in self._ro_runners or profile in self._rw_runners
 
     def expired(self):
         return monotonic() >= self.expiry_time
