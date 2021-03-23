@@ -254,6 +254,7 @@ class RelatedObjects(object):
         :param obj: the :py:class:`.Model` to relate
         :param properties: dictionary of properties to attach to the relationship (optional)
         :param kwproperties: additional keyword properties (optional)
+        :return: true if obj was added, false if updated
         """
         if not isinstance(obj, Model):
             raise TypeError("Related objects must be Model instances")
@@ -266,6 +267,7 @@ class RelatedObjects(object):
                 added = True
         if not added:
             related_objects.append((obj, properties))
+        return added
 
     def clear(self):
         """ Remove all related objects from this set.
