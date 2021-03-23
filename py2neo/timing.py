@@ -18,7 +18,6 @@
 
 from __future__ import division
 
-from collections import deque
 from datetime import timedelta
 
 from monotonic import monotonic
