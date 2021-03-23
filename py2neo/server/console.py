@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -60,6 +60,12 @@ class _CommandConsole(Console):
         self.__usages = {}
         self.add_command("help", self.help)
         self.add_command("exit", self.exit)
+
+    def __del__(self):
+        try:
+            self._Console__log.removeHandler(self._Console__handler)
+        except ValueError:
+            pass
 
     def add_command(self, name, f):
         parser = self.__command_parsers.add_parser(name, add_help=False)
@@ -158,6 +164,7 @@ class _CommandConsole(Console):
         """ Exit the console.
         """
         super(_CommandConsole, self).exit()
+        self._Console__log.removeHandler(self._Console__handler)
 
 
 class Neo4jConsole(_CommandConsole):

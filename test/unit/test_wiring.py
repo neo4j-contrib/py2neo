@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,6 +56,9 @@ class FakeSocket(object):
         if self._closed:
             raise OSError("Socket closed")
         self._out_packets.append(bytes(b))
+
+    def shutdown(self, flags):
+        pass
 
     def close(self):
         self._closed = True

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ def test_records(connector):
     cursor = Cursor(connector.auto_run(None, "UNWIND range(1, $x) AS n RETURN n, n * n AS n_sq", {"x": 3}))
     expected = deque([(1, 1), (2, 4), (3, 9)])
     for actual_record in cursor:
-        expected_record = Record(zip(["n", "n_sq"], expected.popleft()))
+        expected_record = Record(["n", "n_sq"], expected.popleft())
         assert expected_record == actual_record
 
 

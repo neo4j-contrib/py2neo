@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
 """
 This module contains client implementations for the Bolt messaging
 protocol. It contains a base :class:`.Bolt` class, which is a type of
-:class:`.Connection`, and which is further extended by a separate class
-for each protocol version. :class:`.Bolt1` extends :class:`.Bolt`,
-:class:`.Bolt2` extends :class:`.Bolt1`, and so on.
+:class:`~py2neo.client.Connection`, and which is further extended by a
+separate class for each protocol version. :class:`.Bolt1` extends
+:class:`.Bolt`, :class:`.Bolt2` extends :class:`.Bolt1`, and so on.
 
 Each subclass therefore introduces deltas atop the previous protocol
 version. This reduces duplication of client code at the expense of more
@@ -43,10 +43,9 @@ __all__ = [
     "Bolt3",
     "Bolt4x0",
     "Bolt4x1",
-    "BoltTransaction",
+    "BoltTransactionRef",
     "BoltResult",
     "BoltResponse",
-    "BoltProtocolError",
 ]
 
 
@@ -56,13 +55,13 @@ from itertools import islice
 from logging import getLogger
 from struct import pack as struct_pack, unpack as struct_unpack
 
-from packaging.version import Version
-from six import raise_from
+from six import PY2, raise_from
 
-from py2neo.client import Connection, Transaction, Result, Failure, Bookmark, \
-    TransactionError, BrokenTransactionError, ConnectionUnavailable
+from py2neo.client import Connection, TransactionRef, Result, Bookmark, \
+    ConnectionUnavailable, ConnectionBroken, ProtocolError
 from py2neo.client.config import bolt_user_agent, ConnectionProfile
 from py2neo.client.packstream import pack_into, UnpackStream, PackStreamHydrant
+from py2neo.errors import Neo4jError
 from py2neo.wiring import Wire, WireError, BrokenWireError
 
 
@@ -73,33 +72,44 @@ class BoltMessageReader(object):
 
     def __init__(self, wire):
         self.wire = wire
-
-    def _read_chunk(self):
-        size, = struct_unpack(">H", self.wire.read(2))
-        if size:
-            return self.wire.read(size)
-        else:
-            return b""
+        if PY2:
+            self.read_message = self.read_message_py2
 
     def read_message(self):
         chunks = []
-        more = True
-        while more:
-            chunk = self._read_chunk()
-            if chunk:
-                chunks.append(chunk)
-            elif chunks:
-                more = False
-        try:
-            message = b"".join(chunks)
-        except TypeError:
-            # Python 2 compatibility
-            message = bytearray(b"".join(map(bytes, chunks)))
+        while True:
+            hi, lo = self.wire.read(2)
+            if hi == lo == 0:
+                break
+            size = hi << 8 | lo
+            chunks.append(self.wire.read(size))
+        message = b"".join(chunks)
         _, n = divmod(message[0], 0x10)
-        tag = message[1]
-        unpacker = UnpackStream(message[2:])
-        fields = tuple(unpacker.unpack() for _ in range(n))
-        return tag, fields
+        try:
+            unpacker = UnpackStream(message, offset=2)
+            fields = [unpacker.unpack() for _ in range(n)]
+        except ValueError as error:
+            raise_from(ProtocolError("Bad message content"), error)
+        else:
+            return message[1], fields
+
+    def read_message_py2(self):
+        chunks = []
+        while True:
+            hi, lo = self.wire.read(2)
+            if hi == lo == 0:
+                break
+            size = hi << 8 | lo
+            chunks.append(self.wire.read(size))
+        message = bytearray(b"".join(map(bytes, chunks)))
+        _, n = divmod(message[0], 0x10)
+        try:
+            unpacker = UnpackStream(message, offset=2)
+            fields = [unpacker.unpack() for _ in range(n)]
+        except ValueError as error:
+            raise_from(ProtocolError("Bad message content"), error)
+        else:
+            return message[1], fields
 
     def peek_message(self):
         """ If another complete message exists, return the tag for
@@ -149,8 +159,8 @@ class BoltMessageWriter(object):
         while self._write_chunk(buffer.read(0x7FFF)):
             pass
 
-    def send(self):
-        return self.wire.send()
+    def send(self, final=False):
+        return self.wire.send(final=final)
 
 
 class Bolt(Connection):
@@ -178,18 +188,14 @@ class Bolt(Connection):
         for subclass in cls._walk_subclasses():
             if subclass.protocol_version == protocol_version:
                 return subclass
-        raise BoltProtocolError("Unsupported protocol version %d.%d" % protocol_version)
+        raise TypeError("Unsupported protocol version %d.%d" % protocol_version)
 
     @classmethod
     def default_hydrant(cls, profile, graph):
         return PackStreamHydrant(graph)
 
     @classmethod
-    def protocol_catalogue(cls):
-        return [bolt.protocol_version for bolt in Bolt._walk_subclasses()]
-
-    @classmethod
-    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None,
+    def open(cls, profile=None, user_agent=None, on_bind=None, on_unbind=None,
              on_release=None, on_broken=None):
         """ Open a Bolt connection to a server.
 
@@ -204,18 +210,20 @@ class Bolt(Connection):
         :raises: :class:`.ConnectionUnavailable` if a connection cannot
             be opened, or a protocol version cannot be agreed
         """
+        if profile is None:
+            profile = ConnectionProfile(scheme="bolt")
         try:
             wire = cls._connect(profile, on_broken=on_broken)
             protocol_version = cls._handshake(wire)
             subclass = cls._get_subclass(protocol_version)
             if subclass is None:
-                raise BoltProtocolError("Unable to agree supported protocol version")
+                raise TypeError("Unable to agree supported protocol version")
             bolt = subclass(wire, profile, (user_agent or bolt_user_agent()),
                             on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
             bolt.__local_port = wire.local_address.port_number
             bolt._hello()
             return bolt
-        except (BoltProtocolError, WireError) as error:
+        except (TypeError, WireError) as error:
             raise_from(ConnectionUnavailable("Cannot open connection to %r" % profile), error)
 
     @classmethod
@@ -234,16 +242,15 @@ class Bolt(Connection):
         local_port = wire.local_address.port_number
         log.debug("[#%04X] C: <BOLT>", local_port)
         wire.write(b"\x60\x60\xB0\x17")
-        versions = list(reversed(cls.protocol_catalogue()))[:4]
-        log.debug("[#%04X] C: <PROTOCOL> %s",
-                  local_port, " | ".join("%d.%d" % v for v in versions))
-        wire.write(b"".join(bytes(bytearray([0, 0, minor, major]))
-                            for major, minor in versions).ljust(16, b"\x00"))
+        log.debug("[#%04X] C: <PROTOCOL> 4.3~0 | 4.0 | 3.0 | 2.0", local_port)
+        wire.write(b"\x00\x03\x03\x04"      # Neo4j 4.3.x and Neo4j 4.2, 4.1, 4.0 (patched)
+                   b"\x00\x00\x00\x04"      # Neo4j 4.2, 4.1, 4.0 (unpatched)
+                   b"\x00\x00\x00\x03"      # Neo4j 3.5.x
+                   b"\x00\x00\x00\x02")     # Neo4j 3.4.x
         wire.send()
         v = bytearray(wire.read(4))
         if v == bytearray([0, 0, 0, 0]):
-            raise BoltProtocolError("Unable to negotiate compatible "
-                                    "protocol version from {!r}".format(versions))
+            raise TypeError("Unable to negotiate compatible protocol version")
         log.debug("[#%04X] S: <PROTOCOL> %d.%d", local_port, v[-1], v[-2])
         return v[-1], v[-2]
 
@@ -276,13 +283,19 @@ class Bolt(Connection):
     def local_port(self):
         return self.__local_port
 
+    @property
+    def bytes_sent(self):
+        return self._wire.bytes_sent
+
+    @property
+    def bytes_received(self):
+        return self._wire.bytes_received
+
     def _assert_open(self):
-        # TODO: better errors and hooks back into the pool, for
-        #  deactivating and/or removing addresses from the routing table
         if self.closed:
-            raise RuntimeError("Connection has been closed")
+            raise ConnectionUnavailable("Connection has been closed")
         if self.broken:
-            raise RuntimeError("Connection is broken")
+            raise ConnectionUnavailable("Connection is broken")
 
     def supports_multi(self):
         return self.protocol_version >= (4, 0)
@@ -322,10 +335,8 @@ class Bolt1(Bolt):
         self._audit(response)
         self.connection_id = response.metadata.get("connection_id")
         self.server_agent = response.metadata.get("server")
-        if self.server_agent.startswith("Neo4j/"):
-            self.neo4j_version = Version(self.server_agent[6:])
-        else:
-            raise RuntimeError("Unexpected server agent {!r}".format(self.server_agent))
+        if not self.server_agent.startswith("Neo4j/"):
+            raise ProtocolError("Unexpected server agent {!r}".format(self.server_agent))
 
     def reset(self, force=False):
         self._assert_open()
@@ -339,14 +350,14 @@ class Bolt1(Bolt):
         self._assert_open()
         self._assert_no_transaction()
         if graph_name and not self.supports_multi():
-            raise TypeError("Neo4j {} does not support "
-                            "named graphs".format(self.neo4j_version))
+            raise TypeError("This Neo4j installation does not support "
+                            "named graphs")
         if metadata:
             raise TypeError("Transaction metadata not supported until Bolt v3")
         if timeout:
             raise TypeError("Transaction timeout not supported until Bolt v3")
-        self._transaction = BoltTransaction(graph_name, self.protocol_version,
-                                            readonly, after)
+        self._transaction = BoltTransactionRef(graph_name, self.protocol_version,
+                                               readonly, after)
 
     def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
@@ -360,15 +371,11 @@ class Bolt1(Bolt):
             #   PULL/DISCARD is sent?
             result.buffer()
         except BrokenWireError as error:
-            raise_from(TransactionError("Transaction could not run "
+            raise_from(ConnectionBroken("Transaction could not run "
                                         "due to disconnection"), error)
         else:
-            try:
-                self._audit(self._transaction)
-            except Failure as failure:
-                raise_from(TransactionError("Failed to run transaction"), failure)
-            else:
-                return result
+            self._audit(self._transaction)
+            return result
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
@@ -383,17 +390,13 @@ class Bolt1(Bolt):
         try:
             self._sync(*responses)
         except BrokenWireError as error:
-            raise_from(TransactionError("Transaction could not begin "
+            raise_from(ConnectionBroken("Transaction could not begin "
                                         "due to disconnection"), error)
         else:
-            try:
-                self._audit(self._transaction)
-            except Failure as failure:
-                raise_from(TransactionError("Failed to begin transaction"), failure)
-            else:
-                if callable(self._on_bind):
-                    self._on_bind(self._transaction, self)
-                return self._transaction
+            self._audit(self._transaction)
+            if callable(self._on_bind):
+                self._on_bind(self._transaction, self)
+            return self._transaction
 
     def commit(self, tx):
         self._assert_open()
@@ -406,14 +409,14 @@ class Bolt1(Bolt):
                        self._write_request(0x2F))
         except BrokenWireError as error:
             tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by disconnection "
-                                              "during commit"), error)
+            raise_from(ConnectionBroken("Transaction broken by disconnection "
+                                        "during commit"), error)
         else:
             try:
                 self._audit(self._transaction)
-            except Failure as failure:
+            except Neo4jError as error:
                 tx.mark_broken()
-                raise_from(BrokenTransactionError("Failed to commit transaction"), failure)
+                raise_from(ConnectionBroken("Failed to commit transaction"), error)
             else:
                 return Bookmark()
         finally:
@@ -431,21 +434,21 @@ class Bolt1(Bolt):
                        self._write_request(0x2F))
         except BrokenWireError as error:
             tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by disconnection "
-                                              "during rollback"), error)
+            raise_from(ConnectionBroken("Transaction broken by disconnection "
+                                        "during rollback"), error)
         else:
             try:
                 self._audit(self._transaction)
-            except Failure as failure:
+            except Neo4jError as error:
                 tx.mark_broken()
-                raise_from(BrokenTransactionError("Failed to rollback transaction"), failure)
+                raise_from(ConnectionBroken("Failed to rollback transaction"), error)
             else:
                 return Bookmark()
         finally:
             if callable(self._on_unbind):
                 self._on_unbind(self._transaction)
 
-    def run_in_tx(self, tx, cypher, parameters=None):
+    def run_query(self, tx, cypher, parameters=None):
         self._assert_open()
         self._assert_transaction_open(tx)
         return self._run(tx.graph_name, cypher, parameters or {})
@@ -479,19 +482,19 @@ class Bolt1(Bolt):
         return response
 
     def _get_routing_info(self, graph_name, query, parameters):
-        # This import is not ideal as it breaks abstraction layers,
-        # but it's necessary until the ROUTE message is available.
-        from py2neo import ClientError
         try:
             result = self.auto_run(graph_name, query, parameters)
             self.pull(result)
             for ttl, address_data in result.records():
                 addresses = {}
                 for a in address_data:
-                    addresses[a["role"]] = [ConnectionProfile(address=address)
+                    addresses[a["role"]] = [ConnectionProfile(self.profile, address=address)
                                             for address in a["addresses"]]
-                return addresses["ROUTE"], addresses["READ"], addresses["WRITE"], ttl
-        except ClientError as error:
+                return (addresses.get("ROUTE", []),
+                        addresses.get("READ", []),
+                        addresses.get("WRITE", []),
+                        ttl)
+        except Neo4jError as error:
             if error.title == "ProcedureNotFound":
                 raise_from(TypeError("Neo4j service does not support routing"), error)
             else:
@@ -529,8 +532,8 @@ class Bolt1(Bolt):
 
     def _assert_no_transaction(self):
         if self._transaction:
-            raise BoltProtocolError("Cannot open multiple simultaneous transactions "
-                                    "on a Bolt connection")
+            raise TypeError("Cannot open multiple simultaneous transactions "
+                            "on a Bolt connection")
 
     def _assert_transaction_open(self, tx):
         if tx is not self._transaction:
@@ -540,7 +543,7 @@ class Bolt1(Bolt):
 
     def _assert_result_consumable(self, result):
         if not self._transaction:
-            raise BoltProtocolError("Cannot consume result without open transaction")
+            raise TypeError("Cannot consume result without open transaction")
         if result is not self._transaction.last():
             raise TypeError("Random query access is not supported before Bolt 4.0")
 
@@ -552,8 +555,8 @@ class Bolt1(Bolt):
         self._responses.append(response)
         return response
 
-    def _send(self):
-        sent = self._writer.send()
+    def _send(self, final=False):
+        sent = self._writer.send(final=final)
         if sent:
             log.debug("[#%04X] C: (Sent %r bytes)", self.local_port, sent)
 
@@ -577,14 +580,13 @@ class Bolt1(Bolt):
             # If a RECORD is received, check for more records
             # in the buffer immediately following, and log and
             # add them all at the same time
-            value_lists = list(fields)
             while self._reader.peek_message() == 0x71:
                 _, extra_fields = self._reader.read_message()
-                value_lists.extend(extra_fields)
-            more = len(value_lists) - 1
-            log.debug("[#%04X] S: RECORD %r%s", self.local_port, value_lists[0],
+                fields.extend(extra_fields)
+            more = len(fields) - 1
+            log.debug("[#%04X] S: RECORD %r%s", self.local_port, fields[0],
                       " (...and %d more)" % more if more else "")
-            rs.add_records(value_lists)
+            rs.add_records(fields)
         elif tag == 0x7F:
             log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
             rs.set_failure(**fields[0])
@@ -600,7 +602,7 @@ class Bolt1(Bolt):
         else:
             log.debug("[#%04X] S: (Unexpected protocol message #%02X)", self.local_port, tag)
             self._wire.close()
-            raise RuntimeError("Unexpected protocol message #%02X", tag)
+            raise ProtocolError("Unexpected protocol message #%02X", tag)
 
     def _wait(self, response):
         """ Read all incoming responses up to and including a
@@ -627,7 +629,7 @@ class Bolt1(Bolt):
         """
         try:
             task.audit()
-        except Failure:
+        except Neo4jError:
             self.reset(force=True)
             raise
 
@@ -660,55 +662,47 @@ class Bolt3(Bolt2):
     def _goodbye(self):
         log.debug("[#%04X] C: GOODBYE", self.local_port)
         self._write_request(0x02)
-        self._send()
+        self._send(final=True)
 
     def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransaction(graph_name, self.protocol_version, readonly,
-                                            # after, metadata, timeout
-                                            )
+        self._transaction = BoltTransactionRef(graph_name, self.protocol_version, readonly,
+                                               # after, metadata, timeout
+                                               )
         result = self._run(graph_name, cypher, parameters or {},
                            self._transaction.extra, final=True)
         try:
             result.buffer()
         except BrokenWireError as error:
-            raise_from(TransactionError("Transaction could not run "
+            raise_from(ConnectionBroken("Transaction could not run "
                                         "due to disconnection"), error)
         else:
-            try:
-                self._audit(self._transaction)
-            except Failure as failure:
-                raise_from(TransactionError("Failed to run transaction"), failure)
-            else:
-                return result
+            self._audit(self._transaction)
+            return result
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
               ):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransaction(graph_name, self.protocol_version, readonly,
-                                            # after, metadata, timeout
-                                            )
+        self._transaction = BoltTransactionRef(graph_name, self.protocol_version, readonly,
+                                               # after, metadata, timeout
+                                               )
         log.debug("[#%04X] C: BEGIN %r", self.local_port, self._transaction.extra)
         response = self._write_request(0x11, self._transaction.extra)
         try:
             self._sync(response)
         except BrokenWireError as error:
-            raise_from(TransactionError("Transaction could not begin "
+            raise_from(ConnectionBroken("Transaction could not begin "
                                         "due to disconnection"), error)
         else:
-            try:
-                self._audit(self._transaction)
-            except Failure as failure:
-                raise_from(TransactionError("Failed to begin transaction"), failure)
-            else:
-                if callable(self._on_bind):
-                    self._on_bind(self._transaction, self)
-                return self._transaction
+            self._audit(self._transaction)
+            if callable(self._on_bind):
+                self._on_bind(self._transaction, self)
+            return self._transaction
 
     def commit(self, tx):
         self._assert_open()
@@ -720,14 +714,14 @@ class Bolt3(Bolt2):
             self._sync(response)
         except BrokenWireError as error:
             tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by disconnection "
-                                              "during commit"), error)
+            raise_from(ConnectionBroken("Transaction broken by disconnection "
+                                        "during commit"), error)
         else:
             try:
                 self._audit(self._transaction)
-            except Failure as failure:
+            except Neo4jError as error:
                 tx.mark_broken()
-                raise_from(BrokenTransactionError("Failed to commit transaction"), failure)
+                raise_from(ConnectionBroken("Failed to commit transaction"), error)
             else:
                 return Bookmark(response.metadata.get("bookmark"))
         finally:
@@ -744,14 +738,14 @@ class Bolt3(Bolt2):
             self._sync(response)
         except BrokenWireError as error:
             tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by disconnection "
-                                              "during rollback"), error)
+            raise_from(ConnectionBroken("Transaction broken by disconnection "
+                                        "during rollback"), error)
         else:
             try:
                 self._audit(self._transaction)
-            except Failure as failure:
+            except Neo4jError as error:
                 tx.mark_broken()
-                raise_from(BrokenTransactionError("Failed to rollback transaction"), failure)
+                raise_from(ConnectionBroken("Failed to rollback transaction"), error)
             else:
                 return Bookmark(response.metadata.get("bookmark"))
         finally:
@@ -807,9 +801,14 @@ class Bolt4x1(Bolt4x0):
     protocol_version = (4, 1)
 
 
-# class Bolt4x2(Bolt4x1):
-#
-#     protocol_version = (4, 2)
+class Bolt4x2(Bolt4x1):
+
+    protocol_version = (4, 2)
+
+
+class Bolt4x3(Bolt4x2):
+
+    protocol_version = (4, 3)
 
 
 class Task(object):
@@ -832,6 +831,7 @@ class ItemizedTask(Task):
 
     def __init__(self):
         self._items = deque()
+        self._items_len = 0
         self._complete = False
 
     def __bool__(self):
@@ -844,6 +844,7 @@ class ItemizedTask(Task):
 
     def append(self, item, final=False):
         self._items.append(item)
+        self._items_len += 1
         if final:
             self.set_complete()
 
@@ -872,9 +873,13 @@ class ItemizedTask(Task):
         """ Flag to indicate whether the list of items is complete and
         all items are done.
         """
-        if self.complete():
-            last = self.last()
-            return (last and last.done()) or not last
+        if self._complete:
+            try:
+                last = self._items[-1]
+            except IndexError:
+                return True
+            else:
+                return last.done()
         else:
             return False
 
@@ -886,7 +891,7 @@ class ItemizedTask(Task):
             item.audit()
 
 
-class BoltTransaction(ItemizedTask, Transaction):
+class BoltTransactionRef(ItemizedTask, TransactionRef):
 
     def __init__(self, graph_name, protocol_version,
                  readonly=False, after=None, metadata=None, timeout=None
@@ -895,7 +900,7 @@ class BoltTransaction(ItemizedTask, Transaction):
             raise TypeError("Database selection is not supported "
                             "prior to Neo4j 4.0")
         ItemizedTask.__init__(self)
-        Transaction.__init__(self, graph_name, readonly=readonly)
+        TransactionRef.__init__(self, graph_name, readonly=readonly)
         self.after = after
         self.metadata = metadata
         self.timeout = timeout
@@ -932,18 +937,23 @@ class BoltResult(ItemizedTask, Result):
         self.__record_type = None
         self.__cx = cx
         self.append(response)
+        self._last_taken = 0
 
     @property
     def graph_name(self):
         return self._items[-1].metadata.get("db", super(BoltResult, self).graph_name)
 
     @property
+    def protocol_version(self):
+        return self.__cx.protocol_version
+
+    @property
     def query_id(self):
         return self.header().metadata.get("qid")
 
     @property
-    def protocol_version(self):
-        return self.__cx.protocol_version
+    def offline(self):
+        return self.done() or self.__cx.closed or self.__cx.broken
 
     def buffer(self):
         if self.done():
@@ -952,41 +962,57 @@ class BoltResult(ItemizedTask, Result):
             self.__cx.sync(self)
         except BrokenWireError as error:
             self.__cx.transaction.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by disconnection "
-                                              "while buffering"), error)
+            raise_from(ConnectionBroken("Transaction broken by disconnection "
+                                        "while buffering"), error)
 
     def header(self):
-        self.buffer()
+        if not self.done():
+            self.buffer()
         return self._items[0]
 
     def fields(self):
         return self.header().metadata.get("fields")
 
     def summary(self):
-        return dict(self._items[-1].metadata,
-                    connection=dict(self.__cx.profile))
+        d = {"connection": self.__cx.profile.to_dict()}
+        for item in self.items():
+            d.update(item.metadata)
+        return d
 
     def fetch(self):
         return self.__cx.fetch(self)
 
     def has_records(self):
-        return any(response.has_records()
-                   for response in self._items)
+        i = self._last_taken
+        while i < self._items_len:
+            response = self._items[i]
+            if response.records:
+                return True
+            i += 1
+        return False
 
     def take_record(self):
-        for response in self._items:
-            record = response.take_record()
-            if record is None:
-                continue
-            return record
+        i = self._last_taken
+        while i < self._items_len:
+            response = self._items[i]
+            try:
+                record = response.records.popleft()
+            except IndexError:
+                i += 1
+            else:
+                self._last_taken = i
+                return record
         return None
 
     def peek_records(self, limit):
         records = []
-        for response in self._items:
+        i = self._last_taken
+        while i < self._items_len:
+            response = self._items[i]
             records.extend(response.peek_records(limit - len(records)))
             if len(records) == limit:
                 break
+            i += 1
         return records
 
 
@@ -1002,7 +1028,7 @@ class BoltResponse(Task):
         super(BoltResponse, self).__init__()
         self.capacity = capacity
         self.vital = vital
-        self._records = deque()
+        self.records = deque()
         self._status = 0
         self._metadata = {}
         self._failure = None
@@ -1018,19 +1044,10 @@ class BoltResponse(Task):
             return "<BoltResponse ?>"
 
     def add_records(self, value_lists):
-        self._records.extend(value_lists)
-
-    def has_records(self):
-        return bool(self._records)
-
-    def take_record(self):
-        try:
-            return self._records.popleft()
-        except IndexError:
-            return None
+        self.records.extend(value_lists)
 
     def peek_records(self, n):
-        return islice(self._records, 0, n)
+        return islice(self.records, 0, n)
 
     def set_success(self, **metadata):
         self._status = 1
@@ -1038,10 +1055,6 @@ class BoltResponse(Task):
 
     def set_failure(self, **metadata):
         self._status = 2
-        # FIXME: This currently clumsily breaks through abstraction
-        #   layers. This should create a Failure instead of a
-        #   Neo4jError. See also HTTPResponse.audit
-        from py2neo.database.work import Neo4jError
         self._failure = Neo4jError.hydrate(metadata)
 
     def set_ignored(self):
@@ -1049,7 +1062,7 @@ class BoltResponse(Task):
 
     def full(self):
         if self.capacity >= 0:
-            return len(self._records) >= self.capacity
+            return len(self.records) >= self.capacity
         else:
             return False
 
@@ -1067,8 +1080,3 @@ class BoltResponse(Task):
     @property
     def metadata(self):
         return self._metadata
-
-
-class BoltProtocolError(Exception):
-
-    pass

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,7 +40,13 @@ def property_record(iterable=()):
     """ Convert a dictionary-like iterable into a :class:`.Record`
     by sorting keys and dropping all values that are :const:`.None`.
     """
-    return Record(sorted((key, value) for key, value in iter_items(iterable) if value is not None))
+    keys = []
+    values = []
+    for key, value in iter_items(iterable):
+        if value is not None:
+            keys.append(key)
+            values.append(value)
+    return Record(keys, values)
 
 
 class ReactiveSet(set):

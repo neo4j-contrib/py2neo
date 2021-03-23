@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -56,37 +56,44 @@ class FakeGraph(object):
         return FakeService()
 
 
+class FakeTransactionManager(object):
+
+    @property
+    def graph(self):
+        return FakeGraph()
+
+
 def test_should_fail_on_tx_create_object():
-    tx = Transaction(FakeGraph())
+    tx = Transaction(FakeTransactionManager())
     with raises(TypeError):
         tx.create(object())
 
 
 def test_should_fail_on_tx_delete_object():
-    tx = Transaction(FakeGraph())
+    tx = Transaction(FakeTransactionManager())
     with raises(TypeError):
         tx.delete(object())
 
 
 def test_should_fail_on_tx_merge_object():
-    tx = Transaction(FakeGraph())
+    tx = Transaction(FakeTransactionManager())
     with raises(TypeError):
         tx.merge(object())
 
 
 def test_should_fail_on_tx_pull_object():
-    tx = Transaction(FakeGraph())
+    tx = Transaction(FakeTransactionManager())
     with raises(TypeError):
         tx.pull(object())
 
 
 def test_should_fail_on_tx_push_object():
-    tx = Transaction(FakeGraph())
+    tx = Transaction(FakeTransactionManager())
     with raises(TypeError):
         tx.push(object())
 
 
 def test_should_fail_on_tx_separate_object():
-    tx = Transaction(FakeGraph())
+    tx = Transaction(FakeTransactionManager())
     with raises(TypeError):
         tx.separate(object())

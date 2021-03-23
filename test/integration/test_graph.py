@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ def test_get_node_by_id(graph):
 
 
 def test_create_node_with_mixed_property_types(graph):
-    a = Node.cast({"number": 13, "foo": "bar", "true": False, "fish": "chips"})
+    a = Node(number=13, foo="bar", true=False, fish="chips")
     graph.create(a)
     assert len(a) == 4
     assert a["fish"] == "chips"
@@ -107,10 +107,10 @@ def test_create_node_with_mixed_property_types(graph):
 
 
 def test_create_node_with_null_properties(graph):
-    a = Node.cast({"foo": "bar", "no-foo": None})
+    a = Node(foo="bar", no_foo=None)
     graph.create(a)
     assert a["foo"] == "bar"
-    assert a["no-foo"] is None
+    assert a["no_foo"] is None
 
 
 @mark.skip

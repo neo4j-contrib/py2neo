@@ -50,7 +50,7 @@ Requirements
 The following versions of Python and Neo4j (all editions) are supported:
 
 - Python 2.7 / 3.4 / 3.5 / 3.6 / 3.7 / 3.8 / 3.9
-- Neo4j 3.4 / 3.5 / 4.0 / 4.1 (the latest point release of each version is recommended)
+- Neo4j 3.4 / 3.5 / 4.0 / 4.1 / 4.2 / 4.3 (the latest point release of each version is recommended)
 
 Py2neo provides support for the multi-database functionality added in Neo4j 4.0.
 More about this can be found in the documentation for the :class:`.Graph` class.
@@ -74,10 +74,12 @@ A comprehensive set of graph structure data types and operations are provided, a
 
     database/index
     database/work
+    errors
     matching
     data/index
     data/spatial
-    data/operations
+    bulk/index
+    pep249/index
 
 
 Object-Graph Mapping

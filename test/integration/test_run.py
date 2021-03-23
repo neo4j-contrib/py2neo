@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,50 +23,38 @@ from py2neo import Node
 
 def test_can_run_single_statement_transaction(graph):
     tx = graph.begin()
-    assert not tx.finished()
     cursor = tx.run("CREATE (a) RETURN a")
-    tx.commit()
+    graph.commit(tx)
     records = list(cursor)
     assert len(records) == 1
     for record in records:
         assert isinstance(record["a"], Node)
-    assert tx.finished()
 
 
 def test_can_run_query_that_returns_map_literal(graph):
     tx = graph.begin()
     cursor = tx.run("RETURN {foo:'bar'}")
-    tx.commit()
+    graph.commit(tx)
     value = cursor.evaluate()
     assert value == {"foo": "bar"}
 
 
-def test_can_run_transaction_as_with_statement(graph):
-    with graph.begin() as tx:
-        assert not tx.finished()
-        tx.run("CREATE (a) RETURN a")
-    assert tx.finished()
-
-
 def test_can_run_multi_statement_transaction(graph):
     tx = graph.begin()
-    assert not tx.finished()
     cursor_1 = tx.run("CREATE (a) RETURN a")
     cursor_2 = tx.run("CREATE (a) RETURN a")
     cursor_3 = tx.run("CREATE (a) RETURN a")
-    tx.commit()
+    graph.commit(tx)
     for cursor in (cursor_1, cursor_2, cursor_3):
         records = list(cursor)
         assert len(records) == 1
         for record in records:
             assert isinstance(record["a"], Node)
-    assert tx.finished()
 
 
 def test_can_run_multi_execute_transaction(graph):
     tx = graph.begin()
     for i in range(10):
-        assert not tx.finished()
         cursor_1 = tx.run("CREATE (a) RETURN a")
         cursor_2 = tx.run("CREATE (a) RETURN a")
         cursor_3 = tx.run("CREATE (a) RETURN a")
@@ -75,14 +63,12 @@ def test_can_run_multi_execute_transaction(graph):
             assert len(records) == 1
             for record in records:
                 assert isinstance(record["a"], Node)
-    tx.commit()
-    assert tx.finished()
+    graph.commit(tx)
 
 
 def test_can_rollback_transaction(graph):
     tx = graph.begin()
     for i in range(10):
-        assert not tx.finished()
         cursor_1 = tx.run("CREATE (a) RETURN a")
         cursor_2 = tx.run("CREATE (a) RETURN a")
         cursor_3 = tx.run("CREATE (a) RETURN a")
@@ -92,12 +78,11 @@ def test_can_rollback_transaction(graph):
             assert len(records) == 1
             for record in records:
                 assert isinstance(record["a"], Node)
-    tx.rollback()
-    assert tx.finished()
+    graph.rollback(tx)
 
 
 def test_cannot_append_after_transaction_finished(graph):
     tx = graph.begin()
-    tx.rollback()
+    graph.rollback(tx)
     with raises(TypeError):
         tx.run("CREATE (a) RETURN a")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -128,10 +128,16 @@ class TestProfile(object):
 # TODO: test with full certificates
 if QUICK_TEST:
     neo4j_service_profiles = [
-        ServiceProfile(release=(4, 0), topology="CE", schemes=["bolt"]),
+        ServiceProfile(release=(4, 2), topology="CE", schemes=UNSECURED_SCHEMES),
     ]
 else:
     neo4j_service_profiles = [
+        ServiceProfile(release=(4, 2), topology="CE", schemes=UNSECURED_SCHEMES),
+        ServiceProfile(release=(4, 2), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+        # ServiceProfile(release=(4, 2), topology="CE", cert="full", schemes=ALL_SCHEMES),
+        ServiceProfile(release=(4, 1), topology="CE", schemes=UNSECURED_SCHEMES),
+        ServiceProfile(release=(4, 1), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+        # ServiceProfile(release=(4, 1), topology="CE", cert="full", schemes=ALL_SCHEMES),
         ServiceProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
         ServiceProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
         # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),

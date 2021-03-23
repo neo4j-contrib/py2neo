@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,84 +23,195 @@ execution of Cypher queries and transactions.
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-from collections import deque, OrderedDict
+from collections import OrderedDict
 from functools import reduce
+from inspect import isgenerator
 from io import StringIO
 from operator import xor as xor_operator
 from warnings import warn
 
-from py2neo.collections import iter_items
-from py2neo.compat import Mapping, numeric_types, ustr, xstr
+from py2neo.compat import Mapping, numeric_types, ustr, deprecated
 from py2neo.cypher import cypher_repr, cypher_str
+from py2neo.errors import Neo4jError
+
+
+class TransactionManager(object):
+    """ Transaction manager.
+
+    *New in version 2021.1.*
+    """
+
+    def __init__(self, graph):
+        self.graph = graph
+        self._connector = self.graph.service.connector
+
+    def auto(self, readonly=False,
+             # after=None, metadata=None, timeout=None
+             ):
+        """ Create a new auto-commit :class:`~py2neo.database.work.Transaction`.
+
+        :param readonly: if :py:const:`True`, will begin a readonly
+            transaction, otherwise will begin as read-write
+        """
+        return Transaction(self, autocommit=True, readonly=readonly,
+                           # after, metadata, timeout
+                           )
+
+    def begin(self, readonly=False,
+              # after=None, metadata=None, timeout=None
+              ):
+        """ Begin a new :class:`~py2neo.database.work.Transaction`.
+
+        :param readonly: if :py:const:`True`, will begin a readonly
+            transaction, otherwise will begin as read-write
+        :returns: new :class:`~py2neo.database.work.Transaction`.
+            object
+        """
+        return Transaction(self, autocommit=False, readonly=readonly,
+                           # after, metadata, timeout
+                           )
+
+    def commit(self, tx):
+        """ Commit the transaction.
+
+        :returns: :class:`.TransactionSummary` object
+        """
+        if tx is None:
+            return
+        if not isinstance(tx, Transaction):
+            raise TypeError("Bad transaction %r" % tx)
+        if tx._finished:
+            raise TypeError("Cannot commit finished transaction")
+        try:
+            summary = self._connector.commit(tx._tx_ref)
+            return TransactionSummary(**summary)
+        finally:
+            tx._finished = True
+
+    def rollback(self, tx):
+        """ Roll back the current transaction, undoing all actions
+        previously taken.
+
+        :returns: :class:`.TransactionSummary` object
+        """
+        from py2neo.client import ConnectionUnavailable, ConnectionBroken
+        if tx is None or tx._finished:
+            return
+        if not isinstance(tx, Transaction):
+            raise TypeError("Bad transaction %r" % tx)
+        try:
+            summary = self._connector.rollback(tx._tx_ref)
+            return TransactionSummary(**summary)
+        except (ConnectionUnavailable, ConnectionBroken):
+            pass
+        finally:
+            tx._finished = True
+
+    def play(self, work, args=None, kwargs=None, readonly=None, timeout=None
+             # after=None, metadata=None,
+             ):
+        """ Call a function representing a transactional unit of work.
+
+        The function must always accept a :class:`~py2neo.database.work.Transaction`
+        object as its first argument. Additional arguments can be
+        passed though the `args` and `kwargs` arguments of this method.
+
+        A unit of work can be designated "readonly" if the work
+        function has an attribute called `readonly` which is set to
+        :py:const:`True`. This can be overridden by using the
+        `readonly` argument to this method which, if set to either
+        :py:const:`True` or :py:const:`False`, will take precedence.
+
+        :param work: function containing the unit of work
+        :param args: sequence of additional positional arguments to
+            pass into the function
+        :param kwargs: mapping of additional keyword arguments to
+            pass into the function
+        :param readonly: set to :py:const:`True` or :py:const:`False` to
+            override the readonly attribute of the work function
+        :param timeout:
+        :returns: list of :class:`.TransactionSummary` objects, one for
+            each attempt made to execute the transaction
+        :raises TransactionFailed: if the unit of work does not
+            successfully complete
+        """
+        from py2neo.client import ConnectionUnavailable, ConnectionBroken
+        from py2neo.timing import repeater
+        # TODO: logging
+        if not callable(work):
+            raise TypeError("Unit of work is not callable")
+        kwargs = dict(kwargs or {})
+        if readonly is None:
+            readonly = getattr(work, "readonly", False)
+        if not timeout:
+            timeout = getattr(work, "timeout", None)
+        summaries = []
+        for _ in repeater(at_least=3, timeout=timeout):
+            tx = None
+            try:
+                tx = self.begin(readonly=readonly,
+                                # after=after, metadata=metadata, timeout=timeout
+                                )
+                value = work(tx, *args or (), **kwargs or {})
+                if isgenerator(value):
+                    _ = list(value)     # exhaust the generator
+                summaries.append(self.commit(tx))
+            except (ConnectionUnavailable, ConnectionBroken):
+                summaries.append(self.rollback(tx))
+                continue
+            except Neo4jError as error:
+                summaries.append(self.rollback(tx))
+                if error.should_invalidate_routing_table():
+                    self._connector.invalidate_routing_table(self.graph.name)
+                if error.should_retry():
+                    continue
+                else:
+                    raise
+            except Exception:
+                summaries.append(self.rollback(tx))
+                raise
+            else:
+                return summaries
+        raise TransactionFailed("Failed after %r tries" % len(summaries), summaries)
 
 
 class Transaction(object):
     """ Logical context for one or more graph operations.
 
     Transaction objects are typically constructed by the
-    :meth:`.Graph.auto` and :meth:`.Graph.begin` methods. User
-    applications should not generally need to create these objects
-    directly.
-
-    Each transaction has a lifetime which ends by a call to either
-    :meth:`.commit` or :meth:`.rollback`. In the case of an error, the
-    server can also prematurely end transactions. The
-    :meth:`.finished` method can be used to determine whether or not
-    any of these cases have occurred.
-
-    The :meth:`.run` and :meth:`.evaluate` methods are used to execute
-    Cypher queries within the transactional context. The remaining
-    methods operate on :class:`.Subgraph` objects, including
-    derivatives such as :class:`.Node` and :class:`.Relationship`.
+    :meth:`.Graph.auto` and :meth:`.Graph.begin` methods.
+    Likewise, the :meth:`.Graph.commit` and :meth:`.Graph.rollback`
+    methods can be used to finish a transaction.
     """
 
     _finished = False
 
-    def __init__(self, graph, autocommit=False, readonly=False,
+    def __init__(self, manager, autocommit=False, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
-        self._graph = graph
+        self._tx_manager = manager
         self._autocommit = autocommit
-        self._entities = deque()
-        self._connector = self.graph.service.connector
+        self._connector = self._tx_manager.graph.service.connector
         if autocommit:
-            self._transaction = None
+            self._tx_ref = None
         else:
-            self._transaction = self._connector.begin(self._graph.name, readonly=readonly,
-                                                      # after, metadata, timeout
-                                                      )
+            self._tx_ref = self._connector.begin(self._tx_manager.graph.name, readonly=readonly,
+                                                 # after, metadata, timeout
+                                                 )
         self._readonly = readonly
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type is None:
-            self.commit()
-        else:
-            self.rollback()
-
-    def _assert_unfinished(self, message):
-        if self._finished:
-            raise TypeError(message)
 
     @property
     def graph(self):
-        return self._graph
-
-    @property
-    def entities(self):
-        return self._entities
+        """ :class:`.Graph` to which this transaction is bound.
+        """
+        return self._tx_manager.graph
 
     @property
     def readonly(self):
-        return self._readonly
-
-    def finished(self):
-        """ Indicates whether or not this transaction has been completed
-        or is still open.
+        """ :py:const:`True` if this is a readonly transaction,
+        :py:const:`False` otherwise.
         """
-        return self._finished
+        return self._readonly
 
     def run(self, cypher, parameters=None, **kwparameters):
         """ Send a Cypher query to the server for execution and return
@@ -111,49 +222,24 @@ class Transaction(object):
         :returns: :py:class:`.Cursor` object
         """
         from py2neo.client import Connection
-        self._assert_unfinished("Cannot run query in finished transaction")
-        try:
-            entities = self._entities.popleft()
-        except IndexError:
-            entities = {}
+        if self._finished:
+            raise TypeError("Cannot run query in finished transaction")
 
         try:
             hydrant = Connection.default_hydrant(self._connector.profile, self.graph)
             parameters = dict(parameters or {}, **kwparameters)
-            if self._transaction:
-                result = self._connector.run_in_tx(self._transaction, cypher, parameters)
+            if self._tx_ref:
+                result = self._connector.run_query(self._tx_ref, cypher, parameters)
             else:
                 result = self._connector.auto_run(self.graph.name, cypher, parameters,
                                                   readonly=self.readonly)
-            return Cursor(result, hydrant, entities)
+            return Cursor(result, hydrant)
         finally:
-            if not self._transaction:
-                self.finish()
-
-    def finish(self):
-        self._assert_unfinished("Transaction already finished")
-        self._finished = True
-
-    def commit(self):
-        """ Commit the transaction.
-        """
-        self._assert_unfinished("Cannot commit finished transaction")
-        try:
-            return self._connector.commit(self._transaction)
-        finally:
-            self._finished = True
-
-    def rollback(self):
-        """ Roll back the current transaction, undoing all actions previously taken.
-        """
-        self._assert_unfinished("Cannot rollback finished transaction")
-        try:
-            return self._connector.rollback(self._transaction)
-        finally:
-            self._finished = True
+            if not self._tx_ref:
+                self._finished = True
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
-        """ Execute a single Cypher statement and return the value from
+        """ Execute a single Cypher query and return the value from
         the first column of the first record.
 
         :param cypher: Cypher statement
@@ -161,6 +247,34 @@ class Transaction(object):
         :returns: single return value or :const:`None`
         """
         return self.run(cypher, parameters, **kwparameters).evaluate(0)
+
+    def update(self, cypher, parameters=None, **kwparameters):
+        """ Execute a single Cypher statement and discard any result
+        returned.
+
+        :param cypher: Cypher statement
+        :param parameters: dictionary of parameters
+        """
+        self.run(cypher, parameters, **kwparameters).close()
+
+    @deprecated("The transaction.commit() method is deprecated, "
+                "use graph.commit(transaction) instead")
+    def commit(self):
+        """ Commit the transaction.
+
+        :returns: :class:`.TransactionSummary` object
+        """
+        return self._tx_manager.commit(self)
+
+    @deprecated("The transaction.rollback() method is deprecated, "
+                "use graph.rollback(transaction) instead")
+    def rollback(self):
+        """ Roll back the current transaction, undoing all actions
+        previously taken.
+
+        :returns: :class:`.TransactionSummary` object
+        """
+        return self._tx_manager.rollback(self)
 
     def create(self, subgraph):
         """ Create remote nodes and relationships that correspond to those in a
@@ -185,6 +299,9 @@ class Transaction(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                     creatable object
         """
+        if self._autocommit:
+            raise TypeError("Create operations are not supported inside "
+                            "auto-commit transactions")
         try:
             create = subgraph.__db_create__
         except AttributeError:
@@ -312,6 +429,27 @@ class Transaction(object):
             separate(self)
 
 
+class TransactionSummary(object):
+    """ Summary information produced as the result of a
+    :class:`.Transaction` commit or rollback.
+    """
+
+    def __init__(self, bookmark=None, profile=None, time=None):
+        self.bookmark = bookmark
+        self.profile = profile
+        self.time = time
+
+
+class TransactionFailed(Exception):
+    """ Raised when a transactional unit of work cannot be successfully
+    completed.
+    """
+
+    def __init__(self, message, summaries):
+        super(TransactionFailed, self).__init__(message)
+        self.summaries = summaries
+
+
 class Cursor(object):
     """ A `Cursor` is a navigator for a stream of records.
 
@@ -358,12 +496,11 @@ class Cursor(object):
 
     """
 
-    def __init__(self, result, hydrant=None, entities=None):
+    def __init__(self, result, hydrant=None):
         self._result = result
+        self._fields = self._result.fields()
         self._hydrant = hydrant
-        self._entities = entities
         self._current = None
-        self._closed = False
 
     def __repr__(self):
         preview = self.preview(3)
@@ -395,17 +532,19 @@ class Cursor(object):
         """
         return self._current
 
+    @property
+    def closed(self):
+        return self._result.offline
+
     def close(self):
         """ Close this cursor and free up all associated resources.
         """
-        if not self._closed:
-            self._result.buffer()   # force consumption of remaining data
-            self._closed = True
+        self._result.buffer()
 
     def keys(self):
         """ Return the field names for the records in the stream.
         """
-        return self._result.fields()
+        return self._fields
 
     def summary(self):
         """ Return the result summary.
@@ -470,17 +609,14 @@ class Cursor(object):
             raise ValueError("Cursor can only move forwards")
         amount = int(amount)
         moved = 0
-        v = self._result.protocol_version
         while moved != amount:
             values = self._result.fetch()
             if values is None:
                 break
-            else:
-                keys = self._result.fields()  # TODO: don't do this for every record
-                if self._hydrant:
-                    values = self._hydrant.hydrate(keys, values, entities=self._entities, version=v)
-                self._current = Record(zip(keys, values))
-                moved += 1
+            if self._hydrant:
+                values = self._hydrant.hydrate_list(values)
+            self._current = Record(self._fields, values)
+            moved += 1
         return moved
 
     def preview(self, limit=1):
@@ -493,15 +629,13 @@ class Cursor(object):
         """
         if limit < 0:
             raise ValueError("Illegal preview size")
-        v = self._result.protocol_version
         records = []
-        keys = self._result.fields()
-        if keys:
+        if self._fields:
             for values in self._result.peek_records(int(limit)):
                 if self._hydrant:
-                    values = self._hydrant.hydrate(keys, values, entities=self._entities, version=v)
+                    values = self._hydrant.hydrate_list(values)
                 records.append(values)
-            return Table(records, keys)
+            return Table(records, self._fields)
         else:
             return None
 
@@ -531,6 +665,7 @@ class Cursor(object):
             >>> g.run("MATCH (a) WHERE a.email=$x RETURN a.name", x="bob@acme.com").evaluate()
             'Bob Robertson'
         """
+        self._result.buffer()
         if self.forward():
             try:
                 return self[field]
@@ -711,14 +846,9 @@ class Record(tuple, Mapping):
 
     __keys = None
 
-    def __new__(cls, iterable=()):
-        keys = []
-        values = []
-        for key, value in iter_items(iterable):
-            keys.append(key)
-            values.append(value)
+    def __new__(cls, keys, values):
         inst = tuple.__new__(cls, values)
-        inst.__keys = tuple(keys)
+        inst.__keys = keys
         return inst
 
     def __repr__(self):
@@ -897,8 +1027,6 @@ class Table(list):
                 k = records.keys()
             except AttributeError:
                 raise ValueError("Missing keys")
-        if not k:
-            raise ValueError("Missing keys")
         width = len(k)
         t = [set() for _ in range(width)]
         o = [False] * width
@@ -1264,75 +1392,3 @@ class CypherPlan(Mapping):
 
     def keys(self):
         return ["operator_type", "identifiers", "children", "args"]
-
-
-class Neo4jError(Exception):
-    """ Base exception for all errors signalled by Neo4j.
-    """
-
-    classification = None
-    category = None
-    title = None
-    code = None
-    message = None
-
-    @classmethod
-    def hydrate(cls, data):
-        try:
-            code = data["code"]
-            message = data["message"]
-        except KeyError:
-            classification = None
-            category = None
-            title = None
-            code = None
-            message = None
-        else:
-            _, classification, category, title = code.split(".")
-        if classification == "ClientError":
-            error_cls = ClientError
-        elif classification == "DatabaseError":
-            error_cls = DatabaseError
-        elif classification == "TransientError":
-            error_cls = TransientError
-        else:
-            error_cls = cls
-        error_text = message or "<Unknown>"
-        if category or title:
-            error_text = "[%s.%s] %s" % (category, title, error_text)
-        inst = error_cls(error_text)
-        inst.classification = classification
-        inst.category = category
-        inst.title = title
-        inst.code = code
-        inst.message = message
-        return inst
-
-    def __new__(cls, *args, **kwargs):
-        try:
-            exception = kwargs["exception"]
-            error_cls = type(xstr(exception), (cls,), {})
-        except KeyError:
-            error_cls = cls
-        return Exception.__new__(error_cls, *args)
-
-    def __init__(self, *args, **kwargs):
-        Exception.__init__(self, *args)
-        for key, value in kwargs.items():
-            setattr(self, key.lower(), value)
-
-
-class ClientError(Neo4jError):
-    """ The Client sent a bad request - changing the request might yield a successful outcome.
-    """
-
-
-class DatabaseError(Neo4jError):
-    """ The database failed to service the request.
-    """
-
-
-class TransientError(Neo4jError):
-    """ The database cannot service the request right now, retrying
-    later might yield a successful outcome.
-    """

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,18 +22,14 @@ from collections import OrderedDict
 from itertools import chain
 from uuid import uuid4
 
-from py2neo.collections import is_collection, SetView, PropertyDict
-from py2neo.compat import integer_types, string_types, ustr, xstr
-from py2neo.cypher import cypher_repr
+from py2neo.collections import SetView, PropertyDict
+from py2neo.compat import string_types, ustr, xstr
+from py2neo.cypher import cypher_escape, cypher_repr, cypher_join
 from py2neo.cypher.encoding import CypherEncoder, LabelSetView
-from py2neo.data.operations import (
-    create_subgraph,
-    merge_subgraph,
-    delete_subgraph,
-    separate_subgraph,
-    pull_subgraph,
-    push_subgraph,
-    subgraph_exists,
+from py2neo.cypher.queries import (
+    unwind_create_nodes_query,
+    unwind_merge_nodes_query,
+    unwind_merge_relationships_query,
 )
 
 
@@ -94,7 +90,7 @@ class Subgraph(object):
     def __init__(self, nodes=None, relationships=None):
         self.__nodes = frozenset(nodes or [])
         self.__relationships = frozenset(relationships or [])
-        self.__nodes |= frozenset(chain(*(r.nodes for r in self.__relationships)))
+        self.__nodes |= frozenset(chain.from_iterable(r.nodes for r in self.__relationships))
         if not self.__nodes:
             raise ValueError("Subgraphs must contain at least one node")
 
@@ -148,25 +144,224 @@ class Subgraph(object):
         return Subgraph(n, r)
 
     def __db_create__(self, tx):
-        create_subgraph(tx, self)
+        """ Create new data in a remote :class:`.Graph` from this
+        :class:`.Subgraph`.
+
+        :param tx:
+        """
+        graph = tx.graph
+
+        # Convert nodes into a dictionary of
+        #   {frozenset(labels): [Node, Node, ...]}
+        node_dict = {}
+        for node in self.nodes:
+            if node.graph is None:
+                key = frozenset(node.labels)
+                node_dict.setdefault(key, []).append(node)
+
+        # Convert relationships into a dictionary of
+        #   {rel_type: [Rel, Rel, ...]}
+        rel_dict = {}
+        for relationship in self.relationships:
+            if relationship.graph is None:
+                key = type(relationship).__name__
+                rel_dict.setdefault(key, []).append(relationship)
+
+        for labels, nodes in node_dict.items():
+            pq = unwind_create_nodes_query(list(map(dict, nodes)), labels=labels)
+            pq = cypher_join(pq, "RETURN id(_)")
+            records = tx.run(*pq)
+            for i, record in enumerate(records):
+                node = nodes[i]
+                node.graph = graph
+                node.identity = record[0]
+                node._remote_labels = labels
+        for r_type, relationships in rel_dict.items():
+            data = map(lambda r: [r.start_node.identity, dict(r), r.end_node.identity],
+                       relationships)
+            pq = unwind_merge_relationships_query(data, r_type)
+            pq = cypher_join(pq, "RETURN id(_)")
+            for i, record in enumerate(tx.run(*pq)):
+                relationship = relationships[i]
+                relationship.graph = graph
+                relationship.identity = record[0]
 
     def __db_delete__(self, tx):
-        delete_subgraph(tx, self)
+        """ Delete data in a remote :class:`.Graph` based on this
+        :class:`.Subgraph`.
+
+        :param tx:
+        """
+        graph = tx.graph
+        node_identities = []
+        for relationship in self.relationships:
+            if relationship.graph is graph:
+                relationship.graph = None
+                relationship.identity = None
+        for node in self.nodes:
+            if node.graph is graph:
+                node_identities.append(node.identity)
+                node.graph = None
+                node.identity = None
+        # TODO: this might delete remote relationships that aren't
+        #  represented in the local subgraph - is this OK?
+        list(tx.run("MATCH (_) WHERE id(_) IN $x DETACH DELETE _", x=node_identities))
 
     def __db_exists__(self, tx):
-        return subgraph_exists(tx, self)
+        """ Determine whether one or more graph entities all exist
+        within the database. Note that if any nodes or relationships in
+        this :class:`.Subgraph` are not bound to remote counterparts,
+        this method will return ``False``.
+
+        :param tx:
+        :returns: ``True`` if all entities exist remotely, ``False``
+            otherwise
+        """
+        graph = tx.graph
+        node_ids = set()
+        relationship_ids = set()
+        for i, node in enumerate(self.nodes):
+            if node.graph is graph:
+                node_ids.add(node.identity)
+            else:
+                return False
+        for i, relationship in enumerate(self.relationships):
+            if relationship.graph is graph:
+                relationship_ids.add(relationship.identity)
+            else:
+                return False
+        statement = ("OPTIONAL MATCH (a) WHERE id(a) IN $x "
+                     "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN $y "
+                     "RETURN count(DISTINCT a) + count(DISTINCT r)")
+        parameters = {"x": list(node_ids), "y": list(relationship_ids)}
+        return tx.evaluate(statement, parameters) == len(node_ids) + len(relationship_ids)
 
     def __db_merge__(self, tx, primary_label=None, primary_key=None):
-        merge_subgraph(tx, self, primary_label, primary_key)
+        """ Merge data into a remote :class:`.Graph` from this
+        :class:`.Subgraph`.
+
+        :param tx:
+        :param primary_label:
+        :param primary_key:
+        """
+        graph = tx.graph
+
+        # Convert nodes into a dictionary of
+        #   {(p_label, p_key, frozenset(labels)): [Node, Node, ...]}
+        node_dict = {}
+        for node in self.nodes:
+            if node.graph is None:
+                p_label = getattr(node, "__primarylabel__", None) or primary_label
+                p_key = getattr(node, "__primarykey__", None) or primary_key
+                key = (p_label, p_key, frozenset(node.labels))
+                node_dict.setdefault(key, []).append(node)
+
+        # Convert relationships into a dictionary of
+        #   {rel_type: [Rel, Rel, ...]}
+        rel_dict = {}
+        for relationship in self.relationships:
+            if relationship.graph is None:
+                key = type(relationship).__name__
+                rel_dict.setdefault(key, []).append(relationship)
+
+        for (pl, pk, labels), nodes in node_dict.items():
+            if pl is None or pk is None:
+                raise ValueError("Primary label and primary key are required for MERGE operation")
+            pq = unwind_merge_nodes_query(map(dict, nodes), (pl, pk), labels)
+            pq = cypher_join(pq, "RETURN id(_)")
+            identities = [record[0] for record in tx.run(*pq)]
+            if len(identities) > len(nodes):
+                raise UniquenessError("Found %d matching nodes for primary label %r and primary "
+                                      "key %r with labels %r but merging requires no more than "
+                                      "one" % (len(identities), pl, pk, set(labels)))
+            for i, identity in enumerate(identities):
+                node = nodes[i]
+                node.graph = graph
+                node.identity = identity
+                node._remote_labels = labels
+        for r_type, relationships in rel_dict.items():
+            data = map(lambda r: [r.start_node.identity, dict(r), r.end_node.identity],
+                       relationships)
+            pq = unwind_merge_relationships_query(data, r_type)
+            pq = cypher_join(pq, "RETURN id(_)")
+            for i, record in enumerate(tx.run(*pq)):
+                relationship = relationships[i]
+                relationship.graph = graph
+                relationship.identity = record[0]
 
     def __db_pull__(self, tx):
-        pull_subgraph(tx, self)
+        """ Copy data from a remote :class:`.Graph` into this
+        :class:`.Subgraph`.
+
+        :param tx:
+        """
+        # Pull nodes
+        nodes = {}
+        for node in self.nodes:
+            if node.graph != tx.graph:
+                raise ValueError("Node %r does not belong to graph %r" % (node, tx.graph))
+            nodes[node.identity] = node
+        query = tx.run("MATCH (_) WHERE id(_) in $x "
+                       "RETURN id(_), labels(_), properties(_)", x=list(nodes.keys()))
+        for identity, new_labels, new_properties in query:
+            node = nodes[identity]
+            node.clear_labels()
+            node.update_labels(new_labels)
+            node.clear()
+            node.update(new_properties)
+        # Pull relationships
+        relationships = {}
+        for relationship in self.relationships:
+            if relationship.graph != tx.graph:
+                raise ValueError(
+                    "Relationship %r does not belong to graph %r" % (relationship, tx.graph))
+            relationships[relationship.identity] = relationship
+        query = tx.run("MATCH ()-[_]->() WHERE id(_) in $x "
+                       "RETURN id(_), properties(_)", x=list(relationships.keys()))
+        for identity, new_properties in query:
+            relationship = relationships[identity]
+            relationship.clear()
+            relationship.update(new_properties)
 
     def __db_push__(self, tx):
-        push_subgraph(tx, self)
+        """ Copy data into a remote :class:`.Graph` from this
+        :class:`.Subgraph`.
+
+        :param tx:
+        """
+        graph = tx.graph
+        for node in self.nodes:
+            if node.graph is graph:
+                clauses = ["MATCH (_) WHERE id(_) = $x", "SET _ = $y"]
+                parameters = {"x": node.identity, "y": dict(node)}
+                old_labels = node._remote_labels - node._labels
+                if old_labels:
+                    clauses.append("REMOVE _:%s" % ":".join(map(cypher_escape, old_labels)))
+                new_labels = node._labels - node._remote_labels
+                if new_labels:
+                    clauses.append("SET _:%s" % ":".join(map(cypher_escape, new_labels)))
+                tx.run("\n".join(clauses), parameters)
+        for relationship in self.relationships:
+            if relationship.graph is graph:
+                clauses = ["MATCH ()-[_]->() WHERE id(_) = $x", "SET _ = $y"]
+                parameters = {"x": relationship.identity, "y": dict(relationship)}
+                tx.run("\n".join(clauses), parameters)
 
     def __db_separate__(self, tx):
-        separate_subgraph(tx, self)
+        """ Delete relationships in a remote :class:`.Graph` based on
+        those present in this :class:`.Subgraph`.
+
+        :param tx:
+        :return:
+        """
+        graph = tx.graph
+        relationship_identities = []
+        for relationship in self.relationships:
+            if relationship.graph is graph:
+                relationship_identities.append(relationship.identity)
+                relationship.graph = None
+                relationship.identity = None
+        list(tx.run("MATCH ()-[_]->() WHERE id(_) IN $x DELETE _", x=relationship_identities))
 
     @property
     def graph(self):
@@ -191,7 +386,7 @@ class Subgraph(object):
         *Changed in version 2020.0: this is now a method rather than a
         property, as in previous versions.*
         """
-        return frozenset(chain(*(node.labels for node in self.__nodes)))
+        return frozenset(chain.from_iterable(node.labels for node in self.__nodes))
 
     def types(self):
         """ Return the set of all relationship types in this subgraph.
@@ -202,8 +397,8 @@ class Subgraph(object):
         """ Return the set of all property keys used by the nodes and
         relationships in this subgraph.
         """
-        return (frozenset(chain(*(node.keys() for node in self.__nodes))) |
-                frozenset(chain(*(rel.keys() for rel in self.__relationships))))
+        return (frozenset(chain.from_iterable(node.keys() for node in self.__nodes)) |
+                frozenset(chain.from_iterable(rel.keys() for rel in self.__relationships)))
 
 
 class Walkable(Subgraph):
@@ -306,8 +501,12 @@ class Entity(PropertyDict, Walkable):
     class is essentially a container for a :class:`.Resource` instance.
     """
 
-    graph = None
+    _graph = None
     identity = None
+
+    @classmethod
+    def ref(cls, graph, identity):
+        raise NotImplementedError
 
     def __init__(self, iterable, properties):
         Walkable.__init__(self, iterable)
@@ -316,6 +515,7 @@ class Entity(PropertyDict, Walkable):
         while "0" <= uuid[-7] <= "9":
             uuid = str(uuid4())
         self.__uuid__ = uuid
+        self._stale = set()
 
     def __bool__(self):
         return len(self) > 0
@@ -341,6 +541,18 @@ class Entity(PropertyDict, Walkable):
         # the one in Walkable. The hack below forces Entity to
         # use the Walkable implementation.
         return Walkable.__or__(self, other)
+
+    @property
+    def graph(self):
+        return self._graph
+
+    @graph.setter
+    def graph(self, value):
+        self._graph = value
+
+    def clear(self):
+        self._stale.discard("properties")
+        super(Entity, self).clear()
 
 
 class Node(Entity):
@@ -370,66 +582,18 @@ class Node(Entity):
     """
 
     @classmethod
-    def cast(cls, obj):
-        """ Cast an arbitrary object to a :class:`Node`. This method
-        takes its best guess on how to interpret the supplied object
-        as a :class:`Node`.
-        """
-        if obj is None or isinstance(obj, Node):
-            return obj
-
-        def apply(x):
-            if isinstance(x, dict):
-                inst.update(x)
-            elif is_collection(x):
-                for item in x:
-                    apply(item)
-            elif isinstance(x, string_types):
-                inst.add_label(ustr(x))
-            else:
-                raise TypeError("Cannot cast %s to Node" % obj.__class__.__name__)
-
-        inst = Node()
-        apply(obj)
-        return inst
-
-    @classmethod
-    def hydrate(cls, graph, identity, labels=None, properties=None, into=None):
-        """ Hydrate a new or existing Node object from the attributes provided.
-        """
-        if into is None:
-
-            def instance_constructor():
-                new_instance = cls()
-                new_instance.graph = graph
-                new_instance.identity = identity
-                new_instance._stale.update({"labels", "properties"})
-                return new_instance
-
-            into = instance_constructor()
-        else:
-            assert isinstance(into, cls)
-            into.graph = graph
-            into.identity = identity
-
-        if properties is not None:
-            into._stale.discard("properties")
-            into.clear()
-            into.update(properties)
-
-        if labels is not None:
-            into._stale.discard("labels")
-            into._remote_labels = frozenset(labels)
-            into.clear_labels()
-            into.update_labels(labels)
-
-        return into
+    def ref(cls, graph, identity):
+        obj = cls()
+        obj.graph = graph
+        obj.identity = identity
+        obj._stale.add("labels")
+        obj._stale.add("properties")
+        return obj
 
     def __init__(self, *labels, **properties):
         self._remote_labels = frozenset()
         self._labels = set(labels)
         Entity.__init__(self, (self,), properties)
-        self._stale = set()
 
     def __repr__(self):
         args = list(map(repr, sorted(self.labels)))
@@ -453,7 +617,8 @@ class Node(Entity):
         try:
             if any(x is None for x in [self.graph, other.graph, self.identity, other.identity]):
                 return False
-            return issubclass(type(self), Node) and issubclass(type(other), Node) and self.graph == other.graph and self.identity == other.identity
+            return (issubclass(type(self), Node) and issubclass(type(other), Node) and
+                    self.graph == other.graph and self.identity == other.identity)
         except (AttributeError, TypeError):
             return False
 
@@ -513,7 +678,7 @@ class Node(Entity):
     def clear_labels(self):
         """ Remove all labels from this node.
         """
-        self.__ensure_labels()
+        self._stale.discard("labels")
         self._labels.clear()
 
     def update_labels(self, labels):
@@ -567,81 +732,12 @@ class Relationship(Entity):
         return type(xstr(name), (Relationship,), {})
 
     @classmethod
-    def cast(cls, obj, entities=None):
-
-        def get_type(r):
-            if isinstance(r, string_types):
-                return r
-            elif isinstance(r, Relationship):
-                return type(r).__name__
-            elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string_types):
-                return r[0]
-            else:
-                raise ValueError("Cannot determine relationship type from %r" % r)
-
-        def get_properties(r):
-            if isinstance(r, string_types):
-                return {}
-            elif isinstance(r, Relationship):
-                return dict(r)
-            elif hasattr(r, "properties"):
-                return r.properties
-            elif isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], string_types):
-                return dict(r[1])
-            else:
-                raise ValueError("Cannot determine properties from %r" % r)
-
-        if isinstance(obj, Relationship):
-            return obj
-        elif isinstance(obj, tuple):
-            if len(obj) == 3:
-                start_node, t, end_node = obj
-                properties = get_properties(t)
-            elif len(obj) == 4:
-                start_node, t, end_node, properties = obj
-                properties = dict(get_properties(t), **properties)
-            else:
-                raise TypeError("Cannot cast relationship from %r" % obj)
-        else:
-            raise TypeError("Cannot cast relationship from %r" % obj)
-
-        if entities:
-            if isinstance(start_node, integer_types):
-                start_node = entities[start_node]
-            if isinstance(end_node, integer_types):
-                end_node = entities[end_node]
-        return Relationship(start_node, get_type(t), end_node, **properties)
-
-    @classmethod
-    def hydrate(cls, graph, identity, start, end, type=None, properties=None, into=None):
-        if into is None:
-
-            def instance_constructor():
-                if properties is None:
-                    new_instance = cls(Node.hydrate(graph, start), type,
-                                       Node.hydrate(graph, end))
-                    new_instance._stale.add("properties")
-                else:
-                    new_instance = cls(Node.hydrate(graph, start), type,
-                                       Node.hydrate(graph, end), **properties)
-                new_instance.graph = graph
-                new_instance.identity = identity
-                return new_instance
-
-            into = instance_constructor()
-        else:
-            assert isinstance(into, Relationship)
-            into.graph = graph
-            into.identity = identity
-            Node.hydrate(graph, start, into=into.start_node)
-            Node.hydrate(graph, end, into=into.end_node)
-            into._type = type
-            if properties is None:
-                into._stale.add("properties")
-            else:
-                into.clear()
-                into.update(properties)
-        return into
+    def ref(cls, graph, identity, *nodes):
+        obj = cls(*nodes)
+        obj.graph = graph
+        obj.identity = identity
+        obj._stale.add("properties")
+        return obj
 
     def __init__(self, *nodes, **properties):
         n = []
@@ -650,8 +746,10 @@ class Relationship(Entity):
                 n.append(None)
             elif isinstance(value, string_types):
                 n.append(value)
+            elif isinstance(value, Node):
+                n.append(value)
             else:
-                n.append(Node.cast(value))
+                raise TypeError("Unknown node type for %r" % value)
 
         num_args = len(n)
         if num_args == 0:
@@ -674,8 +772,6 @@ class Relationship(Entity):
         else:
             raise TypeError("Hyperedges not supported")
         Entity.__init__(self, (n[0], self, n[1]), properties)
-
-        self._stale = set()
 
     def __repr__(self):
         args = [repr(self.nodes[0]), repr(self.nodes[-1])]
@@ -767,14 +863,15 @@ class Path(Walkable):
             next_node = nodes[sequence[2 * i + 1]]
             if rel_index > 0:
                 u_rel = u_rels[rel_index - 1]
-                rel = Relationship.hydrate(graph, u_rel.id,
-                                           last_node.identity, next_node.identity,
-                                           u_rel.type, u_rel.properties)
+                start_node = Node.ref(graph, last_node.identity)
+                end_node = Node.ref(graph, next_node.identity)
             else:
                 u_rel = u_rels[-rel_index - 1]
-                rel = Relationship.hydrate(graph, u_rel.id,
-                                           next_node.identity, last_node.identity,
-                                           u_rel.type, u_rel.properties)
+                start_node = Node.ref(graph, next_node.identity)
+                end_node = Node.ref(graph, last_node.identity)
+            rel = Relationship.ref(graph, u_rel.id, start_node, u_rel.type, end_node)
+            rel.clear()
+            rel.update(u_rel.properties)
             steps.append(rel)
             last_node = next_node
         return cls(*steps)
@@ -847,3 +944,10 @@ class Path(Walkable):
 
 
 walk = Path.walk
+
+
+# TODO: find a better home for this class
+class UniquenessError(Exception):
+    """ Raised when a condition assumed to be unique is determined
+    non-unique.
+    """

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -156,7 +156,9 @@ class ConnectionProfile(Mapping):
             self._apply_base_uri(profile)
         elif isinstance(profile, Mapping):
             self._apply_base_defaults()
-            settings = dict(profile, **settings)
+            base_settings = dict(profile)
+            self._apply_auth(**base_settings)
+            self._apply_components(**base_settings)
         else:
             raise TypeError("Profile %r is neither a ConnectionProfile "
                             "nor a string URI" % profile)
@@ -171,6 +173,9 @@ class ConnectionProfile(Mapping):
 
     def __repr__(self):
         return "%s(%r)" % (self.__class__.__name__, self.uri)
+
+    def __str__(self):
+        return "«{}»".format(self.uri)
 
     def __getitem__(self, key):
         if key in self.__keys:
@@ -206,6 +211,9 @@ class ConnectionProfile(Mapping):
                 self.__secure = True
             elif self.__scheme in ["bolt", "http"]:
                 self.__secure = False
+            else:
+                raise ValueError("Unsupported scheme %r "
+                                 "(for routing, use routing=True)" % self.__scheme)
             if self.__scheme in ["bolt+ssc", "http+ssc"]:
                 self.__verify = False
             else:
@@ -430,3 +438,16 @@ class ConnectionProfile(Mapping):
         parser = ConfigParser()
         parser.read(filenames)
         return cls.from_config_parser(parser, section, prefix)
+
+    def to_dict(self, include_password=False):
+        """ Convert this profile to a dictionary, optionally including
+        password information.
+
+        :param include_password: if True then include the password in
+            the return value, otherwise omit this information (default)
+        """
+        if include_password:
+            return dict(self)
+        else:
+            return {key: value for key, value in self.items()
+                    if key not in ("auth", "password")}

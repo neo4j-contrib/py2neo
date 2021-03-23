@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
 from pytest import raises
 
 from py2neo import Node, Relationship
-from py2neo.data.operations import UniquenessError
+from py2neo.data import UniquenessError
 
 
 def test_can_merge_node_that_does_not_exist(graph, make_unique_id):

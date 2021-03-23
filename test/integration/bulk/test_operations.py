@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from py2neo.data.operations import create_nodes, merge_nodes
+from py2neo.bulk import create_nodes, merge_nodes
 
 
 HEADERS = ["name", "age"]
@@ -31,8 +31,9 @@ DATA_DICTS = [dict(zip(HEADERS, record)) for record in DATA_LISTS]
 
 def test_create_nodes_from_property_lists(graph):
     graph.delete_all()
-    with graph.begin() as tx:
-        create_nodes(tx, DATA_LISTS, labels={"Person", "Employee"}, keys=HEADERS)
+    tx = graph.begin()
+    create_nodes(tx, DATA_LISTS, labels={"Person", "Employee"}, keys=HEADERS)
+    graph.commit(tx)
     matched = graph.nodes.match("Person")
     assert matched.count() == 4
     assert all(node.labels == {"Person", "Employee"} for node in matched)
@@ -40,8 +41,9 @@ def test_create_nodes_from_property_lists(graph):
 
 def test_create_nodes_from_property_dicts(graph):
     graph.delete_all()
-    with graph.begin() as tx:
-        create_nodes(tx, DATA_DICTS, labels={"Person", "Employee"})
+    tx = graph.begin()
+    create_nodes(tx, DATA_DICTS, labels={"Person", "Employee"})
+    graph.commit(tx)
     matched = graph.nodes.match("Person")
     assert matched.count() == 4
     assert all(node.labels == {"Person", "Employee"} for node in matched)
@@ -49,9 +51,10 @@ def test_create_nodes_from_property_dicts(graph):
 
 def test_merge_nodes_from_property_lists(graph):
     graph.delete_all()
-    with graph.begin() as tx:
-        merge_nodes(tx, DATA_LISTS, ("Person", "name"),
-                    labels={"Person", "Employee"}, keys=HEADERS)
+    tx = graph.begin()
+    merge_nodes(tx, DATA_LISTS, ("Person", "name"),
+                labels={"Person", "Employee"}, keys=HEADERS)
+    graph.commit(tx)
     matched = graph.nodes.match("Person")
     assert matched.count() == 3
     assert all(node.labels == {"Person", "Employee"} for node in matched)
@@ -59,9 +62,10 @@ def test_merge_nodes_from_property_lists(graph):
 
 def test_merge_nodes_from_property_dicts(graph):
     graph.delete_all()
-    with graph.begin() as tx:
-        merge_nodes(tx, DATA_DICTS, ("Person", "name"),
-                    labels={"Person", "Employee"})
+    tx = graph.begin()
+    merge_nodes(tx, DATA_DICTS, ("Person", "name"),
+                labels={"Person", "Employee"})
+    graph.commit(tx)
     matched = graph.nodes.match("Person")
     assert matched.count() == 3
     assert all(node.labels == {"Person", "Employee"} for node in matched)

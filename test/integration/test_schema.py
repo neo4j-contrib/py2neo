@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 # limitations under the License.
 
 
-from pytest import mark, raises
+from pytest import raises
 
-from py2neo import Node, NodeMatcher, ClientError, DatabaseError
+from py2neo import Node, NodeMatcher, Neo4jError
 
 
 def test_can_get_all_node_labels(graph):
@@ -45,7 +45,7 @@ def test_unique_constraint_creation_failure(graph, make_unique_id):
     a1 = Node(label, name="Alice")
     a2 = Node(label, name="Alice")
     graph.create(a1 | a2)
-    with raises(DatabaseError) as e:
+    with raises(Neo4jError) as e:
         graph.schema.create_uniqueness_constraint(label, "name")
     assert e.value.code == "Neo.DatabaseError.Schema.ConstraintCreationFailed"
 
@@ -54,7 +54,7 @@ def test_schema_index(graph, make_unique_id):
     node_matcher = NodeMatcher(graph)
     label_1 = make_unique_id()
     label_2 = make_unique_id()
-    munich = Node.cast({'name': "München", 'key': "09162000"})
+    munich = Node(name="München", key="09162000")
     graph.create(munich)
     munich.clear_labels()
     munich.update_labels({label_1, label_2})
@@ -76,7 +76,7 @@ def test_schema_index(graph, make_unique_id):
     graph.schema.drop_index(label_1, "key")
     graph.schema.drop_index(label_2, "name")
     graph.schema.drop_index(label_2, "key")
-    with raises(DatabaseError) as e:
+    with raises(Neo4jError) as e:
         graph.schema.drop_index(label_2, "key")
     assert e.value.code == "Neo.DatabaseError.Schema.IndexDropFailed"
     graph.delete(munich)
@@ -87,7 +87,7 @@ def test_labels_constraints(graph, make_unique_id):
     a = Node(label_1, name="Alice")
     b = Node(label_1, name="Alice")
     graph.create(a | b)
-    with raises(DatabaseError) as e:
+    with raises(Neo4jError) as e:
         graph.schema.create_uniqueness_constraint(label_1, "name")
     assert e.value.code == "Neo.DatabaseError.Schema.ConstraintCreationFailed"
     b.remove_label(label_1)
@@ -100,7 +100,7 @@ def test_labels_constraints(graph, make_unique_id):
     b.remove_label(label_1)
     graph.push(b)
     graph.schema.drop_uniqueness_constraint(label_1, "name")
-    with raises(DatabaseError) as e:
+    with raises(Neo4jError) as e:
         graph.schema.drop_uniqueness_constraint(label_1, "name")
     assert e.value.code == "Neo.DatabaseError.Schema.ConstraintDropFailed"
     graph.delete(a | b)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -50,7 +50,9 @@ class CapturedClientConsole(ClientConsole):
 
 @fixture()
 def console(uri):
-    return CapturedClientConsole(uri)
+    console = CapturedClientConsole(uri)
+    yield console
+    console.exit()
 
 
 def assert_prologue(console):

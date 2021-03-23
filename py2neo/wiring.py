@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ as well as classes for modelling IP addresses, based on tuples.
 """
 
 
-from socket import AF_INET, AF_INET6
+from socket import AF_INET, AF_INET6, SHUT_WR
 
 from monotonic import monotonic
 from six import raise_from
@@ -171,13 +171,14 @@ class Wire(object):
         self.__bytes_received = 0
         self.__bytes_sent = 0
         self.__input = bytearray()
+        self.__input_len = 0
         self.__output = bytearray()
         self.__on_broken = on_broken
 
     def secure(self, verify=True, hostname=None):
         """ Apply a layer of security onto this connection.
         """
-        from ssl import SSLContext
+        from ssl import SSLContext, SSLError
         try:
             # noinspection PyUnresolvedReferences
             from ssl import PROTOCOL_TLS
@@ -196,18 +197,22 @@ class Wire(object):
         context.load_default_certs()
         try:
             self.__socket = context.wrap_socket(self.__socket, server_hostname=hostname)
-        except (IOError, OSError):
+        except (IOError, OSError) as error:
             # TODO: add connection failure/diagnostic callback
-            raise WireError("Unable to establish secure connection with remote peer")
+            if error.errno == 0:
+                raise BrokenWireError("Peer closed connection during TLS handshake; "
+                                      "server may not be configured for secure connections")
+            else:
+                raise WireError("Unable to establish secure connection with remote peer")
         else:
             self.__active_time = monotonic()
 
     def read(self, n):
         """ Read bytes from the network.
         """
-        while len(self.__input) < n:
-            required = n - len(self.__input)
-            requested = max(required, 8192)
+        while self.__input_len < n:
+            required = n - self.__input_len
+            requested = max(required, 16384)
             try:
                 received = self.__socket.recv(requested)
             except (IOError, OSError):
@@ -215,14 +220,17 @@ class Wire(object):
             else:
                 if received:
                     self.__active_time = monotonic()
-                    self.__bytes_received += len(received)
+                    new_bytes_received = len(received)
                     self.__input.extend(received)
+                    self.__input_len += new_bytes_received
+                    self.__bytes_received += new_bytes_received
                 else:
                     self.__set_broken("Network read incomplete "
                                       "(received %d of %d bytes)" %
-                                      (len(self.__input), n))
+                                      (self.__input_len, n))
         data = self.__input[:n]
         self.__input[:n] = []
+        self.__input_len -= n
         return data
 
     def peek(self):
@@ -235,7 +243,7 @@ class Wire(object):
         """
         self.__output.extend(b)
 
-    def send(self):
+    def send(self, final=False):
         """ Send the contents of the output buffer to the network.
         """
         if self.__closed:
@@ -251,13 +259,17 @@ class Wire(object):
                 self.__bytes_sent += n
                 self.__output[:n] = []
                 sent += n
+        if final:
+            try:
+                self.__socket.shutdown(SHUT_WR)
+            except (IOError, OSError):
+                self.__set_broken("Wire broken")
         return sent
 
     def close(self):
         """ Close the connection.
         """
         try:
-            # TODO: shutdown
             self.__socket.close()
         except (IOError, OSError):
             self.__set_broken("Wire broken")
@@ -287,6 +299,14 @@ class Wire(object):
         """ The remote :class:`.Address` to which this connection is bound.
         """
         return Address(self.__socket.getpeername())
+
+    @property
+    def bytes_sent(self):
+        return self.__bytes_sent
+
+    @property
+    def bytes_received(self):
+        return self.__bytes_received
 
     def __set_broken(self, message):
         idle_time = monotonic() - self.__active_time

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -377,66 +377,73 @@ def test_dict_fails_with_non_string_key():
 
 @mark.parametrize("cls", [date, Date])
 def test_date(cls):
+    from neotime import Date
     b, unpacked = pack_and_unpack(cls(1970, 1, 1), version=(2, 0))
     assert b == b"\xB1D\x00"
-    assert unpacked == Structure(ord(b"D"), 0)
+    assert unpacked == Date(1970, 1, 1)
 
 
 @mark.parametrize("cls", [time, Time])
 def test_naive_time(cls):
+    from neotime import Time
     b, unpacked = pack_and_unpack(cls(0, 0, 0), version=(2, 0))
     assert b == b"\xB1t\x00"
-    assert unpacked == Structure(ord(b"t"), 0)
+    assert unpacked == Time(0, 0, 0)
 
 
 @mark.parametrize("cls", [time, Time])
 def test_aware_time(cls):
+    from neotime import Time
     b, unpacked = pack_and_unpack(cls(0, 0, 0, tzinfo=utc), version=(2, 0))
     assert b == b"\xB2T\x00\x00"
-    assert unpacked == Structure(ord(b"T"), 0, 0)
+    assert unpacked == Time(0, 0, 0, tzinfo=utc)
 
 
 @mark.parametrize("cls", [datetime, DateTime])
 def test_naive_datetime(cls):
+    from neotime import DateTime
     b, unpacked = pack_and_unpack(cls(1970, 1, 1, 0, 0, 0), version=(2, 0))
     assert b == b"\xB2d\x00\x00"
-    assert unpacked == Structure(ord(b"d"), 0, 0)
+    assert unpacked == DateTime(1970, 1, 1, 0, 0, 0)
 
 
 @mark.parametrize("cls", [datetime, DateTime])
 def test_datetime_with_named_timezone(cls):
+    from neotime import DateTime
     b, unpacked = pack_and_unpack(cls(1970, 1, 1, 0, 0, 0, tzinfo=utc), version=(2, 0))
     assert b == b"\xB3f\x00\x00\x83UTC"
-    assert unpacked == Structure(ord(b"f"), 0, 0, "UTC")
+    assert unpacked == DateTime(1970, 1, 1, 0, 0, 0, tzinfo=utc)
 
 
 @mark.parametrize("cls", [datetime, DateTime])
 def test_datetime_with_timezone_offset(cls):
+    from neotime import DateTime
     b, unpacked = pack_and_unpack(cls(1970, 1, 1, 0, 0, 0, tzinfo=FixedOffset(1)),
                                   version=(2, 0))
     assert b == b"\xB3F\x00\x00\x3C"
-    assert unpacked == Structure(ord(b"F"), 0, 0, 60)
+    assert unpacked == DateTime(1970, 1, 1, 0, 0, 0, tzinfo=FixedOffset(1))
 
 
 @mark.parametrize("cls", [timedelta, Duration])
 def test_timedelta_and_duration(cls):
+    from neotime import Duration
     b, unpacked = pack_and_unpack(cls(), version=(2, 0))
     assert b == b"\xB4E\x00\x00\x00\x00"
-    assert unpacked == Structure(ord(b"E"), 0, 0, 0, 0)
+    assert unpacked == Duration()
 
 
 @mark.parametrize("cls,srid", [(CartesianPoint, 7203), (WGS84Point, 4326)])
 def test_2d_point(cls, srid):
     b, unpacked = pack_and_unpack(cls((0, 0)), version=(2, 0))
     assert b == b"\xB3X" + pack(srid) + b"\x00\x00"
-    assert unpacked == Structure(ord(b"X"), srid, 0, 0)
+    assert unpacked == cls((0, 0))
 
 
 @mark.parametrize("cls,srid", [(CartesianPoint, 9157), (WGS84Point, 4979)])
 def test_3d_point(cls, srid):
     b, unpacked = pack_and_unpack(cls((0, 0, 0)), version=(2, 0))
     assert b == b"\xB4Y" + pack(srid) + b"\x00\x00\x00"
-    assert unpacked == Structure(ord(b"Y"), srid, 0, 0, 0)
+    assert unpacked == cls((0, 0, 0))
 
 
 def test_4d_point():

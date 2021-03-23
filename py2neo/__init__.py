@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,4 +34,5 @@ __version__ = metadata["version"]
 from py2neo.data import *
 from py2neo.database import *
 from py2neo.database.work import *
+from py2neo.errors import *
 from py2neo.matching import *

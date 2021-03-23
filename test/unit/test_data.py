@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -353,132 +353,6 @@ class DataListTestCase(TestCase):
                                          u'Bob\t44\r\n'
                                          u'Carol\t55\r\n'
                                          u'Dave\t66\r\n')
-
-
-class NodeCastTestCase(TestCase):
-
-    def assert_node(self, node, *labels, **properties):
-        self.assertIsInstance(node, Node)
-        self.assertEqual(set(node.labels), set(labels))
-        self.assertEqual(dict(node), properties)
-
-    def test_cast_none(self):
-        self.assertIsNone(Node.cast(None))
-
-    def test_cast_node(self):
-        a = Node("Person", "Employee", name="Alice", age=33)
-        self.assertIs(Node.cast(a), a)
-
-    def test_cast_string_as_label(self):
-        self.assert_node(Node.cast("Person"), "Person")
-
-    def test_cast_dict_as_properties(self):
-        self.assert_node(Node.cast({"name": "Alice"}), name="Alice")
-
-    def test_cast_tuple_as_labels_and_properties(self):
-        self.assert_node(Node.cast(("Person", "Employee", {"name": "Alice", "age": 33})),
-                         "Person", "Employee", name="Alice", age=33)
-
-    def test_cast_nonsense(self):
-        with self.assertRaises(TypeError):
-            _ = Node.cast(object())
-
-    
-class RelationshipCastTestCase(TestCase):
-    
-    def test_can_cast_relationship(self):
-        a = Node()
-        b = Node()
-        ab = Relationship(a, "KNOWS", b)
-        casted = Relationship.cast(ab)
-        self.assertIs(casted, ab)
-
-    def test_cannot_cast_0_tuple(self):
-        with self.assertRaises(TypeError):
-            Relationship.cast(())
-
-    def test_cannot_cast_1_tuple(self):
-        with self.assertRaises(TypeError):
-            Relationship.cast(("Alice",))
-
-    def test_cannot_cast_2_tuple(self):
-        with self.assertRaises(TypeError):
-            Relationship.cast(("Alice", "KNOWS"))
-
-    def test_can_cast_3_tuple(self):
-        a = Node()
-        b = Node()
-        casted = Relationship.cast((a, "KNOWS", b))
-        self.assertIsInstance(casted, Relationship)
-        self.assertIsNone(casted.graph)
-        self.assertIsNone(casted.identity)
-        assert casted.start_node == a
-        self.assertIs(type(casted), KNOWS)
-        assert casted.end_node == b
-        
-    def test_can_cast_3_tuple_with_unbound_rel(self):
-        a = Node()
-        b = Node()
-        casted = Relationship.cast((a, ("KNOWS", {"since": 1999}), b))
-        self.assertIsInstance(casted, Relationship)
-        self.assertIsNone(casted.graph)
-        self.assertIsNone(casted.identity)
-        assert casted.start_node == a
-        self.assertIs(type(casted), KNOWS)
-        assert casted.end_node == b
-        assert casted["since"] == 1999
-        
-    def test_can_cast_4_tuple(self):
-        a = Node()
-        b = Node()
-        casted = Relationship.cast((a, "KNOWS", b, {"since": 1999}))
-        self.assertIsInstance(casted, Relationship)
-        self.assertIsNone(casted.graph)
-        self.assertIsNone(casted.identity)
-        assert casted.start_node == a
-        self.assertIs(type(casted), KNOWS)
-        assert casted.end_node == b
-        assert casted["since"] == 1999
-        
-    def test_cannot_cast_6_tuple(self):
-        with self.assertRaises(TypeError):
-            Relationship.cast(("Alice", "KNOWS", "Bob", "foo", "bar", "baz"))
-
-    def test_can_cast_from_tuple_of_entities(self):
-        a = Node()
-        b = Node()
-        r = Relationship(a, "TO", b)
-        casted = Relationship.cast((a, r, b))
-        self.assertIsInstance(casted, Relationship)
-        self.assertIsNone(casted.graph)
-        self.assertIsNone(casted.identity)
-        assert casted.start_node == a
-        assert type(casted).__name__ == "TO"
-        assert casted.end_node == b
-
-    def test_can_cast_relationship_with_integer_nodes(self):
-        a = Node()
-        b = Node()
-        nodes = [a, b]
-        r = Relationship.cast((0, "TO", 1), nodes)
-        self.assertIs(r.start_node, a)
-        assert r.end_node is b
-        assert type(r).__name__ == "TO"
-
-    def test_cannot_cast_relationship_from_generic_object(self):
-        class Foo(object):
-            pass
-        foo = Foo()
-        with self.assertRaises(ValueError):
-            Relationship.cast((Node(), foo, Node()))
-
-    def test_cannot_cast_relationship_from_generic_object_with_properties(self):
-        class Foo(object):
-            pass
-        foo = Foo()
-        foo.properties = {}
-        with self.assertRaises(ValueError):
-            Relationship.cast((Node(), foo, Node()))
 
 
 class PropertySetTestCase(TestCase):
@@ -1105,12 +979,12 @@ class SymmetricDifferenceTestCase(TestCase):
 
 
 def test_record_repr():
-    person = Record([("name", "Alice"), ("age", 33)])
+    person = Record(["name", "age"], ["Alice", 33])
     assert repr(person) == "Record({'name': 'Alice', 'age': 33})"
 
 
 def test_record_str():
-    person = Record([("name", "Alice"), ("age", 33)])
+    person = Record(["name", "age"], ["Alice", 33])
     assert str(person) == "'Alice'\t33"
 
 

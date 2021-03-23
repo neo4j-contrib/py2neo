@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,8 +27,7 @@ def test_can_delete_relationship_by_separating(graph):
     r = Relationship(a, "TO", b)
     graph.create(r)
     assert graph.exists(r)
-    with graph.begin() as tx:
-        tx.separate(r)
+    graph.separate(r)
     assert not graph.exists(r)
     assert graph.exists(a)
     assert graph.exists(b)

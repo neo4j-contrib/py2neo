@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -111,10 +111,9 @@ Keyword       Description                                Type   Default
 from __future__ import absolute_import
 
 from time import sleep
-from warnings import warn
 
 from py2neo.cypher import cypher_escape
-from py2neo.database.work import Transaction
+from py2neo.database.work import TransactionManager, Transaction
 from py2neo.matching import NodeMatcher, RelationshipMatcher
 
 
@@ -186,6 +185,9 @@ class GraphService(object):
             "max_age": settings.get("max_age"),
             "routing": settings.get("routing"),
         }
+        if connector_settings["init_size"] is None and not connector_settings["routing"]:
+            # Ensures credentials are checked on construction
+            connector_settings["init_size"] = 1
         self._connector = Connector(profile, **connector_settings)
         self._graphs = {}
 
@@ -359,6 +361,7 @@ class Graph(object):
         self.__name__ = name
         self.schema = Schema(self)
         self._procedures = ProcedureLibrary(self)
+        self._tx_manager = TransactionManager(self)
 
     def __repr__(self):
         if self.name is None:
@@ -393,30 +396,38 @@ class Graph(object):
 
         *New in version 2020.0.*
         """
-        return Transaction(self, True, readonly,
-                           # after, metadata, timeout
-                           )
+        return self._tx_manager.auto(readonly,
+                                     # after, metadata, timeout
+                                     )
 
-    def begin(self, autocommit=False, readonly=False,
+    def begin(self, readonly=False,
               # after=None, metadata=None, timeout=None
               ):
         """ Begin a new :class:`~py2neo.database.work.Transaction`.
 
-        :param autocommit: (deprecated) if :py:const:`True`, the
-            transaction will automatically commit after the first
-            operation
         :param readonly: if :py:const:`True`, will begin a readonly
             transaction, otherwise will begin as read-write
 
-        *Changed in version 2020.0: the 'autocommit' argument is now
-        deprecated. Use the 'auto' method instead.*
+        *Changed in version 2021.1: the 'autocommit' argument has been
+        removed. Use the 'auto' method instead.*
         """
-        if autocommit:
-            warn("Graph.begin(autocommit=True) is deprecated, "
-                 "use Graph.auto() instead", category=DeprecationWarning, stacklevel=2)
-        return Transaction(self, autocommit, readonly,
-                           # after, metadata, timeout
-                           )
+        return self._tx_manager.begin(readonly,
+                                      # after, metadata, timeout
+                                      )
+
+    def commit(self, tx):
+        """ Commit a transaction.
+
+        *New in version 2021.1.*
+        """
+        return self._tx_manager.commit(tx)
+
+    def rollback(self, tx):
+        """ Rollback a transaction.
+
+        *New in version 2021.1.*
+        """
+        return self._tx_manager.rollback(tx)
 
     @property
     def call(self):
@@ -435,9 +446,10 @@ class Graph(object):
             --------------|------------|-----------
              Neo4j Kernel | ['3.5.12'] | community
 
-        The object returned from the call is a :class:`.Cursor` object,
-        identical to that obtained from running a normal Cypher query,
-        and can therefore be consumed in a similar way.
+        The object returned from the call is a
+        :class:`~py2neo.database.work.Cursor` object, identical to
+        that obtained from running a normal Cypher query, and can
+        therefore be consumed in a similar way.
 
         Procedure names can alternatively be supplied as a string::
 
@@ -460,8 +472,7 @@ class Graph(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
-        with self.begin() as tx:
-            tx.create(subgraph)
+        self.play(lambda tx: tx.create(subgraph))
 
     def delete(self, subgraph):
         """ Run a :meth:`~py2neo.database.work.Transaction.delete` operation within an
@@ -475,7 +486,7 @@ class Graph(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
         """
-        self.auto().delete(subgraph)
+        self.play(lambda tx: tx.delete(subgraph))
 
     def delete_all(self):
         """ Delete all nodes and relationships from this :class:`.Graph`.
@@ -505,8 +516,7 @@ class Graph(object):
                        :class:`.Subgraph` object
         :return:
         """
-        readonly = self.service.connector.supports_readonly_transactions()
-        return self.auto(readonly=readonly).exists(subgraph)
+        return self.auto(readonly=True).exists(subgraph)
 
     def match(self, nodes=None, r_type=None, limit=None):
         """ Match and return all relationships with specific criteria.
@@ -569,8 +579,7 @@ class Graph(object):
         :param label: label on which to match any existing nodes
         :param property_keys: property keys on which to match any existing nodes
         """
-        with self.begin() as tx:
-            tx.merge(subgraph, label, *property_keys)
+        self.play(lambda tx: tx.merge(subgraph, label, *property_keys))
 
     @property
     def name(self):
@@ -626,49 +635,26 @@ class Graph(object):
             pass into the function
         :param readonly: set to :py:const:`True` or :py:const:`False` to
             override the readonly attribute of the work function
+        :returns: list of :class:`.TransactionSummary` objects, one for
+            each attempt made to execute the transaction
 
         *New in version 2020.0.*
         """
-        if not callable(work):
-            raise TypeError("Unit of work is not callable")
-        kwargs = dict(kwargs or {})
-        if readonly is None:
-            readonly = getattr(work, "readonly", False)
-        if readonly and not self.service.connector.supports_readonly_transactions():
-            raise TypeError("The underlying connection profile "
-                            "does not support readonly transactions")
-        # if not timeout:
-        #     timeout = getattr(work, "timeout", None)
-        tx = self.begin(readonly=readonly,
-                        # after=after, metadata=metadata, timeout=timeout
-                        )
-        try:
-            from inspect import isgenerator
-            value = work(tx, *args or (), **kwargs or {})
-            if isgenerator(value):
-                _ = list(value)     # exhaust the generator
-        except Exception:  # TODO: catch transient and retry, if within limit
-            tx.rollback()
-            raise
-        else:
-            return tx.commit()
+        return self._tx_manager.play(work, args, kwargs, readonly)
 
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
 
         :param subgraph: the collection of nodes and relationships to pull
         """
-        readonly = self.service.connector.supports_readonly_transactions()
-        with self.begin(readonly=readonly) as tx:
-            tx.pull(subgraph)
+        self.play(lambda tx: tx.pull(subgraph), readonly=True)
 
     def push(self, subgraph):
         """ Push data from one or more entities to their remote counterparts.
 
         :param subgraph: the collection of nodes and relationships to push
         """
-        with self.begin() as tx:
-            tx.push(subgraph)
+        self.play(lambda tx: tx.push(subgraph))
 
     def read(self, cypher, parameters=None, **kwparameters):
         """ Run a single readonly query within an auto-commit
@@ -682,9 +668,6 @@ class Graph(object):
         :raises TypeError: if the underlying connection profile does not
             support readonly transactions
         """
-        if not self.service.connector.supports_readonly_transactions():
-            raise TypeError("The underlying connection profile "
-                            "does not support readonly transactions")
         return self.auto(readonly=True).run(cypher, parameters, **kwparameters)
 
     @property
@@ -719,7 +702,16 @@ class Graph(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
-        self.auto().separate(subgraph)
+        self.play(lambda tx: tx.separate(subgraph))
+
+    def update(self, cypher, parameters=None, **kwparameters):
+        """ Run a :meth:`~py2neo.database.work.Transaction.update` operation within an
+        auto-commit :class:`~py2neo.database.work.Transaction`.
+
+        :param cypher: Cypher statement
+        :param parameters: dictionary of parameters
+        """
+        self.play(lambda tx: tx.update(cypher, parameters, **kwparameters))
 
 
 class SystemGraph(Graph):
@@ -730,8 +722,9 @@ class SystemGraph(Graph):
     *New in version 2020.0.*
     """
 
-    def __new__(cls, profile=None, **settings):
-        return super(SystemGraph, cls).__new__(profile, name="system", **settings)
+    def __init__(self, profile=None, **settings):
+        settings["name"] = "system"
+        super(SystemGraph, self).__init__(profile, **settings)
 
     def __repr__(self):
         return "%s(%r)" % (self.__class__.__name__, self.service.uri)

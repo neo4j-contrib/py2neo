@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,13 +25,14 @@ from json import dumps as json_dumps, loads as json_loads
 from packaging.version import Version
 from six import raise_from
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
-from urllib3.exceptions import ConnectionError, HTTPError
+from urllib3.exceptions import HTTPError
 
 from py2neo.compat import urlsplit
-from py2neo.client import Connection, Transaction, Result, Bookmark, \
-    TransactionError, BrokenTransactionError, ConnectionUnavailable
-from py2neo.client.config import http_user_agent
+from py2neo.client import Connection, TransactionRef, Result, Bookmark, \
+    ConnectionUnavailable, ProtocolError
+from py2neo.client.config import http_user_agent, ConnectionProfile
 from py2neo.client.json import JSONHydrant, dehydrate
+from py2neo.errors import Neo4jError
 
 
 log = getLogger(__name__)
@@ -44,7 +45,7 @@ class HTTP(Connection):
         return JSONHydrant(graph)
 
     @classmethod
-    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None,
+    def open(cls, profile=None, user_agent=None, on_bind=None, on_unbind=None,
              on_release=None, on_broken=None):
         """ Open an HTTP connection to a server.
 
@@ -59,6 +60,8 @@ class HTTP(Connection):
         :raises: :class:`.ConnectionUnavailable` if a connection cannot
             be opened
         """
+        if profile is None:
+            profile = ConnectionProfile(scheme="http")
         try:
             http = cls(profile, (user_agent or http_user_agent()),
                        on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
@@ -71,7 +74,8 @@ class HTTP(Connection):
         super(HTTP, self).__init__(profile, user_agent,
                                    on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
         self.http_pool = None
-        self.headers = make_headers(basic_auth=":".join(profile.auth))
+        self.headers = make_headers(basic_auth=":".join(profile.auth),
+                                    user_agent=self.user_agent)
         self.__closed = False
         self._make_pool(profile)
 
@@ -124,7 +128,8 @@ class HTTP(Connection):
             #   "neo4j_version" : "4.0.0",
             #   "neo4j_edition" : "community"
             # }
-            self.neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 4.x
+            self._neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 4.x
+            self._neo4j_edition = metadata["neo4j_edition"]
         else:                               # Neo4j 3.x
             # {
             #   "data" : "http://localhost:7474/db/data/",
@@ -151,8 +156,8 @@ class HTTP(Connection):
             #   "node_labels" : "http://localhost:7474/db/data/labels",
             #   "neo4j_version" : "3.5.12"
             # }
-            self.neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 3.x
-        self.server_agent = "Neo4j/{}".format(self.neo4j_version)
+            self._neo4j_version = Version(metadata["neo4j_version"])  # Neo4j 3.x
+        self.server_agent = "Neo4j/{}".format(self._neo4j_version)
 
         # Given the root discovery endpoint isn't authenticated, we don't
         # catch incorrect passwords here, and this wouldn't then be signalled
@@ -175,8 +180,8 @@ class HTTP(Connection):
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
         if readonly:
-            raise TypeError("Readonly transactions are not supported over HTTP")
-        r = self._post(HTTPTransaction.autocommit_uri(graph_name), cypher, parameters)
+            log.warning("Readonly transactions are not supported over HTTP")
+        r = self._post(HTTPTransactionRef.autocommit_uri(graph_name), cypher, parameters)
         rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
         self.release()
         rs.audit()
@@ -189,48 +194,30 @@ class HTTP(Connection):
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
         if readonly:
-            raise TypeError("Readonly transactions are not supported over HTTP")
+            log.warning("Readonly transactions are not supported over HTTP")
         # if after:
         #     raise TypeError("Bookmarks are not supported over HTTP")
         # if metadata:
         #     raise TypeError("Transaction metadata is not supported over HTTP")
         # if timeout:
         #     raise TypeError("Transaction timeouts are not supported over HTTP")
-        try:
-            r = self._post(HTTPTransaction.begin_uri(graph_name))
-        except ConnectionError as error:
-            raise_from(TransactionError("Transaction failed to begin"), error)
-        except HTTPError as error:
-            raise_from(TransactionError("Transaction failed to begin"), error)
-        else:
-            if r.status != 201:
-                raise TransactionError("Transaction failed to begin "
-                                       "due to HTTP status %r" % r.status)
-            rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-            location_path = urlsplit(r.headers["Location"]).path
-            tx = HTTPTransaction(graph_name, location_path.rpartition("/")[-1])
-            self.release()
-            rs.audit(tx)
-            return tx
+        r = self._post(HTTPTransactionRef.begin_uri(graph_name))
+        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
+        location_path = urlsplit(r.headers["Location"]).path
+        tx = HTTPTransactionRef(graph_name, location_path.rpartition("/")[-1])
+        self.release()
+        rs.audit(tx)
+        return tx
 
     def commit(self, tx):
         if tx.broken:
             raise ValueError("Transaction is broken")
         try:
             r = self._post(tx.commit_uri())
-        except ConnectionError as error:
+        except ProtocolError:
             tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by disconnection "
-                                              "during commit"), error)
-        except HTTPError as error:
-            tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by HTTP error "
-                                              "during commit"), error)
+            raise
         else:
-            if r.status != 200:
-                tx.mark_broken()
-                raise BrokenTransactionError("Transaction broken by HTTP %d status "
-                                             "during commit" % r.status)
             rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
             self.release()
             rs.audit(tx)
@@ -241,34 +228,26 @@ class HTTP(Connection):
             raise ValueError("Transaction is broken")
         try:
             r = self._delete(tx.uri())
-        except ConnectionError as error:
+        except ProtocolError:
             tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by disconnection "
-                                              "during rollback"), error)
-        except HTTPError as error:
-            tx.mark_broken()
-            raise_from(BrokenTransactionError("Transaction broken by HTTP error "
-                                              "during rollback"), error)
+            raise
         else:
-            if r.status != 200:
-                tx.mark_broken()
-                raise BrokenTransactionError("Transaction broken by HTTP %d status "
-                                             "during rollback" % r.status)
             rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
             self.release()
             rs.audit(tx)
             return Bookmark()
 
-    def run_in_tx(self, tx, cypher, parameters=None):
-        r = self._post(tx.uri(), cypher, parameters)
-        if r.status != 200:
+    def run_query(self, tx, cypher, parameters=None):
+        try:
+            r = self._post(tx.uri(), cypher, parameters)
+        except ProtocolError:
             tx.mark_broken()
-            raise BrokenTransactionError("Transaction broken by HTTP %d status "
-                                         "during query execution" % r.status)
-        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-        self.release()
-        rs.audit(tx)
-        return HTTPResult(tx.graph_name, rs.result(), profile=self.profile)
+            raise
+        else:
+            rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
+            self.release()
+            rs.audit(tx)
+            return HTTPResult(tx.graph_name, rs.result(), profile=self.profile)
 
     def pull(self, result, n=-1):
         pass
@@ -284,6 +263,7 @@ class HTTP(Connection):
         return record
 
     def _post(self, url, statement=None, parameters=None):
+        log.debug("POST %r %r %r", url, statement, parameters)
         if statement:
             statements = [
                 OrderedDict([
@@ -295,24 +275,31 @@ class HTTP(Connection):
             ]
         else:
             statements = []
-        return self.http_pool.request(method="POST",
-                                      url=url,
-                                      headers=dict(self.headers, **{"Content-Type": "application/json"}),
-                                      body=json_dumps({"statements": statements}))
+        try:
+            return self.http_pool.request(method="POST",
+                                          url=url,
+                                          headers=dict(self.headers, **{"Content-Type": "application/json"}),
+                                          body=json_dumps({"statements": statements}))
+        except HTTPError as error:
+            raise_from(ProtocolError("Failed to POST to %r" % url), error)
 
     def _delete(self, url):
-        return self.http_pool.request(method="DELETE",
-                                      url=url,
-                                      headers=dict(self.headers))
+        log.debug("DELETE %r", url)
+        try:
+            return self.http_pool.request(method="DELETE",
+                                          url=url,
+                                          headers=dict(self.headers))
+        except HTTPError as error:
+            raise_from(ProtocolError("Failed to DELETE %r" % url), error)
 
     def supports_multi(self):
-        return self.neo4j_version >= Version("4.0")
+        return self._neo4j_version >= Version("4.0")
 
 
-class HTTPTransaction(Transaction):
+class HTTPTransactionRef(TransactionRef):
 
     def __init__(self, graph_name, txid=None, readonly=False):
-        super(HTTPTransaction, self).__init__(graph_name, txid, readonly)
+        super(HTTPTransactionRef, self).__init__(graph_name, txid, readonly)
         self.failure = None
 
     def __bool__(self):
@@ -357,8 +344,12 @@ class HTTPResult(Result):
         if "stats" in result:
             self._summary["stats"] = result["stats"]
         if profile:
-            self._summary["connection"] = dict(profile)
+            self._summary["connection"] = profile.to_dict()
         self._cursor = 0
+
+    @property
+    def offline(self):
+        return True
 
     def buffer(self):
         pass
@@ -398,7 +389,12 @@ class HTTPResponse(object):
 
     @classmethod
     def from_json(cls, status, data):
-        return cls(status, json_loads(data, object_hook=JSONHydrant.json_to_packstream))
+        try:
+            content = json_loads(data, object_hook=JSONHydrant.json_to_packstream)
+        except ValueError as error:
+            raise_from(ProtocolError("Cannot decode response content as JSON"), error)
+        else:
+            return cls(status, content)
 
     def __init__(self, status, content):
         self._status = status
@@ -430,10 +426,6 @@ class HTTPResponse(object):
 
     def audit(self, tx=None):
         if self.errors():
-            # FIXME: This currently clumsily breaks through abstraction
-            #   layers. This should create a Failure instead of a
-            #   Neo4jError. See also BoltResponse.set_failure
-            from py2neo.database.work import Neo4jError
             failure = Neo4jError.hydrate(self.errors().pop(0))
             if tx is not None:
                 tx.mark_broken()

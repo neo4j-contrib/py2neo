@@ -1,7 +1,4 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
-name: test-runner
+name: Run tests (Ubuntu 18.04)
 
 on:
   push:
@@ -12,10 +9,10 @@ on:
 jobs:
   test:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     strategy:
       matrix:
-        python-version: ["2.7", "3.4", "3.5", "3.6", "3.7", "3.8", "3.9"]
+        python-version: ["2.7", "3.4"]
 
     steps:
     - uses: actions/checkout@v2
@@ -37,6 +34,9 @@ jobs:
     - name: Perform legal checks
       run: bin/check-legal
 
+    - name: Perform installation check
+      run: bin/check-install
+
     - name: Run tests
       run: bin/test -v -x
 
@@ -45,6 +45,3 @@ jobs:
       env:
         COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Perform installation check
-      run: bin/check-install

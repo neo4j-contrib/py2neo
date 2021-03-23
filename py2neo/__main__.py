@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,82 +23,17 @@ from inspect import getdoc
 from sys import stderr, exit
 
 from py2neo import __version__
+from py2neo.client.__main__ import console
+from py2neo.compat import argument
 from py2neo.server import Neo4jService
 from py2neo.server.console import Neo4jConsole
 from py2neo.server.security import make_auth, make_self_signed_certificate
-
-
-def argument(*args, **kwargs):
-    """ Decorator for specifying argparse arguments attached to a
-    function.
-
-    ::
-
-        @argument("-v", "--verbose", action="count", default=0,
-                  help="Increase verbosity.")
-        def foo(verbose):
-            pass
-
-    """
-
-    def f__(f):
-        def f_(*a, **kw):
-            return f(*a, **kw)
-
-        f_.__name__ = f.__name__
-        f_.__doc__ = f.__doc__
-        f_.__dict__.update(f.__dict__)
-        if hasattr(f, "arguments"):
-            f_.arguments = f.arguments
-        else:
-            f_.arguments = []
-        f_.arguments.insert(0, (args, kwargs))
-        return f_
-
-    return f__
 
 
 def version():
     """ Display the current library version.
     """
     print(__version__)
-
-
-@argument("-u", "--uri",
-          help="Set the connection URI.")
-@argument("-a", "--auth", metavar="USER:PASSWORD",
-          help="Set the user and password.")
-@argument("-s", "--secure", action="store_true",
-          help="Use encrypted communication (TLS).")
-@argument("-v", "--verbose", action="count", default=0,
-          help="Adjust level of communication detail.")
-def console(uri=None, auth=None, secure=None, verbose=0):
-    """ Interactive Cypher console.
-    """
-    from py2neo.client.console import ClientConsole
-    con = ClientConsole(uri, auth=auth, secure=secure, verbosity=verbose)
-    con.loop()
-
-
-@argument("-u", "--uri",
-          help="Set the connection URI.")
-@argument("-a", "--auth", metavar="USER:PASSWORD",
-          help="Set the user and password.")
-@argument("-q", "--quiet", action="count", default=0,
-          help="Reduce verbosity.")
-@argument("-s", "--secure", action="store_true", default=False,
-          help="Use encrypted communication (TLS).")
-@argument("-v", "--verbose", action="count", default=0,
-          help="Increase verbosity.")
-@argument("-x", "--times", type=int, default=1,
-          help="Number of times to repeat.")
-@argument("cypher", nargs="+")
-def run(cypher, uri, auth=None, secure=False, verbose=False, quiet=False, times=1):
-    """ Run one or more Cypher query.
-    """
-    from py2neo.client.console import ClientConsole
-    con = ClientConsole(uri, auth=auth, secure=secure, verbosity=(verbose - quiet), welcome=False)
-    con.process_all(cypher, times)
 
 
 @argument("-a", "--auth", type=make_auth,
@@ -158,7 +93,7 @@ def main():
 
     add_command(console, "console")
     add_command(movies, "movies")
-    add_command(run, "run")
+    add_command(console, "run")
     add_command(server, "server")
     add_command(version, "version")
 

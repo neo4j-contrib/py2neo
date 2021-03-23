@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,5 +21,4 @@ from pytest import raises
 
 def test_cannot_check_existence_of_non_graphy_thing(graph):
     with raises(TypeError):
-        with graph.begin() as tx:
-            tx.exists("this string is definitely not graphy")
+        graph.exists("this string is definitely not graphy")

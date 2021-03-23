@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2020, Nigel Small
+# Copyright 2011-2021, Nigel Small
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,22 +16,48 @@
 # limitations under the License.
 
 
-from collections import deque
+from collections import deque, namedtuple, OrderedDict
+from datetime import timedelta
 from logging import getLogger
-from threading import Event
-from uuid import uuid4
+from os import linesep
+from uuid import UUID, uuid4
 
 from monotonic import monotonic
+from packaging.version import Version
 
 from py2neo.client.config import ConnectionProfile
 from py2neo.compat import string_types
+from py2neo.errors import Neo4jError
 from py2neo.timing import repeater
+from py2neo.wiring import Address
 
 
 DEFAULT_MAX_CONNECTIONS = 40
 
 
 log = getLogger(__name__)
+
+
+ConnectionRecord = namedtuple("ConnectionRecord",
+                              ["cxid", "since", "client_address",
+                               "server_profile", "user_agent"])
+TransactionRecord = namedtuple("TransactionRecord",
+                               ["txid", "since", "cxid", "client_address",
+                                "server_profile", "metadata", "database",
+                                "current_qid", "current_query", "status",
+                                "stats"])
+QueryRecord = namedtuple("QueryRecord",
+                         ["qid", "since", "cxid", "client_address",
+                          "server_profile", "metadata", "database",
+                          "query", "parameters", "planner", "runtime",
+                          "indexes", "status", "stats"])
+
+
+def _millis_to_timedelta(t):
+    if t is None:
+        return None
+    else:
+        return timedelta(milliseconds=t)
 
 
 class Bookmark(object):
@@ -85,16 +111,16 @@ class Connection(object):
 
     protocol_version = None
 
-    neo4j_version = None
-
     server_agent = None
 
     connection_id = None
 
+    tag = None
+
     # TODO: ping method
 
     @classmethod
-    def open(cls, profile, user_agent=None, on_bind=None, on_unbind=None,
+    def open(cls, profile=None, user_agent=None, on_bind=None, on_unbind=None,
              on_release=None, on_broken=None):
         """ Open a connection to a server.
 
@@ -111,6 +137,8 @@ class Connection(object):
         :raises: ValueError if the profile references an unsupported
             scheme
         """
+        if profile is None:
+            profile = ConnectionProfile()  # default connection profile
         if profile.protocol == "bolt":
             from py2neo.client.bolt import Bolt
             return Bolt.open(profile, user_agent=user_agent,
@@ -127,6 +155,8 @@ class Connection(object):
     def __init__(self, profile, user_agent, on_bind=None, on_unbind=None, on_release=None):
         self.profile = profile
         self.user_agent = user_agent
+        self._neo4j_version = None
+        self._neo4j_edition = None
         self._on_bind = on_bind
         self._on_unbind = on_unbind
         self._on_release = on_release
@@ -153,11 +183,63 @@ class Connection(object):
         raise NotImplementedError
 
     @property
+    def bytes_sent(self):
+        raise NotImplementedError
+
+    @property
+    def bytes_received(self):
+        raise NotImplementedError
+
+    @property
     def age(self):
         """ The age of this connection in seconds.
         """
         from monotonic import monotonic
         return monotonic() - self.__t_opened
+
+    @property
+    def neo4j_version(self):
+        """ The version of Neo4j to which this connection is
+        established.
+        """
+        if self._neo4j_version is None:
+            self._get_version_and_edition()
+        return self._neo4j_version
+
+    @property
+    def neo4j_edition(self):
+        """ The edition of Neo4j to which this connection is
+        established.
+        """
+        if self._neo4j_edition is None:
+            self._get_version_and_edition()
+        return self._neo4j_edition
+
+    def _system_call(self, tx, procedure):
+        cypher = "CALL " + procedure
+        try:
+            if tx is None:
+                result = self.auto_run(None, cypher)
+            else:
+                result = self.run_query(tx, cypher)
+            self.pull(result)
+            result.buffer()
+        except Neo4jError as error:
+            if error.title == "ProcedureNotFound":
+                raise TypeError("This Neo4j installation does not support the "
+                                "procedure %r" % procedure)
+            else:
+                raise
+        else:
+            fields = result.fields()
+            for record in result.records():
+                yield OrderedDict(zip(fields, record))
+
+    def _get_version_and_edition(self):
+        for record in self._system_call(None, "dbms.components"):
+            if record["name"] == "Neo4j Kernel":
+                self._neo4j_version = Version(record["versions"][0])
+                self._neo4j_edition = record["edition"]
 
     def _hello(self):
         pass
@@ -190,7 +272,7 @@ class Connection(object):
         :param graph_name:
         :param readonly:
         :returns: new :class:`.Transaction` object
-        :raises TransactionError: if a new transaction cannot be created
+        :raises Failure: if a new transaction cannot be created
         """
 
     def commit(self, tx):
@@ -201,7 +283,7 @@ class Connection(object):
         :returns: bookmark
         :raises ValueError: if the supplied :class:`.Transaction`
             object is not valid for committing
-        :raises BrokenTransactionError: if the transaction cannot be
+        :raises ConnectionBroken: if the transaction cannot be
             committed
         """
 
@@ -213,11 +295,11 @@ class Connection(object):
         :returns: bookmark
         :raises ValueError: if the supplied :class:`.Transaction`
             object is not valid for rolling back
-        :raises BrokenTransactionError: if the transaction cannot be
+        :raises ConnectionBroken: if the transaction cannot be
             rolled back
         """
 
-    def run_in_tx(self, tx, cypher, parameters=None):
+    def run_query(self, tx, cypher, parameters=None):
         pass  # may have network activity
 
     def pull(self, result, n=-1):
@@ -271,14 +353,189 @@ class Connection(object):
         multi-database.
         """
 
+    def get_cluster_overview(self, tx=None):
+        """ Fetch an overview of the cluster of which the server is a
+        member. If the server is not part of a cluster, a
+        :exc:`TypeError` is raised.
+
+        :param tx: transaction in which this call should be carried
+            out, if any
+        :returns: dictionary of cluster membership, keyed by unique
+            server ID
+        :raises: :exc:`TypeError` if the server is not a member of a
+            cluster
+        """
+        overview = {}
+        for record in self._system_call(tx, "dbms.cluster.overview"):
+            addresses = {}
+            for address in record["addresses"]:
+                profile = ConnectionProfile(address)
+                addresses[profile.scheme] = profile.address
+            overview[UUID(record["id"])] = {
+                "addresses": addresses,
+                "databases": record["databases"],
+                "groups": record["groups"],
+            }
+        return overview
+
+    def get_config(self, tx=None):
+        """ Fetch a dictionary of configuration for the server to which
+        this connection is established.
+
+        :param tx: transaction in which this call should be carried
+            out, if any
+        :returns: dictionary of name-value pairs for each setting
+        """
+        return {record["name"]: record["value"]
+                for record in self._system_call(tx, "dbms.listConfig")}
+
+    def get_connections(self, tx=None):
+        """ Fetch a list of connections to the server to which this
+        connection is established.
+
+        This method calls the dbms.listConnections procedure, which is
+        available with the following versions of Neo4j:
+
+        - Community Edition - version 4.2 and above
+        - Enterprise Edition - all versions
+
+        :returns: list of :class:`.ConnectionRecord` objects
+        :raises TypeError: if the dbms.listConnections procedure is not
+            supported by the underlying Neo4j installation
+        """
+        from neotime import DateTime
+        records = []
+        for record in self._system_call(tx, "dbms.listConnections"):
+            server_profile = ConnectionProfile(scheme=record["connector"],
+                                               address=record["serverAddress"],
+                                               user=record["username"])
+            connect_time = DateTime.from_iso_format(record["connectTime"].
+                                                    replace("Z", "+00:00")).to_native()
+            records.append(ConnectionRecord(cxid=record["connectionId"],
+                                            since=connect_time,
+                                            client_address=Address.parse(record["clientAddress"]),
+                                            server_profile=server_profile,
+                                            user_agent=record["userAgent"]))
+        return records
+
+    def get_transactions(self, tx=None):
+        """ Fetch a list of transactions currently active on the server
+        to which this connection is established.
+
+        This method calls the dbms.listTransactions procedure, which is
+        available with the following versions of Neo4j:
+
+        - Community Edition - version 4.2 and above
+        - Enterprise Edition - all versions
+
+        :returns: list of :class:`.TransactionRecord` objects
+        :raises TypeError: if the dbms.listTransactions procedure is not
+            supported by the underlying Neo4j installation
+        """
+        from neotime import DateTime
+        records = []
+        for record in self._system_call(tx, "dbms.listTransactions"):
+            server_profile = ConnectionProfile(scheme=record["protocol"],
+                                               address=record["requestUri"],
+                                               user=record["username"])
+            start_time = DateTime.from_iso_format(record["startTime"].
+                                                  replace("Z", "+00:00")).to_native()
+            records.append(TransactionRecord(txid=record["transactionId"],
+                                             since=start_time,
+                                             cxid=record.get("connectionId"),
+                                             client_address=Address.parse(record["clientAddress"]),
+                                             server_profile=server_profile,
+                                             metadata=record["metaData"],
+                                             database=record.get("database"),
+                                             current_qid=record["currentQueryId"],
+                                             current_query=record["currentQuery"],
+                                             status=record["status"],
+                                             stats={
+                                                 "active_lock_count": record["activeLockCount"],
+                                                 "elapsed_time": _millis_to_timedelta(record["elapsedTimeMillis"]),
+                                                 "cpu_time": _millis_to_timedelta(record["cpuTimeMillis"]),
+                                                 "wait_time": _millis_to_timedelta(record["waitTimeMillis"]),
+                                                 "idle_time": _millis_to_timedelta(record["idleTimeMillis"]),
+                                                 "page_hits": record["pageHits"],
+                                                 "page_faults": record["pageFaults"],
+                                                 "allocated_bytes": record["allocatedBytes"],
+                                                 "allocated_direct_bytes": record["allocatedDirectBytes"],
+                                                 "estimated_used_heap_memory": record.get("estimatedUsedHeapMemory"),
+                                             }))
+        return records
+
+    def get_queries(self, tx=None):
+        """ Fetch a list of queries currently active on the server
+        to which this connection is established.
+
+        This method calls the dbms.listQueries procedure, which is
+        available with the following versions of Neo4j:
+
+        - Community Edition - version 4.2 and above
+        - Enterprise Edition - all versions
+
+        :returns: list of :class:`.QueryRecord` objects
+        :raises TypeError: if the dbms.listQueries procedure is not
+            supported by the underlying Neo4j installation
+        """
+        from neotime import DateTime
+        records = []
+        for record in self._system_call(tx, "dbms.listQueries"):
+            server_profile = ConnectionProfile(scheme=record["protocol"],
+                                               address=record["requestUri"],
+                                               user=record["username"])
+            start_time = DateTime.from_iso_format(record["startTime"].
+                                                  replace("Z", "+00:00")).to_native()
+            records.append(QueryRecord(qid=record["queryId"],
+                                       since=start_time,
+                                       cxid=record.get("connectionId"),
+                                       client_address=Address.parse(record["clientAddress"]),
+                                       server_profile=server_profile,
+                                       metadata=record["metaData"],
+                                       database=record.get("database"),
+                                       query=record["query"],
+                                       parameters=record["parameters"],
+                                       planner=record["planner"],
+                                       runtime=record["runtime"],
+                                       indexes=record["indexes"],
+                                       status=record["status"],
+                                       stats={
+                                           "active_lock_count": record["activeLockCount"],
+                                           "elapsed_time": _millis_to_timedelta(record["elapsedTimeMillis"]),
+                                           "cpu_time": _millis_to_timedelta(record["cpuTimeMillis"]),
+                                           "wait_time": _millis_to_timedelta(record["waitTimeMillis"]),
+                                           "idle_time": _millis_to_timedelta(record["idleTimeMillis"]),
+                                           "page_hits": record["pageHits"],
+                                           "page_faults": record["pageFaults"],
+                                           "allocated_bytes": record["allocatedBytes"],
+                                       }))
+        return records
+
+    def get_management_data(self, tx=None):
+        """ Fetch a dictionary of management data for the server to
+        which this connection is established. This method calls the
+        dbms.queryJmx procedure.
+
+        The structure and format of the data returned may vary
+        depending on the underlying version and edition of Neo4j.
+        """
+        data = {}
+        for record in self._system_call(tx, "dbms.queryJmx('*:*') YIELD name, attributes"):
+            name = record["name"]
+            attributes = record["attributes"]
+            data[name] = {key: value["value"]
+                          for key, value in attributes.items()
+                          if key not in ("ObjectName",)}
+        return data
+
 
 class ConnectionPool(object):
     """ A pool of connections targeting a single Neo4j server.
     """
 
-    default_init_size = 1
+    default_init_size = 0
 
-    default_max_size = 100
+    default_max_size = 40
 
     default_max_age = 3600
 
@@ -331,6 +588,10 @@ class ConnectionPool(object):
         self._quarantine = deque()
         self._free_list = deque()
         self._supports_multi = False
+        # stats
+        self._opened_list = deque()
+        self._bytes_sent = 0
+        self._bytes_received = 0
 
     def __repr__(self):
         return "<{} profile={!r} in_use={!r} free={!r} spare={!r}>".format(
@@ -340,6 +601,14 @@ class ConnectionPool(object):
             len(self._free_list),
             (self.max_size - self.size),
         )
+
+    def __str__(self):
+        capacity = self.max_size
+        in_use = list(self._in_use_list)
+        free = len(self._free_list)
+        in_use_str = "".join(str(cx.tag)[0] if cx.tag else "X" for cx in in_use)
+        return "%s [%s%s%s]" % (self.profile.address, in_use_str, "." * free,
+                                " " * (capacity - len(in_use) - free))
 
     def __hash__(self):
         return hash(self._profile)
@@ -394,6 +663,20 @@ class ConnectionPool(object):
         """
         return len(self._in_use_list) + len(self._free_list)
 
+    @property
+    def bytes_sent(self):
+        b = self._bytes_sent
+        for cx in list(self._opened_list):
+            b += cx.bytes_sent
+        return b
+
+    @property
+    def bytes_received(self):
+        b = self._bytes_received
+        for cx in list(self._opened_list):
+            b += cx.bytes_received
+        return b
+
     def _sanitize(self, cx, force_reset=False):
         """ Attempt to clean up a connection, such that it can be
         reused.
@@ -418,7 +701,27 @@ class ConnectionPool(object):
         self._quarantine.remove(cx)
         return cx
 
-    def acquire(self, force_reset=False):
+    def connect(self):
+        """ Open a new connection, adding it to a list of opened
+        connections in order to collect statistics. This method also
+        collects stats from closed or broken connections into a
+        pool-wide running total.
+        """
+        for _ in range(len(self._opened_list)):
+            cx = self._opened_list.popleft()
+            if cx.closed or cx.broken:
+                self._bytes_sent += cx.bytes_sent
+                self._bytes_received += cx.bytes_received
+            else:
+                self._opened_list.append(cx)
+        cx = Connection.open(self.profile, user_agent=self.user_agent,
+                             on_bind=self._on_bind, on_unbind=self._on_unbind,
+                             on_release=lambda c: self.release(c),
+                             on_broken=lambda msg: self.__on_broken(msg))
+        self._opened_list.append(cx)
+        return cx
+
+    def acquire(self, force_reset=False, can_overfill=False):
         """ Acquire a connection from the pool.
 
         In the simplest case, this will return an existing open
@@ -435,11 +738,15 @@ class ConnectionPool(object):
         :param force_reset: if true, the connection will be forcibly
             reset before being returned; if false, this will only occur
             if the connection is not already in a clean state
+        :param can_overfill: if true, the maximum capacity can be
+            exceeded for this acquisition; this can be used to ensure
+            system calls (such as fetching the routing table) can
+            succeed even when at capacity
         :returns: a Bolt connection object
         :raises: :class:`.ConnectionUnavailable` if no connection can
             be acquired
         """
-        log.debug("Trying to acquiring connection from pool %r", self)
+        log.debug("Trying to acquire connection from pool %r", self)
         cx = None
         while cx is None or cx.broken or cx.closed:
             if self.max_size == 0:
@@ -449,15 +756,12 @@ class ConnectionPool(object):
                 # Plan A: select a free connection from the pool
                 cx = self._free_list.popleft()
             except IndexError:
-                if self.size < self.max_size:
+                if self.size < self.max_size or can_overfill:
                     # Plan B: if the pool isn't full, open
                     # a new connection. This may raise a
                     # ConnectionUnavailable exception, which
                     # should bubble up to the caller.
-                    cx = Connection.open(self.profile, user_agent=self.user_agent,
-                                         on_bind=self._on_bind, on_unbind=self._on_unbind,
-                                         on_release=lambda c: self.release(c),
-                                         on_broken=lambda msg: self.__on_broken(msg))
+                    cx = self.connect()
                     if cx.supports_multi():
                         self._supports_multi = True
                 else:
@@ -494,6 +798,7 @@ class ConnectionPool(object):
             log.debug("Connection %r does not belong to pool %r", cx, self)
             return
         self._in_use_list.remove(cx)
+        cx.tag = None
         if self.size < self.max_size:
             # If there is spare capacity in the pool, attempt to
             # sanitize the connection and return it to the pool.
@@ -512,8 +817,12 @@ class ConnectionPool(object):
             cx.close()
 
     def prune(self):
-        """ Close all free connections.
+        """ Release all broken connections marked as "in use" and then
+        close all free connections.
         """
+        for cx in list(self._in_use_list):
+            if cx.broken:
+                self.release(cx)
         self.__close(self._free_list)
 
     def close(self):
@@ -586,8 +895,8 @@ class Connector(object):
         cluster
     """
 
-    def __init__(self, profile, user_agent=None, init_size=None, max_size=None, max_age=None,
-                 routing=False):
+    def __init__(self, profile=None, user_agent=None, init_size=None,
+                 max_size=None, max_age=None, routing=False):
         self._profile = ConnectionProfile(profile)
         self._user_agent = user_agent
         self._init_size = init_size
@@ -607,6 +916,9 @@ class Connector(object):
 
     def __repr__(self):
         return "<{} to {!r}>".format(self.__class__.__name__, self.profile)
+
+    def __str__(self):
+        return linesep.join(map(str, self._pools.values()))
 
     def __hash__(self):
         return hash(self.profile)
@@ -639,6 +951,16 @@ class Connector(object):
             return "default database"
         else:
             return repr(graph_name)
+
+    def invalidate_routing_table(self, graph_name):
+        """ Invalidate the routing table for the given graph.
+        """
+        if self._routing_tables is None:
+            return
+        try:
+            del self._routing_tables[graph_name]
+        except KeyError:
+            pass
 
     def get_pools(self, graph_name=None, readonly=False):
         """ Obtain a list of connection pools for a particular
@@ -677,37 +999,41 @@ class Connector(object):
         log.debug("Attempting to refresh routing table for %s",
                   "default database" if graph_name is None else repr(graph_name))
         assert self._routers is not None
-        for router in self._routers + [self.profile]:
-            # TODO: don't open a new connection every time, use the pool if free
+        known_routers = self._routers + [self.profile]
+        log.debug("Known routers are: %s", ", ".join(map(repr, known_routers)))
+        for router in known_routers:
+            log.debug("Asking %r for routing table", router)
+            pool = self._pools[router]
             try:
-                cx = Connection.open(router, self._user_agent)
-            except ConnectionUnavailable:
+                cx = pool.acquire(can_overfill=True)
+            except (ConnectionUnavailable, ConnectionBroken):
                 continue  # try the next router instead
             else:
                 try:
                     routers, ro_runners, rw_runners, ttl = cx.route(graph_name)
-                except TransactionError as error:
-                    log.warning(error.args[0])
+                except (ConnectionUnavailable, ConnectionBroken) as error:
+                    log.debug(error.args[0])
                     continue
                 else:
                     # TODO: comment this algorithm
                     self.add_pools(*ro_runners)
                     self.add_pools(*rw_runners)
                     routing_table = RoutingTable(ro_runners, rw_runners, monotonic() + ttl)
-                    # TODO: housekeep old pools (maybe in connection pool after connection failure)
-                    old = set(profile for profile in self._routers if profile not in routers)
+                    old_profiles = set(profile for profile in self._routers
+                                       if profile not in routers)
                     if graph_name in self._routing_tables:
                         rt = self._routing_tables[graph_name]
-                        old.update(profile for profile in rt if profile not in routing_table)
+                        old_profiles.update(profile for profile in rt
+                                            if profile not in routing_table)
 
                     self._routers[:] = routers
                     self._routing_tables[graph_name] = routing_table
-                    for profile in old:
-                        self._pools[profile].prune()
+                    for profile in old_profiles:
+                        self.prune(profile)
                     return
                 finally:
-                    cx.close()
-        raise ConnectionUnavailable("No suitable routers found")  # TODO: better exception
+                    pool.release(cx)
+        raise ConnectionUnavailable("Cannot connect to any known routers")
 
     @property
     def profile(self):
@@ -730,7 +1056,33 @@ class Connector(object):
         return {profile: pool.in_use
                 for profile, pool in self._pools.items()}
 
-    def acquire(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
+    @property
+    def bytes_sent(self):
+        b = 0
+        for pool in list(self._pools.values()):
+            b += pool.bytes_sent
+        return b
+
+    @property
+    def bytes_received(self):
+        b = 0
+        for pool in list(self._pools.values()):
+            b += pool.bytes_received
+        return b
+
+    def _acquire(self, tx):
+        """ Lookup and return the connection bound to this
+        transaction, if any, otherwise acquire a new connection.
+
+        :param tx: a bound transaction
+        :raise TypeError: if the given transaction is invalid or not bound
+        """
+        try:
+            return self._transactions[tx]
+        except KeyError:
+            return self._acquire_new(tx.graph_name, tx.readonly)
+
+    def _acquire_new(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
         """ Acquire a connection from a pool owned by this connector.
 
         In the simplest case, this will return an existing open
@@ -759,7 +1111,7 @@ class Connector(object):
             could not be acquired within the time limit
         """
         # TODO: improve logging for this method
-        for n in repeater(at_least=3, timeout=timeout):
+        for _ in repeater(at_least=3, timeout=timeout):
             log.debug("Attempting to acquire connection to %s", self._repr_graph_name(graph_name))
             try:
                 pools = self.get_pools(graph_name, readonly=readonly)
@@ -770,35 +1122,34 @@ class Connector(object):
                     log.debug("Using connection pool %r", pool)
                     try:
                         cx = pool.acquire(force_reset=force_reset)
-                    except ConnectionUnavailable as error:
-                        log.debug("Connection unavailable; %r", error.args[0])
+                    except (ConnectionUnavailable, ConnectionBroken) as error:
+                        self.prune(pool.profile)
                         continue
                     else:
                         if cx is not None:
+                            cx.tag = "R" if readonly else "W"
                             return cx
         else:
             raise ConnectionUnavailable("Timed out trying to acquire connection")
 
-    def release(self, cx, force_reset=False):
-        """ Release a connection back into the pool.
-        """
-        for pool in self._pools:
-            try:
-                pool.release(cx, force_reset=force_reset)
-            except ValueError:
-                continue
-            else:
-                break
-
     def prune(self, profile):
-        """ Close all free connections for the given profile.
+        """ Release all broken connections for a given profile, then
+        close these and all other free connections. If this empties the
+        pool, then that pool will be removed completely. This method
+        should therefore only be used if a connection in the pool is
+        known to have failed, and it is likely that the server has
+        gone.
         """
+        log.debug("Pruning idle connections to %r", profile)
         try:
             pool = self._pools[profile]
         except KeyError:
             pass
         else:
             pool.prune()
+            if pool.size == 0:
+                log.debug("Removing connection pool for profile %r", profile)
+                del self._pools[profile]
 
     def close(self):
         """ Close all connections immediately.
@@ -824,18 +1175,6 @@ class Connector(object):
         """
         for pool in self._pools.values():
             pool.close()
-
-    def _get_connection(self, tx):
-        """ Lookup and return the connection bound to this
-        transaction, if any, otherwise acquire a new connection.
-
-        :param tx: a bound transaction
-        :raise TypeError: if the given transaction is invalid or not bound
-        """
-        try:
-            return self._transactions[tx]
-        except KeyError:
-            return self.acquire(tx.graph_name, tx.readonly)
 
     def _on_bind(self, tx, cx):
         """ Bind a transaction to a connection.
@@ -865,7 +1204,8 @@ class Connector(object):
     def _on_broken(self, profile, message):
         """ Handle a broken connection.
         """
-        log.warning("Connection to %r broken\n%s", profile, message)
+        log.debug("Connection to %r broken\n%s", profile, message)
+        # TODO: clean up broken connections from reader and writer entries too
         if self._routers is not None:
             log.debug("Removing profile %r from router list", profile)
             try:
@@ -876,26 +1216,26 @@ class Connector(object):
                 log.debug("Removing profile %r from routing table for %s", profile,
                           "default database" if graph_name is None else repr(graph_name))
                 routing_table.remove(profile)
-        try:
-            pool = self._pools[profile]
-        except KeyError:
-            pass  # no such pool
-        else:
-            log.debug("Pruning idle connections to %r", profile)
-            pool.prune()
+        self.prune(profile)
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
               ):
         """ Begin a new explicit transaction.
+
+        :param graph_name:
+        :param readonly:
+        :returns: new :class:`.Transaction` object
+        :raises ConnectionUnavailable: if a begin attempt cannot be made
+        :raises ConnectionBroken: if a begin attempt is made, but fails due to disconnection
+        :raises Failure: if the server signals a failure condition
         """
-        cx = self.acquire(graph_name, readonly=readonly)
+        cx = self._acquire_new(graph_name, readonly=readonly)
         try:
             return cx.begin(graph_name, readonly=readonly,
                             # after=after, metadata=metadata, timeout=timeout
                             )
-        except TransactionError:
-            # TODO: retry on failure (TransactionError)
+        except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
 
@@ -903,60 +1243,87 @@ class Connector(object):
         """ Commit a transaction.
 
         :param tx: the transaction to commit
-        :returns: a :class:`.Bookmark` representing the point in
-            transactional history immediately after this transaction
+        :returns: dictionary of transaction summary information
         :raises ValueError: if the transaction is not valid to be committed
-        :raises BrokenTransactionError: if the transaction fails to commit
+        :raises ConnectionUnavailable: if a commit attempt cannot be made
+        :raises ConnectionBroken: if a commit attempt is made, but fails due to disconnection
+        :raises Failure: if the server signals a failure condition
         """
-        cx = self._get_connection(tx)
+        cx = self._acquire(tx)
         try:
-            return cx.commit(tx)
-        except TransactionError:
+            bookmark = cx.commit(tx)
+        except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
+        else:
+            return {"bookmark": bookmark,
+                    "profile": cx.profile,
+                    "time": tx.age}
 
     def rollback(self, tx):
         """ Roll back a transaction.
 
         :param tx: the transaction to rollback
-        :returns: a :class:`.Bookmark` representing the point in
-            transactional history immediately after this transaction
+        :returns: dictionary of transaction summary information
         :raises ValueError: if the transaction is not valid to be rolled back
-        :raises BrokenTransactionError: if the transaction fails to rollback
+        :raises ConnectionUnavailable: if a rollback attempt cannot be made
+        :raises ConnectionBroken: if a rollback attempt is made, but fails due to disconnection
+        :raises Failure: if the server signals a failure condition
         """
-        cx = self._get_connection(tx)
+        cx = self._acquire(tx)
         try:
-            return cx.rollback(tx)
-        except TransactionError:
+            cx = self._acquire(tx)
+            bookmark = cx.rollback(tx)
+        except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
+        else:
+            return {"bookmark": bookmark,
+                    "profile": cx.profile,
+                    "time": tx.age}
 
     def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a Cypher query within a new auto-commit transaction.
+
+        :param graph_name:
+        :param cypher:
+        :param parameters:
+        :param readonly:
+        :returns: :class:`.Result` object
+        :raises ConnectionUnavailable: if an attempt to run cannot be made
+        :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
+        :raises Failure: if the server signals a failure condition
         """
-        cx = self.acquire(graph_name, readonly)
-        result = cx.auto_run(graph_name, cypher, parameters, readonly=readonly)
-        cx.pull(result)
+        cx = self._acquire_new(graph_name, readonly)
         try:
+            result = cx.auto_run(graph_name, cypher, parameters, readonly=readonly)
+            cx.pull(result)
             cx.sync(result)
-        except TransactionError:
-            # TODO: retry on failure (TransactionError)
+        except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
         else:
             return result
 
-    def run_in_tx(self, tx, cypher, parameters=None):
+    def run_query(self, tx, cypher, parameters=None):
         """ Run a Cypher query within an open explicit transaction.
+
+        :param tx:
+        :param cypher:
+        :param parameters:
+        :returns: :class:`.Result` object
+        :raises ConnectionUnavailable: if an attempt to run cannot be made
+        :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
+        :raises Failure: if the server signals a failure condition
         """
-        cx = self._get_connection(tx)
-        result = cx.run_in_tx(tx, cypher, parameters)
-        cx.pull(result)
+        cx = self._acquire(tx)
         try:
+            result = cx.run_query(tx, cypher, parameters)
+            cx.pull(result)
             cx.sync(result)
-        except TransactionError:
+        except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
         else:
@@ -967,12 +1334,9 @@ class Connector(object):
         return all(pool.supports_multi()
                    for pool in self._pools.values())
 
-    def supports_readonly_transactions(self):
-        return self.profile.protocol == "bolt"
-
     def _show_databases(self):
         if self.supports_multi():
-            cx = self.acquire("system", readonly=True)
+            cx = self._acquire_new("system", readonly=True)
             try:
                 result = cx.auto_run("system", "SHOW DATABASES")
                 cx.pull(result)
@@ -1029,6 +1393,12 @@ class RoutingTable(object):
         return "%s(%r, %r, %r)" % (self.__class__.__name__,
                                    self._ro_runners, self._rw_runners, self.expiry_time)
 
+    def __iter__(self):
+        return iter(set(self._ro_runners + self._rw_runners))
+
+    def __contains__(self, profile):
+        return profile in self._ro_runners or profile in self._rw_runners
+
     def expired(self):
         return monotonic() >= self.expiry_time
 
@@ -1046,19 +1416,22 @@ class RoutingTable(object):
             pass  # ignore, not present
 
 
-class Transaction(object):
+class TransactionRef(object):
+    """ Reference to a protocol-level transaction.
+    """
 
     def __init__(self, graph_name, txid=None, readonly=False):
         self.graph_name = graph_name
         self.txid = txid or uuid4()
         self.readonly = readonly
         self.__broken = False
+        self.__time_created = monotonic()
 
     def __hash__(self):
         return hash((self.graph_name, self.txid))
 
     def __eq__(self, other):
-        if isinstance(other, Transaction):
+        if isinstance(other, TransactionRef):
             return self.graph_name == other.graph_name and self.txid == other.txid
         else:
             return False
@@ -1072,6 +1445,10 @@ class Transaction(object):
 
     def mark_broken(self):
         self.__broken = True
+
+    @property
+    def age(self):
+        return monotonic() - self.__time_created
 
 
 class Result(object):
@@ -1100,21 +1477,26 @@ class Result(object):
         """
         return None
 
+    @property
     def query_id(self):
         """ Return the ID of the query behind this result. This method
         may carry out network activity.
 
         :returns: query ID or :const:`None`
-        :raises: :class:`.BrokenTransactionError` if the transaction is
+        :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
         """
         return None
+
+    @property
+    def offline(self):
+        raise NotImplementedError
 
     def buffer(self):
         """ Fetch the remainder of the result into memory. This method
         may carry out network activity.
 
-        :raises: :class:`.BrokenTransactionError` if the transaction is
+        :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
         """
         raise NotImplementedError
@@ -1124,7 +1506,7 @@ class Result(object):
         This method may carry out network activity.
 
         :returns: list of field names
-        :raises: :class:`.BrokenTransactionError` if the transaction is
+        :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
         """
         raise NotImplementedError
@@ -1134,7 +1516,7 @@ class Result(object):
         turn. This method may carry out network activity.
 
         :returns: record iterator
-        :raises: :class:`.BrokenTransactionError` if the transaction is
+        :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
         """
         self.buffer()
@@ -1159,7 +1541,7 @@ class Result(object):
         out network activity.
 
         :returns: the next available record, or :const:`None`
-        :raises: :class:`.BrokenTransactionError` if the transaction is
+        :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
         """
         raise NotImplementedError
@@ -1191,38 +1573,28 @@ class Result(object):
         raise NotImplementedError
 
 
-class Failure(Exception):
-
-    def __init__(self, message, code):
-        super(Failure, self).__init__(message)
-        self.code = code
-        _, self.classification, self.category, self.title = self.code.split(".")
-
-    def __str__(self):
-        return "[%s] %s" % (self.code, super(Failure, self).__str__())
-
-    @property
-    def message(self):
-        return self.args[0]
-
-
-class TransactionError(Exception):
-    """ Raised when an error occurs in relation to a transaction."""
-
-
-class BrokenTransactionError(TransactionError):
-    """ Raised when a transaction is broken by the network or remote peer.
-    """
-
-
 class ConnectionUnavailable(Exception):
-    """ Raised when a connection cannot be established.
+    """ Raised when a connection cannot be acquired.
     """
+
+
+class ConnectionBroken(Exception):
+    """ Raised when a connection breaks during use.
+    """
+
+
+class ProtocolError(Exception):
+    """ Raised when a protocol violation or other unrecoverable
+    protocol error occurs. These errors cannot be recovered from
+    automatically, and may result from a bug in the driver or server
+    software.
+    """
+    # TODO: add hints for users when they see this error
 
 
 class Hydrant(object):
 
-    def hydrate(self, keys, values, entities=None, version=None):
+    def hydrate_list(self, obj):
         raise NotImplementedError
 
     def dehydrate(self, data, version=None):
