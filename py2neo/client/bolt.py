@@ -78,11 +78,15 @@ class BoltMessageReader(object):
     def read_message(self):
         chunks = []
         while True:
-            hi, lo = self.wire.read(2)
-            if hi == lo == 0:
-                break
-            size = hi << 8 | lo
-            chunks.append(self.wire.read(size))
+            try:
+                hi, lo = self.wire.read(2)
+            except WireError as error:
+                raise_from(ConnectionBroken("Failed to read message"), error)
+            else:
+                if hi == lo == 0:
+                    break
+                size = hi << 8 | lo
+                chunks.append(self.wire.read(size))
         message = b"".join(chunks)
         _, n = divmod(message[0], 0x10)
         try:
@@ -96,11 +100,15 @@ class BoltMessageReader(object):
     def read_message_py2(self):
         chunks = []
         while True:
-            hi, lo = self.wire.read(2)
-            if hi == lo == 0:
-                break
-            size = hi << 8 | lo
-            chunks.append(self.wire.read(size))
+            try:
+                hi, lo = self.wire.read(2)
+            except WireError as error:
+                raise_from(ConnectionBroken("Failed to read message"), error)
+            else:
+                if hi == lo == 0:
+                    break
+                size = hi << 8 | lo
+                chunks.append(self.wire.read(size))
         message = bytearray(b"".join(map(bytes, chunks)))
         _, n = divmod(message[0], 0x10)
         try:
@@ -160,7 +168,10 @@ class BoltMessageWriter(object):
             pass
 
     def send(self, final=False):
-        return self.wire.send(final=final)
+        try:
+            return self.wire.send(final=final)
+        except WireError as error:
+            raise_from(ConnectionBroken("Failed to send Bolt messages"), error)
 
 
 class Bolt(Connection):
@@ -569,12 +580,10 @@ class Bolt1(Bolt):
         state. It is the responsibility of the caller to convert this
         failed state into an exception.
         """
-        rs = self._responses[0]
         tag, fields = self._reader.read_message()
         if tag == 0x70:
             log.debug("[#%04X] S: SUCCESS %s", self.local_port, " ".join(map(repr, fields)))
-            rs.set_success(**fields[0])
-            self._responses.popleft()
+            self._responses.popleft().set_success(**fields[0])
             self._metadata.update(fields[0])
         elif tag == 0x71:
             # If a RECORD is received, check for more records
@@ -586,19 +595,18 @@ class Bolt1(Bolt):
             more = len(fields) - 1
             log.debug("[#%04X] S: RECORD %r%s", self.local_port, fields[0],
                       " (...and %d more)" % more if more else "")
-            rs.add_records(fields)
+            self._responses[0].add_records(fields)
         elif tag == 0x7F:
             log.debug("[#%04X] S: FAILURE %s", self.local_port, " ".join(map(repr, fields)))
+            rs = self._responses.popleft()
             rs.set_failure(**fields[0])
-            self._responses.popleft()
             if rs.vital:
                 self._wire.close()
             else:
                 self.reset(force=True)
-        elif tag == 0x7E and not rs.vital:
+        elif tag == 0x7E and not self._responses[0].vital:
             log.debug("[#%04X] S: IGNORED", self.local_port)
-            rs.set_ignored()
-            self._responses.popleft()
+            self._responses.popleft().set_ignored()
         else:
             log.debug("[#%04X] S: (Unexpected protocol message #%02X)", self.local_port, tag)
             self._wire.close()

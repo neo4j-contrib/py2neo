@@ -60,8 +60,5 @@ venv
 .ipynb_checkpoints
 .vscode
 
-# Scratch files
-scratch
-
 # Profile output
 *.prof
