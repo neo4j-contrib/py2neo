@@ -31,6 +31,7 @@ __all__ = [
 ]
 
 from collections import OrderedDict
+from collections.abc import Iterable
 
 from english.casing import Words
 
@@ -659,9 +660,12 @@ class Repository(object):
         """
         self.graph.pull(obj)
 
-    def save(self, *objects):
+    def save(self, objects):
         """ Save data from the local object into the remote graph.
         """
+
+        if not isinstance(objects, Iterable):
+            objects = (objects,)
 
         def push_all(tx):
             for obj in objects:
