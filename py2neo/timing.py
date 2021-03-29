@@ -16,6 +16,10 @@
 # limitations under the License.
 
 
+from __future__ import division
+
+from datetime import timedelta
+
 from monotonic import monotonic
 
 
@@ -44,3 +48,10 @@ def repeater(at_least, timeout):
     while repeat < at_least or timer.remaining():
         yield repeat
         repeat += 1
+
+
+def millis_to_timedelta(t):
+    if t is None:
+        return None
+    else:
+        return timedelta(milliseconds=t)

@@ -17,9 +17,9 @@
 
 
 from collections import deque, namedtuple, OrderedDict
-from datetime import timedelta
 from logging import getLogger
 from os import linesep
+from threading import Lock, Event
 from uuid import UUID, uuid4
 
 from monotonic import monotonic
@@ -28,7 +28,7 @@ from packaging.version import Version
 from py2neo.client.config import ConnectionProfile
 from py2neo.compat import string_types
 from py2neo.errors import Neo4jError
-from py2neo.timing import repeater
+from py2neo.timing import repeater, millis_to_timedelta
 from py2neo.wiring import Address
 
 
@@ -53,11 +53,12 @@ QueryRecord = namedtuple("QueryRecord",
                           "indexes", "status", "stats"])
 
 
-def _millis_to_timedelta(t):
-    if t is None:
-        return None
+def _repr_graph_name(graph_name):
+    # helper for logging
+    if graph_name is None:
+        return "default database"
     else:
-        return timedelta(milliseconds=t)
+        return repr(graph_name)
 
 
 class Bookmark(object):
@@ -104,6 +105,9 @@ class Connection(object):
     This base class is extended by both :class:`.Bolt` and
     :class:`.HTTP` implementations and contains interfaces for the
     basic operations provided by both.
+
+    This class, and its subclasses, should only be used by a single
+    thread between acquisition and release.
 
     :ivar Connection.profile: connection profile
     :ivar Connection.user_agent:
@@ -452,10 +456,10 @@ class Connection(object):
                                              status=record["status"],
                                              stats={
                                                  "active_lock_count": record["activeLockCount"],
-                                                 "elapsed_time": _millis_to_timedelta(record["elapsedTimeMillis"]),
-                                                 "cpu_time": _millis_to_timedelta(record["cpuTimeMillis"]),
-                                                 "wait_time": _millis_to_timedelta(record["waitTimeMillis"]),
-                                                 "idle_time": _millis_to_timedelta(record["idleTimeMillis"]),
+                                                 "elapsed_time": millis_to_timedelta(record["elapsedTimeMillis"]),
+                                                 "cpu_time": millis_to_timedelta(record["cpuTimeMillis"]),
+                                                 "wait_time": millis_to_timedelta(record["waitTimeMillis"]),
+                                                 "idle_time": millis_to_timedelta(record["idleTimeMillis"]),
                                                  "page_hits": record["pageHits"],
                                                  "page_faults": record["pageFaults"],
                                                  "allocated_bytes": record["allocatedBytes"],
@@ -501,10 +505,10 @@ class Connection(object):
                                        status=record["status"],
                                        stats={
                                            "active_lock_count": record["activeLockCount"],
-                                           "elapsed_time": _millis_to_timedelta(record["elapsedTimeMillis"]),
-                                           "cpu_time": _millis_to_timedelta(record["cpuTimeMillis"]),
-                                           "wait_time": _millis_to_timedelta(record["waitTimeMillis"]),
-                                           "idle_time": _millis_to_timedelta(record["idleTimeMillis"]),
+                                           "elapsed_time": millis_to_timedelta(record["elapsedTimeMillis"]),
+                                           "cpu_time": millis_to_timedelta(record["cpuTimeMillis"]),
+                                           "wait_time": millis_to_timedelta(record["waitTimeMillis"]),
+                                           "idle_time": millis_to_timedelta(record["idleTimeMillis"]),
                                            "page_hits": record["pageHits"],
                                            "page_faults": record["pageFaults"],
                                            "allocated_bytes": record["allocatedBytes"],
@@ -535,7 +539,7 @@ class ConnectionPool(object):
 
     default_init_size = 0
 
-    default_max_size = 40
+    default_max_size = None
 
     default_max_age = 3600
 
@@ -593,22 +597,15 @@ class ConnectionPool(object):
         self._bytes_sent = 0
         self._bytes_received = 0
 
-    def __repr__(self):
-        return "<{} profile={!r} in_use={!r} free={!r} spare={!r}>".format(
-            self.__class__.__name__,
-            self.profile,
-            len(self._in_use_list),
-            len(self._free_list),
-            (self.max_size - self.size),
-        )
-
     def __str__(self):
-        capacity = self.max_size
-        in_use = list(self._in_use_list)
+        in_use_list = list(self._in_use_list)
+        in_use = len(in_use_list)
         free = len(self._free_list)
-        in_use_str = "".join(str(cx.tag)[0] if cx.tag else "X" for cx in in_use)
-        return "%s [%s%s%s]" % (self.profile.address, in_use_str, "." * free,
-                                " " * (capacity - len(in_use) - free))
+        capacity = in_use + free if self.max_size is None else self.max_size
+        spare = (capacity - in_use - free)
+        in_use_str = "".join(str(cx.tag)[0] if cx.tag else "X" for cx in in_use_list)
+        return "%s [%s%s%s] (%d/%d)" % (
+            self.profile.address, in_use_str, "." * free, " " * spare, in_use, capacity)
 
     def __hash__(self):
         return hash(self._profile)
@@ -634,13 +631,7 @@ class ConnectionPool(object):
 
     @max_size.setter
     def max_size(self, value):
-        old_value = self._max_size
         self._max_size = value
-        if value > old_value:
-            # The maximum size has grown, so new slots have become
-            # available. Notify any waiting acquirers of this extra
-            # capacity.
-            pass  # Removed waiting list mechanism (11 Nov 2020)
 
     @property
     def max_age(self):
@@ -721,6 +712,9 @@ class ConnectionPool(object):
         self._opened_list.append(cx)
         return cx
 
+    def _has_capacity(self):
+        return self.max_size is None or self.size < self.max_size
+
     def acquire(self, force_reset=False, can_overfill=False):
         """ Acquire a connection from the pool.
 
@@ -756,7 +750,7 @@ class ConnectionPool(object):
                 # Plan A: select a free connection from the pool
                 cx = self._free_list.popleft()
             except IndexError:
-                if self.size < self.max_size or can_overfill:
+                if self._has_capacity() or can_overfill:
                     # Plan B: if the pool isn't full, open
                     # a new connection. This may raise a
                     # ConnectionUnavailable exception, which
@@ -790,22 +784,22 @@ class ConnectionPool(object):
         :raise ValueError: if the connection does not belong to this
             pool
         """
+        log.debug("Releasing connection %r", cx)
         if cx in self._free_list or cx in self._quarantine:
             return
-        log.debug("Releasing connection %r", cx)
         if cx not in self._in_use_list:
             # Connection does not belong to this pool
             log.debug("Connection %r does not belong to pool %r", cx, self)
             return
         self._in_use_list.remove(cx)
         cx.tag = None
-        if self.size < self.max_size:
+        if self._has_capacity():
             # If there is spare capacity in the pool, attempt to
             # sanitize the connection and return it to the pool.
             cx = self._sanitize(cx, force_reset=force_reset)
             if cx:
                 # Carry on only if sanitation succeeded.
-                if self.size < self.max_size:
+                if self._has_capacity():
                     # Check again if there is still capacity.
                     self._free_list.append(cx)
                     pass  # Removed waiting list mechanism (11 Nov 2020)
@@ -822,7 +816,7 @@ class ConnectionPool(object):
         """
         for cx in list(self._in_use_list):
             if cx.broken:
-                self.release(cx)
+                cx.release()
         self.__close(self._free_list)
 
     def close(self):
@@ -895,6 +889,8 @@ class Connector(object):
         cluster
     """
 
+    routing_refresh_ttl = 5
+
     def __init__(self, profile=None, user_agent=None, init_size=None,
                  max_size=None, max_age=None, routing=False):
         self._profile = ConnectionProfile(profile)
@@ -905,9 +901,11 @@ class Connector(object):
         self._transactions = {}
         self._pools = {}
         if routing:
+            self._routing = Router()
             self._routers = []
             self._routing_tables = {}
         else:
+            self._routing = None
             self._routers = None
             self._routing_tables = None
         self.add_pools(self._profile)
@@ -918,7 +916,8 @@ class Connector(object):
         return "<{} to {!r}>".format(self.__class__.__name__, self.profile)
 
     def __str__(self):
-        return linesep.join(map(str, self._pools.values()))
+        pools = sorted(self._pools.values(), key=lambda pool: pool.profile.address)
+        return linesep.join(map(str, pools))
 
     def __hash__(self):
         return hash(self.profile)
@@ -944,28 +943,17 @@ class Connector(object):
                 on_broken=self._on_broken)
             self._pools[profile] = pool
 
-    @classmethod
-    def _repr_graph_name(cls, graph_name):
-        # helper for logging
-        if graph_name is None:
-            return "default database"
-        else:
-            return repr(graph_name)
-
     def invalidate_routing_table(self, graph_name):
         """ Invalidate the routing table for the given graph.
         """
-        if self._routing_tables is None:
-            return
-        try:
-            del self._routing_tables[graph_name]
-        except KeyError:
-            pass
+        if self._routing is not None:
+            self._routing.invalidate_routing_table(graph_name)
 
-    def get_pools(self, graph_name=None, readonly=False):
+    def _get_profiles(self, graph_name=None, readonly=False):
         """ Obtain a list of connection pools for a particular
         graph database and read/write mode.
 
+        THIS IS PROBABLY NOW ALL WRONG:
         If, for any reason, the routing table is not valid, a
         :exc:`.RoutingTable.Invalid` exception will be raised.
         Possible reasons are:
@@ -973,67 +961,61 @@ class Connector(object):
         - The routing table has expired
         - No appropriate readonly or read-write servers are listed
         """
-        if self._routers is None:
+        if self._routing is None:
             # If routing isn't enabled, just return a
             # simple list of pools.
-            return list(self._pools.values())
-        try:
-            rt = self._routing_tables[graph_name]
-        except KeyError:
-            log.debug("No routing table available for %s", self._repr_graph_name(graph_name))
-            raise RoutingTable.Invalid()
-        else:
-            if rt.expired():
-                log.debug("Routing table for %s expired at %r", self._repr_graph_name(graph_name),
-                          rt.expiry_time)
-                raise RoutingTable.Invalid()
-            profiles = rt.runners(readonly=readonly)
-            if not profiles:
-                log.debug("No server profiles for %r "
-                          "and readonly=%r", self._repr_graph_name(graph_name), readonly)
-                raise RoutingTable.Invalid()
-            return [pool for profile, pool in self._pools.items()
-                    if profile in profiles]
+            return self._pools.keys()
+
+        rt = self._routing.table(graph_name)
+        while True:  # TODO: some limit to this, maybe with repeater?
+            profiles, valid = rt.runners(readonly=readonly)
+            if valid:
+                return profiles
+            elif rt.is_updating():
+                if profiles:
+                    return profiles
+                else:
+                    rt.wait_until_updated()
+            else:
+                self._refresh_routing_table(graph_name)
 
     def _refresh_routing_table(self, graph_name=None):
-        log.debug("Attempting to refresh routing table for %s",
-                  "default database" if graph_name is None else repr(graph_name))
-        assert self._routers is not None
-        known_routers = self._routers + [self.profile]
-        log.debug("Known routers are: %s", ", ".join(map(repr, known_routers)))
-        for router in known_routers:
-            log.debug("Asking %r for routing table", router)
-            pool = self._pools[router]
-            try:
-                cx = pool.acquire(can_overfill=True)
-            except (ConnectionUnavailable, ConnectionBroken):
-                continue  # try the next router instead
-            else:
+        log.debug("Attempting to refresh routing table for %s", _repr_graph_name(graph_name))
+        assert self._routing is not None
+        rt = self._routing.table(graph_name)
+        rt.set_updating()
+        try:
+            known_routers = self._routing.routers + [self.profile]  # TODO de-dupe
+            log.debug("Known routers are: %s", ", ".join(map(repr, known_routers)))
+            for router in known_routers:
+                log.debug("Asking %r for routing table", router)
+                pool = self._pools[router]
                 try:
-                    routers, ro_runners, rw_runners, ttl = cx.route(graph_name)
-                except (ConnectionUnavailable, ConnectionBroken) as error:
-                    log.debug(error.args[0])
-                    continue
+                    cx = pool.acquire(can_overfill=True)
+                except (ConnectionUnavailable, ConnectionBroken):
+                    continue  # try the next router instead
                 else:
-                    # TODO: comment this algorithm
-                    self.add_pools(*ro_runners)
-                    self.add_pools(*rw_runners)
-                    routing_table = RoutingTable(ro_runners, rw_runners, monotonic() + ttl)
-                    old_profiles = set(profile for profile in self._routers
-                                       if profile not in routers)
-                    if graph_name in self._routing_tables:
-                        rt = self._routing_tables[graph_name]
-                        old_profiles.update(profile for profile in rt
-                                            if profile not in routing_table)
-
-                    self._routers[:] = routers
-                    self._routing_tables[graph_name] = routing_table
-                    for profile in old_profiles:
-                        self.prune(profile)
-                    return
-                finally:
-                    pool.release(cx)
-        raise ConnectionUnavailable("Cannot connect to any known routers")
+                    try:
+                        routers, ro_runners, rw_runners, ttl = cx.route(graph_name)
+                        if self.routing_refresh_ttl is not None:
+                            ttl = self.routing_refresh_ttl
+                    except (ConnectionUnavailable, ConnectionBroken) as error:
+                        log.debug(error.args[0])
+                        continue
+                    else:
+                        # TODO: comment this algorithm
+                        self.add_pools(*routers)
+                        self.add_pools(*ro_runners)
+                        self.add_pools(*rw_runners)
+                        old_profiles = self._routing.update(graph_name, routers, ro_runners, rw_runners, ttl)
+                        for profile in old_profiles:
+                            self.prune(profile)
+                        return
+                    finally:
+                        cx.release()
+            raise ConnectionUnavailable("Cannot connect to any known routers")
+        finally:
+            rt.set_not_updating()
 
     @property
     def profile(self):
@@ -1112,25 +1094,22 @@ class Connector(object):
         """
         # TODO: improve logging for this method
         for _ in repeater(at_least=3, timeout=timeout):
-            log.debug("Attempting to acquire connection to %s", self._repr_graph_name(graph_name))
-            try:
-                pools = self.get_pools(graph_name, readonly=readonly)
-            except RoutingTable.Invalid:
-                self._refresh_routing_table(graph_name)
-            else:
-                for pool in sorted(pools, key=lambda p: p.in_use):
-                    log.debug("Using connection pool %r", pool)
-                    try:
-                        cx = pool.acquire(force_reset=force_reset)
-                    except (ConnectionUnavailable, ConnectionBroken) as error:
-                        self.prune(pool.profile)
-                        continue
-                    else:
-                        if cx is not None:
-                            cx.tag = "R" if readonly else "W"
-                            return cx
+            log.debug("Attempting to acquire connection to %s", _repr_graph_name(graph_name))
+            pools = [pool for profile, pool in list(self._pools.items())
+                     if profile in self._get_profiles(graph_name, readonly=readonly)]
+            for pool in sorted(pools, key=lambda p: p.in_use):
+                log.debug("Using connection pool %r", pool)
+                try:
+                    cx = pool.acquire(force_reset=force_reset)
+                except (ConnectionUnavailable, ConnectionBroken) as error:
+                    self.prune(pool.profile)
+                    continue
+                else:
+                    if cx is not None:
+                        cx.tag = "R" if readonly else "W"
+                        return cx
         else:
-            raise ConnectionUnavailable("Timed out trying to acquire connection")
+            raise ConnectionLimit("No connections are currently available due to configured limits")
 
     def prune(self, profile):
         """ Release all broken connections for a given profile, then
@@ -1206,16 +1185,8 @@ class Connector(object):
         """
         log.debug("Connection to %r broken\n%s", profile, message)
         # TODO: clean up broken connections from reader and writer entries too
-        if self._routers is not None:
-            log.debug("Removing profile %r from router list", profile)
-            try:
-                self._routers.remove(profile)
-            except ValueError:
-                pass  # ignore
-            for graph_name, routing_table in self._routing_tables.items():
-                log.debug("Removing profile %r from routing table for %s", profile,
-                          "default database" if graph_name is None else repr(graph_name))
-                routing_table.remove(profile)
+        if self._routing is not None:
+            self._routing.set_broken(profile)
         self.prune(profile)
 
     def begin(self, graph_name, readonly=False,
@@ -1379,19 +1350,92 @@ class Connector(object):
             return None
 
 
+class Router(object):
+
+    def __init__(self):
+        self._lock = Lock()
+        self._routers = []
+        self._routing_tables = {}  # graph_name: routing_table
+
+    @property
+    def routers(self):
+        return self._routers
+
+    def table(self, graph_name):
+        with self._lock:
+            try:
+                return self._routing_tables[graph_name]
+            except KeyError:
+                rt = self._routing_tables[graph_name] = RoutingTable()
+                return rt
+
+    def get_profiles(self, graph_name, readonly=False):
+        """ Return tuple of profiles, routing_table_valid.
+        """
+        try:
+            rt = self._routing_tables[graph_name]
+        except KeyError:
+            return [], False
+        else:
+            return rt.runners(readonly=readonly)
+
+    def invalidate_routing_table(self, graph_name):
+        """ Invalidate the routing table for the given graph.
+        """
+        try:
+            del self._routing_tables[graph_name]
+        except KeyError:
+            pass
+
+    def update(self, graph_name, routers, ro_runners, rw_runners, ttl):
+        old_profiles = set(profile for profile in self._routers
+                           if profile not in routers)
+        self._routers[:] = routers
+        routing_table = RoutingTable(ro_runners, rw_runners, monotonic() + ttl)
+        if graph_name in self._routing_tables:
+            rt = self._routing_tables[graph_name]
+            rt.replace(routing_table)
+            old_profiles.update(profile for profile in rt
+                                if profile not in routing_table)
+        else:
+            self._routing_tables[graph_name] = routing_table
+        return old_profiles
+
+    def set_broken(self, profile):
+        log.debug("Removing profile %r from router list", profile)
+        try:
+            self._routers.remove(profile)
+        except ValueError:
+            pass  # ignore
+        for graph_name, routing_table in self._routing_tables.items():
+            log.debug("Removing profile %r from routing table for %s", profile,
+                      _repr_graph_name(graph_name))
+            routing_table.remove(profile)
+
+    def set_updating(self, graph_name):
+        try:
+            return self._routing_tables[graph_name].set_updating()
+        except KeyError:
+            pass  # TODO: create entry
+
+    def set_not_updating(self, graph_name):
+        try:
+            self._routing_tables[graph_name].set_not_updating()
+        except KeyError:
+            pass  # TODO: create entry
+
+
 class RoutingTable(object):
 
-    class Invalid(Exception):
-        pass
-
-    def __init__(self, ro_runners, rw_runners, expiry_time):
-        self._ro_runners = list(ro_runners)
-        self._rw_runners = list(rw_runners)
-        self.expiry_time = expiry_time
+    def __init__(self, ro_runners=None, rw_runners=None, expiry_time=None):
+        self._ro_runners = list(ro_runners or ())
+        self._rw_runners = list(rw_runners or ())
+        self._expiry_time = expiry_time or monotonic()
+        self._updated = Event()
 
     def __repr__(self):
         return "%s(%r, %r, %r)" % (self.__class__.__name__,
-                                   self._ro_runners, self._rw_runners, self.expiry_time)
+                                   self._ro_runners, self._rw_runners, self._expiry_time)
 
     def __iter__(self):
         return iter(set(self._ro_runners + self._rw_runners))
@@ -1399,11 +1443,15 @@ class RoutingTable(object):
     def __contains__(self, profile):
         return profile in self._ro_runners or profile in self._rw_runners
 
-    def expired(self):
-        return monotonic() >= self.expiry_time
+    @property
+    def expiry_time(self):
+        return self._expiry_time
 
     def runners(self, readonly=False):
-        return list(self._ro_runners if readonly else self._rw_runners)
+        """ Tuple of profiles and valid=true/false
+        """
+        valid = monotonic() < self._expiry_time or not self._updated.is_set()
+        return list(self._ro_runners if readonly else self._rw_runners), valid
 
     def remove(self, profile):
         try:
@@ -1414,6 +1462,28 @@ class RoutingTable(object):
             self._rw_runners.remove(profile)
         except ValueError:
             pass  # ignore, not present
+
+    def is_updating(self):
+        return not self._updated.is_set()
+
+    def set_updating(self):
+        self._updated.clear()
+
+    def set_not_updating(self):
+        self._updated.set()
+
+    def wait_until_updated(self):
+        self._updated.wait()
+
+    def replace(self, routing_table):
+        assert isinstance(routing_table, RoutingTable)
+        old_ro_runners = self._ro_runners
+        old_rw_runners = self._rw_runners
+        self._ro_runners = routing_table._ro_runners
+        self._rw_runners = routing_table._rw_runners
+        self._expiry_time = routing_table._expiry_time
+        return (set(old_ro_runners) - set(self._ro_runners),
+                set(old_rw_runners) - set(self._rw_runners))
 
 
 class TransactionRef(object):
@@ -1580,6 +1650,12 @@ class ConnectionUnavailable(Exception):
 
 class ConnectionBroken(Exception):
     """ Raised when a connection breaks during use.
+    """
+
+
+class ConnectionLimit(Exception):
+    """ Raised when no further connections are available
+    due to a configured resource limit.
     """
 
 
