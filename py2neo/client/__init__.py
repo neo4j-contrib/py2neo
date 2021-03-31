@@ -745,7 +745,7 @@ class ConnectionPool(object):
         while cx is None or cx.broken or cx.closed:
             if self.max_size == 0:
                 log.debug("Pool %r is set to zero size", self)
-                raise ConnectionUnavailable("Pool is set to zero size")
+                raise ConnectionLimit("Pool is set to zero size")
             try:
                 # Plan A: select a free connection from the pool
                 cx = self._free_list.popleft()
@@ -764,7 +764,7 @@ class ConnectionPool(object):
                     # caller to make an alternative choice.
                     log.debug("Pool %r is full with all connections "
                               "in use", self)
-                    raise ConnectionUnavailable("Pool is full")
+                    raise ConnectionLimit("Pool is full")
             else:
                 cx = self._sanitize(cx, force_reset=force_reset)
         log.debug("Acquired connection %r", cx)
@@ -1101,7 +1101,8 @@ class Connector(object):
                 log.debug("Using connection pool %r", pool)
                 try:
                     cx = pool.acquire(force_reset=force_reset)
-                except (ConnectionUnavailable, ConnectionBroken) as error:
+                except (ConnectionUnavailable, ConnectionBroken, ConnectionLimit) as error:
+                    # Limit can occur if pool is full (no spare) or set to zero size
                     self.prune(pool.profile)
                     continue
                 else:
