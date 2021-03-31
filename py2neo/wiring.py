@@ -216,7 +216,7 @@ class Wire(object):
             try:
                 received = self.__socket.recv(requested)
             except (IOError, OSError):
-                self.__set_broken("Wire broken")
+                self.__mark_broken("Wire broken")
             else:
                 if received:
                     self.__active_time = monotonic()
@@ -225,9 +225,9 @@ class Wire(object):
                     self.__input_len += new_bytes_received
                     self.__bytes_received += new_bytes_received
                 else:
-                    self.__set_broken("Network read incomplete "
-                                      "(received %d of %d bytes)" %
-                                      (self.__input_len, n))
+                    self.__mark_broken("Network read incomplete "
+                                       "(received %d of %d bytes)" %
+                                       (self.__input_len, n))
         data = self.__input[:n]
         self.__input[:n] = []
         self.__input_len -= n
@@ -253,7 +253,7 @@ class Wire(object):
             try:
                 n = self.__socket.send(self.__output)
             except (IOError, OSError):
-                self.__set_broken("Wire broken")
+                self.__mark_broken("Wire broken")
             else:
                 self.__active_time = monotonic()
                 self.__bytes_sent += n
@@ -263,7 +263,7 @@ class Wire(object):
             try:
                 self.__socket.shutdown(SHUT_WR)
             except (IOError, OSError):
-                self.__set_broken("Wire broken")
+                self.__mark_broken("Wire broken")
         return sent
 
     def close(self):
@@ -272,7 +272,7 @@ class Wire(object):
         try:
             self.__socket.close()
         except (IOError, OSError):
-            self.__set_broken("Wire broken")
+            self.__mark_broken("Wire broken")
         else:
             self.__closed = True
 
@@ -308,7 +308,7 @@ class Wire(object):
     def bytes_received(self):
         return self.__bytes_received
 
-    def __set_broken(self, message):
+    def __mark_broken(self, message):
         idle_time = monotonic() - self.__active_time
         message += (" after %.01fs idle (%r bytes sent, "
                     "%r bytes received)" % (idle_time,
