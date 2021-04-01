@@ -31,9 +31,9 @@ __all__ = [
 ]
 
 from collections import OrderedDict
-from collections.abc import Iterable
 
 from english.casing import Words
+from six.moves.collections_abc import Iterable
 
 from py2neo.collections import PropertyDict
 from py2neo.compat import metaclass, deprecated
