@@ -1064,7 +1064,7 @@ class Connector(object):
             b += pool.bytes_received
         return b
 
-    def _acquire(self, tx):
+    def _reacquire(self, tx):
         """ Lookup and return the connection bound to this
         transaction, if any, otherwise acquire a new connection.
 
@@ -1074,9 +1074,9 @@ class Connector(object):
         try:
             return self._transactions[tx]
         except KeyError:
-            return self._acquire_new(tx.graph_name, tx.readonly)
+            return self._acquire(tx.graph_name, tx.readonly)
 
-    def _acquire_new(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
+    def _acquire(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
         """ Acquire a connection from a pool owned by this connector.
 
         In the simplest case, this will return an existing open
@@ -1224,7 +1224,7 @@ class Connector(object):
         :raises ConnectionBroken: if a begin attempt is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
         """
-        cx = self._acquire_new(graph_name, readonly=readonly)
+        cx = self._acquire(graph_name, readonly=readonly)
         try:
             return cx.begin(graph_name, readonly=readonly,
                             # after=after, metadata=metadata, timeout=timeout
@@ -1243,7 +1243,7 @@ class Connector(object):
         :raises ConnectionBroken: if a commit attempt is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
         """
-        cx = self._acquire(tx)
+        cx = self._reacquire(tx)
         try:
             bookmark = cx.commit(tx)
         except (ConnectionUnavailable, ConnectionBroken):
@@ -1264,9 +1264,9 @@ class Connector(object):
         :raises ConnectionBroken: if a rollback attempt is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
         """
-        cx = self._acquire(tx)
+        cx = self._reacquire(tx)
         try:
-            cx = self._acquire(tx)
+            cx = self._reacquire(tx)
             bookmark = cx.rollback(tx)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
@@ -1290,7 +1290,7 @@ class Connector(object):
         :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
         """
-        cx = self._acquire_new(graph_name, readonly)
+        cx = self._acquire(graph_name, readonly)
         try:
             result = cx.auto_run(graph_name, cypher, parameters, readonly=readonly)
             try:
@@ -1318,7 +1318,7 @@ class Connector(object):
         :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
         """
-        cx = self._acquire(tx)
+        cx = self._reacquire(tx)
         try:
             result = cx.run_query(tx, cypher, parameters)
             cx.pull(result)
@@ -1336,7 +1336,7 @@ class Connector(object):
 
     def _show_databases(self):
         if self.supports_multi():
-            cx = self._acquire_new("system", readonly=True)
+            cx = self._acquire("system", readonly=True)
             try:
                 result = cx.auto_run("system", "SHOW DATABASES")
                 cx.pull(result)
