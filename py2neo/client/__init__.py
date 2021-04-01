@@ -19,7 +19,8 @@
 from collections import deque, namedtuple, OrderedDict
 from logging import getLogger
 from os import linesep
-from threading import Lock, Event
+from random import random
+from threading import Lock, Event, current_thread
 from uuid import UUID, uuid4
 
 from monotonic import monotonic
@@ -266,6 +267,7 @@ class Connection(object):
         :param readonly:
         :returns:
         """
+        raise NotImplementedError
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
@@ -278,6 +280,7 @@ class Connection(object):
         :returns: new :class:`.Transaction` object
         :raises Failure: if a new transaction cannot be created
         """
+        raise NotImplementedError
 
     def commit(self, tx):
         """ Commit a transaction. This method will always invoke
@@ -290,6 +293,7 @@ class Connection(object):
         :raises ConnectionBroken: if the transaction cannot be
             committed
         """
+        raise NotImplementedError
 
     def rollback(self, tx):
         """ Rollback a transaction. This method will always invoke
@@ -302,15 +306,16 @@ class Connection(object):
         :raises ConnectionBroken: if the transaction cannot be
             rolled back
         """
+        raise NotImplementedError
 
     def run_query(self, tx, cypher, parameters=None):
-        pass  # may have network activity
+        raise NotImplementedError  # may have network activity
 
     def pull(self, result, n=-1):
-        pass
+        raise NotImplementedError
 
     def discard(self, result, n=-1):
-        pass
+        raise NotImplementedError
 
     def route(self, graph_name=None, context=None):
         """ Fetch the routing table for a given database.
@@ -593,6 +598,7 @@ class ConnectionPool(object):
         self._free_list = deque()
         self._supports_multi = False
         # stats
+        self._time_opened = monotonic()
         self._opened_list = deque()
         self._bytes_sent = 0
         self._bytes_received = 0
@@ -653,6 +659,12 @@ class ConnectionPool(object):
         currently owned by this connection pool.
         """
         return len(self._in_use_list) + len(self._free_list)
+
+    @property
+    def age(self):
+        """ Age of the connection pool, in seconds.
+        """
+        return monotonic() - self._time_opened
 
     @property
     def bytes_sent(self):
@@ -767,7 +779,7 @@ class ConnectionPool(object):
                     raise ConnectionLimit("Pool is full")
             else:
                 cx = self._sanitize(cx, force_reset=force_reset)
-        log.debug("Acquired connection %r", cx)
+        log.debug("Connection %r acquired by thread %r", cx, current_thread())
         self._in_use_list.append(cx)
         return cx
 
@@ -784,7 +796,7 @@ class ConnectionPool(object):
         :raise ValueError: if the connection does not belong to this
             pool
         """
-        log.debug("Releasing connection %r", cx)
+        log.debug("Releasing connection %r from thread %r", cx, current_thread())
         if cx in self._free_list or cx in self._quarantine:
             return
         if cx not in self._in_use_list:
@@ -1097,6 +1109,16 @@ class Connector(object):
             log.debug("Attempting to acquire connection to %s", _repr_graph_name(graph_name))
             pools = [pool for profile, pool in list(self._pools.items())
                      if profile in self._get_profiles(graph_name, readonly=readonly)]
+            if any(pool.age >= 60 for pool in pools):
+                # Assuming we have at least one pool that has been
+                # alive for over a minute, reduce the usage of any
+                # pools that have been been alive for less than a
+                # minute to 10%. This prevents spikes in activity on
+                # new members by gradually introducing them to
+                # workload, and avoids over-compensation by the
+                # least-connected algorithm.
+                pools = [pool for pool in pools
+                         if pool.age >= 60 or random() < 0.1]
             for pool in sorted(pools, key=lambda p: p.in_use):
                 log.debug("Using connection pool %r", pool)
                 try:
@@ -1271,8 +1293,14 @@ class Connector(object):
         cx = self._acquire_new(graph_name, readonly)
         try:
             result = cx.auto_run(graph_name, cypher, parameters, readonly=readonly)
-            cx.pull(result)
-            cx.sync(result)
+            try:
+                cx.pull(result)
+            except TypeError:
+                # If the RUN fails, so will the PULL, due to
+                # transaction state.
+                pass
+            finally:
+                cx.sync(result)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
