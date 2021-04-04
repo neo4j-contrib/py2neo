@@ -29,7 +29,7 @@ from packaging.version import Version
 from py2neo.client.config import ConnectionProfile
 from py2neo.compat import string_types
 from py2neo.errors import Neo4jError
-from py2neo.timing import repeater, millis_to_timedelta
+from py2neo.timing import Timer, millis_to_timedelta
 from py2neo.wiring import Address
 
 
@@ -1076,7 +1076,7 @@ class Connector(object):
         except KeyError:
             return self._acquire(tx.graph_name, tx.readonly)
 
-    def _acquire(self, graph_name=None, readonly=False, timeout=None, force_reset=False):
+    def _acquire(self, graph_name=None, readonly=False):
         """ Acquire a connection from a pool owned by this connector.
 
         In the simplest case, this will return an existing open
@@ -1095,17 +1095,12 @@ class Connector(object):
         :param readonly: if true, a readonly server will be selected,
             if available; if no such servers are available, a regular
             server will be used instead
-        :param timeout: for how long (in seconds) to continue to
-            attempt to acquire a connection
-        :param force_reset: if true, the connection will be forcibly
-            reset before being returned; if false, this will only occur
-            if the connection is not already in a clean state
         :return: a :class:`.Connection` object
         :raises: :class:`.ConnectionUnavailable` if a connection
             could not be acquired within the time limit
         """
         # TODO: improve logging for this method
-        for _ in repeater(at_least=3, timeout=timeout):
+        for _ in self._repeater(readonly=readonly):
             log.debug("Attempting to acquire connection to %s", _repr_graph_name(graph_name))
             pools = [pool for profile, pool in list(self._pools.items())
                      if profile in self._get_profiles(graph_name, readonly=readonly)]
@@ -1122,7 +1117,7 @@ class Connector(object):
             for pool in sorted(pools, key=lambda p: p.in_use):
                 log.debug("Using connection pool %r", pool)
                 try:
-                    cx = pool.acquire(force_reset=force_reset)
+                    cx = pool.acquire()
                 except (ConnectionUnavailable, ConnectionBroken, ConnectionLimit) as error:
                     # Limit can occur if pool is full (no spare) or set to zero size
                     self.prune(pool.profile)
@@ -1132,7 +1127,19 @@ class Connector(object):
                         cx.tag = "R" if readonly else "W"
                         return cx
         else:
-            raise ConnectionLimit("No connections are currently available due to configured limits")
+            if readonly:
+                raise ConnectionLimit("No readonly connections are currently available")
+            else:
+                raise ConnectionLimit("No read-write connections are currently available")
+
+    @classmethod
+    def _repeater(cls, readonly=False):
+        if readonly:
+            return Timer.repeat(at_least=3, timeout=30.0,
+                                snooze=0.1, snooze_jitter=0.1)
+        else:
+            return Timer.repeat(at_least=10, timeout=120.0,
+                                snooze=0.234375, snooze_multiplier=2.0, snooze_jitter=0.1)
 
     def prune(self, profile):
         """ Release all broken connections for a given profile, then

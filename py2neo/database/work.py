@@ -136,7 +136,7 @@ class TransactionManager(object):
             successfully complete
         """
         from py2neo.client import ConnectionUnavailable, ConnectionBroken
-        from py2neo.timing import repeater
+        from py2neo.timing import Timer
         # TODO: logging
         if not callable(work):
             raise TypeError("Unit of work is not callable")
@@ -146,7 +146,7 @@ class TransactionManager(object):
         if not timeout:
             timeout = getattr(work, "timeout", None)
         summaries = []
-        for _ in repeater(at_least=3, timeout=timeout):
+        for _ in Timer.repeat(at_least=3, timeout=timeout):
             tx = None
             try:
                 tx = self.begin(readonly=readonly,

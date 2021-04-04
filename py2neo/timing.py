@@ -19,11 +19,32 @@
 from __future__ import division
 
 from datetime import timedelta
+from random import uniform
+from time import sleep
 
 from monotonic import monotonic
 
 
 class Timer(object):
+
+    @classmethod
+    def repeat(cls, at_least, timeout, snooze=0.0, snooze_multiplier=1.0, snooze_jitter=0.0):
+        """ Yield an incrementing timer at least `at_least` times,
+        thereafter continuing until the timeout has been reached.
+        """
+        timer = cls(timeout)
+        n = 0
+        next_snooze = None
+        while n < at_least or timer.remaining():
+            if snooze:
+                if next_snooze is None:
+                    next_snooze = snooze
+                else:
+                    delay = next_snooze * uniform(1 - (snooze_jitter / 2), 1 + (snooze_jitter / 2))
+                    sleep(delay if delay > 0 else 0)
+                    next_snooze *= snooze_multiplier
+            yield timer
+            n += 1
 
     def __init__(self, seconds):
         self.__t0 = t0 = monotonic()
@@ -34,20 +55,16 @@ class Timer(object):
 
     __nonzero__ = __bool__
 
+    def __repr__(self):
+        t = monotonic()
+        return "<Timer at %.09fs>" % (t - self.__t0)
+
+    def passed(self):
+        return monotonic() - self.__t0
+
     def remaining(self):
         diff = self.__t1 - monotonic()
         return diff if diff > 0 else 0.0
-
-
-def repeater(at_least, timeout):
-    """ Yield an incrementing number at least `at_least` times,
-    thereafter continuing until the timeout has been reached.
-    """
-    timer = Timer(timeout)
-    repeat = 0
-    while repeat < at_least or timer.remaining():
-        yield repeat
-        repeat += 1
 
 
 def millis_to_timedelta(t):
