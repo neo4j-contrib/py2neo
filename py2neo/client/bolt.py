@@ -155,7 +155,8 @@ class BoltMessageWriter(object):
     def _write_chunk(self, data):
         size = len(data)
         self.wire.write(struct_pack(">H", size))
-        self.wire.write(data)
+        if size > 0:
+            self.wire.write(data)
         return size
 
     def write_message(self, tag, *fields):
@@ -163,6 +164,7 @@ class BoltMessageWriter(object):
         buffer.seek(0)
         buffer.write(bytearray([0xB0 + len(fields), tag]))
         pack_into(buffer, *fields, version=self.protocol_version)
+        buffer.truncate()
         buffer.seek(0)
         while self._write_chunk(buffer.read(0x7FFF)):
             pass
@@ -356,6 +358,7 @@ class Bolt1(Bolt):
             response = self._write_request(0x0F, vital=True)
             self._sync(response)
             self._audit(response)
+            self._transaction = None
 
     def _set_transaction(self, graph_name=None, readonly=False, after=None, metadata=None, timeout=None):
         self._assert_open()
@@ -602,8 +605,6 @@ class Bolt1(Bolt):
             rs.set_failure(**fields[0])
             if rs.vital:
                 self._wire.close()
-            else:
-                self.reset(force=True)
         elif tag == 0x7E and not self._responses[0].vital:
             log.debug("[#%04X] S: IGNORED", self.local_port)
             self._responses.popleft().set_ignored()
@@ -621,8 +622,6 @@ class Bolt1(Bolt):
         """
         while not response.full() and not response.done():
             self._fetch()
-            if not self._transaction:
-                self.release()
 
     def _sync(self, *responses):
         self._send()
@@ -635,11 +634,25 @@ class Bolt1(Bolt):
 
         :raise BoltFailure:
         """
+        if task is None:
+            return
         try:
             task.audit()
         except Neo4jError:
             self.reset(force=True)
             raise
+        finally:
+            # On 1 Apr 2021, this was moved here from _wait. Because
+            # _wait is generally called before _audit, the post-failure
+            # reset would previously happen *after* the connection was
+            # released back into the pool. If a new thread picked up
+            # that connection *before* this has been processed, the
+            # write buffer was muddied by the competing activities.
+            # Putting it here ensures that release is only ever done
+            # after such a reset.
+            if not self._transaction:
+                self.release()
+
 
 
 class Bolt2(Bolt1):

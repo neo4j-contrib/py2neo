@@ -1,5 +1,5 @@
 from collections import deque
-from random import uniform, choices
+from random import uniform, choices, randint
 from threading import Thread
 from time import sleep
 
@@ -52,7 +52,10 @@ class ReadThread(Thread):
     def run(self):
         while self.running:
             try:
-                graph.read("RETURN 1")
+                if randint(1, 10000) < 10000:  # 1 in every 10000 queries will fail
+                    graph.read("RETURN 1")
+                else:
+                    graph.read("XXXXXXXX")
             except Neo4jError as failure:
                 stats["read_failures"].append((monotonic(), failure))
                 #raise
