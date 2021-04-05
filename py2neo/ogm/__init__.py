@@ -260,14 +260,14 @@ class RelatedObjects(object):
             raise TypeError("Related objects must be Model instances")
         related_objects = self._related_objects
         properties = dict(properties or {}, **kwproperties)
-        added = False
+        exists = False
         for i, (related_object, p) in enumerate(related_objects):
             if related_object == obj:
                 related_objects[i] = (obj, PropertyDict(p, **properties))
-                added = True
-        if not added:
+                exists = True
+        if not exists:
             related_objects.append((obj, properties))
-        return added
+        return not exists
 
     def clear(self):
         """ Remove all related objects from this set.
