@@ -108,7 +108,4 @@ class DatabaseError(Neo4jError):
 class TransientError(Neo4jError):
 
     def should_retry(self):
-        if self.category == "Transaction":
-            return self.title not in ("Terminated", "LockClientStopped")
-        else:
-            return True
+        return True
