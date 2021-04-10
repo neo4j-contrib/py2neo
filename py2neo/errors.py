@@ -109,3 +109,21 @@ class TransientError(Neo4jError):
 
     def should_retry(self):
         return True
+
+
+class ServiceUnavailable(Exception):
+    """ Raised when no read or write service is available from a
+    Neo4j installation.
+    """
+
+    def __init__(self, *args):
+        super(ServiceUnavailable, self).__init__(*args)
+
+
+class WriteServiceUnavailable(ServiceUnavailable):
+    """ Raised when no write service is available from a
+    Neo4j installation, but a read service is still available.
+    """
+
+    def __init__(self, *args):
+        super(WriteServiceUnavailable, self).__init__(*args)

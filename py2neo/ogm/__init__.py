@@ -222,7 +222,7 @@ class RelatedObjects(object):
         if self.__related_objects is None:
             self.__related_objects = []
             if self.node.graph:
-                self.node.graph.play(lambda tx: self.__db_pull__(tx))
+                self.node.graph.update(lambda tx: self.__db_pull__(tx))
         return self.__related_objects
 
     def triples(self):
@@ -667,7 +667,7 @@ class Repository(object):
             for obj in objects:
                 tx.push(obj)
 
-        self.graph.play(push_all)
+        self.graph.update(push_all)
 
     def delete(self, obj):
         """ Delete the object in the remote graph.

@@ -25,7 +25,7 @@ def test_can_play_simple_function(graph):
     def work(tx):
         collected.append(tx.evaluate("RETURN 1"))
 
-    graph.play(work)
+    graph.update(work)
     assert collected == [1]
 
 
@@ -35,7 +35,7 @@ def test_can_play_parameterised_function(graph):
     def work(tx, x):
         collected.append(tx.evaluate("RETURN $x", x=x))
 
-    graph.play(work, args=[1])
+    graph.update(work, {"x": 1})
     assert collected == [1]
 
 
@@ -46,13 +46,13 @@ def test_can_play_chained_functions(graph):
     def work(tx, x):
         collected.append(tx.evaluate("RETURN $x", x=x))
 
-    first = graph.play(work, args=[1])
+    first = graph.update(work, {"x": 1})
     if graph.service.connector.profile.protocol == "bolt":
-        graph.play(work, args=[2], after=first)
+        graph.update(work, {"x": 2}, after=first)
         assert collected == [1, 2]
     else:
         with raises(TypeError):
-            graph.play(work, args=[2], after=first)
+            graph.update(work, {"x": 2}, after=first)
         assert collected == [1]
 
 
@@ -63,17 +63,17 @@ def test_can_play_multi_chained_functions(graph):
     def work(tx, x):
         collected.append(tx.evaluate("RETURN $x", x=x))
 
-    first = graph.play(work, args=[1])
-    second = graph.play(work, args=[2])
+    first = graph.update(work, {"x": 1})
+    second = graph.update(work, {"x": 2})
     if graph.service.connector.profile.protocol == "bolt":
-        graph.play(work, args=[3], after=(first, second))
+        graph.update(work, {"x": 3}, after=(first, second))
         assert collected == [1, 2, 3]
     else:
         with raises(TypeError):
-            graph.play(work, args=[3], after=(first, second))
+            graph.update(work, {"x": 3}, after=(first, second))
         assert collected == [1, 2]
 
 
 def test_cannot_play_non_callable(graph):
     with raises(TypeError):
-        graph.play(object())
+        graph.update(object())

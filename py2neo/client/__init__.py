@@ -28,7 +28,7 @@ from packaging.version import Version
 
 from py2neo.client.config import ConnectionProfile
 from py2neo.compat import string_types
-from py2neo.errors import Neo4jError
+from py2neo.errors import Neo4jError, ServiceUnavailable, WriteServiceUnavailable
 from py2neo.timing import Timer, millis_to_timedelta
 from py2neo.wiring import Address
 
@@ -980,12 +980,14 @@ class Connector(object):
 
         rt = self._routing.table(graph_name)
         while True:  # TODO: some limit to this, maybe with repeater?
-            profiles, valid = rt.runners(readonly=readonly)
+            ro_profiles, rw_profiles, valid = rt.runners()
             if valid:
-                return profiles
+                return ro_profiles, rw_profiles
             elif rt.is_updating():
-                if profiles:
-                    return profiles
+                if readonly and ro_profiles:
+                    return ro_profiles, rw_profiles
+                elif not readonly and rw_profiles:
+                    return ro_profiles, rw_profiles
                 else:
                     rt.wait_until_updated()
             else:
@@ -1001,17 +1003,20 @@ class Connector(object):
             log.debug("Known routers are: %s", ", ".join(map(repr, known_routers)))
             for router in known_routers:
                 log.debug("Asking %r for routing table", router)
-                pool = self._pools[router]
+                try:
+                    pool = self._pools[router]
+                except KeyError:
+                    continue
                 try:
                     cx = pool.acquire(can_overfill=True)
-                except (ConnectionUnavailable, ConnectionBroken):
+                except (ConnectionUnavailable, ConnectionBroken, ConnectionLimit):
                     continue  # try the next router instead
                 else:
                     try:
                         routers, ro_runners, rw_runners, ttl = cx.route(graph_name)
                         if self.routing_refresh_ttl is not None:
                             ttl = self.routing_refresh_ttl
-                    except (ConnectionUnavailable, ConnectionBroken) as error:
+                    except (ConnectionUnavailable, ConnectionBroken, ConnectionLimit) as error:
                         log.debug(error.args[0])
                         continue
                     else:
@@ -1025,7 +1030,8 @@ class Connector(object):
                         return
                     finally:
                         cx.release()
-            raise ConnectionUnavailable("Cannot connect to any known routers")
+            else:
+                raise ServiceUnavailable("Cannot connect to any known routers")
         finally:
             rt.set_not_updating()
 
@@ -1102,8 +1108,32 @@ class Connector(object):
         # TODO: improve logging for this method
         for _ in self._repeater(readonly=readonly):
             log.debug("Attempting to acquire connection to %s", _repr_graph_name(graph_name))
-            pools = [pool for profile, pool in list(self._pools.items())
-                     if profile in self._get_profiles(graph_name, readonly=readonly)]
+
+            ro_profiles, rw_profiles = self._get_profiles(graph_name, readonly=readonly)
+            if readonly:
+                if ro_profiles:
+                    pools = [pool for profile, pool in list(self._pools.items())
+                             if profile in ro_profiles]
+                elif rw_profiles:
+                    # If no readers are available, but there is a writer, use that
+                    pools = [pool for profile, pool in list(self._pools.items())
+                             if profile in rw_profiles]
+                else:
+                    raise ServiceUnavailable("No servers available")
+            else:
+                if rw_profiles:
+                    pools = [pool for profile, pool in list(self._pools.items())
+                             if profile in rw_profiles]
+                elif ro_profiles:
+                    # There is no writer, but there are some readers
+                    # available. Assuming the cluster is not in
+                    # read-only mode (which isn't currently checked)
+                    # then we are probably just waiting for a leader
+                    # election to complete.
+                    continue
+                else:
+                    raise ServiceUnavailable("No servers available")
+
             if any(pool.age >= 60 for pool in pools):
                 # Assuming we have at least one pool that has been
                 # alive for over a minute, reduce the usage of any
@@ -1114,6 +1144,7 @@ class Connector(object):
                 # least-connected algorithm.
                 pools = [pool for pool in pools
                          if pool.age >= 60 or random() < 0.1]
+
             for pool in sorted(pools, key=lambda p: p.in_use):
                 log.debug("Using connection pool %r", pool)
                 try:
@@ -1158,7 +1189,10 @@ class Connector(object):
             pool.prune()
             if pool.size == 0:
                 log.debug("Removing connection pool for profile %r", profile)
-                del self._pools[profile]
+                try:
+                    del self._pools[profile]
+                except KeyError:
+                    pass  # already gone
 
     def close(self):
         """ Close all connections immediately.
@@ -1405,16 +1439,6 @@ class Router(object):
                 rt = self._routing_tables[graph_name] = RoutingTable()
                 return rt
 
-    def get_profiles(self, graph_name, readonly=False):
-        """ Return tuple of profiles, routing_table_valid.
-        """
-        try:
-            rt = self._routing_tables[graph_name]
-        except KeyError:
-            return [], False
-        else:
-            return rt.runners(readonly=readonly)
-
     def invalidate_routing_table(self, graph_name):
         """ Invalidate the routing table for the given graph.
         """
@@ -1483,11 +1507,11 @@ class RoutingTable(object):
     def expiry_time(self):
         return self._expiry_time
 
-    def runners(self, readonly=False):
-        """ Tuple of profiles and valid=true/false
+    def runners(self):
+        """ Tuple of (ro_profiles, rw_profiles, valid=true/false)
         """
         valid = monotonic() < self._expiry_time or not self._updated.is_set()
-        return list(self._ro_runners if readonly else self._rw_runners), valid
+        return list(self._ro_runners), list(self._rw_runners), valid
 
     def remove(self, profile):
         try:

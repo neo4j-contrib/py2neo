@@ -115,16 +115,6 @@ def test_transient_error_should_retry():
     assert error.should_retry()
 
 
-def test_transaction_terminated_error_should_not_retry():
-    error = Neo4jError("Oops", "Neo.TransientError.Transaction.Terminated")
-    assert not error.should_retry()
-
-
-def test_lock_client_stopped_error_should_not_retry():
-    error = Neo4jError("Oops", "Neo.TransientError.Transaction.LockClientStopped")
-    assert not error.should_retry()
-
-
 def test_base_error_should_not_invalidate_routing_table():
     error = Neo4jError("Oops", "Neo.UnknownError.General.Error")
     assert not error.should_invalidate_routing_table()

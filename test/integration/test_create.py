@@ -29,7 +29,7 @@ def new_graph(graph):
 
 def test_can_create_node(graph):
     a = Node("Person", name="Alice")
-    graph.play(lambda tx: tx.create(a))
+    graph.update(lambda tx: tx.create(a))
     assert a.graph == graph
     assert a.identity is not None
 
@@ -38,7 +38,7 @@ def test_can_create_relationship(graph):
     a = Node("Person", name="Alice")
     b = Node("Person", name="Bob")
     r = Relationship(a, "KNOWS", b, since=1999)
-    graph.play(lambda tx: tx.create(r))
+    graph.update(lambda tx: tx.create(r))
     assert a.graph == graph
     assert a.identity is not None
     assert b.graph == graph
@@ -148,7 +148,7 @@ def test_create_is_idempotent(new_graph):
     a = Node()
     b = Node()
     r = Relationship(a, "TO", b)
-    new_graph.play(lambda tx: tx.create(r))
+    new_graph.update(lambda tx: tx.create(r))
     assert a.graph == new_graph
     assert a.identity is not None
     assert b.graph == new_graph
@@ -157,7 +157,7 @@ def test_create_is_idempotent(new_graph):
     assert r.identity is not None
     assert len(new_graph.nodes) == 2
     assert len(new_graph.relationships) == 1
-    new_graph.play(lambda tx: tx.create(r))
+    new_graph.update(lambda tx: tx.create(r))
     assert a.graph == new_graph
     assert a.identity is not None
     assert b.graph == new_graph

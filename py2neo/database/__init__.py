@@ -110,11 +110,16 @@ Keyword       Description                                Type   Default
 
 from __future__ import absolute_import
 
+from functools import partial
+from inspect import isgenerator
 from time import sleep
 
+from py2neo.compat import deprecated, Sequence, Mapping
 from py2neo.cypher import cypher_escape
 from py2neo.database.work import TransactionManager, Transaction
+from py2neo.errors import Neo4jError, ServiceUnavailable, WriteServiceUnavailable
 from py2neo.matching import NodeMatcher, RelationshipMatcher
+from py2neo.timing import Timer
 
 
 class GraphService(object):
@@ -386,6 +391,16 @@ class Graph(object):
 
     __nonzero__ = __bool__
 
+    @property
+    def name(self):
+        """ The name of this graph.
+
+        *New in version 2020.0.*
+        """
+        return self.__name__
+
+    # TRANSACTION MANAGEMENT #
+
     def auto(self, readonly=False,
              # after=None, metadata=None, timeout=None
              ):
@@ -429,6 +444,134 @@ class Graph(object):
         """
         return self._tx_manager.rollback(tx)
 
+    # CYPHER EXECUTION #
+
+    def run(self, cypher, parameters=None, **kwparameters):
+        """ Run a single read/write query within an auto-commit
+        :class:`~py2neo.database.work.Transaction`.
+
+        :param cypher: Cypher statement
+        :param parameters: dictionary of parameters
+        :param kwparameters: extra parameters supplied as keyword
+            arguments
+        :return:
+        """
+        return self.auto().run(cypher, parameters, **kwparameters)
+
+    def evaluate(self, cypher, parameters=None, **kwparameters):
+        """ Run a :meth:`~py2neo.database.work.Transaction.evaluate` operation within an
+        auto-commit :class:`~py2neo.database.work.Transaction`.
+
+        :param cypher: Cypher statement
+        :param parameters: dictionary of parameters
+        :return: first value from the first record returned or
+                 :py:const:`None`.
+        """
+        return self.run(cypher, parameters, **kwparameters).evaluate()
+
+    def update(self, cypher, parameters=None, timeout=None):
+        """ Call a function representing a transactional unit of work.
+
+        The function must always accept a :class:`~py2neo.database.work.Transaction`
+        object as its first argument. Additional arguments can be
+        passed though the `args` and `kwargs` arguments of this method.
+
+        The unit of work may be called multiple times if earlier
+        attempts fail due to connectivity or other transient errors.
+        As such, the function should have no non-idempotent side
+        effects.
+
+        :param cypher: cypher string or transaction function containing
+            a unit of work
+        :param parameters: cypher parameter map or function arguments
+        :param timeout:
+        :raises WriteServiceUnavailable: if the update does not
+            successfully complete
+        """
+        if callable(cypher):
+            if parameters is None:
+                self._update(cypher, timeout=timeout)
+            elif (isinstance(parameters, tuple) and len(parameters) == 2 and
+                    isinstance(parameters[0], Sequence) and isinstance(parameters[1], Mapping)):
+                self._update(lambda tx: partial(cypher, tx, *parameters[0], **parameters[1]),
+                             timeout=timeout)
+            elif isinstance(parameters, Sequence):
+                self._update(lambda tx: partial(cypher, tx, *parameters), timeout=timeout)
+            elif isinstance(parameters, Mapping):
+                self._update(lambda tx: partial(cypher, tx, **parameters), timeout=timeout)
+            else:
+                raise TypeError("Unrecognised parameter type")
+        else:
+            self._update(lambda tx: tx.update(cypher, parameters), timeout=timeout)
+
+    def _update(self, f, timeout=None):
+        from py2neo.client import ConnectionUnavailable, ConnectionBroken, ConnectionLimit
+        # TODO: logging
+        n = 0
+        for _ in Timer.repeat(at_least=3, timeout=timeout):
+            n += 1
+            tx = None
+            try:
+                tx = self._tx_manager.begin(
+                                # after=after, metadata=metadata, timeout=timeout
+                                )
+                value = f(tx)
+                if isgenerator(value):
+                    _ = list(value)     # exhaust the generator
+                self._tx_manager.commit(tx)
+            except (ConnectionUnavailable, ConnectionBroken, ConnectionLimit):
+                self._tx_manager.rollback(tx)
+                continue
+            except Neo4jError as error:
+                self._tx_manager.rollback(tx)
+                if error.should_invalidate_routing_table():
+                    self.service.connector.invalidate_routing_table(self.name)
+                if error.should_retry():
+                    continue
+                else:
+                    raise
+            except Exception:
+                self._tx_manager.rollback(tx)
+                raise
+            else:
+                return
+        raise WriteServiceUnavailable("Failed to execute update after %r tries" % n)
+
+    def query(self, cypher, parameters=None, timeout=None):
+        """ Run a single readonly query within an auto-commit
+        :class:`~py2neo.database.work.Transaction`.
+
+        :param cypher: Cypher statement
+        :param parameters: dictionary of parameters
+        :param timeout:
+        :returns:
+        :raises TypeError: if the underlying connection profile does not
+            support readonly transactions
+        :raises ServiceUnavailable: if the query does not successfully
+            complete
+
+        *Refactored from read to query in version 2021.1*
+        """
+        from py2neo.client import ConnectionUnavailable, ConnectionBroken, ConnectionLimit
+        # TODO: logging
+        n = 0
+        for _ in Timer.repeat(at_least=3, timeout=timeout):
+            n += 1
+            try:
+                result = self._tx_manager.auto(readonly=True).run(cypher, parameters)
+            except (ConnectionUnavailable, ConnectionBroken, ConnectionLimit):
+                continue
+            except Neo4jError as error:
+                if error.should_invalidate_routing_table():
+                    self.service.connector.invalidate_routing_table(self.name)
+                if error.should_retry():
+                    continue
+                else:
+                    raise
+            else:
+                return result
+        raise ServiceUnavailable("Failed to execute query after %r tries" % n)
+
     @property
     def call(self):
         """ Accessor for listing and calling procedures.
@@ -465,6 +608,22 @@ class Graph(object):
         """
         return self._procedures
 
+    def delete_all(self):
+        """ Delete all nodes and relationships from this :class:`.Graph`.
+
+        .. warning::
+            This method will permanently remove **all** nodes and relationships
+            from the graph and cannot be undone.
+        """
+        self.run("MATCH (a) DETACH DELETE a")
+
+    @deprecated("The graph.read(...) method is deprecated, "
+                "use graph.query(...) instead")
+    def read(self, cypher, parameters=None, **kwparameters):
+        return self.query(cypher, dict(parameters or {}, **kwparameters))
+
+    # SUBGRAPH OPERATIONS #
+
     def create(self, subgraph):
         """ Run a :meth:`~py2neo.database.work.Transaction.create` operation within a
         :class:`~py2neo.database.work.Transaction`.
@@ -472,7 +631,7 @@ class Graph(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
-        self.play(lambda tx: tx.create(subgraph))
+        self.update(lambda tx: tx.create(subgraph))
 
     def delete(self, subgraph):
         """ Run a :meth:`~py2neo.database.work.Transaction.delete` operation within an
@@ -486,27 +645,7 @@ class Graph(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
         """
-        self.play(lambda tx: tx.delete(subgraph))
-
-    def delete_all(self):
-        """ Delete all nodes and relationships from this :class:`.Graph`.
-
-        .. warning::
-            This method will permanently remove **all** nodes and relationships
-            from the graph and cannot be undone.
-        """
-        self.run("MATCH (a) DETACH DELETE a")
-
-    def evaluate(self, cypher, parameters=None, **kwparameters):
-        """ Run a :meth:`~py2neo.database.work.Transaction.evaluate` operation within an
-        auto-commit :class:`~py2neo.database.work.Transaction`.
-
-        :param cypher: Cypher statement
-        :param parameters: dictionary of parameters
-        :return: first value from the first record returned or
-                 :py:const:`None`.
-        """
-        return self.auto().evaluate(cypher, parameters, **kwparameters)
+        self.update(lambda tx: tx.delete(subgraph))
 
     def exists(self, subgraph):
         """ Run a :meth:`~py2neo.database.work.Transaction.exists` operation within an
@@ -579,15 +718,7 @@ class Graph(object):
         :param label: label on which to match any existing nodes
         :param property_keys: property keys on which to match any existing nodes
         """
-        self.play(lambda tx: tx.merge(subgraph, label, *property_keys))
-
-    @property
-    def name(self):
-        """ The name of this graph.
-
-        *New in version 2020.0.*
-        """
-        return self.__name__
+        self.update(lambda tx: tx.merge(subgraph, label, *property_keys))
 
     @property
     def nodes(self):
@@ -613,62 +744,19 @@ class Graph(object):
         """
         return NodeMatcher(self)
 
-    def play(self, work, args=None, kwargs=None, readonly=None,
-             # after=None, metadata=None, timeout=None
-             ):
-        """ Call a function representing a transactional unit of work.
-
-        The function must always accept a :class:`~py2neo.database.work.Transaction`
-        object as its first argument. Additional arguments can be
-        passed though the `args` and `kwargs` arguments of this method.
-
-        A unit of work can be designated "readonly" if the work
-        function has an attribute called `readonly` which is set to
-        :py:const:`True`. This can be overridden by using the
-        `readonly` argument to this method which, if set to either
-        :py:const:`True` or :py:const:`False`, will take precedence.
-
-        :param work: function containing the unit of work
-        :param args: sequence of additional positional arguments to
-            pass into the function
-        :param kwargs: mapping of additional keyword arguments to
-            pass into the function
-        :param readonly: set to :py:const:`True` or :py:const:`False` to
-            override the readonly attribute of the work function
-        :returns: list of :class:`.TransactionSummary` objects, one for
-            each attempt made to execute the transaction
-
-        *New in version 2020.0.*
-        """
-        return self._tx_manager.play(work, args, kwargs, readonly)
-
     def pull(self, subgraph):
         """ Pull data to one or more entities from their remote counterparts.
 
         :param subgraph: the collection of nodes and relationships to pull
         """
-        self.play(lambda tx: tx.pull(subgraph), readonly=True)
+        self.update(lambda tx: tx.pull(subgraph))
 
     def push(self, subgraph):
         """ Push data from one or more entities to their remote counterparts.
 
         :param subgraph: the collection of nodes and relationships to push
         """
-        self.play(lambda tx: tx.push(subgraph))
-
-    def read(self, cypher, parameters=None, **kwparameters):
-        """ Run a single readonly query within an auto-commit
-        :class:`~py2neo.database.work.Transaction`.
-
-        :param cypher: Cypher statement
-        :param parameters: dictionary of parameters
-        :param kwparameters: extra parameters supplied as keyword
-            arguments
-        :returns:
-        :raises TypeError: if the underlying connection profile does not
-            support readonly transactions
-        """
-        return self.auto(readonly=True).run(cypher, parameters, **kwparameters)
+        self.update(lambda tx: tx.push(subgraph))
 
     @property
     def relationships(self):
@@ -678,18 +766,6 @@ class Graph(object):
         as well as efficiently count relationships.
         """
         return RelationshipMatcher(self)
-
-    def run(self, cypher, parameters=None, **kwparameters):
-        """ Run a single read/write query within an auto-commit
-        :class:`~py2neo.database.work.Transaction`.
-
-        :param cypher: Cypher statement
-        :param parameters: dictionary of parameters
-        :param kwparameters: extra parameters supplied as keyword
-            arguments
-        :return:
-        """
-        return self.auto().run(cypher, parameters, **kwparameters)
 
     def separate(self, subgraph):
         """ Run a :meth:`~py2neo.database.work.Transaction.separate`
@@ -702,16 +778,7 @@ class Graph(object):
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
         """
-        self.play(lambda tx: tx.separate(subgraph))
-
-    def update(self, cypher, parameters=None, **kwparameters):
-        """ Run a :meth:`~py2neo.database.work.Transaction.update` operation within an
-        auto-commit :class:`~py2neo.database.work.Transaction`.
-
-        :param cypher: Cypher statement
-        :param parameters: dictionary of parameters
-        """
-        self.play(lambda tx: tx.update(cypher, parameters, **kwparameters))
+        self.update(lambda tx: tx.separate(subgraph))
 
 
 class SystemGraph(Graph):

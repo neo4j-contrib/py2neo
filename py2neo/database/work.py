@@ -25,14 +25,12 @@ from __future__ import absolute_import, print_function, unicode_literals
 
 from collections import OrderedDict
 from functools import reduce
-from inspect import isgenerator
 from io import StringIO
 from operator import xor as xor_operator
 from warnings import warn
 
 from py2neo.compat import Mapping, numeric_types, ustr, deprecated
 from py2neo.cypher import cypher_repr, cypher_str
-from py2neo.errors import Neo4jError
 
 
 class TransactionManager(object):
@@ -106,73 +104,6 @@ class TransactionManager(object):
             pass
         finally:
             tx._finished = True
-
-    def play(self, work, args=None, kwargs=None, readonly=None, timeout=None
-             # after=None, metadata=None,
-             ):
-        """ Call a function representing a transactional unit of work.
-
-        The function must always accept a :class:`~py2neo.database.work.Transaction`
-        object as its first argument. Additional arguments can be
-        passed though the `args` and `kwargs` arguments of this method.
-
-        A unit of work can be designated "readonly" if the work
-        function has an attribute called `readonly` which is set to
-        :py:const:`True`. This can be overridden by using the
-        `readonly` argument to this method which, if set to either
-        :py:const:`True` or :py:const:`False`, will take precedence.
-
-        :param work: function containing the unit of work
-        :param args: sequence of additional positional arguments to
-            pass into the function
-        :param kwargs: mapping of additional keyword arguments to
-            pass into the function
-        :param readonly: set to :py:const:`True` or :py:const:`False` to
-            override the readonly attribute of the work function
-        :param timeout:
-        :returns: list of :class:`.TransactionSummary` objects, one for
-            each attempt made to execute the transaction
-        :raises TransactionFailed: if the unit of work does not
-            successfully complete
-        """
-        from py2neo.client import ConnectionUnavailable, ConnectionBroken
-        from py2neo.timing import Timer
-        # TODO: logging
-        if not callable(work):
-            raise TypeError("Unit of work is not callable")
-        kwargs = dict(kwargs or {})
-        if readonly is None:
-            readonly = getattr(work, "readonly", False)
-        if not timeout:
-            timeout = getattr(work, "timeout", None)
-        summaries = []
-        for _ in Timer.repeat(at_least=3, timeout=timeout):
-            tx = None
-            try:
-                tx = self.begin(readonly=readonly,
-                                # after=after, metadata=metadata, timeout=timeout
-                                )
-                value = work(tx, *args or (), **kwargs or {})
-                if isgenerator(value):
-                    _ = list(value)     # exhaust the generator
-                summaries.append(self.commit(tx))
-            except (ConnectionUnavailable, ConnectionBroken):
-                summaries.append(self.rollback(tx))
-                continue
-            except Neo4jError as error:
-                summaries.append(self.rollback(tx))
-                if error.should_invalidate_routing_table():
-                    self._connector.invalidate_routing_table(self.graph.name)
-                if error.should_retry():
-                    continue
-                else:
-                    raise
-            except Exception:
-                summaries.append(self.rollback(tx))
-                raise
-            else:
-                return summaries
-        raise TransactionFailed("Failed after %r tries" % len(summaries), summaries)
 
 
 class Transaction(object):
@@ -438,16 +369,6 @@ class TransactionSummary(object):
         self.bookmark = bookmark
         self.profile = profile
         self.time = time
-
-
-class TransactionFailed(Exception):
-    """ Raised when a transactional unit of work cannot be successfully
-    completed.
-    """
-
-    def __init__(self, message, summaries):
-        super(TransactionFailed, self).__init__(message)
-        self.summaries = summaries
 
 
 class Cursor(object):

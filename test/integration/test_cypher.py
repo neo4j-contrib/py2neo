@@ -75,5 +75,5 @@ def test_can_call_procedure_by_name(graph):
 
 
 def test_readonly_query(graph):
-    data = graph.read("RETURN 1 AS x").data()
+    data = graph.query("RETURN 1 AS x").data()
     assert data[0]["x"] == 1
