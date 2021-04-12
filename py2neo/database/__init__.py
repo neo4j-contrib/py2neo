@@ -110,7 +110,6 @@ Keyword       Description                                Type   Default
 
 from __future__ import absolute_import
 
-from functools import partial
 from inspect import isgenerator
 from time import sleep
 
@@ -493,12 +492,12 @@ class Graph(object):
                 self._update(cypher, timeout=timeout)
             elif (isinstance(parameters, tuple) and len(parameters) == 2 and
                     isinstance(parameters[0], Sequence) and isinstance(parameters[1], Mapping)):
-                self._update(lambda tx: partial(cypher, tx, *parameters[0], **parameters[1]),
+                self._update(lambda tx: cypher(tx, *parameters[0], **parameters[1]),
                              timeout=timeout)
             elif isinstance(parameters, Sequence):
-                self._update(lambda tx: partial(cypher, tx, *parameters), timeout=timeout)
+                self._update(lambda tx: cypher(tx, *parameters), timeout=timeout)
             elif isinstance(parameters, Mapping):
-                self._update(lambda tx: partial(cypher, tx, **parameters), timeout=timeout)
+                self._update(lambda tx: cypher(tx, **parameters), timeout=timeout)
             else:
                 raise TypeError("Unrecognised parameter type")
         else:

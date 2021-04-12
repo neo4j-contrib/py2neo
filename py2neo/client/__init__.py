@@ -962,21 +962,10 @@ class Connector(object):
             self._routing.invalidate_routing_table(graph_name)
 
     def _get_profiles(self, graph_name=None, readonly=False):
-        """ Obtain a list of connection pools for a particular
-        graph database and read/write mode.
-
-        THIS IS PROBABLY NOW ALL WRONG:
-        If, for any reason, the routing table is not valid, a
-        :exc:`.RoutingTable.Invalid` exception will be raised.
-        Possible reasons are:
-        - No routing table exists for the given graph database
-        - The routing table has expired
-        - No appropriate readonly or read-write servers are listed
-        """
         if self._routing is None:
             # If routing isn't enabled, just return a
             # simple list of pools.
-            return self._pools.keys()
+            return self._pools.keys(), self._pools.keys()
 
         rt = self._routing.table(graph_name)
         while True:  # TODO: some limit to this, maybe with repeater?
@@ -1115,7 +1104,8 @@ class Connector(object):
                     pools = [pool for profile, pool in list(self._pools.items())
                              if profile in ro_profiles]
                 elif rw_profiles:
-                    # If no readers are available, but there is a writer, use that
+                    # If no readers are available, but there is a
+                    # writer, then use that instead.
                     pools = [pool for profile, pool in list(self._pools.items())
                              if profile in rw_profiles]
                 else:
