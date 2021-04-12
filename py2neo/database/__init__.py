@@ -118,7 +118,6 @@ from py2neo.cypher import cypher_escape
 from py2neo.database.work import TransactionManager, Transaction
 from py2neo.errors import Neo4jError, ServiceUnavailable, WriteServiceUnavailable
 from py2neo.matching import NodeMatcher, RelationshipMatcher
-from py2neo.timing import Timer
 
 
 class GraphService(object):
@@ -506,6 +505,7 @@ class Graph(object):
 
     def _update(self, f, timeout=None):
         from py2neo.client import ConnectionUnavailable, ConnectionBroken, ConnectionLimit
+        from py2neo.timing import Timer
         # TODO: logging
         n = 0
         for _ in Timer.repeat(at_least=3, timeout=timeout):
@@ -553,6 +553,7 @@ class Graph(object):
         *Refactored from read to query in version 2021.1*
         """
         from py2neo.client import ConnectionUnavailable, ConnectionBroken, ConnectionLimit
+        from py2neo.timing import Timer
         # TODO: logging
         n = 0
         for _ in Timer.repeat(at_least=3, timeout=timeout):
