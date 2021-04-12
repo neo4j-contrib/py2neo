@@ -901,15 +901,14 @@ class Connector(object):
         cluster
     """
 
-    routing_refresh_ttl = 5
-
     def __init__(self, profile=None, user_agent=None, init_size=None,
-                 max_size=None, max_age=None, routing=False):
+                 max_size=None, max_age=None, routing=False, routing_refresh_ttl=None):
         self._profile = ConnectionProfile(profile)
         self._user_agent = user_agent
         self._init_size = init_size
         self._max_size = max_size
         self._max_age = max_age
+        self._routing_refresh_ttl = routing_refresh_ttl
         self._transactions = {}
         self._pools = {}
         if routing:
@@ -1003,8 +1002,8 @@ class Connector(object):
                 else:
                     try:
                         routers, ro_runners, rw_runners, ttl = cx.route(graph_name)
-                        if self.routing_refresh_ttl is not None:
-                            ttl = self.routing_refresh_ttl
+                        if self._routing_refresh_ttl is not None:
+                            ttl = self._routing_refresh_ttl
                     except (ConnectionUnavailable, ConnectionBroken, ConnectionLimit) as error:
                         log.debug(error.args[0])
                         continue

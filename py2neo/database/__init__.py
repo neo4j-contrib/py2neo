@@ -188,6 +188,7 @@ class GraphService(object):
             "max_size": settings.get("max_size"),
             "max_age": settings.get("max_age"),
             "routing": settings.get("routing"),
+            "routing_refresh_ttl": settings.get("routing_refresh_ttl"),
         }
         if connector_settings["init_size"] is None and not connector_settings["routing"]:
             # Ensures credentials are checked on construction

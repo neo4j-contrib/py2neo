@@ -7,10 +7,8 @@ from monotonic import monotonic
 
 from py2neo import Graph, Neo4jError, ServiceUnavailable
 
-#from logging import basicConfig, DEBUG; basicConfig(level=DEBUG)
 
-
-graph = Graph(port=17601, routing=True, max_size=50)
+graph = Graph(port=17601, routing=True, routing_refresh_ttl=5.0, max_size=50)
 
 stats = {
     "write_available": None,
