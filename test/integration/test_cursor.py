@@ -68,7 +68,6 @@ def test_stats_available(graph):
     stats = cursor.stats()
     assert stats["nodes_created"] == 1
     assert stats["labels_added"] == 1
-    assert stats["contained_updates"] == 1
 
 
 def test_current_is_none_at_start(graph):

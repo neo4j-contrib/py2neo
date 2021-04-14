@@ -1481,7 +1481,14 @@ class Cursor(object):
         """
         self._result.buffer()
         metadata = self._result.summary()
-        return CypherStats(**metadata.get("stats", {}))
+        stats = {}
+        for key, value in metadata.get("stats", {}).items():
+            key = key.replace("-", "_")
+            if key.startswith("relationship_"):
+                # hack for server bug
+                key = "relationships_" + key[13:]
+            stats[key] = value
+        return stats
 
     def forward(self, amount=1):
         """ Attempt to move the cursor one position forward (or by
@@ -2170,73 +2177,6 @@ class CypherSummary(object):
     @property
     def connection(self):
         return self._data.get("connection")
-
-
-class CypherStats(Mapping):
-    """ Container for a set of statistics drawn from Cypher query execution.
-
-    Each value can be accessed as either an attribute or via a string index.
-    This class implements :py:class:`.Mapping` to allow it to be used as a
-    dictionary.
-    """
-
-    #: Boolean flag to indicate whether or not the query contained an update.
-    contained_updates = False
-    #: Number of nodes created.
-    nodes_created = 0
-    #: Number of nodes deleted.
-    nodes_deleted = 0
-    #: Number of property values set.
-    properties_set = 0
-    #: Number of relationships created.
-    relationships_created = 0
-    #: Number of relationships deleted.
-    relationships_deleted = 0
-    #: Number of node labels added.
-    labels_added = 0
-    #: Number of node labels removed.
-    labels_removed = 0
-    #: Number of indexes added.
-    indexes_added = 0
-    #: Number of indexes removed.
-    indexes_removed = 0
-    #: Number of constraints added.
-    constraints_added = 0
-    #: Number of constraints removed.
-    constraints_removed = 0
-
-    def __init__(self, **stats):
-        for key, value in stats.items():
-            key = key.replace("-", "_")
-            if key.startswith("relationship_"):
-                # hack for server bug
-                key = "relationships_" + key[13:]
-            if hasattr(self.__class__, key):
-                setattr(self, key, value)
-            self.contained_updates = bool(sum(getattr(self, k, 0)
-                                              for k in self.keys()))
-
-    def __repr__(self):
-        lines = []
-        for key in sorted(self.keys()):
-            lines.append("{}: {}".format(key, getattr(self, key)))
-        return "\n".join(lines)
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __len__(self):
-        return len(self.keys())
-
-    def __iter__(self):
-        return iter(self.keys())
-
-    def keys(self):
-        """ Full list of the key or attribute names of the statistics
-        available.
-        """
-        return [key for key in vars(self.__class__).keys()
-                if not key.startswith("_") and key != "keys"]
 
 
 class CypherPlan(Mapping):

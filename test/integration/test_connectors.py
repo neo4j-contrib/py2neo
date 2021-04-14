@@ -22,7 +22,7 @@ from collections import deque
 
 from pytest import mark, skip
 
-from py2neo.database import Cursor, Record, CypherStats
+from py2neo.database import Cursor, Record
 
 
 @mark.skip
@@ -116,9 +116,8 @@ def test_records(connector):
 
 def test_stats(connector):
     cursor = Cursor(connector.auto_run(None, "CREATE ()", {}))
-    expected = CypherStats(nodes_created=1)
-    actual = cursor.stats()
-    assert expected == actual
+    stats = cursor.stats()
+    assert stats["nodes_created"] == 1
 
 
 # def test_explain_plan(connector, neo4j_minor_version):
