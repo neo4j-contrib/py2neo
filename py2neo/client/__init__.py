@@ -21,6 +21,7 @@ from logging import getLogger
 from os import linesep
 from random import random
 from threading import Lock, Event, current_thread
+from time import sleep
 from uuid import UUID, uuid4
 
 from monotonic import monotonic
@@ -1068,60 +1069,47 @@ class Connector(object):
         try:
             return self._transactions[tx]
         except KeyError:
-            return self._acquire(tx.graph_name, tx.readonly)
+            if tx.readonly:
+                return self._acquire_ro(tx.graph_name)
+            else:
+                return self._acquire_rw(tx.graph_name)
 
-    def _acquire(self, graph_name=None, readonly=False):
-        """ Acquire a connection from a pool owned by this connector.
+    def _acquire_ro(self, graph_name=None):
+        """ Acquire a readonly connection from a pool owned by this
+        connector.
 
-        In the simplest case, this will return an existing open
-        connection, if one is free. If not, and the pool is not full,
-        a new connection will be created. If the pool is full and no
-        free connections are available, this will block until a
-        connection is released, or until the acquire call is cancelled.
-
-        This method will return :const:`None` if and only if the
-        maximum size of the pool is set to zero. In this special case,
-        no amount of waiting would result in the acquisition of a
-        connection. This will be the case if the pool has been closed.
+        This method will block until either a connection can be
+        acquired, or until it is determined that the cluster size has
+        dropped to zero. In the latter case, a ServiceUnavailable
+        exception will be raised.
 
         :param graph_name: the graph database name for which a
             connection must be acquired
-        :param readonly: if true, a readonly server will be selected,
-            if available; if no such servers are available, a regular
-            server will be used instead
         :return: a :class:`.Connection` object
-        :raises: :class:`.ConnectionUnavailable` if a connection
-            could not be acquired within the time limit
+        :raises: :class:`.ServiceUnavailable` if the number of servers
+            from which to obtain a connection drops to zero
         """
         # TODO: improve logging for this method
-        for _ in self._repeater(readonly=readonly):
-            log.debug("Attempting to acquire connection to %s", _repr_graph_name(graph_name))
+        log.debug("Attempting to acquire connection to %s", _repr_graph_name(graph_name))
 
-            ro_profiles, rw_profiles = self._get_profiles(graph_name, readonly=readonly)
-            if readonly:
-                if ro_profiles:
-                    pools = [pool for profile, pool in list(self._pools.items())
-                             if profile in ro_profiles]
-                elif rw_profiles:
-                    # If no readers are available, but there is a
-                    # writer, then use that instead.
-                    pools = [pool for profile, pool in list(self._pools.items())
-                             if profile in rw_profiles]
-                else:
-                    raise ServiceUnavailable("No servers available")
+        while True:
+
+            ro_profiles, rw_profiles = self._get_profiles(graph_name, readonly=True)
+            if ro_profiles:
+                # There is at least one reader, so collect the pools
+                # for those readers.
+                pools = [pool for profile, pool in list(self._pools.items())
+                         if profile in ro_profiles]
+            elif rw_profiles:
+                # If no readers are available, but there is a
+                # writer, then use that instead.
+                pools = [pool for profile, pool in list(self._pools.items())
+                         if profile in rw_profiles]
             else:
-                if rw_profiles:
-                    pools = [pool for profile, pool in list(self._pools.items())
-                             if profile in rw_profiles]
-                elif ro_profiles:
-                    # There is no writer, but there are some readers
-                    # available. Assuming the cluster is not in
-                    # read-only mode (which isn't currently checked)
-                    # then we are probably just waiting for a leader
-                    # election to complete.
-                    continue
-                else:
-                    raise ServiceUnavailable("No servers available")
+                # There are no readers or writers, indicating that
+                # the entire service is likely offline. In this case,
+                # we have no option but to bail out.
+                raise ServiceUnavailable("No servers available")
 
             if any(pool.age >= 60 for pool in pools):
                 # Assuming we have at least one pool that has been
@@ -1138,28 +1126,91 @@ class Connector(object):
                 log.debug("Using connection pool %r", pool)
                 try:
                     cx = pool.acquire()
-                except (ConnectionUnavailable, ConnectionBroken, ConnectionLimit) as error:
-                    # Limit can occur if pool is full (no spare) or set to zero size
+                except (ConnectionUnavailable, ConnectionBroken):
                     self.prune(pool.profile)
+                    continue
+                except ConnectionLimit:
+                    # Limit can occur if the pool is full (no spare) or
+                    # if it is set to zero size. In this case, wait a
+                    # short time before trying again.
+                    if pool.size == 0:
+                        self.prune(pool.profile)
+                    sleep(0.1)
                     continue
                 else:
                     if cx is not None:
-                        cx.tag = "R" if readonly else "W"
+                        cx.tag = "R"
                         return cx
-        else:
-            if readonly:
-                raise ConnectionLimit("No readonly connections are currently available")
-            else:
-                raise ConnectionLimit("No read-write connections are currently available")
 
-    @classmethod
-    def _repeater(cls, readonly=False):
-        if readonly:
-            return Timer.repeat(at_least=3, timeout=30.0,
-                                snooze=0.1, snooze_jitter=0.1)
-        else:
-            return Timer.repeat(at_least=10, timeout=120.0,
-                                snooze=0.234375, snooze_multiplier=2.0, snooze_jitter=0.1)
+    def _acquire_rw(self, graph_name=None):
+        """ Acquire a read-write connection from a pool owned by this
+        connector.
+
+        This method will block until either a connection can be
+        acquired, or until it is determined that the cluster size has
+        dropped to zero. In the latter case, a ServiceUnavailable
+        exception will be raised.
+
+        :param graph_name: the graph database name for which a
+            connection must be acquired
+        :return: a :class:`.Connection` object
+        :raises: :class:`.ServiceUnavailable` if the number of servers
+            from which to obtain a connection drops to zero
+        """
+        # TODO: improve logging for this method
+        log.debug("Attempting to acquire connection to %s", _repr_graph_name(graph_name))
+
+        # TODO: exit immediately if the server/cluster is in readonly mode
+
+        while True:
+
+            ro_profiles, rw_profiles = self._get_profiles(graph_name, readonly=False)
+            if rw_profiles:
+                # There is at least one writer, so collect the pools
+                # for those writers. In all implementations to date,
+                # a Neo4j cluster will only ever contain at most one
+                # writer (per database). But this algorithm should
+                # still survive if that changes.
+                pools = [pool for profile, pool in list(self._pools.items())
+                         if profile in rw_profiles]
+            elif ro_profiles:
+                # There is no writer, but there are some readers
+                # available. Assuming the cluster is not in
+                # read-only mode (which isn't currently checked)
+                # then we are probably just waiting for a leader
+                # election to complete. Therefore, we set the pool
+                # list as empty, skip the loop below, and go straight
+                # to sleep to wait for the election to complete.
+                pools = []
+            else:
+                # There are no readers or writers, indicating that
+                # the entire service is likely offline. In this case,
+                # we have no option but to bail out.
+                raise ServiceUnavailable("No servers available")
+
+            for pool in sorted(pools, key=lambda p: p.in_use):
+                log.debug("Using connection pool %r", pool)
+                try:
+                    cx = pool.acquire()
+                except (ConnectionUnavailable, ConnectionBroken):
+                    self.prune(pool.profile)
+                    break
+                except ConnectionLimit:
+                    # Limit can occur if pool is full (no spare) or
+                    # set to zero size.
+                    if pool.size == 0:
+                        self.prune(pool.profile)
+                        raise ServiceUnavailable("Write server pool is set to zero size")
+                    break
+                else:
+                    if cx is not None:
+                        cx.tag = "W"
+                        return cx
+
+            # Wait a short while and try again. The delay here is
+            # chosen as a time after which a leadership election
+            # should have occurred during business-as-normal.
+            sleep(0.2)
 
     def prune(self, profile):
         """ Release all broken connections for a given profile, then
@@ -1254,7 +1305,10 @@ class Connector(object):
         :raises ConnectionBroken: if a begin attempt is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
         """
-        cx = self._acquire(graph_name, readonly=readonly)
+        if readonly:
+            cx = self._acquire_ro(graph_name)
+        else:
+            cx = self._acquire_rw(graph_name)
         try:
             return cx.begin(graph_name, readonly=readonly,
                             # after=after, metadata=metadata, timeout=timeout
@@ -1273,8 +1327,8 @@ class Connector(object):
         :raises ConnectionBroken: if a commit attempt is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
         """
-        cx = self._reacquire(tx)
         try:
+            cx = self._reacquire(tx)
             bookmark = cx.commit(tx)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
@@ -1296,7 +1350,6 @@ class Connector(object):
         """
         cx = self._reacquire(tx)
         try:
-            cx = self._reacquire(tx)
             bookmark = cx.rollback(tx)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
@@ -1320,7 +1373,10 @@ class Connector(object):
         :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
         """
-        cx = self._acquire(graph_name, readonly)
+        if readonly:
+            cx = self._acquire_ro(graph_name)
+        else:
+            cx = self._acquire_rw(graph_name)
         try:
             result = cx.auto_run(graph_name, cypher, parameters, readonly=readonly)
             try:
@@ -1366,7 +1422,7 @@ class Connector(object):
 
     def _show_databases(self):
         if self.supports_multi():
-            cx = self._acquire("system", readonly=True)
+            cx = self._acquire_ro("system")
             try:
                 result = cx.auto_run("system", "SHOW DATABASES")
                 cx.pull(result)
