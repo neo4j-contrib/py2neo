@@ -64,36 +64,36 @@ class FakeTransactionManager(object):
 
 
 def test_should_fail_on_tx_create_object():
-    tx = Transaction(FakeTransactionManager())
+    tx = Transaction(FakeGraph())
     with raises(TypeError):
         tx.create(object())
 
 
 def test_should_fail_on_tx_delete_object():
-    tx = Transaction(FakeTransactionManager())
+    tx = Transaction(FakeGraph())
     with raises(TypeError):
         tx.delete(object())
 
 
 def test_should_fail_on_tx_merge_object():
-    tx = Transaction(FakeTransactionManager())
+    tx = Transaction(FakeGraph())
     with raises(TypeError):
         tx.merge(object())
 
 
 def test_should_fail_on_tx_pull_object():
-    tx = Transaction(FakeTransactionManager())
+    tx = Transaction(FakeGraph())
     with raises(TypeError):
         tx.pull(object())
 
 
 def test_should_fail_on_tx_push_object():
-    tx = Transaction(FakeTransactionManager())
+    tx = Transaction(FakeGraph())
     with raises(TypeError):
         tx.push(object())
 
 
 def test_should_fail_on_tx_separate_object():
-    tx = Transaction(FakeTransactionManager())
+    tx = Transaction(FakeGraph())
     with raises(TypeError):
         tx.separate(object())

@@ -31,79 +31,6 @@ from warnings import warn
 
 from py2neo.compat import Mapping, numeric_types, ustr, deprecated
 from py2neo.cypher import cypher_repr, cypher_str
-from py2neo.errors import ConnectionUnavailable, ConnectionBroken
-
-
-class TransactionManager(object):
-    """ Transaction manager.
-
-    *New in version 2021.1.*
-    """
-
-    def __init__(self, graph):
-        self.graph = graph
-        self._connector = self.graph.service.connector
-
-    def auto(self, readonly=False,
-             # after=None, metadata=None, timeout=None
-             ):
-        """ Create a new auto-commit :class:`~py2neo.database.work.Transaction`.
-
-        :param readonly: if :py:const:`True`, will begin a readonly
-            transaction, otherwise will begin as read-write
-        """
-        return Transaction(self, autocommit=True, readonly=readonly,
-                           # after, metadata, timeout
-                           )
-
-    def begin(self, readonly=False,
-              # after=None, metadata=None, timeout=None
-              ):
-        """ Begin a new :class:`~py2neo.database.work.Transaction`.
-
-        :param readonly: if :py:const:`True`, will begin a readonly
-            transaction, otherwise will begin as read-write
-        :returns: new :class:`~py2neo.database.work.Transaction`.
-            object
-        """
-        return Transaction(self, autocommit=False, readonly=readonly,
-                           # after, metadata, timeout
-                           )
-
-    def commit(self, tx):
-        """ Commit the transaction.
-
-        :returns: :class:`.TransactionSummary` object
-        """
-        if tx is None:
-            return
-        if not isinstance(tx, Transaction):
-            raise TypeError("Bad transaction %r" % tx)
-        if tx._finished:
-            raise TypeError("Cannot commit finished transaction")
-        try:
-            summary = self._connector.commit(tx._tx_ref)
-            return TransactionSummary(**summary)
-        finally:
-            tx._finished = True
-
-    def rollback(self, tx):
-        """ Roll back the current transaction, undoing all actions
-        previously taken.
-
-        :returns: :class:`.TransactionSummary` object
-        """
-        if tx is None or tx._finished:
-            return
-        if not isinstance(tx, Transaction):
-            raise TypeError("Bad transaction %r" % tx)
-        try:
-            summary = self._connector.rollback(tx._tx_ref)
-            return TransactionSummary(**summary)
-        except (ConnectionUnavailable, ConnectionBroken):
-            pass
-        finally:
-            tx._finished = True
 
 
 class Transaction(object):
@@ -117,25 +44,19 @@ class Transaction(object):
 
     _finished = False
 
-    def __init__(self, manager, autocommit=False, readonly=False,
+    def __init__(self, graph, autocommit=False, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
-        self._tx_manager = manager
+        self.graph = graph
         self._autocommit = autocommit
-        self._connector = self._tx_manager.graph.service.connector
+        self._connector = self.graph.service.connector
         if autocommit:
             self._tx_ref = None
         else:
-            self._tx_ref = self._connector.begin(self._tx_manager.graph.name, readonly=readonly,
+            self._tx_ref = self._connector.begin(self.graph.name, readonly=readonly,
                                                  # after, metadata, timeout
                                                  )
         self._readonly = readonly
-
-    @property
-    def graph(self):
-        """ :class:`.Graph` to which this transaction is bound.
-        """
-        return self._tx_manager.graph
 
     @property
     def readonly(self):
@@ -195,7 +116,7 @@ class Transaction(object):
 
         :returns: :class:`.TransactionSummary` object
         """
-        return self._tx_manager.commit(self)
+        return self.graph.commit(self)
 
     @deprecated("The transaction.rollback() method is deprecated, "
                 "use graph.rollback(transaction) instead")
@@ -205,7 +126,7 @@ class Transaction(object):
 
         :returns: :class:`.TransactionSummary` object
         """
-        return self._tx_manager.rollback(self)
+        return self.graph.rollback(self)
 
     def create(self, subgraph):
         """ Create remote nodes and relationships that correspond to those in a

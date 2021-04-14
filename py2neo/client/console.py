@@ -241,7 +241,7 @@ class ClientConsole(Console):
     def commit_transaction(self):
         if self.tx:
             try:
-                self.tx.commit()
+                self.graph.commit(self.tx)
                 self.info("Transaction committed")
             finally:
                 self.tx = None
@@ -252,7 +252,7 @@ class ClientConsole(Console):
     def rollback_transaction(self):
         if self.tx:
             try:
-                self.tx.rollback()
+                self.graph.rollback(self.tx)
                 self.info("Transaction rolled back")
             finally:
                 self.tx = None

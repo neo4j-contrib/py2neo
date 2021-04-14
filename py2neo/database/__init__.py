@@ -115,7 +115,7 @@ from time import sleep
 
 from py2neo.compat import deprecated, Sequence, Mapping
 from py2neo.cypher import cypher_escape
-from py2neo.database.work import TransactionManager, Transaction
+from py2neo.database.work import Transaction, TransactionSummary
 from py2neo.errors import (Neo4jError,
                            ConnectionUnavailable,
                            ConnectionBroken,
@@ -370,7 +370,6 @@ class Graph(object):
         self.__name__ = name
         self.schema = Schema(self)
         self._procedures = ProcedureLibrary(self)
-        self._tx_manager = TransactionManager(self)
 
     def __repr__(self):
         if self.name is None:
@@ -415,9 +414,9 @@ class Graph(object):
 
         *New in version 2020.0.*
         """
-        return self._tx_manager.auto(readonly,
-                                     # after, metadata, timeout
-                                     )
+        return Transaction(self, autocommit=True, readonly=readonly,
+                           # after, metadata, timeout
+                           )
 
     def begin(self, readonly=False,
               # after=None, metadata=None, timeout=None
@@ -430,23 +429,47 @@ class Graph(object):
         *Changed in version 2021.1: the 'autocommit' argument has been
         removed. Use the 'auto' method instead.*
         """
-        return self._tx_manager.begin(readonly,
-                                      # after, metadata, timeout
-                                      )
+        return Transaction(self, autocommit=False, readonly=readonly,
+                           # after, metadata, timeout
+                           )
 
     def commit(self, tx):
         """ Commit a transaction.
 
+        :returns: :class:`.TransactionSummary` object
+
         *New in version 2021.1.*
         """
-        return self._tx_manager.commit(tx)
+        if tx is None:
+            return
+        if not isinstance(tx, Transaction):
+            raise TypeError("Bad transaction %r" % tx)
+        if tx._finished:
+            raise TypeError("Cannot commit finished transaction")
+        try:
+            summary = self.service.connector.commit(tx._tx_ref)
+            return TransactionSummary(**summary)
+        finally:
+            tx._finished = True
 
     def rollback(self, tx):
         """ Rollback a transaction.
 
+        :returns: :class:`.TransactionSummary` object
+
         *New in version 2021.1.*
         """
-        return self._tx_manager.rollback(tx)
+        if tx is None or tx._finished:
+            return
+        if not isinstance(tx, Transaction):
+            raise TypeError("Bad transaction %r" % tx)
+        try:
+            summary = self.service.connector.rollback(tx._tx_ref)
+            return TransactionSummary(**summary)
+        except (ConnectionUnavailable, ConnectionBroken):
+            pass
+        finally:
+            tx._finished = True
 
     # CYPHER EXECUTION #
 
@@ -516,18 +539,18 @@ class Graph(object):
             n += 1
             tx = None
             try:
-                tx = self._tx_manager.begin(
+                tx = self.begin(
                                 # after=after, metadata=metadata, timeout=timeout
                                 )
                 value = f(tx)
                 if isgenerator(value):
                     _ = list(value)     # exhaust the generator
-                self._tx_manager.commit(tx)
+                self.commit(tx)
             except (ConnectionUnavailable, ConnectionBroken, ConnectionLimit):
-                self._tx_manager.rollback(tx)
+                self.rollback(tx)
                 continue
             except Neo4jError as error:
-                self._tx_manager.rollback(tx)
+                self.rollback(tx)
                 if error.should_invalidate_routing_table():
                     self.service.connector.invalidate_routing_table(self.name)
                 if error.should_retry():
@@ -535,7 +558,7 @@ class Graph(object):
                 else:
                     raise
             except Exception:
-                self._tx_manager.rollback(tx)
+                self.rollback(tx)
                 raise
             else:
                 return
@@ -562,7 +585,7 @@ class Graph(object):
         for _ in Timer.repeat(at_least=3, timeout=timeout):
             n += 1
             try:
-                result = self._tx_manager.auto(readonly=True).run(cypher, parameters)
+                result = self.auto(readonly=True).run(cypher, parameters)
             except (ConnectionUnavailable, ConnectionBroken, ConnectionLimit):
                 continue
             except Neo4jError as error:
