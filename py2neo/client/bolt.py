@@ -57,11 +57,13 @@ from struct import pack as struct_pack, unpack as struct_unpack
 
 from six import PY2, raise_from
 
-from py2neo.client import Connection, TransactionRef, Result, Bookmark, \
-    ConnectionUnavailable, ConnectionBroken, ProtocolError
+from py2neo.client import Connection, TransactionRef, Result, Bookmark
 from py2neo.client.config import bolt_user_agent, ConnectionProfile
 from py2neo.client.packstream import pack_into, UnpackStream, PackStreamHydrant
-from py2neo.errors import Neo4jError
+from py2neo.errors import (Neo4jError,
+                           ConnectionUnavailable,
+                           ConnectionBroken,
+                           ProtocolError)
 from py2neo.wiring import Wire, WireError, BrokenWireError
 
 

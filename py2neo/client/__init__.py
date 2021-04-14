@@ -29,8 +29,12 @@ from packaging.version import Version
 
 from py2neo.client.config import ConnectionProfile
 from py2neo.compat import string_types
-from py2neo.errors import Neo4jError, ServiceUnavailable, WriteServiceUnavailable
-from py2neo.timing import Timer, millis_to_timedelta
+from py2neo.errors import (Neo4jError,
+                           ConnectionUnavailable,
+                           ConnectionBroken,
+                           ConnectionLimit,
+                           ServiceUnavailable)
+from py2neo.timing import millis_to_timedelta
 from py2neo.wiring import Address
 
 
@@ -1746,31 +1750,6 @@ class Result(object):
         :returns: list of records
         """
         raise NotImplementedError
-
-
-class ConnectionUnavailable(Exception):
-    """ Raised when a connection cannot be acquired.
-    """
-
-
-class ConnectionBroken(Exception):
-    """ Raised when a connection breaks during use.
-    """
-
-
-class ConnectionLimit(Exception):
-    """ Raised when no further connections are available
-    due to a configured resource limit.
-    """
-
-
-class ProtocolError(Exception):
-    """ Raised when a protocol violation or other unrecoverable
-    protocol error occurs. These errors cannot be recovered from
-    automatically, and may result from a bug in the driver or server
-    software.
-    """
-    # TODO: add hints for users when they see this error
 
 
 class Hydrant(object):

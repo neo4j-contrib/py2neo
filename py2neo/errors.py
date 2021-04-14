@@ -111,6 +111,22 @@ class TransientError(Neo4jError):
         return True
 
 
+class ConnectionUnavailable(Exception):
+    """ Raised when a connection cannot be acquired.
+    """
+
+
+class ConnectionBroken(Exception):
+    """ Raised when a connection breaks during use.
+    """
+
+
+class ConnectionLimit(Exception):
+    """ Raised when no further connections are available
+    due to a configured resource limit.
+    """
+
+
 class ServiceUnavailable(Exception):
     """ Raised when no read or write service is available from a
     Neo4j installation.
@@ -122,8 +138,17 @@ class ServiceUnavailable(Exception):
 
 class WriteServiceUnavailable(ServiceUnavailable):
     """ Raised when no write service is available from a
-    Neo4j installation, but a read service is still available.
+    Neo4j installation, but a read service may still be available.
     """
 
     def __init__(self, *args):
         super(WriteServiceUnavailable, self).__init__(*args)
+
+
+class ProtocolError(Exception):
+    """ Raised when a protocol violation or other unrecoverable
+    protocol error occurs. These errors cannot be remedied
+    automatically, and may result from a bug in the driver or server
+    software.
+    """
+    # TODO: add hints for users when they see this error

@@ -47,11 +47,9 @@ from time import localtime
 from six import raise_from
 
 from py2neo import Neo4jError
-from py2neo.client import (
-    Connection as _Connection,
-    ConnectionProfile as _ConnectionProfile,
-    ConnectionUnavailable as _ConnectionUnavailable,
-)
+from py2neo.client import (Connection as _Connection,
+                           ConnectionProfile as _ConnectionProfile)
+from py2neo.errors import ConnectionUnavailable as _ConnectionUnavailable
 
 
 apilevel = "2.0"

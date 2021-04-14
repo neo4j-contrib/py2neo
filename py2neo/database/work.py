@@ -31,6 +31,7 @@ from warnings import warn
 
 from py2neo.compat import Mapping, numeric_types, ustr, deprecated
 from py2neo.cypher import cypher_repr, cypher_str
+from py2neo.errors import ConnectionUnavailable, ConnectionBroken
 
 
 class TransactionManager(object):
@@ -92,7 +93,6 @@ class TransactionManager(object):
 
         :returns: :class:`.TransactionSummary` object
         """
-        from py2neo.client import ConnectionUnavailable, ConnectionBroken
         if tx is None or tx._finished:
             return
         if not isinstance(tx, Transaction):
