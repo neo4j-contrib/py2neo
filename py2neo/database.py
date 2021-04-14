@@ -1448,11 +1448,19 @@ class Cursor(object):
         """
         self._result.buffer()
         metadata = self._result.summary()
-        if "plan" in metadata:
-            return CypherPlan(**metadata["plan"])
-        elif "profile" in metadata:
-            return CypherPlan(**metadata["profile"])
-        else:
+        try:
+            return metadata["plan"]
+        except KeyError:
+            return None
+
+    def profile(self):
+        """ Return the profile returned with this result, if any.
+        """
+        self._result.buffer()
+        metadata = self._result.summary()
+        try:
+            return metadata["profile"]
+        except KeyError:
             return None
 
     def stats(self):
@@ -2177,48 +2185,3 @@ class CypherSummary(object):
     @property
     def connection(self):
         return self._data.get("connection")
-
-
-class CypherPlan(Mapping):
-
-    @classmethod
-    def _clean_key(cls, key):
-        from english.casing import Words
-        return Words(key).snake()
-
-    @classmethod
-    def _clean_keys(cls, data):
-        return OrderedDict(sorted((cls._clean_key(key), value)
-                                  for key, value in dict(data).items()))
-
-    def __init__(self, **kwargs):
-        data = self._clean_keys(kwargs)
-        if "root" in data:
-            data = self._clean_keys(data["root"])
-        self.operator_type = data.pop("operator_type", None)
-        self.identifiers = data.pop("identifiers", [])
-        self.children = [CypherPlan(**self._clean_keys(child))
-                         for child in data.pop("children", [])]
-        try:
-            args = data.pop("args")
-        except KeyError:
-            self.args = data
-        else:
-            self.args = self._clean_keys(args)
-
-    def __repr__(self):
-        return ("%s(operator_type=%r, identifiers=%r, children=%r, args=%r)" %
-                (self.__class__.__name__, self.operator_type,
-                 self.identifiers, self.children, self.args))
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __len__(self):
-        return len(self.keys())
-
-    def __iter__(self):
-        return iter(self.keys())
-
-    def keys(self):
-        return ["operator_type", "identifiers", "children", "args"]

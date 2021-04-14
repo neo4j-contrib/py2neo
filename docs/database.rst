@@ -131,9 +131,3 @@ Query result summaries
 
 .. autoclass:: CypherSummary
    :members:
-
-``CypherPlan`` objects
-----------------------
-
-.. autoclass:: CypherPlan
-   :members:
