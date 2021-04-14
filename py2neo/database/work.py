@@ -42,8 +42,6 @@ class Transaction(object):
     methods can be used to finish a transaction.
     """
 
-    _finished = False
-
     def __init__(self, graph, autocommit=False, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
@@ -51,12 +49,19 @@ class Transaction(object):
         self._autocommit = autocommit
         self._connector = self.graph.service.connector
         if autocommit:
-            self._tx_ref = None
+            self._ref = None
         else:
-            self._tx_ref = self._connector.begin(self.graph.name, readonly=readonly,
-                                                 # after, metadata, timeout
-                                                 )
+            self._ref = self._connector.begin(self.graph.name, readonly=readonly,
+                                              # after, metadata, timeout
+                                              )
         self._readonly = readonly
+        self._closed = False
+
+    @property
+    def ref(self):
+        """ Transaction reference.
+        """
+        return self._ref
 
     @property
     def readonly(self):
@@ -64,6 +69,13 @@ class Transaction(object):
         :py:const:`False` otherwise.
         """
         return self._readonly
+
+    @property
+    def closed(self):
+        """ :py:const:`True` if this transaction is closed,
+        :py:const:`False` otherwise.
+        """
+        return self._closed
 
     def run(self, cypher, parameters=None, **kwparameters):
         """ Send a Cypher query to the server for execution and return
@@ -74,21 +86,21 @@ class Transaction(object):
         :returns: :py:class:`.Cursor` object
         """
         from py2neo.client import Connection
-        if self._finished:
-            raise TypeError("Cannot run query in finished transaction")
+        if self.closed:
+            raise TypeError("Cannot run query in closed transaction")
 
         try:
             hydrant = Connection.default_hydrant(self._connector.profile, self.graph)
             parameters = dict(parameters or {}, **kwparameters)
-            if self._tx_ref:
-                result = self._connector.run_query(self._tx_ref, cypher, parameters)
+            if self.ref:
+                result = self._connector.run_query(self.ref, cypher, parameters)
             else:
                 result = self._connector.auto_run(self.graph.name, cypher, parameters,
                                                   readonly=self.readonly)
             return Cursor(result, hydrant)
         finally:
-            if not self._tx_ref:
-                self._finished = True
+            if not self.ref:
+                self._closed = True
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
         """ Execute a single Cypher query and return the value from

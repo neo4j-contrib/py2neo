@@ -444,13 +444,13 @@ class Graph(object):
             return
         if not isinstance(tx, Transaction):
             raise TypeError("Bad transaction %r" % tx)
-        if tx._finished:
-            raise TypeError("Cannot commit finished transaction")
+        if tx.closed:
+            raise TypeError("Cannot commit closed transaction")
         try:
-            summary = self.service.connector.commit(tx._tx_ref)
+            summary = self.service.connector.commit(tx.ref)
             return TransactionSummary(**summary)
         finally:
-            tx._finished = True
+            tx._closed = True
 
     def rollback(self, tx):
         """ Rollback a transaction.
@@ -459,17 +459,17 @@ class Graph(object):
 
         *New in version 2021.1.*
         """
-        if tx is None or tx._finished:
+        if tx is None or tx.closed:
             return
         if not isinstance(tx, Transaction):
             raise TypeError("Bad transaction %r" % tx)
         try:
-            summary = self.service.connector.rollback(tx._tx_ref)
+            summary = self.service.connector.rollback(tx.ref)
             return TransactionSummary(**summary)
         except (ConnectionUnavailable, ConnectionBroken):
             pass
         finally:
-            tx._finished = True
+            tx._closed = True
 
     # CYPHER EXECUTION #
 
