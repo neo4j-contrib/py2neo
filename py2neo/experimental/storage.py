@@ -27,9 +27,9 @@ from operator import and_ as and_operator
 from threading import RLock
 from uuid import uuid4
 
-from py2neo.database.work import Record
 from py2neo.collections import iter_items, PropertyDict
 from py2neo.compat import Sequence, Set
+from py2neo.database import Record
 
 
 NodeEntry = namedtuple("NodeEntry", ["labels", "properties"])

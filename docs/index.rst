@@ -72,8 +72,7 @@ A comprehensive set of graph structure data types and operations are provided, a
 .. toctree::
     :maxdepth: 2
 
-    database/index
-    database/work
+    database
     errors
     matching
     data/index

@@ -33,6 +33,5 @@ __version__ = metadata["version"]
 
 from py2neo.data import *
 from py2neo.database import *
-from py2neo.database.work import *
 from py2neo.errors import *
 from py2neo.matching import *

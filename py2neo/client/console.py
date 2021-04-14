@@ -38,8 +38,7 @@ from pygments.token import Token
 from py2neo import __version__
 from py2neo.client import ConnectionProfile
 from py2neo.cypher.lexer import CypherLexer
-from py2neo.database import GraphService
-from py2neo.database.work import Table
+from py2neo.database import GraphService, Table
 from py2neo.errors import Neo4jError
 
 
