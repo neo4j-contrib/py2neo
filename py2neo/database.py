@@ -1444,47 +1444,29 @@ class Cursor(object):
         return CypherSummary(**metadata)
 
     def plan(self):
-        """ Return the plan returned with this result, if any.
+        """ Return the execution plan returned by this query, if any.
         """
         self._result.buffer()
         metadata = self._result.summary()
         try:
             return metadata["plan"]
         except KeyError:
-            return None
-
-    def profile(self):
-        """ Return the profile returned with this result, if any.
-        """
-        self._result.buffer()
-        metadata = self._result.summary()
-        try:
-            return metadata["profile"]
-        except KeyError:
-            return None
+            try:
+                return metadata["profile"]
+            except KeyError:
+                return None
 
     def stats(self):
-        """ Return the query statistics.
+        """ Return the execution statistics for this query.
 
         This contains details of the activity undertaken by the database
         kernel for the query, such as the number of entities created or
-        deleted. Specifically, this returns a :class:`.CypherStats` object.
+        deleted.
 
         >>> from py2neo import Graph
         >>> g = Graph()
         >>> g.run("CREATE (a:Person) SET a.name = 'Alice'").stats()
-        constraints_added: 0
-        constraints_removed: 0
-        contained_updates: True
-        indexes_added: 0
-        indexes_removed: 0
-        labels_added: 1
-        labels_removed: 0
-        nodes_created: 1
-        nodes_deleted: 0
-        properties_set: 1
-        relationships_created: 0
-        relationships_deleted: 0
+        {'labels_added': 1, 'nodes_created': 1, 'properties_set': 1}
 
         """
         self._result.buffer()
