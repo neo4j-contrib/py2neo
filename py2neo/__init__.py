@@ -73,7 +73,6 @@ __all__ = [
     "TransactionSummary",
     "Cursor",
     "Record",
-    "Table",
 
 ]
 

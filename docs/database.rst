@@ -192,10 +192,3 @@ Transactions
 
 .. autoclass:: Record
     :members:
-
-
-``Table`` objects
------------------
-
-.. autoclass:: Table
-    :members:
