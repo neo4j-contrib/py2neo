@@ -27,7 +27,6 @@ __all__ = [
     "ProcedureLibrary",
     "Procedure",
     "Transaction",
-    "TransactionSummary",
     "Cursor",
     "Record",
 ]
@@ -377,7 +376,9 @@ class Graph(object):
             raise TypeError("Cannot commit closed transaction")
         try:
             summary = self.service.connector.commit(tx.ref)
-            return TransactionSummary(**summary)
+            tx._bookmark = summary["bookmark"]
+            tx._profile = summary["profile"]
+            tx._time = summary["time"]
         finally:
             tx._closed = True
 
@@ -394,7 +395,9 @@ class Graph(object):
             raise TypeError("Bad transaction %r" % tx)
         try:
             summary = self.service.connector.rollback(tx.ref)
-            return TransactionSummary(**summary)
+            tx._bookmark = summary["bookmark"]
+            tx._profile = summary["profile"]
+            tx._time = summary["time"]
         except (ConnectionUnavailable, ConnectionBroken):
             pass
         finally:
@@ -1007,6 +1010,9 @@ class Transaction(object):
                                               )
         self._readonly = readonly
         self._closed = False
+        self._bookmark = None
+        self._profile = None
+        self._time = None
 
     @property
     def graph(self):
@@ -1033,6 +1039,26 @@ class Transaction(object):
         :py:const:`False` otherwise.
         """
         return self._closed
+
+    @property
+    def bookmark(self):
+        """ The closing bookmark for this transaction, populated
+        on commit.
+        """
+        return self._bookmark
+
+    @property
+    def profile(self):
+        """ The connection profile under which this transaction was
+        carried out.
+        """
+        return self._profile
+
+    @property
+    def time(self):
+        """ The total time taken to carry out this transaction
+        """
+        return self._time
 
     def run(self, cypher, parameters=None, **kwparameters):
         """ Send a Cypher query to the server for execution and return
@@ -1249,17 +1275,6 @@ class Transaction(object):
             raise TypeError("No method defined to separate object %r" % subgraph)
         else:
             separate(self)
-
-
-class TransactionSummary(object):
-    """ Summary information produced as the result of a
-    :class:`.Transaction` commit or rollback.
-    """
-
-    def __init__(self, bookmark=None, profile=None, time=None):
-        self.bookmark = bookmark
-        self.profile = profile
-        self.time = time
 
 
 class Cursor(object):

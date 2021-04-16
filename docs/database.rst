@@ -177,9 +177,6 @@ Transactions
 
     .. automethod:: rollback
 
-.. autoclass:: TransactionSummary
-   :members:
-
 ``Cursor`` objects
 ------------------
 

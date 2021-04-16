@@ -70,7 +70,6 @@ __all__ = [
     "ProcedureLibrary",
     "Procedure",
     "Transaction",
-    "TransactionSummary",
     "Cursor",
     "Record",
 

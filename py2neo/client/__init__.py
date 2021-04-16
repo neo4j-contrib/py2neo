@@ -1351,8 +1351,8 @@ class Connector(object):
         :raises ConnectionBroken: if a commit attempt is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
         """
+        cx = self._reacquire(tx)
         try:
-            cx = self._reacquire(tx)
             bookmark = cx.commit(tx)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
