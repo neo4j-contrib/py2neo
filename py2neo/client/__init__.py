@@ -1671,6 +1671,10 @@ class Result(object):
     def offline(self):
         raise NotImplementedError
 
+    @property
+    def profile(self):
+        raise NotImplementedError
+
     def buffer(self):
         """ Fetch the remainder of the result into memory. This method
         may carry out network activity.

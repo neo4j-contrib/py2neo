@@ -1416,6 +1416,10 @@ class Cursor(object):
         return self._current[key]
 
     @property
+    def profile(self):
+        return self._result.profile
+
+    @property
     def current(self):
         """ Returns the current record or :py:const:`None` if no record
         has yet been selected.
@@ -1440,8 +1444,7 @@ class Cursor(object):
         """ Return the result summary.
         """
         self._result.buffer()
-        metadata = self._result.summary()
-        return CypherSummary(**metadata)
+        return self._result.summary()
 
     def plan(self):
         """ Return the execution plan returned by this query, if any.
@@ -2157,13 +2160,3 @@ class Table(list):
         This is a customised call to :meth:`.write_separated_values`.
         """
         return self.write_separated_values(u"\t", file, header, skip, limit)
-
-
-class CypherSummary(object):
-
-    def __init__(self, **data):
-        self._data = data
-
-    @property
-    def connection(self):
-        return self._data.get("connection")

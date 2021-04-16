@@ -959,6 +959,7 @@ class BoltResult(ItemizedTask, Result):
         Result.__init__(self, graph_name)
         self.__record_type = None
         self.__cx = cx
+        self._profile = cx.profile
         self.append(response)
         self._last_taken = 0
 
@@ -977,6 +978,10 @@ class BoltResult(ItemizedTask, Result):
     @property
     def offline(self):
         return self.done() or self.__cx.closed or self.__cx.broken
+
+    @property
+    def profile(self):
+        return self._profile
 
     def buffer(self):
         if self.done():
@@ -997,7 +1002,7 @@ class BoltResult(ItemizedTask, Result):
         return self.header().metadata.get("fields")
 
     def summary(self):
-        d = {"connection": self.__cx.profile.to_dict()}
+        d = {}
         for item in self.items():
             d.update(item.metadata)
         return d

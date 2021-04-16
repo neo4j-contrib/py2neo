@@ -184,7 +184,7 @@ class HTTP(Connection):
         rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
         self.release()
         rs.audit()
-        return HTTPResult(graph_name, rs.result())
+        return HTTPResult(graph_name, rs.result(), profile=self.profile)
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
@@ -335,20 +335,24 @@ class HTTPTransactionRef(TransactionRef):
 
 class HTTPResult(Result):
 
-    def __init__(self, graph_name, result, profile=None):
+    def __init__(self, graph_name, result, profile):
         Result.__init__(self, graph_name)
+        self._result = result
+        self._profile = profile
         self._columns = result.get("columns", ())
         self._data = result.get("data", [])
         self._summary = {}
         if "stats" in result:
             self._summary["stats"] = result["stats"]
-        if profile:
-            self._summary["connection"] = profile.to_dict()
         self._cursor = 0
 
     @property
     def offline(self):
         return True
+
+    @property
+    def profile(self):
+        return self._profile
 
     def buffer(self):
         pass

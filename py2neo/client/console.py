@@ -320,9 +320,8 @@ class ClientConsole(Console):
         t0 = timer()
         result = runner(statement, parameters)
         record_count = self.write_result(result)
-        summary = result.summary()
-        if summary.connection:
-            uri = summary.connection["uri"]
+        if result.profile:
+            uri = result.profile["uri"]
         else:
             uri = self.graph.service.uri
 
