@@ -92,7 +92,7 @@ class Address(tuple):
             return DEFAULT_BOLT_PORT
         try:
             return getservbyname(self.port)
-        except (OSError, TypeError):
+        except (IOError, OSError, TypeError):
             # OSError: service/proto not found
             # TypeError: getservbyname() argument 1 must be str, not X
             try:
