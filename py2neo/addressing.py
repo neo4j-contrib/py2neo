@@ -33,8 +33,6 @@ class Address(tuple):
     @classmethod
     def parse(cls, s, default_host=None, default_port=None):
         s = xstr(s)
-        if not isinstance(s, str):
-            raise TypeError("Address.parse requires a string argument")
         if s.startswith("["):
             # IPv6
             host, _, port = s[1:].rpartition("]")
