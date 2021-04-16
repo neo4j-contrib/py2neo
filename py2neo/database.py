@@ -37,7 +37,6 @@ from functools import reduce
 from inspect import isgenerator
 from operator import xor as xor_operator
 from time import sleep
-from warnings import warn
 
 from py2neo.compat import (deprecated,
                            Sequence,
