@@ -16,6 +16,20 @@
 # limitations under the License.
 
 
+__all__ = [
+    "Neo4jError",
+    "ClientError",
+    "DatabaseError",
+    "TransientError",
+    "ConnectionUnavailable",
+    "ConnectionBroken",
+    "ConnectionLimit",
+    "ServiceUnavailable",
+    "WriteServiceUnavailable",
+    "ProtocolError",
+]
+
+
 class Neo4jError(Exception):
     """ Base exception class for modelling error status codes returned
     by Neo4j.

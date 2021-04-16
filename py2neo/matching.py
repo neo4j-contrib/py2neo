@@ -31,6 +31,53 @@ results.
 """
 
 
+__all__ = [
+
+    "Predicate",
+    "IsNull",
+    "IsNotNull",
+    "Predicate1",
+    "EqualTo",
+    "NotEqualTo",
+    "LessThan",
+    "LessThanOrEqualTo",
+    "GreaterThan",
+    "GreaterThanOrEqualTo",
+    "StartsWith",
+    "EndsWith",
+    "Contains",
+    "Like",
+    "In",
+    "Connective",
+    "And",
+    "Or",
+    "EitherOr",
+
+    "IS_NULL",
+    "IS_NOT_NULL",
+    "EQ", "EQUAL_TO",
+    "NE", "NOT_EQUAL_TO",
+    "LT", "LESS_THAN",
+    "LE", "LESS_THAN_OR_EQUAL_TO",
+    "GT", "GREATER_THAN",
+    "GE", "GREATER_THAN_OR_EQUAL_TO",
+    "STARTS_WITH",
+    "ENDS_WITH",
+    "CONTAINS",
+    "LIKE",
+    "IN",
+    "AND",
+    "OR",
+    "XOR",
+
+    "NodeMatch",
+    "NodeMatcher",
+    "RelationshipMatch",
+    "RelationshipMatcher",
+
+]
+
+
 from py2neo.collections import is_collection
 from py2neo.compat import Sequence, Set
 from py2neo.cypher import cypher_escape, cypher_repr

@@ -63,25 +63,25 @@ __all__ = [
     "DEFAULT_HTTPS_PORT",
     "ConnectionProfile",
 
-    # Imported from database module
-    "GraphService",
-    "Graph",
-    "SystemGraph",
-    "ProcedureLibrary",
-    "Procedure",
-    "Transaction",
-    "Cursor",
-    "Record",
-
 ]
 
 
 from os import getenv
 
 from py2neo.addressing import Address
-from py2neo.compat import Mapping
-from py2neo.database import *
+from py2neo.compat import Mapping, string_types
 from py2neo.meta import get_metadata
+
+from py2neo.database import *
+from py2neo.errors import *
+from py2neo.matching import *
+from py2neo.data import *
+
+
+__all__ += database.__all__
+__all__ += errors.__all__
+__all__ += matching.__all__
+__all__ += data.__all__
 
 
 metadata = get_metadata()
@@ -505,16 +505,3 @@ class ConnectionProfile(Mapping):
         else:
             return {key: value for key, value in self.items()
                     if key not in ("auth", "password")}
-
-
-# Attempt to bring a few packages into the root namespace, for
-# convenience and backward compatibility. This only works if the
-# dependencies are installed, which won't be the case when this
-# module is imported as part of setup. Therefore, we fail silently
-# for this reason.
-try:
-    from py2neo.data import *
-    from py2neo.errors import *
-    from py2neo.matching import *
-except ImportError:
-    pass
