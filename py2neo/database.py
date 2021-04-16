@@ -16,101 +16,24 @@
 # limitations under the License.
 
 
-"""
-The ``py2neo.database`` module contains classes and functions required
-to interact with a Neo4j server, including classes pertaining to the
-execution of Cypher queries and transactions. For convenience, these
-are also exposed through the top-level package, ``py2neo``.
-
-The most useful of the classes provided here is the :class:`.Graph`
-class which represents a Neo4j graph database instance and provides
-access to a large portion of the most commonly used py2neo API.
-
-To run a query against a local database is straightforward::
-
-    >>> from py2neo import Graph
-    >>> graph = Graph(password="password")
-    >>> graph.run("UNWIND range(1, 3) AS n RETURN n, n * n as n_sq").to_table()
-       n | n_sq
-    -----|------
-       1 |    1
-       2 |    4
-       3 |    9
-
-
-Getting connected
-=================
-
-The :class:`.GraphService`, :class:`.Graph`, and :class:`.SystemGraph`
-classes all accept an argument called `profile` plus individual keyword
-`settings`. Internally, these arguments are used to construct a
-:class:`.ConnectionProfile` object which holds these details.
-
-The `profile` can either be a URI or a base :class:`.ConnectionProfile`
-object. The `settings` are individual overrides for the values within
-that, such as ``host`` or ``password``. This override mechanism allows
-several ways of specifying the same information. For example, the three
-variants below are all equivalent::
-
-    >>> from py2neo import Graph
-    >>> graph_1 = Graph()
-    >>> graph_2 = Graph(host="localhost")
-    >>> graph_3 = Graph("bolt://localhost:7687")
-
-Omitting the `profile` argument completely falls back to using the
-default :class:`.ConnectionProfile`. More on this, and other useful
-information, can be found in the documentation for that class.
-
-URIs
-----
-
-The general format of a URI is ``<scheme>://[<user>[:<password>]@]<host>[:<port>]``.
-Supported URI schemes are:
-
-- ``bolt`` - Bolt (unsecured)
-- ``bolt+s`` - Bolt (secured with full certificate checks)
-- ``bolt+ssc`` - Bolt (secured with no certificate checks)
-- ``http`` - HTTP (unsecured)
-- ``https`` - HTTP (secured with full certificate checks)
-- ``http+s`` - HTTP (secured with full certificate checks)
-- ``http+ssc`` - HTTP (secured with no certificate checks)
-
-
-Note that py2neo does not support routing URIs like ``neo4j://...``
-for use with Neo4j causal clusters. To enable routing, instead pass
-a ``routing=True`` keyword argument to the :class:`.Graph` or
-:class:`.GraphService` constructor.
-
-Routing is only available for Bolt-enabled servers. No equivalent
-currently exists for HTTP.
-
-
-Individual settings
--------------------
-
-The full set of supported `settings` are:
-
-============  =========================================  =====  =========================
-Keyword       Description                                Type   Default
-============  =========================================  =====  =========================
-``scheme``    Use a specific URI scheme                  str    ``'bolt'``
-``secure``    Use a secure connection (TLS)              bool   ``False``
-``verify``    Verify the server certificate (if secure)  bool   ``True``
-``host``      Database server host name                  str    ``'localhost'``
-``port``      Database server port                       int    ``7687``
-``address``   Colon-separated host and port string       str    ``'localhost:7687'``
-``user``      User to authenticate as                    str    ``'neo4j'``
-``password``  Password to use for authentication         str    ``'password'``
-``auth``      A 2-tuple of (user, password)              tuple  ``('neo4j', 'password')``
-``routing``   Route connections across multiple servers  bool   ``False``
-============  =========================================  =====  =========================
-
-
-"""
-
 from __future__ import absolute_import, print_function, unicode_literals
 
-from collections import OrderedDict
+
+__all__ = [
+    "GraphService",
+    "Graph",
+    "SystemGraph",
+    "Schema",
+    "ProcedureLibrary",
+    "Procedure",
+    "Transaction",
+    "TransactionSummary",
+    "Cursor",
+    "Record",
+    "Table",
+]
+
+
 from functools import reduce
 from inspect import isgenerator
 from io import StringIO
@@ -124,6 +47,7 @@ from py2neo.compat import (deprecated,
                            numeric_types,
                            ustr)
 from py2neo.cypher import cypher_escape, cypher_repr, cypher_str
+from py2neo.data import Subgraph
 from py2neo.errors import (Neo4jError,
                            ConnectionUnavailable,
                            ConnectionBroken,
@@ -191,8 +115,8 @@ class GraphService(object):
     _graphs = None
 
     def __init__(self, profile=None, **settings):
+        from py2neo import ConnectionProfile
         from py2neo.client import Connector
-        from py2neo.client.config import ConnectionProfile
         profile = ConnectionProfile(profile, **settings)
         connector_settings = {
             "user_agent": settings.get("user_agent"),
@@ -415,7 +339,7 @@ class Graph(object):
     def auto(self, readonly=False,
              # after=None, metadata=None, timeout=None
              ):
-        """ Create a new auto-commit :class:`~py2neo.database.Transaction`.
+        """ Create a new auto-commit :class:`~py2neo.Transaction`.
 
         :param readonly: if :py:const:`True`, will begin a readonly
             transaction, otherwise will begin as read-write
@@ -429,7 +353,7 @@ class Graph(object):
     def begin(self, readonly=False,
               # after=None, metadata=None, timeout=None
               ):
-        """ Begin a new :class:`~py2neo.database.Transaction`.
+        """ Begin a new :class:`~py2neo.Transaction`.
 
         :param readonly: if :py:const:`True`, will begin a readonly
             transaction, otherwise will begin as read-write
@@ -483,7 +407,7 @@ class Graph(object):
 
     def run(self, cypher, parameters=None, **kwparameters):
         """ Run a single read/write query within an auto-commit
-        :class:`~py2neo.database.Transaction`.
+        :class:`~py2neo.Transaction`.
 
         :param cypher: Cypher statement
         :param parameters: dictionary of parameters
@@ -494,8 +418,8 @@ class Graph(object):
         return self.auto().run(cypher, parameters, **kwparameters)
 
     def evaluate(self, cypher, parameters=None, **kwparameters):
-        """ Run a :meth:`~py2neo.database.Transaction.evaluate` operation within an
-        auto-commit :class:`~py2neo.database.Transaction`.
+        """ Run a :meth:`~py2neo.Transaction.evaluate` operation within an
+        auto-commit :class:`~py2neo.Transaction`.
 
         :param cypher: Cypher statement
         :param parameters: dictionary of parameters
@@ -507,7 +431,7 @@ class Graph(object):
     def update(self, cypher, parameters=None, timeout=None):
         """ Call a function representing a transactional unit of work.
 
-        The function must always accept a :class:`~py2neo.database.Transaction`
+        The function must always accept a :class:`~py2neo.Transaction`
         object as its first argument. Additional arguments can be
         passed though the `args` and `kwargs` arguments of this method.
 
@@ -574,7 +498,7 @@ class Graph(object):
 
     def query(self, cypher, parameters=None, timeout=None):
         """ Run a single readonly query within an auto-commit
-        :class:`~py2neo.database.Transaction`.
+        :class:`~py2neo.Transaction`.
 
         :param cypher: Cypher statement
         :param parameters: dictionary of parameters
@@ -625,7 +549,7 @@ class Graph(object):
              Neo4j Kernel | ['3.5.12'] | community
 
         The object returned from the call is a
-        :class:`~py2neo.database.Cursor` object, identical to
+        :class:`~py2neo.Cursor` object, identical to
         that obtained from running a normal Cypher query, and can
         therefore be consumed in a similar way.
 
@@ -660,8 +584,8 @@ class Graph(object):
     # SUBGRAPH OPERATIONS #
 
     def create(self, subgraph):
-        """ Run a :meth:`~py2neo.database.Transaction.create` operation within a
-        :class:`~py2neo.database.Transaction`.
+        """ Run a :meth:`~py2neo.Transaction.create` operation within a
+        :class:`~py2neo.Transaction`.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph`
@@ -669,8 +593,8 @@ class Graph(object):
         self.update(lambda tx: tx.create(subgraph))
 
     def delete(self, subgraph):
-        """ Run a :meth:`~py2neo.database.Transaction.delete` operation within an
-        auto-commit :class:`~py2neo.database.Transaction`. To delete only the
+        """ Run a :meth:`~py2neo.Transaction.delete` operation within an
+        auto-commit :class:`~py2neo.Transaction`. To delete only the
         relationships, use the :meth:`.separate` method.
 
         Note that only entities which are bound to corresponding
@@ -683,8 +607,8 @@ class Graph(object):
         self.update(lambda tx: tx.delete(subgraph))
 
     def exists(self, subgraph):
-        """ Run a :meth:`~py2neo.database.Transaction.exists` operation within an
-        auto-commit :class:`~py2neo.database.Transaction`.
+        """ Run a :meth:`~py2neo.Transaction.exists` operation within an
+        auto-commit :class:`~py2neo.Transaction`.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
                        :class:`.Subgraph` object
@@ -722,8 +646,8 @@ class Graph(object):
             return None
 
     def merge(self, subgraph, label=None, *property_keys):
-        """ Run a :meth:`~py2neo.database.Transaction.merge` operation within an
-        auto-commit :class:`~py2neo.database.Transaction`.
+        """ Run a :meth:`~py2neo.Transaction.merge` operation within an
+        auto-commit :class:`~py2neo.Transaction`.
 
         The example code below shows a simple merge for a new relationship
         between two new nodes:
@@ -745,7 +669,7 @@ class Graph(object):
             >>> g.merge(WORKS_FOR(a, c) | WORKS_FOR(b, c))
 
         For details of how the merge algorithm works, see the
-        :meth:`~py2neo.database.Transaction.merge` method. Note that this is different
+        :meth:`~py2neo.Transaction.merge` method. Note that this is different
         to a Cypher MERGE.
 
         :param subgraph: a :class:`.Node`, :class:`.Relationship` or other
@@ -803,8 +727,8 @@ class Graph(object):
         return RelationshipMatcher(self)
 
     def separate(self, subgraph):
-        """ Run a :meth:`~py2neo.database.Transaction.separate`
-        operation within an auto-commit :class:`~py2neo.database.Transaction`.
+        """ Run a :meth:`~py2neo.Transaction.separate`
+        operation within an auto-commit :class:`~py2neo.Transaction`.
 
         Note that only relationships which are bound to corresponding
         remote relationships though the ``graph`` and ``identity``
@@ -1122,6 +1046,7 @@ class Transaction(object):
         :returns: :py:class:`.Cursor` object
         """
         from py2neo.client import Connection
+
         if self.closed:
             raise TypeError("Cannot run query in closed transaction")
 
@@ -1883,7 +1808,6 @@ class Record(tuple, Mapping):
 
         :return: :class:`.Subgraph` object
         """
-        from py2neo.data import Subgraph
         s = None
         for value in self.values():
             if isinstance(value, Subgraph):

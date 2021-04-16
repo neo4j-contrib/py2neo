@@ -77,8 +77,15 @@ A comprehensive set of graph structure data types and operations are provided, a
     matching
     data/index
     data/spatial
+
+
+Bulk Data Import
+================
+
+.. toctree::
+    :maxdepth: 2
+
     bulk/index
-    pep249/index
 
 
 Object-Graph Mapping
@@ -89,6 +96,15 @@ Object-Graph Mapping
 
     ogm/index
     ogm/models/index
+
+
+Python DB API 2.0 Compatibility
+===============================
+
+.. toctree::
+    :maxdepth: 2
+
+    pep249/index
 
 
 Cypher Language Tools

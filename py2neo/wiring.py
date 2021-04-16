@@ -17,118 +17,18 @@
 
 
 """
-Low-level module for network communication.
-
-This module provides a convenience socket wrapper class (:class:`.Wire`)
-as well as classes for modelling IP addresses, based on tuples.
+This module provides a convenience socket wrapper class
+(:class:`.Wire`) for low-level network communication.
 """
 
 
-from socket import AF_INET, AF_INET6, SHUT_WR
+from socket import SHUT_WR
 
 from monotonic import monotonic
 from six import raise_from
 
-from py2neo.compat import xstr, BaseRequestHandler
-
-
-BOLT_PORT_NUMBER = 7687
-
-
-class Address(tuple):
-    """ Address of a machine on a network.
-    """
-
-    @classmethod
-    def parse(cls, s, default_host=None, default_port=None):
-        s = xstr(s)
-        if not isinstance(s, str):
-            raise TypeError("Address.parse requires a string argument")
-        if s.startswith("["):
-            # IPv6
-            host, _, port = s[1:].rpartition("]")
-            port = port.lstrip(":")
-            try:
-                port = int(port)
-            except (TypeError, ValueError):
-                pass
-            return cls((host or default_host or "localhost",
-                        port or default_port or 0, 0, 0))
-        else:
-            # IPv4
-            host, _, port = s.partition(":")
-            try:
-                port = int(port)
-            except (TypeError, ValueError):
-                pass
-            return cls((host or default_host or "localhost",
-                        port or default_port or 0))
-
-    def __new__(cls, iterable):
-        if isinstance(iterable, cls):
-            return iterable
-        n_parts = len(iterable)
-        inst = tuple.__new__(cls, iterable)
-        if n_parts == 2:
-            inst.__class__ = IPv4Address
-        elif n_parts == 4:
-            inst.__class__ = IPv6Address
-        else:
-            raise ValueError("Addresses must consist of either "
-                             "two parts (IPv4) or four parts (IPv6)")
-        return inst
-
-    #: Address family (AF_INET or AF_INET6)
-    family = None
-
-    def __repr__(self):
-        return "{}({!r})".format(self.__class__.__name__, tuple(self))
-
-    @property
-    def host(self):
-        return self[0]
-
-    @property
-    def port(self):
-        return self[1]
-
-    @property
-    def port_number(self):
-        from socket import getservbyname
-        if self.port == "bolt":
-            # Special case, just because. The regular /etc/services
-            # file doesn't contain this, but it can be found in
-            # /usr/share/nmap/nmap-services if nmap is installed.
-            return BOLT_PORT_NUMBER
-        try:
-            return getservbyname(self.port)
-        except (OSError, TypeError):
-            # OSError: service/proto not found
-            # TypeError: getservbyname() argument 1 must be str, not X
-            try:
-                return int(self.port)
-            except (TypeError, ValueError) as e:
-                raise type(e)("Unknown port value %r" % self.port)
-
-
-class IPv4Address(Address):
-    """ Address subclass, specifically for IPv4 addresses.
-    """
-
-    family = AF_INET
-
-    def __str__(self):
-        return "{}:{}".format(*self)
-
-
-class IPv6Address(Address):
-    """ Address subclass, specifically for IPv6 addresses.
-    """
-
-    family = AF_INET6
-
-    def __str__(self):
-        return "[{}]:{}".format(*self)
+from py2neo.addressing import Address
+from py2neo.compat import BaseRequestHandler
 
 
 class Wire(object):

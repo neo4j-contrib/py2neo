@@ -20,6 +20,7 @@ from collections import deque, namedtuple, OrderedDict
 from logging import getLogger
 from os import linesep
 from random import random
+from sys import platform, version_info
 from threading import Lock, Event, current_thread
 from time import sleep
 from uuid import UUID, uuid4
@@ -27,7 +28,7 @@ from uuid import UUID, uuid4
 from monotonic import monotonic
 from packaging.version import Version
 
-from py2neo.client.config import ConnectionProfile
+from py2neo import ConnectionProfile
 from py2neo.compat import string_types
 from py2neo.errors import (Neo4jError,
                            ConnectionUnavailable,
@@ -65,6 +66,25 @@ def _repr_graph_name(graph_name):
         return "default database"
     else:
         return repr(graph_name)
+
+
+def bolt_user_agent():
+    """ Returns the default user agent sent over Bolt connections.
+    """
+    import py2neo
+    fields = ((py2neo.__package__, py2neo.__version__) +
+              tuple(version_info) + (platform,))
+    return "{}/{} Python/{}.{}.{}-{}-{} ({})".format(*fields)
+
+
+def http_user_agent():
+    """ Returns the default user agent sent over HTTP connections.
+    """
+    import py2neo
+    import urllib3
+    fields = ((py2neo.__package__, py2neo.__version__, urllib3.__version__) +
+              tuple(version_info) + (platform,))
+    return "{}/{} urllib3/{} Python/{}.{}.{}-{}-{} ({})".format(*fields)
 
 
 class Bookmark(object):

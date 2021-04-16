@@ -30,10 +30,10 @@ object may be reused before and after data changes for different
 results.
 """
 
+
 from py2neo.collections import is_collection
 from py2neo.compat import Sequence, Set
 from py2neo.cypher import cypher_escape, cypher_repr
-from py2neo.data import Node
 
 
 class Predicate(object):

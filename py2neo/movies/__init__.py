@@ -31,7 +31,7 @@ from py2neo.vendor.bottle import (
     TEMPLATE_PATH,
 )
 
-from py2neo.client.config import ConnectionProfile
+from py2neo import ConnectionProfile
 from py2neo.ogm import Repository
 from py2neo.ogm.models.movies import Movie, Person
 

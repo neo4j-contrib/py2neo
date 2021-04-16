@@ -20,8 +20,9 @@ from os import path
 
 from pytest import raises
 
-from py2neo.client.config import bolt_user_agent, http_user_agent, ConnectionProfile
-from py2neo.wiring import IPv4Address
+from py2neo import ConnectionProfile
+from py2neo.addressing import IPv4Address
+from py2neo.client import bolt_user_agent, http_user_agent
 
 
 def test_bolt_user_agent():
@@ -460,14 +461,14 @@ def test_loading_profile_from_file():
 
 
 def test_uri_env_var():
-    from py2neo.client import config
-    config.NEO4J_URI = "http://alice@somewhere:8899"
+    import py2neo
+    py2neo.NEO4J_URI = "http://alice@somewhere:8899"
     prof = ConnectionProfile()
     assert prof.uri == "http://alice@somewhere:8899"
 
 
 def test_auth_env_var():
-    from py2neo.client import config
-    config.NEO4J_AUTH = "alice:python"
+    import py2neo
+    py2neo.NEO4J_AUTH = "alice:python"
     prof = ConnectionProfile()
     assert prof.auth == ("alice", "python")

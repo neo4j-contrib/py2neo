@@ -27,9 +27,9 @@ from six import raise_from
 from urllib3 import HTTPConnectionPool, HTTPSConnectionPool, make_headers
 from urllib3.exceptions import HTTPError
 
+from py2neo import ConnectionProfile
 from py2neo.compat import urlsplit
-from py2neo.client import Connection, TransactionRef, Result, Bookmark
-from py2neo.client.config import http_user_agent, ConnectionProfile
+from py2neo.client import http_user_agent, Connection, TransactionRef, Result, Bookmark
 from py2neo.client.json import JSONHydrant, dehydrate
 from py2neo.errors import Neo4jError, ConnectionUnavailable, ProtocolError
 

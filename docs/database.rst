@@ -1,48 +1,125 @@
-**************************************
-``py2neo.database`` -- Graph Databases
-**************************************
+********************************************
+``py2neo`` -- Core Connectivity and Workflow
+********************************************
 
-.. automodule:: py2neo.database
+.. automodule:: py2neo
+
+
+Getting connected
+=================
+
+The :class:`.GraphService`, :class:`.Graph`, and :class:`.SystemGraph`
+classes all accept an argument called `profile` plus individual keyword
+`settings`. Internally, these arguments are used to construct a
+:class:`.ConnectionProfile` object which holds these details.
+
+The `profile` can either be a URI or a base :class:`.ConnectionProfile`
+object. The `settings` are individual overrides for the values within
+that, such as ``host`` or ``password``. This override mechanism allows
+several ways of specifying the same information. For example, the three
+variants below are all equivalent::
+
+    >>> from py2neo import Graph
+    >>> graph_1 = Graph()
+    >>> graph_2 = Graph(host="localhost")
+    >>> graph_3 = Graph("bolt://localhost:7687")
+
+Omitting the `profile` argument completely falls back to using the
+default :class:`.ConnectionProfile`. More on this, and other useful
+information, can be found in the documentation for that class.
+
+URIs
+----
+
+The general format of a URI is ``<scheme>://[<user>[:<password>]@]<host>[:<port>]``.
+Supported URI schemes are:
+
+- ``bolt`` - Bolt (unsecured)
+- ``bolt+s`` - Bolt (secured with full certificate checks)
+- ``bolt+ssc`` - Bolt (secured with no certificate checks)
+- ``http`` - HTTP (unsecured)
+- ``https`` - HTTP (secured with full certificate checks)
+- ``http+s`` - HTTP (secured with full certificate checks)
+- ``http+ssc`` - HTTP (secured with no certificate checks)
+
+
+Note that py2neo does not support routing URIs like ``neo4j://...``
+for use with Neo4j causal clusters. To enable routing, instead pass
+a ``routing=True`` keyword argument to the :class:`.Graph` or
+:class:`.GraphService` constructor.
+
+Routing is only available for Bolt-enabled servers. No equivalent
+currently exists for HTTP.
+
+Individual settings
+-------------------
+
+The full set of supported `settings` are:
+
+============  =========================================  =====  =========================
+Keyword       Description                                Type   Default
+============  =========================================  =====  =========================
+``scheme``    Use a specific URI scheme                  str    ``'bolt'``
+``secure``    Use a secure connection (TLS)              bool   ``False``
+``verify``    Verify the server certificate (if secure)  bool   ``True``
+``host``      Database server host name                  str    ``'localhost'``
+``port``      Database server port                       int    ``7687``
+``address``   Colon-separated host and port string       str    ``'localhost:7687'``
+``user``      User to authenticate as                    str    ``'neo4j'``
+``password``  Password to use for authentication         str    ``'password'``
+``auth``      A 2-tuple of (user, password)              tuple  ``('neo4j', 'password')``
+``routing``   Route connections across multiple servers  bool   ``False``
+============  =========================================  =====  =========================
+
+``ConnectionProfile`` objects
+-----------------------------
+
+.. autoclass:: ConnectionProfile
+    :members:
+
+
+Graph Databases
+===============
 
 ``GraphService`` objects
-========================
+------------------------
 
 .. autoclass:: GraphService
     :members:
 
 ``Graph`` objects
-=================
+-----------------
 
 .. autoclass:: Graph
     :members:
 
 ``SystemGraph`` objects
-=======================
+-----------------------
 
 .. autoclass:: SystemGraph
     :members:
 
 ``Schema`` objects
-==================
+------------------
 
 .. autoclass:: Schema
     :members:
 
-``ProcedureLibrary`` objects
-============================
+Running procedures
+------------------
 
 .. autoclass:: ProcedureLibrary
     :members:
-
-``Procedure`` objects
-=====================
 
 .. autoclass:: Procedure
     :members:
 
 
+Transactions
+============
+
 ``Transaction`` objects
-=======================
+-----------------------
 
 .. autoclass:: Transaction(manager, autocommit=False, readonly=False)
 
@@ -100,9 +177,8 @@
 
     .. automethod:: rollback
 
-
-Query result data
-=================
+.. autoclass:: TransactionSummary
+   :members:
 
 ``Cursor`` objects
 ------------------
@@ -110,24 +186,16 @@ Query result data
 .. autoclass:: Cursor
    :members:
 
+
 ``Record`` objects
 ------------------
 
 .. autoclass:: Record
     :members:
 
+
 ``Table`` objects
 -----------------
 
 .. autoclass:: Table
     :members:
-
-
-Query result summaries
-======================
-
-``CypherSummary`` objects
--------------------------
-
-.. autoclass:: CypherSummary
-   :members:
