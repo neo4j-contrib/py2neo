@@ -30,7 +30,6 @@ __all__ = [
 ]
 
 
-from itertools import islice
 from logging import getLogger
 
 from py2neo.cypher.queries import (
