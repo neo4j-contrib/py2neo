@@ -808,14 +808,16 @@ class Bolt4x0(Bolt3):
     def route(self, graph_name=None, context=None):
         # In Neo4j 4.0 and above, routing is available for all
         # topologies, standalone or clustered.
+        context = dict(context or {})
+        context["address"] = str(self.profile.address)
         if graph_name is None:
             # Default database
             query = "CALL dbms.routing.getRoutingTable($context)"
-            parameters = {"context": context or {}}
+            parameters = {"context": context}
         else:
             # Named database
             query = "CALL dbms.routing.getRoutingTable($context, $database)"
-            parameters = {"context": context or {}, "database": graph_name}
+            parameters = {"context": context, "database": graph_name}
         return self._get_routing_info("system", query, parameters)
 
 
