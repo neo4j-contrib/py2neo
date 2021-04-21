@@ -28,7 +28,7 @@ from uuid import UUID, uuid4
 from monotonic import monotonic
 from packaging.version import Version
 
-from py2neo import ConnectionProfile
+from py2neo import ConnectionProfile, ServiceProfile
 from py2neo.compat import string_types
 from py2neo.errors import (Neo4jError,
                            ConnectionUnavailable,
@@ -922,13 +922,12 @@ class Connector(object):
     :param max_age: the maximum permitted age, in seconds, for
         connections to be retained within pools held by this
         connector
-    :param routing: flag to switch on client-side routing across a
-        cluster
     """
 
     def __init__(self, profile=None, user_agent=None, init_size=None,
-                 max_size=None, max_age=None, routing=False, routing_refresh_ttl=None):
-        self._profile = ConnectionProfile(profile)
+                 max_size=None, max_age=None, routing_refresh_ttl=None):
+        self._profile = ServiceProfile(profile)
+        self._initial_routers = [ConnectionProfile(profile)]
         self._user_agent = user_agent
         self._init_size = init_size
         self._max_size = max_size
@@ -936,16 +935,14 @@ class Connector(object):
         self._routing_refresh_ttl = routing_refresh_ttl
         self._transactions = {}
         self._pools = {}
-        if routing:
+        if self._profile.routing:
             self._routing = Router()
-            self._routers = []
             self._routing_tables = {}
         else:
             self._routing = None
-            self._routers = None
             self._routing_tables = None
-        self.add_pools(self._profile)
-        if routing:
+        self.add_pools(*self._initial_routers)
+        if self._profile.routing:
             self._refresh_routing_table(None)
 
     def __repr__(self):
@@ -1012,7 +1009,7 @@ class Connector(object):
         rt = self._routing.table(graph_name)
         rt.set_updating()
         try:
-            known_routers = self._routing.routers + [self.profile]  # TODO de-dupe
+            known_routers = self._routing.routers + self._initial_routers  # TODO de-dupe
             log.debug("Known routers are: %s", ", ".join(map(repr, known_routers)))
             for router in known_routers:
                 log.debug("Asking %r for routing table", router)

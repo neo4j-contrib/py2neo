@@ -111,18 +111,17 @@ class GraphService(object):
     _graphs = None
 
     def __init__(self, profile=None, **settings):
-        from py2neo import ConnectionProfile
+        from py2neo import ServiceProfile
         from py2neo.client import Connector
-        profile = ConnectionProfile(profile, **settings)
         connector_settings = {
-            "user_agent": settings.get("user_agent"),
-            "init_size": settings.get("init_size"),
-            "max_size": settings.get("max_size"),
-            "max_age": settings.get("max_age"),
-            "routing": settings.get("routing"),
-            "routing_refresh_ttl": settings.get("routing_refresh_ttl"),
+            "user_agent": settings.pop("user_agent", None),
+            "init_size": settings.pop("init_size", None),
+            "max_size": settings.pop("max_size", None),
+            "max_age": settings.pop("max_age", None),
+            "routing_refresh_ttl": settings.pop("routing_refresh_ttl", None),
         }
-        if connector_settings["init_size"] is None and not connector_settings["routing"]:
+        profile = ServiceProfile(profile, **settings)
+        if connector_settings["init_size"] is None and not profile.routing:
             # Ensures credentials are checked on construction
             connector_settings["init_size"] = 1
         self._connector = Connector(profile, **connector_settings)

@@ -62,6 +62,7 @@ __all__ = [
     "DEFAULT_HTTP_PORT",
     "DEFAULT_HTTPS_PORT",
     "ConnectionProfile",
+    "ServiceProfile",
 
 ]
 
@@ -69,7 +70,7 @@ __all__ = [
 from os import getenv
 
 from py2neo.addressing import Address
-from py2neo.compat import Mapping, string_types
+from py2neo.compat import Mapping, string_types, urlsplit
 from py2neo.meta import get_metadata
 
 from py2neo.database import *
@@ -96,8 +97,8 @@ __version__ = metadata["version"]
 
 NEO4J_URI = getenv("NEO4J_URI")
 NEO4J_AUTH = getenv("NEO4J_AUTH")
-NEO4J_SECURE = True if getenv("NEO4J_SECURE") == "1" else False if getenv("NEO4J_SECURE") == "0" else None
-NEO4J_VERIFY = True if getenv("NEO4J_VERIFY") == "1" else False if getenv("NEO4J_VERIFY") == "0" else None
+NEO4J_SECURE = getenv("NEO4J_SECURE")
+NEO4J_VERIFY = getenv("NEO4J_VERIFY")
 
 
 DEFAULT_PROTOCOL = "bolt"
@@ -112,10 +113,10 @@ DEFAULT_HTTPS_PORT = 7473
 
 
 class ConnectionProfile(Mapping):
-    """ Connection details for a Neo4j service.
+    """ Connection details for a Neo4j server.
 
     A connection profile holds a set of values that describe how to
-    connect to, and authorise against, a particular Neo4j service.
+    connect to, and authorise against, a particular Neo4j server.
     The set of values held within a profile are available as either
     object attributes (e.g. ``profile.uri``) or sub-items (e.g.
     ``profile["uri"]``.
@@ -190,38 +191,43 @@ class ConnectionProfile(Mapping):
 
     """
 
-    __keys = ("secure", "verify", "scheme", "user", "password", "address",
-              "auth", "host", "port", "port_number", "protocol", "uri")
+    _keys = ("secure", "verify", "scheme", "user", "password", "address",
+             "auth", "host", "port", "port_number", "protocol", "uri")
 
-    __hash_keys = ("secure", "verify", "scheme", "user", "password", "address")
+    _hash_keys = ("protocol", "secure", "verify", "user", "password", "address")
 
     def __init__(self, profile=None, **settings):
         # TODO: recognise IPv6 addresses explicitly
+        self.__protocol = DEFAULT_PROTOCOL
+        self.__secure = DEFAULT_SECURE
+        self.__verify = DEFAULT_VERIFY
+        self.__user = DEFAULT_USER
+        self.__password = DEFAULT_PASSWORD
+        self.__address = Address.parse("")
 
-        # Apply base defaults, URI, or profile
+        self._apply_env_vars()
+
         if profile is None:
-            if NEO4J_URI:
-                self._apply_base_uri(NEO4J_URI)
-            else:
-                self._apply_base_defaults()
+            pass
         elif isinstance(profile, string_types):
-            self._apply_base_uri(profile)
+            self._apply_uri(profile)
+        elif isinstance(profile, self.__class__):
+            self._apply_settings(**{k: profile[k] for k in self._hash_keys})
         elif isinstance(profile, Mapping):
-            self._apply_base_defaults()
-            base_settings = dict(profile)
-            self._apply_auth(**base_settings)
-            self._apply_components(**base_settings)
+            self._apply_settings(**profile)
         else:
             raise TypeError("Profile %r is neither a ConnectionProfile "
                             "nor a string URI" % profile)
 
-        # Apply extra settings as overrides
-        self._apply_auth(**settings)
-        self._apply_components(**settings)
+        self._apply_settings(**settings)
 
-        # Clean up and derive secondary attributes
-        self._apply_correct_scheme_for_security()
-        self._apply_fallback_defaults()
+        if not self.address.port:
+            addr = list(self.address)
+            if self.protocol == "http":
+                addr[1] = DEFAULT_HTTPS_PORT if self.secure else DEFAULT_HTTP_PORT
+            else:
+                addr[1] = DEFAULT_BOLT_PORT
+            self.__address = Address(addr)
 
     def __repr__(self):
         return "%s(%r)" % (self.__class__.__name__, self.uri)
@@ -230,132 +236,111 @@ class ConnectionProfile(Mapping):
         return "«{}»".format(self.uri)
 
     def __getitem__(self, key):
-        if key in self.__keys:
+        if key in self._keys:
             return getattr(self, key)
         else:
             raise KeyError(key)
 
     def __len__(self):
-        return len(self.__keys)
+        return len(self._keys)
 
     def __iter__(self):
-        return iter(self.__keys)
+        return iter(self._keys)
 
-    def _apply_base_defaults(self):
-        self.__secure = None
-        self.__verify = None
-        self.__scheme = None
-        self.__user = None
-        self.__password = None
-        self.__address = Address.parse("")
+    def _apply_env_vars(self):
+        if NEO4J_URI:
+            self._apply_uri(NEO4J_URI)
+        if NEO4J_AUTH:
+            self._apply_settings(auth=NEO4J_AUTH)
+        if NEO4J_SECURE:
+            self._apply_settings(secure=(NEO4J_SECURE == "1"))
+        if NEO4J_VERIFY:
+            self._apply_settings(verify=(NEO4J_VERIFY == "1"))
 
-    def _apply_base_uri(self, uri):
-        from py2neo.compat import urlsplit
-        assert uri
+    def _apply_uri(self, uri):
+        settings = {}
         parsed = urlsplit(uri)
-        if parsed.scheme is None:
-            self.__secure = None
-            self.__verify = None
-            self.__scheme = None
+        if parsed.scheme is not None:
+            self._apply_scheme(parsed.scheme)
+        if "@" in parsed.netloc:
+            settings["address"] = parsed.netloc.partition("@")[-1]
         else:
-            self.__scheme = parsed.scheme
-            if self.__scheme in ["bolt+s", "bolt+ssc",
-                                 "https", "http+s", "http+ssc"]:
-                self.__secure = True
-            elif self.__scheme in ["bolt", "http"]:
-                self.__secure = False
-            else:
-                raise ValueError("Unsupported scheme %r "
-                                 "(for routing, use routing=True)" % self.__scheme)
-            if self.__scheme in ["bolt+ssc", "http+ssc"]:
-                self.__verify = False
-            else:
-                self.__verify = True
-        self.__user = parsed.username or None
-        self.__password = parsed.password or None
-        netloc = parsed.netloc
-        if "@" in netloc:
-            self.__address = Address.parse(netloc.partition("@")[-1])
+            settings["address"] = parsed.netloc
+        if parsed.username:
+            settings["user"] = parsed.username
+        if parsed.password:
+            settings["password"] = parsed.password
+        self._apply_settings(**settings)
+
+    def _apply_scheme(self, scheme):
+        if scheme == "https":
+            protocol, ext = "http", "s"
         else:
-            self.__address = Address.parse(netloc)
+            protocol, _, ext = scheme.partition("+")
+        if ext == "":
+            self._apply_settings(protocol=protocol, secure=False, verify=True)
+        elif ext == "s":
+            self._apply_settings(protocol=protocol, secure=True, verify=True)
+        elif ext == "ssc":
+            self._apply_settings(protocol=protocol, secure=True, verify=False)
+        else:
+            raise ValueError("Unknown scheme extension %r" % ext)
 
-    def _apply_auth(self, **settings):
-        if "auth" in settings and settings["auth"] is not None:
-            if isinstance(settings["auth"], string_types):
-                self.__user, _, self.__password = settings["auth"].partition(":")
-            else:
-                self.__user, self.__password = settings["auth"]
-        elif NEO4J_AUTH is not None:
-            self.__user, _, self.__password = NEO4J_AUTH.partition(":")
+    def _apply_settings(self, uri=None, scheme=None, protocol=None, secure=None, verify=None,
+                        address=None, host=None, port=None, port_number=None,
+                        auth=None, user=None, password=None, **other):
+        if uri:
+            self._apply_uri(uri)
 
-    def _apply_components(self, **settings):
-        self.__secure = self._coalesce(settings.get("secure"), self.secure, NEO4J_SECURE)
-        self.__verify = self._coalesce(settings.get("verify"), self.verify, NEO4J_VERIFY)
-        self.__scheme = self._coalesce(settings.get("scheme"), self.scheme)
-        self.__user = self._coalesce(settings.get("user"), self.user)
-        self.__password = self._coalesce(settings.get("password"), self.password)
-        if "address" in settings:
-            address = settings.get("address")
-            if isinstance(address, tuple):
-                self.__address = Address(address)
-            else:
-                self.__address = Address.parse(settings.get("address"))
-        if "host" in settings and "port" in settings:
-            self.__address = Address.parse("%s:%s" % (settings.get("host"), settings.get("port")))
-        elif "host" in settings:
-            self.__address = Address.parse("%s:%s" % (settings.get("host"), self.port))
-        elif "port" in settings:
-            self.__address = Address.parse("%s:%s" % (self.host, settings.get("port")))
+        if scheme:
+            self._apply_scheme(scheme)
+        if protocol:
+            self._apply_protocol(protocol)
+        if secure is not None:
+            self.__secure = secure
+        if verify is not None:
+            self.__verify = verify
 
-    def _apply_correct_scheme_for_security(self):
-        if self.secure is None:
-            self.__secure = DEFAULT_SECURE
-        if self.verify is None:
-            self.__verify = DEFAULT_VERIFY
-        if self.protocol == "bolt":
-            if self.secure:
-                self.__scheme = "bolt+s" if self.verify else "bolt+ssc"
-            else:
-                self.__scheme = "bolt"
-        elif self.protocol == "http":
-            if self.secure:
-                self.__scheme = "https" if self.verify else "http+ssc"
-            else:
-                self.__scheme = "http"
+        if isinstance(address, tuple):
+            self.__address = Address(address)
+        elif address:
+            self.__address = Address.parse(address)
+        if host and port:
+            self.__address = Address.parse("%s:%s" % (host, port))
+        elif host:
+            self.__address = Address.parse("%s:%s" % (host, self.port))
+        elif port:
+            self.__address = Address.parse("%s:%s" % (self.host, port))
 
-    def _apply_fallback_defaults(self):
-        if not self.user:
-            self.__user = DEFAULT_USER
-        if not self.password:
-            self.__password = DEFAULT_PASSWORD
-        if not self.address.port:
-            bits = list(self.address)
-            if self.scheme == "http":
-                bits[1] = DEFAULT_HTTP_PORT
-            elif self.scheme in ("https", "http+s", "http+ssc"):
-                bits[1] = DEFAULT_HTTPS_PORT
-            else:
-                bits[1] = DEFAULT_BOLT_PORT
-            self.__address = Address(bits)
+        if isinstance(auth, tuple):
+            self.__user, self.__password = auth
+        elif auth:
+            self.__user, _, self.__password = auth.partition(":")
+        if user:
+            self.__user = user
+        if password:
+            self.__password = password
+
+        if other:
+            raise ValueError("The following settings are not supported: %r" % other)
+
+    def _apply_protocol(self, protocol):
+        if protocol not in ("bolt", "http"):
+            raise ValueError("Unknown protocol %r" % protocol)
+        self.__protocol = protocol
 
     def __hash__(self):
-        values = tuple(getattr(self, key) for key in self.__hash_keys)
+        values = tuple(getattr(self, key) for key in self._hash_keys)
         return hash(values)
 
     def __eq__(self, other):
-        self_values = tuple(getattr(self, key) for key in self.__hash_keys)
-        other_values = tuple(getattr(other, key) for key in self.__hash_keys)
-        return self_values == other_values
-
-    @staticmethod
-    def _coalesce(*values):
-        """ Utility function to return the first non-null value from a
-        sequence of values.
-        """
-        for value in values:
-            if value is not None:
-                return value
-        return None
+        self_values = tuple(getattr(self, key) for key in self._hash_keys)
+        try:
+            other_values = tuple(getattr(other, key) for key in self._hash_keys)
+        except AttributeError:
+            return False
+        else:
+            return self_values == other_values
 
     @property
     def secure(self):
@@ -379,7 +364,12 @@ class ConnectionProfile(Mapping):
         If unspecified, and uninfluenced by environment variables, this
         will default to ``'bolt'``.
         """
-        return self.__scheme
+        if self.secure and self.verify:
+            return "https" if self.protocol == "http" else self.protocol + "+s"
+        elif self.secure:
+            return self.protocol + "+ssc"
+        else:
+            return self.protocol
 
     @property
     def user(self):
@@ -448,12 +438,7 @@ class ConnectionProfile(Mapping):
         If unspecified, and uninfluenced by environment variables, this
         will default to ``'bolt'``.
         """
-        if self.scheme in ("bolt", "bolt+s", "bolt+ssc"):
-            return "bolt"
-        elif self.scheme in ("http", "https", "http+s", "http+ssc"):
-            return "http"
-        else:
-            return DEFAULT_PROTOCOL
+        return self.__protocol
 
     @property
     def uri(self):
@@ -505,3 +490,51 @@ class ConnectionProfile(Mapping):
         else:
             return {key: value for key, value in self.items()
                     if key not in ("auth", "password")}
+
+
+class ServiceProfile(ConnectionProfile):
+
+    _keys = ConnectionProfile._keys + ("routing",)
+
+    _hash_keys = ConnectionProfile._hash_keys + ("routing",)
+
+    def __init__(self, profile=None, **settings):
+        self.__routing = False
+        super(ServiceProfile, self).__init__(profile, **settings)
+
+    @property
+    def scheme(self):
+        if self.protocol == "bolt" and self.routing:
+            protocol = "neo4j"
+        else:
+            protocol = self.protocol
+        if self.secure and self.verify:
+            return "https" if protocol == "http" else protocol + "+s"
+        elif self.secure:
+            return protocol + "+ssc"
+        else:
+            return protocol
+
+    @property
+    def routing(self):
+        """ Routing flag
+        """
+        return self.__routing
+
+    def _apply_protocol(self, protocol):
+        if protocol == "neo4j":
+            self.__routing = True
+            super(ServiceProfile, self)._apply_protocol("bolt")
+        else:
+            super(ServiceProfile, self)._apply_protocol(protocol)
+
+    def _apply_settings(self, uri=None, scheme=None, protocol=None, secure=None, verify=None,
+                        address=None, host=None, port=None, port_number=None,
+                        auth=None, user=None, password=None, **other):
+        try:
+            self.__routing = other.pop("routing")
+        except KeyError:
+            pass
+        return super(ServiceProfile, self)._apply_settings(uri, scheme, protocol, secure, verify,
+                                                           address, host, port, port_number,
+                                                           auth, user, password, **other)
