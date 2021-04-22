@@ -35,11 +35,11 @@ from prompt_toolkit.styles import merge_styles, style_from_pygments_cls, style_f
 from pygments.styles.native import NativeStyle
 from pygments.token import Token
 
-from py2neo import __version__
-from py2neo.client import ConnectionProfile
+from py2neo import __version__, ConnectionProfile
 from py2neo.cypher.lexer import CypherLexer
-from py2neo.database import GraphService, Table
+from py2neo.database import GraphService
 from py2neo.errors import Neo4jError
+from py2neo.export import Table
 
 
 EDITOR = environ.get("EDITOR", "vim")

@@ -18,7 +18,8 @@
 
 from pytest import raises
 
-from py2neo import Record, Subgraph
+from py2neo import Subgraph
+from py2neo.cypher import Record
 
 
 def test_cannot_move_beyond_end(graph):

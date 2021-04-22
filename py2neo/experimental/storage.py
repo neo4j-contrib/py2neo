@@ -29,7 +29,7 @@ from uuid import uuid4
 
 from py2neo.collections import iter_items, PropertyDict
 from py2neo.compat import Sequence, Set
-from py2neo.database import Record
+from py2neo.cypher import Record
 
 
 NodeEntry = namedtuple("NodeEntry", ["labels", "properties"])
