@@ -119,48 +119,19 @@ class ConnectionProfile(Mapping):
     connect to, and authorise against, a particular Neo4j server.
     The set of values held within a profile are available as either
     object attributes (e.g. ``profile.uri``) or sub-items (e.g.
-    ``profile["uri"]``.
+    ``profile["uri"]``).
 
-    Profile instances are immutable, so can safely be hashed for
+    Profile instances are immutable, so can be safely hashed for
     inclusion within a set or as dictionary keys.
 
     :param profile:
-        The base connection information, provided as a dictionary, an
-        existing :class:`.ConnectionProfile` object or a string URI.
-        This value can also be :const:`None`, in which case default
-        base settings are used.
-
-        * (None) -- no base profile; use default settings
-        * (str) -- URI profile, e.g. `bolt://bob@graph.example.com:7687`
-        * (dict) -- dictionary of individual settings
-        * (:class:`.ConnectionProfile`) -- existing profile object
+        The base connection information, provided as a dictionary of
+        settings, an existing :class:`.ConnectionProfile` object or a
+        string URI. This value can also be :const:`None`, in which case
+        default base settings are used.
 
     :param settings:
-        An optional set of individual overrides for each value.
-        Valid options are:
-
-        * :attr:`.address` -- either a tuple (e.g. ``('localhost', 7687)``), an :class:`.Address` object, or a string (e.g. ``'localhost:7687'``)
-        * :attr:`.auth` -- either a 2-tuple (e.g. ``('user', 'password')``), or a string (e.g. ``'user:password'``)
-        * :attr:`.host`
-        * :attr:`.password`
-        * :attr:`.port`
-        * :attr:`.scheme`
-        * :attr:`.secure`
-        * :attr:`.user`
-        * :attr:`.verify`
-
-    The values used for a default profile will be based on a local
-    server listening on the default Bolt port, with the password
-    ``password``. These defaults can be altered via environment
-    variables, if required:
-
-    .. envvar :: NEO4J_URI
-
-    .. envvar :: NEO4J_AUTH
-
-    .. envvar :: NEO4J_SECURE
-
-    .. envvar :: NEO4J_VERIFY
+        Optional set of individual overrides.
 
     The full set of attributes and operations are described below.
 
@@ -493,6 +464,10 @@ class ConnectionProfile(Mapping):
 
 
 class ServiceProfile(ConnectionProfile):
+    """ Connection details for a full Neo4j service, such as a cluster
+    or single instance. This class extends :class:`.ConnectionProfile`
+    so also inherits all of its attributes.
+    """
 
     _keys = ConnectionProfile._keys + ("routing",)
 

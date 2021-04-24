@@ -4,15 +4,11 @@ The Py2neo Handbook
 
 **Py2neo** is a client library and toolkit for working with Neo4j_ from within Python_ applications and from the command line.
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
-Unlike previous releases, Py2neo does not require an HTTP-enabled server and can work entirely through Bolt.
 
-When considering whether to use py2neo or the `official Python Driver for Neo4j <https://github.com/neo4j/neo4j-python-driver>`_, there is a trade-off to be made.
-Py2neo offers a larger surface, with both a higher level API and an OGM, but the official driver is fully supported by Neo4j.
-If you are new to Neo4j, need an OGM, do not want to learn Cypher immediately, or require data science integrations, py2neo may be the better choice.
-If you are in an Enterprise environment where you require support, you likely need the official driver.
+As of version 2021.1, Py2neo contains full support for routing, as exposed by a Neo4j cluster.
+This can be enabled using a ``neo4j://...`` URI or by passing ``routing=True`` to a :class:`.Graph` constructor.
 
-As of version 2020.1.0, Py2neo contains **experimental** Bolt routing support, enabled using ``g = Graph(..., routing=True)``.
-Constructive feedback on this feature is very welcome, but note that it is not yet guaranteed to be stable in a production environment.
+Remember to take a look at the full :ref:`release notes <Version 2021.1>` for version 2021.1.
 
 
 Releases & Versioning
@@ -72,20 +68,33 @@ A comprehensive set of graph structure data types and operations are provided, a
 .. toctree::
     :maxdepth: 2
 
-    database
+    profiles
+    workflow
     errors
     matching
     data/index
     data/spatial
 
 
-Bulk Data Import
-================
+Cypher
+======
+
+.. toctree::
+    :maxdepth: 2
+
+    cypher/index
+    cypher/lexer
+    cypher/queries
+
+
+Bulk Operations
+===============
 
 .. toctree::
     :maxdepth: 2
 
     bulk/index
+    bulk/export
 
 
 Object-Graph Mapping
@@ -107,18 +116,7 @@ Python DB API 2.0 Compatibility
     pep249/index
 
 
-Cypher Language Tools
-=====================
-
-.. toctree::
-    :maxdepth: 2
-
-    cypher/index
-    cypher/lexer
-    cypher/queries
-
-
-Command Line Usage
+Command Line Tools
 ==================
 
 .. toctree::
