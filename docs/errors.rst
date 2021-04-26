@@ -1,6 +1,9 @@
-***************************
-``py2neo.errors`` -- Errors
-***************************
+******
+Errors
+******
+
+.. module:: py2neo
+    :noindex:
 
 .. automodule:: py2neo.errors
 
@@ -8,36 +11,36 @@
 Neo4j Errors
 ============
 
-.. autoclass:: Neo4jError
+.. autoclass:: py2neo.Neo4jError
     :members:
 
-.. autoclass:: ClientError
+.. autoclass:: py2neo.ClientError
     :members:
 
-.. autoclass:: DatabaseError
+.. autoclass:: py2neo.DatabaseError
     :members:
 
-.. autoclass:: TransientError
+.. autoclass:: py2neo.TransientError
     :members:
 
 
 Connectivity Errors
 ===================
 
-.. autoclass:: ConnectionUnavailable
+.. autoclass:: py2neo.ConnectionUnavailable
     :members:
 
-.. autoclass:: ConnectionBroken
+.. autoclass:: py2neo.ConnectionBroken
     :members:
 
-.. autoclass:: ConnectionLimit
+.. autoclass:: py2neo.ConnectionLimit
     :members:
 
-.. autoclass:: ServiceUnavailable
+.. autoclass:: py2neo.ServiceUnavailable
     :members:
 
-.. autoclass:: WriteServiceUnavailable
+.. autoclass:: py2neo.WriteServiceUnavailable
     :members:
 
-.. autoclass:: ProtocolError
+.. autoclass:: py2neo.ProtocolError
     :members:

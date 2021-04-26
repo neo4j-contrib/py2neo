@@ -11,6 +11,21 @@ This can be enabled using a ``neo4j://...`` URI or by passing ``routing=True`` t
 Remember to take a look at the full :ref:`release notes <Version 2021.1>` for version 2021.1.
 
 
+Quick Example
+=============
+
+To run a query against a local database is straightforward::
+
+    >>> from py2neo import Graph
+    >>> graph = Graph("bolt://localhost:7687", auth=("neo4j", "password"))
+    >>> graph.run("UNWIND range(1, 3) AS n RETURN n, n * n as n_sq")
+       n | n_sq
+    -----|------
+       1 |    1
+       2 |    4
+       3 |    9
+
+
 Releases & Versioning
 =====================
 
@@ -54,24 +69,30 @@ More about this can be found in the documentation for the :class:`.Graph` class.
 Note that Py2neo is developed and tested under **Linux** using standard CPython distributions.
 While other operating systems and Python distributions may work, support for these is not available.
 
-
 Core Graph API
 ==============
-Py2neo consists of several layers of API, and at the heart of those is the Graph API.
-This has evolved from the original, foundational API included with early versions of the library, and remains relevant for general purpose use today.
-The backbone of this API is the :class:`.Graph` class, which represents a graph database exposed by a Neo4j service running on a single instance or cluster.
-The service itself is represented by a :class:`.GraphService` object.
 
-:class:`.Node` and :class:`.Relationship` objects are also key to this API, both of which extend the :class:`.Subgraph` class.
-A comprehensive set of graph structure data types and operations are provided, allowing great flexibility in how graph data can be used.
+.. automodule:: py2neo
+    :noindex:
 
 .. toctree::
     :maxdepth: 2
 
     profiles
     workflow
-    errors
     matching
+    errors
+
+
+Data Types
+==========
+
+The :class:`.Node` and :class:`.Relationship` objects are key to this library, both of which extend the :class:`.Subgraph` class.
+A comprehensive set of graph structure data types and operations are provided, allowing great flexibility in how graph data can be used.
+
+.. toctree::
+    :maxdepth: 2
+
     data/index
     data/spatial
 

@@ -1,6 +1,9 @@
-*****************************************************
-``py2neo.matching`` -- Node and relationship matching
-*****************************************************
+******************************
+Node and relationship matching
+******************************
+
+.. module:: py2neo
+    :noindex:
 
 .. automodule:: py2neo.matching
 
@@ -11,13 +14,13 @@ Node matching
 ``NodeMatcher`` objects
 -----------------------
 
-.. autoclass:: NodeMatcher(graph)
+.. autoclass:: py2neo.NodeMatcher(graph)
     :members:
 
 ``NodeMatch`` objects
 -----------------------
 
-.. autoclass:: py2neo.matching.NodeMatch
+.. autoclass:: py2neo.NodeMatch
    :members:
 
 
@@ -27,13 +30,13 @@ Relationship matching
 ``RelationshipMatcher`` objects
 -------------------------------
 
-.. autoclass:: RelationshipMatcher(graph)
+.. autoclass:: py2neo.RelationshipMatcher(graph)
     :members:
 
 ``RelationshipMatch`` objects
 -----------------------------
 
-.. autoclass:: py2neo.matching.RelationshipMatch
+.. autoclass:: py2neo.RelationshipMatch
    :members:
 
 
@@ -70,37 +73,37 @@ a more idiomatic API.*
 
 Null check predicates
 ---------------------
-.. autofunction:: IS_NULL
-.. autofunction:: IS_NOT_NULL
+.. autofunction:: py2neo.IS_NULL
+.. autofunction:: py2neo.IS_NOT_NULL
 
 Equality predicates
 -------------------
-.. autofunction:: EQ
-.. autofunction:: NE
+.. autofunction:: py2neo.EQ
+.. autofunction:: py2neo.NE
 
 Ordering predicates
 -------------------
-.. autofunction:: LT
-.. autofunction:: LE
-.. autofunction:: GT
-.. autofunction:: GE
+.. autofunction:: py2neo.LT
+.. autofunction:: py2neo.LE
+.. autofunction:: py2neo.GT
+.. autofunction:: py2neo.GE
 
 String predicates
 -----------------
-.. autofunction:: STARTS_WITH
-.. autofunction:: ENDS_WITH
-.. autofunction:: CONTAINS
-.. autofunction:: LIKE
+.. autofunction:: py2neo.STARTS_WITH
+.. autofunction:: py2neo.ENDS_WITH
+.. autofunction:: py2neo.CONTAINS
+.. autofunction:: py2neo.LIKE
 
 List predicates
 ---------------
-.. autofunction:: IN
+.. autofunction:: py2neo.IN
 
 Connectives
 -----------
-.. autofunction:: AND
-.. autofunction:: OR
-.. autofunction:: XOR
+.. autofunction:: py2neo.AND
+.. autofunction:: py2neo.OR
+.. autofunction:: py2neo.XOR
 
 Custom predicates
 -----------------

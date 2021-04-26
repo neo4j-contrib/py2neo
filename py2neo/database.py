@@ -355,8 +355,6 @@ class Graph(object):
     def commit(self, tx):
         """ Commit a transaction.
 
-        :returns: :class:`.TransactionSummary` object
-
         *New in version 2021.1.*
         """
         if tx is None:
@@ -375,8 +373,6 @@ class Graph(object):
 
     def rollback(self, tx):
         """ Rollback a transaction.
-
-        :returns: :class:`.TransactionSummary` object
 
         *New in version 2021.1.*
         """
@@ -962,11 +958,11 @@ class Transaction(object):
 
     def run(self, cypher, parameters=None, **kwparameters):
         """ Send a Cypher query to the server for execution and return
-        a :py:class:`.Cursor` for navigating its result.
+        a :py:class:`~.cypher.Cursor` for navigating its result.
 
         :param cypher: Cypher query
         :param parameters: dictionary of parameters
-        :returns: :py:class:`.Cursor` object
+        :returns: :py:class:`~.cypher.Cursor` object
         """
         from py2neo.client import Connection
 
@@ -1009,8 +1005,6 @@ class Transaction(object):
                 "use graph.commit(transaction) instead")
     def commit(self):
         """ Commit the transaction.
-
-        :returns: :class:`.TransactionSummary` object
         """
         return self.graph.commit(self)
 
@@ -1019,8 +1013,6 @@ class Transaction(object):
     def rollback(self):
         """ Roll back the current transaction, undoing all actions
         previously taken.
-
-        :returns: :class:`.TransactionSummary` object
         """
         return self.graph.rollback(self)
 

@@ -1,8 +1,9 @@
-*****************
-Getting connected
-*****************
+*******************
+Connection profiles
+*******************
 
 .. module:: py2neo
+    :noindex:
 
 Most py2neo applications will make use of a class such as :class:`.Graph` or :class:`.GraphService` as the backbone through which Neo4j access is made.
 On construction, these classes generally accept a `profile` plus additional individual settings, that together specify how and where to connect.
@@ -126,9 +127,9 @@ for example, ``auth`` would be applied before ``user`` and ``password``.
 Profile objects
 ===============
 
-.. autoclass:: ConnectionProfile
+.. autoclass:: py2neo.ConnectionProfile
     :members:
 
-.. autoclass:: ServiceProfile
+.. autoclass:: py2neo.ServiceProfile
     :members:
     :show-inheritance:

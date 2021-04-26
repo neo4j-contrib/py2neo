@@ -3,38 +3,38 @@ Workflow
 ********
 
 .. module:: py2neo
-    :noindex:
+.. module:: py2neo.database
 
 
 ``GraphService`` objects
 ------------------------
 
-.. autoclass:: GraphService
+.. autoclass:: py2neo.GraphService
     :members:
 
 ``Graph`` objects
 -----------------
 
-.. autoclass:: Graph
+.. autoclass:: py2neo.Graph
     :members:
 
 ``SystemGraph`` objects
 -----------------------
 
-.. autoclass:: SystemGraph
+.. autoclass:: py2neo.SystemGraph
     :members:
 
 ``Schema`` objects
 ------------------
 
-.. autoclass:: Schema
+.. autoclass:: py2neo.Schema
     :members:
 
 
 ``Transaction`` objects
 -----------------------
 
-.. autoclass:: Transaction(manager, autocommit=False, readonly=False)
+.. autoclass:: py2neo.Transaction(manager, autocommit=False, readonly=False)
 
     .. autoattribute:: graph
 

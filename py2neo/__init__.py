@@ -17,25 +17,20 @@
 
 
 """
-The ``py2neo`` root package contains classes and functions required
-to interact with a Neo4j server, including classes pertaining to the
-execution of Cypher queries and transactions.
+Py2neo consists of several distinct regions of API, the heart of which
+is the Graph API. This has evolved from the original, foundational API
+included with early versions of the library, and remains relevant for
+general purpose use today.
 
-The most useful of the classes provided here is the :class:`.Graph`
-class which represents a Neo4j graph database instance and provides
-access to a large portion of the most commonly used py2neo API.
+The :class:`.Graph` class represents a graph database exposed by a
+Neo4j service running on a single instance or cluster, and which
+provides access to a large portion of the most commonly used py2neo
+features. The full DBMS is represented by a :class:`.GraphService`
+object.
 
-To run a query against a local database is straightforward::
-
-    >>> from py2neo import Graph
-    >>> graph = Graph(password="password")
-    >>> graph.run("UNWIND range(1, 3) AS n RETURN n, n * n as n_sq").to_table()
-       n | n_sq
-    -----|------
-       1 |    1
-       2 |    4
-       3 |    9
-
+For convenience, all core functions and classes are exported from the
+``py2neo`` root namespace. This includes all connectivity and database
+management functionality as well as entity matching and core errors.
 """
 
 from __future__ import absolute_import, print_function
