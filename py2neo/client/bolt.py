@@ -677,7 +677,7 @@ class Bolt1(Bolt):
             self._writer.write_message(tag, fields)
             self._log_message(self.local_port, tag, fields)
 
-    def append_message(self, tag, *fields, capacity=-1, vital=False):
+    def append_message(self, tag, *fields, **kwargs):
         """ Write a request to the output queue.
 
         :param tag:
@@ -686,15 +686,19 @@ class Bolt1(Bolt):
         :param fields:
             Message payload.
 
-        :param capacity:
-            The preferred max number of records that a response can
-            hold.
-
-        :param vital:
-            If true, this should trigger the connection to close on
-            failure. Vital responses cannot be ignored.
+        :param kwargs
+            - capacity: The preferred max number of records that a
+              response can hold.
+            - vital: If true, this should trigger the connection to
+              close on failure. Vital responses cannot be ignored.
 
         """
+        capacity = kwargs.get("capacity", None)
+        if capacity is None:
+            capacity = -1
+        vital = kwargs.get("vital", None)
+        if vital is None:
+            vital = False
         self.write_message(tag, fields)
         response = BoltResponse(capacity=capacity, vital=vital)
         self._responses.append(response)
