@@ -41,7 +41,7 @@ class BoltRouter(WireRequestHandler):
         self.user_agent = None
         self.auth = {}
         self.results = {}
-        super(BoltRouter, self).__init__(*args, **kwargs)
+        WireRequestHandler.__init__(self, *args, **kwargs)
 
     def setup(self):
         self.client = Bolt.accept(self.wire)
@@ -128,7 +128,7 @@ class BoltServer(ThreadingMixIn, TCPServer):
     allow_reuse_address = True
 
     def __init__(self, server_address, bind_and_activate=True):
-        super(BoltServer, self).__init__(server_address, BoltRouter, bind_and_activate)
+        TCPServer.__init__(self, server_address, BoltRouter, bind_and_activate)
 
 
 def run():
@@ -140,10 +140,11 @@ def run():
     #bind_host, bind_port = args.bind_address.split(":")
     #server_host, server_port = args.server_address.split(":")
 
-    with BoltServer(("localhost", 7687)) as server:
-        # Activate the server; this will keep running until you
-        # interrupt the program with Ctrl-C
+    server = BoltServer(("localhost", 7687))
+    try:
         server.serve_forever()
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":
