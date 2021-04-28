@@ -466,7 +466,7 @@ class Bolt1(Bolt):
         self._set_transaction(graph_name, readonly=readonly,
                               # after, metadata, timeout
                               )
-        responses = (self.append_message(0x10, self._transaction.extra),
+        responses = (self.append_message(0x10, "BEGIN", self._transaction.extra),
                      self.append_message(0x2F))
         try:
             self._sync(*responses)
@@ -484,7 +484,7 @@ class Bolt1(Bolt):
         self._assert_transaction_open(tx)
         self._transaction.set_complete()
         try:
-            self._sync(self.append_message(0x10, {}),
+            self._sync(self.append_message(0x10, "COMMIT", {}),
                        self.append_message(0x2F))
         except BrokenWireError as error:
             tx.mark_broken()
@@ -507,7 +507,7 @@ class Bolt1(Bolt):
         self._assert_transaction_open(tx)
         self._transaction.set_complete()
         try:
-            self._sync(self.append_message(0x10, {}),
+            self._sync(self.append_message(0x10, "ROLLBACK", {}),
                        self.append_message(0x2F))
         except BrokenWireError as error:
             tx.mark_broken()

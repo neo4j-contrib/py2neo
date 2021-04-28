@@ -1265,7 +1265,7 @@ class Connector(object):
             pass
         else:
             pool.prune()
-            if pool.size == 0:
+            if self._routing is not None and pool.size == 0:
                 log.debug("Removing connection pool for profile %r", profile)
                 try:
                     del self._pools[profile]
