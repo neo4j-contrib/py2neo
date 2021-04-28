@@ -44,9 +44,9 @@ except ImportError:
     from time import time as perf_counter
 
 try:
-    from socketserver import BaseRequestHandler
+    from socketserver import BaseRequestHandler, TCPServer, ThreadingMixIn
 except ImportError:
-    from SocketServer import BaseRequestHandler
+    from SocketServer import BaseRequestHandler, TCPServer, ThreadingMixIn
 
 from abc import ABCMeta
 from io import StringIO

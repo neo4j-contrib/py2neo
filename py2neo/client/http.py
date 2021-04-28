@@ -62,19 +62,17 @@ class HTTP(Connection):
         if profile is None:
             profile = ConnectionProfile(scheme="http")
         try:
-            http = cls(profile, (user_agent or http_user_agent()),
-                       on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
-            http._hello()
+            http = cls(profile, on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
+            http._hello(user_agent or http_user_agent())
             return http
         except HTTPError as error:
             raise_from(ConnectionUnavailable("Cannot open connection to %r", profile), error)
 
-    def __init__(self, profile, user_agent, on_bind=None, on_unbind=None, on_release=None):
-        super(HTTP, self).__init__(profile, user_agent,
-                                   on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
+    def __init__(self, profile, on_bind=None, on_unbind=None, on_release=None):
+        super(HTTP, self).__init__(profile, on_bind=on_bind, on_unbind=on_unbind,
+                                   on_release=on_release)
         self.http_pool = None
-        self.headers = make_headers(basic_auth=":".join(profile.auth),
-                                    user_agent=self.user_agent)
+        self.headers = {}
         self.__closed = False
         self._make_pool(profile)
 
@@ -114,7 +112,9 @@ class HTTP(Connection):
     def local_port(self):
         raise NotImplementedError
 
-    def _hello(self):
+    def _hello(self, user_agent):
+        self.headers.update(make_headers(basic_auth=":".join(self.profile.auth),
+                                         user_agent=user_agent))
         r = self.http_pool.request(method="GET",
                                    url="/",
                                    headers=dict(self.headers))

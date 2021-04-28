@@ -21,7 +21,7 @@ from logging import getLogger
 from os import linesep
 from random import random
 from sys import platform, version_info
-from threading import Lock, Event, current_thread
+from threading import Lock, current_thread
 from time import sleep
 from uuid import UUID, uuid4
 
@@ -182,9 +182,8 @@ class Connection(object):
         else:
             raise ValueError("Unknown scheme %r" % profile.scheme)
 
-    def __init__(self, profile, user_agent, on_bind=None, on_unbind=None, on_release=None):
+    def __init__(self, profile, on_bind=None, on_unbind=None, on_release=None):
         self.profile = profile
-        self.user_agent = user_agent
         self._neo4j_version = None
         self._neo4j_edition = None
         self._on_bind = on_bind
@@ -271,7 +270,7 @@ class Connection(object):
                 self._neo4j_version = Version(record["versions"][0])
                 self._neo4j_edition = record["edition"]
 
-    def _hello(self):
+    def _hello(self, user_agent):
         pass
 
     def _goodbye(self):
@@ -613,6 +612,7 @@ class ConnectionPool(object):
                  on_bind=None, on_unbind=None, on_broken=None):
         self._profile = profile or ConnectionProfile()
         self._user_agent = user_agent
+        self._server_agent = None
         self._max_size = max_size or self.default_max_size
         self._max_age = max_age or self.default_max_age
         self._on_bind = on_bind
@@ -652,6 +652,12 @@ class ConnectionPool(object):
         """ The user agent for connections in this pool.
         """
         return self._user_agent
+
+    @property
+    def server_agent(self):
+        """ The latest server agent seen for connections in this pool.
+        """
+        return self._server_agent
 
     @property
     def max_size(self):
@@ -746,6 +752,7 @@ class ConnectionPool(object):
                              on_bind=self._on_bind, on_unbind=self._on_unbind,
                              on_release=lambda c: self.release(c),
                              on_broken=lambda msg: self.__on_broken(msg))
+        self._server_agent = cx.server_agent
         self._opened_list.append(cx)
         return cx
 
@@ -929,6 +936,7 @@ class Connector(object):
         self._profile = ServiceProfile(profile)
         self._initial_routers = [ConnectionProfile(profile)]
         self._user_agent = user_agent
+        self._server_agent = None
         self._init_size = init_size
         self._max_size = max_size
         self._max_age = max_age
@@ -990,8 +998,8 @@ class Connector(object):
 
         rt = self._routing.table(graph_name)
         while True:  # TODO: some limit to this, maybe with repeater?
-            ro_profiles, rw_profiles, valid = rt.runners()
-            if valid:
+            ro_profiles, rw_profiles, expired = rt.runners()
+            if not expired:
                 return ro_profiles, rw_profiles
             elif rt.is_updating():
                 if readonly and ro_profiles:
@@ -1058,6 +1066,15 @@ class Connector(object):
         return self._user_agent
 
     @property
+    def server_agent(self):
+        """ A server agent taken from one of the connection pools
+        attached to this connector.
+        """
+        for pool in self._pools.values():
+            return pool.server_agent
+        return None
+
+    @property
     def in_use(self):
         """ A dictionary mapping each profile to the number of
         connections currently pooled for that profile that are
@@ -1111,7 +1128,7 @@ class Connector(object):
             from which to obtain a connection drops to zero
         """
         # TODO: improve logging for this method
-        log.debug("Attempting to acquire connection to %s", _repr_graph_name(graph_name))
+        log.debug("Attempting to acquire readonly connection to %s", _repr_graph_name(graph_name))
 
         while True:
 
@@ -1179,7 +1196,7 @@ class Connector(object):
             from which to obtain a connection drops to zero
         """
         # TODO: improve logging for this method
-        log.debug("Attempting to acquire connection to %s", _repr_graph_name(graph_name))
+        log.debug("Attempting to acquire read-write connection to %s", _repr_graph_name(graph_name))
 
         # TODO: exit immediately if the server/cluster is in readonly mode
 
@@ -1502,6 +1519,7 @@ class Router(object):
             try:
                 return self._routing_tables[graph_name]
             except KeyError:
+                log.debug("Creating new routing table for %r", graph_name)
                 rt = self._routing_tables[graph_name] = RoutingTable()
                 return rt
 
@@ -1557,7 +1575,7 @@ class RoutingTable(object):
         self._ro_runners = list(ro_runners or ())
         self._rw_runners = list(rw_runners or ())
         self._expiry_time = expiry_time or monotonic()
-        self._updated = Event()
+        self._update_lock = Lock()
 
     def __repr__(self):
         return "%s(%r, %r, %r)" % (self.__class__.__name__,
@@ -1574,10 +1592,10 @@ class RoutingTable(object):
         return self._expiry_time
 
     def runners(self):
-        """ Tuple of (ro_profiles, rw_profiles, valid=true/false)
+        """ Tuple of (ro_profiles, rw_profiles, expired=true/false)
         """
-        valid = monotonic() < self._expiry_time or not self._updated.is_set()
-        return list(self._ro_runners), list(self._rw_runners), valid
+        expired = monotonic() >= self._expiry_time
+        return list(self._ro_runners), list(self._rw_runners), expired
 
     def remove(self, profile):
         try:
@@ -1590,16 +1608,17 @@ class RoutingTable(object):
             pass  # ignore, not present
 
     def is_updating(self):
-        return not self._updated.is_set()
+        return self._update_lock.locked()
 
     def set_updating(self):
-        self._updated.clear()
+        self._update_lock.acquire(blocking=False)
 
     def set_not_updating(self):
-        self._updated.set()
+        self._update_lock.release()
 
     def wait_until_updated(self):
-        self._updated.wait()
+        self._update_lock.acquire(blocking=True)
+        self._update_lock.release()
 
     def replace(self, routing_table):
         assert isinstance(routing_table, RoutingTable)

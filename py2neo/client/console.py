@@ -35,7 +35,7 @@ from prompt_toolkit.styles import merge_styles, style_from_pygments_cls, style_f
 from pygments.styles.native import NativeStyle
 from pygments.token import Token
 
-from py2neo import __version__, ConnectionProfile
+from py2neo import __version__, ServiceProfile
 from py2neo.cypher.lexer import CypherLexer
 from py2neo.database import GraphService
 from py2neo.errors import Neo4jError
@@ -116,21 +116,20 @@ class ClientConsole(Console):
     multi_line = False
 
     def __init__(self, profile=None, *_, **settings):
-        super(ClientConsole, self).__init__("py2neo", verbosity=settings.get("verbosity", 0))
+        super(ClientConsole, self).__init__("py2neo", verbosity=settings.pop("verbosity", 0))
         self.output_file = settings.pop("file", None)
 
-        welcome = settings.get("welcome", True)
+        welcome = settings.pop("welcome", True)
         if welcome:
             self.write(TITLE)
             self.write()
             self.write(dedent(QUICK_HELP))
             self.write()
 
-        self.profile = ConnectionProfile(profile, **settings)
+        self.profile = ServiceProfile(profile, **settings)
         self.graph_name = None
-        routing = settings.get("routing", False)
         try:
-            self.dbms = GraphService(self.profile, routing=routing)    # TODO: use Connector instead
+            self.dbms = GraphService(self.profile)    # TODO: use Connector instead
         except OSError as error:
             self.critical("Could not connect to <%s> (%s)",
                           self.profile.uri, " ".join(map(str, error.args)))
