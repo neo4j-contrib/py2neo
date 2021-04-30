@@ -28,21 +28,124 @@ def bolt_profile(connection_profile):
     return connection_profile
 
 
-def test_hello_goodbye(bolt_profile):
+@fixture()
+def bolt(bolt_profile):
     bolt = Bolt.open(bolt_profile)
+    try:
+        yield bolt
+    finally:
+        bolt.close()
+
+
+@fixture()
+def rx_bolt(bolt):
+    if bolt.protocol_version < (4, 0):
+        skip("Bolt reactive not available")
+    return bolt
+
+
+def test_hello_goodbye(bolt):
     assert bolt.protocol_version
-    bolt.close()
 
 
-def test_out_of_order_pull(bolt_profile):
-    bolt = Bolt.open(bolt_profile)
+def test_auto_run_pull_then_pull_then_pull(rx_bolt):
+    r = rx_bolt.auto_run(None, "UNWIND range(1, 5) AS n RETURN n")
+    assert list(rx_bolt.pull(r, 3).records) == [[1], [2], [3]]
+    assert list(rx_bolt.pull(r, 3).records) == [[4], [5]]
+    with raises(IndexError):
+        rx_bolt.pull(r, 3)
+
+
+def test_explicit_tx_run_pull_then_pull_then_pull(rx_bolt):
+    tx = rx_bolt.begin(None)
+    r = rx_bolt.tx_run(tx, "UNWIND range(1, 5) AS n RETURN n")
+    assert list(rx_bolt.pull(r, 3).records) == [[1], [2], [3]]
+    assert list(rx_bolt.pull(r, 3).records) == [[4], [5]]
+    with raises(IndexError):
+        rx_bolt.pull(r, 3)
+    rx_bolt.commit(tx)
+
+
+def test_auto_run_pull_then_pull_all_then_pull(rx_bolt):
+    r = rx_bolt.auto_run(None, "UNWIND range(1, 5) AS n RETURN n")
+    assert list(rx_bolt.pull(r, 3).records) == [[1], [2], [3]]
+    assert list(rx_bolt.pull(r, -1).records) == [[4], [5]]
+    with raises(TypeError):
+        rx_bolt.pull(r, 3)
+
+
+def test_explicit_tx_run_pull_then_pull_all_then_pull(rx_bolt):
+    tx = rx_bolt.begin(None)
+    r = rx_bolt.tx_run(tx, "UNWIND range(1, 5) AS n RETURN n")
+    assert list(rx_bolt.pull(r, 3).records) == [[1], [2], [3]]
+    assert list(rx_bolt.pull(r, -1).records) == [[4], [5]]
+    with raises(IndexError):
+        rx_bolt.pull(r, 3)
+    rx_bolt.commit(tx)
+
+
+def test_auto_run_discard_then_discard(bolt):
+    r = bolt.auto_run(None, "UNWIND range(1, 5) AS n RETURN n")
+    bolt.discard(r)
+    with raises(TypeError):
+        bolt.discard(r)
+
+
+def test_explicit_tx_run_discard_then_discard(bolt):
+    tx = bolt.begin(None)
+    r = bolt.tx_run(tx, "UNWIND range(1, 5) AS n RETURN n")
+    bolt.discard(r)
+    with raises(IndexError):
+        bolt.discard(r)
+    bolt.commit(tx)
+
+
+def test_auto_run_discard_then_pull(bolt):
+    r = bolt.auto_run(None, "UNWIND range(1, 5) AS n RETURN n")
+    bolt.discard(r)
+    with raises(TypeError):
+        bolt.pull(r)
+
+
+def test_explicit_tx_run_discard_then_pull(bolt):
+    tx = bolt.begin(None)
+    r = bolt.tx_run(tx, "UNWIND range(1, 5) AS n RETURN n")
+    bolt.discard(r)
+    with raises(IndexError):
+        bolt.pull(r)
+    bolt.commit(tx)
+
+
+def test_auto_run_pull_then_discard(rx_bolt):
+    r = rx_bolt.auto_run(None, "UNWIND range(1, 5) AS n RETURN n")
+    assert list(rx_bolt.pull(r, 3).records) == [[1], [2], [3]]
+    rx_bolt.discard(r)
+
+
+def test_explicit_tx_run_pull_then_discard(rx_bolt):
+    tx = rx_bolt.begin(None)
+    r = rx_bolt.tx_run(tx, "UNWIND range(1, 5) AS n RETURN n")
+    assert list(rx_bolt.pull(r, 3).records) == [[1], [2], [3]]
+    rx_bolt.discard(r)
+    rx_bolt.commit(tx)
+
+
+def test_pull_without_run(bolt):
     with raises(TypeError):
         bolt.pull(None)
-    bolt.close()
 
 
-def test_out_of_order_discard(bolt_profile):
-    bolt = Bolt.open(bolt_profile)
+def test_discard_without_run(bolt):
     with raises(TypeError):
         bolt.discard(None)
-    bolt.close()
+
+
+def test_out_of_order_pull(rx_bolt):
+    tx = rx_bolt.begin(None)
+    r1 = rx_bolt.tx_run(tx, "UNWIND range(1, 5) AS n RETURN 'a', n")
+    assert list(rx_bolt.pull(r1, 3).records) == [["a", 1], ["a", 2], ["a", 3]]
+    r2 = rx_bolt.tx_run(tx, "UNWIND range(1, 5) AS n RETURN 'b', n")
+    rx_bolt.pull(r2, 3)
+    rx_bolt.pull(r1, 3)
+    rx_bolt.pull(r2, 3)
+    rx_bolt.commit(tx)

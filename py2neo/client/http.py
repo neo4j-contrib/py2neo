@@ -236,7 +236,7 @@ class HTTP(Connection):
             rs.audit(tx)
             return Bookmark()
 
-    def run_query(self, tx, cypher, parameters=None):
+    def tx_run(self, tx, cypher, parameters=None):
         try:
             r = self._post(tx.uri(), cypher, parameters)
         except ProtocolError:
@@ -251,7 +251,7 @@ class HTTP(Connection):
     def pull(self, result, n=-1):
         pass
 
-    def discard(self, result, n=-1):
+    def discard(self, result):
         pass
 
     def sync(self, result):

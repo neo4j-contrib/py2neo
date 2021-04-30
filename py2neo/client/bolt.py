@@ -226,11 +226,13 @@ class Bolt(Connection):
         return candidates
 
     @classmethod
-    def accept(cls, wire):
+    def accept(cls, wire, min_protocol_version=None):
         data = wire.read(20)
         if data[0:4] != BOLT_SIGNATURE:
             raise ProtocolError("Incoming connection did not provide Bolt signature")
         for major, minor in cls._proposed_versions(data, offset=4):
+            if min_protocol_version and (major, minor) < min_protocol_version:
+                continue
             try:
                 subclass = Bolt._get_subclass((major, minor))
             except TypeError:
@@ -525,8 +527,10 @@ class Bolt1(Bolt):
             if callable(self._on_unbind):
                 self._on_unbind(self._transaction)
 
-    def run_query(self, tx, cypher, parameters=None):
+    def tx_run(self, tx, cypher, parameters=None):
         self._assert_open()
+        if tx is None:
+            raise ValueError("Transaction is None")
         self._assert_transaction_open(tx)
         return self._run(tx.graph_name, cypher, parameters or {})
 
@@ -544,16 +548,32 @@ class Bolt1(Bolt):
             raise TypeError("Flow control is not supported before Bolt 4.0")
         response = self.append_message(0x3F, capacity=capacity)
         result.append(response, final=True)
-        return response
+        try:
+            self._sync(response)
+        except BrokenWireError as error:
+            if self._transaction:
+                self._transaction.mark_broken()
+            raise_from(ConnectionBroken("Transaction broken by disconnection "
+                                        "during pull"), error)
+        else:
+            self._audit(self._transaction)
+            return response
 
-    def discard(self, result, n=-1):
+    def discard(self, result):
         self._assert_open()
         self._assert_result_consumable(result)
-        if n != -1:
-            raise TypeError("Flow control is not supported before Bolt 4.0")
         response = self.append_message(0x2F)
         result.append(response, final=True)
-        return response
+        try:
+            self._sync(response)
+        except BrokenWireError as error:
+            if self._transaction:
+                self._transaction.mark_broken()
+            raise_from(ConnectionBroken("Transaction broken by disconnection "
+                                        "during discard"), error)
+        else:
+            self._audit(self._transaction)
+            return response
 
     def _get_routing_info(self, graph_name, query, parameters):
         try:
@@ -620,6 +640,8 @@ class Bolt1(Bolt):
             raise TypeError("Cannot consume result without open transaction")
         if result is not self._transaction.last():
             raise TypeError("Random query access is not supported before Bolt 4.0")
+        if result.complete():
+            raise IndexError("Result is fully consumed")
 
     def _log_message(self, port, tag, fields):
         try:
@@ -938,21 +960,52 @@ class Bolt4x0(Bolt3):
         0x7F: "FAILURE",
     }
 
+    def _assert_result_consumable(self, result):
+        if not self._transaction:
+            raise TypeError("Result does not belong to open transaction")
+        if result.complete():
+            raise IndexError("Result is fully consumed")
+        if result.has_more_records():
+            if result is self._transaction.last():
+                return -1
+            else:
+                return self._transaction.index(result)
+        else:
+            raise IndexError("Result is fully consumed")
+
     def pull(self, result, n=-1, capacity=-1):
         self._assert_open()
-        self._assert_result_consumable(result)  # TODO: random query access (qid)
-        args = {"n": n}
+        qid = self._assert_result_consumable(result)
+        args = {"n": n, "qid": qid}
         response = self.append_message(0x3F, args, capacity=capacity)
         result.append(response, final=(n == -1))
-        return response
+        try:
+            self._sync(response)
+        except BrokenWireError as error:
+            if self._transaction:
+                self._transaction.mark_broken()
+            raise_from(ConnectionBroken("Transaction broken by disconnection "
+                                        "during pull"), error)
+        else:
+            self._audit(self._transaction)
+            return response
 
-    def discard(self, result, n=-1):
+    def discard(self, result):
         self._assert_open()
-        self._assert_result_consumable(result)  # TODO: random query access (qid)
-        args = {"n": n}
+        qid = self._assert_result_consumable(result)
+        args = {"n": -1, "qid": qid}
         response = self.append_message(0x2F, args)
-        result.append(response, final=(n == -1))
-        return response
+        result.append(response, final=True)
+        try:
+            self._sync(response)
+        except BrokenWireError as error:
+            if self._transaction:
+                self._transaction.mark_broken()
+            raise_from(ConnectionBroken("Transaction broken by disconnection "
+                                        "during discard"), error)
+        else:
+            self._audit(self._transaction)
+            return response
 
     def route(self, graph_name=None, context=None):
         # In Neo4j 4.0 and above, routing is available for all
@@ -1025,7 +1078,7 @@ class ItemizedTask(Task):
     """
 
     def __init__(self):
-        self._items = deque()
+        self._items = []
         self._items_len = 0
         self._complete = False
 
@@ -1033,6 +1086,9 @@ class ItemizedTask(Task):
         return not self.done() and not self.failed()
 
     __nonzero__ = __bool__
+
+    def index(self, item):
+        return self._items.index(item)
 
     def items(self):
         return iter(self._items)
@@ -1214,6 +1270,13 @@ class BoltResult(ItemizedTask, Result):
                 break
             i += 1
         return records
+
+    def has_more_records(self):
+        for item in self._items[1:]:
+            has_more = item.metadata.get("has_more", False)
+            if not has_more:
+                return False
+        return True
 
 
 class BoltResponse(Task):

@@ -250,7 +250,7 @@ class Connection(object):
             if tx is None:
                 result = self.auto_run(None, cypher)
             else:
-                result = self.run_query(tx, cypher)
+                result = self.tx_run(tx, cypher)
             self.pull(result)
             result.buffer()
         except Neo4jError as error:
@@ -301,7 +301,7 @@ class Connection(object):
 
         :param graph_name:
         :param readonly:
-        :returns: new :class:`.Transaction` object
+        :returns: new :class:`.TransactionRef` object
         :raises Failure: if a new transaction cannot be created
         """
         raise NotImplementedError
@@ -332,13 +332,29 @@ class Connection(object):
         """
         raise NotImplementedError
 
-    def run_query(self, tx, cypher, parameters=None):
+    def tx_run(self, tx, cypher, parameters=None):
         raise NotImplementedError  # may have network activity
 
     def pull(self, result, n=-1):
+        """ Pull a number of records from a result.
+
+        :raises TypeError:
+            if the result does not belong to an open transaction.
+
+        :raises IndexError:
+            if the result has no more records available.
+        """
         raise NotImplementedError
 
-    def discard(self, result, n=-1):
+    def discard(self, result):
+        """ Discard the remainder of the result.
+
+        :raises TypeError:
+            if the result does not belong to an open transaction.
+
+        :raises IndexError:
+            if the result has no more records available.
+        """
         raise NotImplementedError
 
     def route(self, graph_name=None, context=None):
@@ -1423,15 +1439,13 @@ class Connector(object):
                 # If the RUN fails, so will the PULL, due to
                 # transaction state.
                 pass
-            finally:
-                cx.sync(result)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
         else:
             return result
 
-    def run_query(self, tx, cypher, parameters=None):
+    def tx_run(self, tx, cypher, parameters=None):
         """ Run a Cypher query within an open explicit transaction.
 
         :param tx:
@@ -1444,9 +1458,8 @@ class Connector(object):
         """
         cx = self._reacquire(tx)
         try:
-            result = cx.run_query(tx, cypher, parameters)
+            result = cx.tx_run(tx, cypher, parameters)
             cx.pull(result)
-            cx.sync(result)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
@@ -1464,7 +1477,6 @@ class Connector(object):
             try:
                 result = cx.auto_run("system", "SHOW DATABASES")
                 cx.pull(result)
-                cx.sync(result)
                 return result
             finally:
                 cx.release()
