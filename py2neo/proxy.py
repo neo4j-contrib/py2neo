@@ -40,11 +40,12 @@ class BoltRouter(WireRequestHandler):
         self.target = None
         self.user_agent = None
         self.auth = {}
+        self.transaction = None
         self.results = {}
         WireRequestHandler.__init__(self, *args, **kwargs)
 
     def setup(self):
-        self.client = Bolt.accept(self.wire)
+        self.client = Bolt.accept(self.wire, min_protocol_version=(4, 0))
 
     def handle(self):
         try:
@@ -84,7 +85,7 @@ class BoltRouter(WireRequestHandler):
 
     def process_0f(self, *_):
         self.results.clear()
-        # TODO: self.transaction = None
+        self.transaction = None
         # TODO: self.error = None
         self.client.write_message(0x70, [{}])
         self.client.send()
@@ -98,7 +99,7 @@ class BoltRouter(WireRequestHandler):
             mode = metadata["mode"]
         except (KeyError, TypeError):
             mode = None
-        self.results[-1] = result = self.target.auto_run(graph_name, cypher, parameters, readonly=(mode == "r"))
+        self.results[-1] = result = self.target.auto(graph_name, cypher, parameters, readonly=(mode == "r"))
         self.client.write_message(0x70, [{"fields": result.fields()}])
         self.client.send()
 

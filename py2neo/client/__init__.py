@@ -248,7 +248,7 @@ class Connection(object):
         cypher = "CALL " + procedure
         try:
             if tx is None:
-                result = self.auto_run(None, cypher)
+                result = self.auto(None, cypher)
             else:
                 result = self.tx_run(tx, cypher)
             self.pull(result)
@@ -279,9 +279,9 @@ class Connection(object):
     def reset(self, force=False):
         pass
 
-    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
-                 # after=None, metadata=None, timeout=None
-                 ):
+    def auto(self, graph_name, cypher, parameters=None, readonly=False,
+             # after=None, metadata=None, timeout=None
+             ):
         """ Run a single query within an auto-commit transaction. This
         method may invoke network activity
 
@@ -1413,9 +1413,9 @@ class Connector(object):
                     "profile": cx.profile,
                     "time": tx.age}
 
-    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
-                 # after=None, metadata=None, timeout=None
-                 ):
+    def auto(self, graph_name, cypher, parameters=None, readonly=False,
+             # after=None, metadata=None, timeout=None
+             ):
         """ Run a Cypher query within a new auto-commit transaction.
 
         :param graph_name:
@@ -1432,7 +1432,7 @@ class Connector(object):
         else:
             cx = self._acquire_rw(graph_name)
         try:
-            result = cx.auto_run(graph_name, cypher, parameters, readonly=readonly)
+            result = cx.auto(graph_name, cypher, parameters, readonly=readonly)
             try:
                 cx.pull(result)
             except TypeError:
@@ -1475,7 +1475,7 @@ class Connector(object):
         if self.supports_multi():
             cx = self._acquire_ro("system")
             try:
-                result = cx.auto_run("system", "SHOW DATABASES")
+                result = cx.auto("system", "SHOW DATABASES")
                 cx.pull(result)
                 return result
             finally:

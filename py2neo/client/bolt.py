@@ -444,9 +444,9 @@ class Bolt1(Bolt):
         self._transaction = BoltTransactionRef(graph_name, self.protocol_version,
                                                readonly, after)
 
-    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
-                 # after=None, metadata=None, timeout=None
-                 ):
+    def auto(self, graph_name, cypher, parameters=None, readonly=False,
+             # after=None, metadata=None, timeout=None
+             ):
         self._set_transaction(graph_name, readonly=readonly,
                               # after, metadata, timeout
                               )
@@ -577,7 +577,7 @@ class Bolt1(Bolt):
 
     def _get_routing_info(self, graph_name, query, parameters):
         try:
-            result = self.auto_run(graph_name, query, parameters)
+            result = self.auto(graph_name, query, parameters)
             self.pull(result)
             for ttl, address_data in result.records():
                 addresses = {}
@@ -848,9 +848,9 @@ class Bolt3(Bolt2):
             self.write_message(0x02)
             self.send(final=True)
 
-    def auto_run(self, graph_name, cypher, parameters=None, readonly=False,
-                 # after=None, metadata=None, timeout=None
-                 ):
+    def auto(self, graph_name, cypher, parameters=None, readonly=False,
+             # after=None, metadata=None, timeout=None
+             ):
         self._assert_open()
         self._assert_no_transaction()
         self._transaction = BoltTransactionRef(graph_name, self.protocol_version, readonly,
