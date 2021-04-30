@@ -22,8 +22,8 @@ from py2neo.client import Connection
 
 
 @fixture
-def connection(connection_profile):
-    cx = Connection.open(connection_profile)
+def connection(service_profile):
+    cx = Connection.open(service_profile)
     yield cx
     cx.close()
 

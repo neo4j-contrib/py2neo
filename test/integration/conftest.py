@@ -22,9 +22,8 @@ from uuid import uuid4
 
 from pytest import fixture
 
-from py2neo import Graph
-from py2neo.client import Connector, ConnectionProfile
-from py2neo.database import GraphService
+from py2neo import ServiceProfile, GraphService, Graph
+from py2neo.client import Connector
 from py2neo.ogm import Repository
 from py2neo.server import Neo4jService
 from py2neo.server.security import make_self_signed_certificate
@@ -48,12 +47,18 @@ NEO4J_DEBUG = getenv("NEO4J_DEBUG", "")
 NEO4J_PROCESS = {}
 
 
-UNSECURED_SCHEMES = ["bolt", "http"]
-ALL_SCHEMES = ["bolt", "bolt+s", "bolt+ssc", "http", "https", "http+s", "http+ssc"]
-SSC_SCHEMES = ["bolt", "bolt+ssc", "http", "http+ssc"]
+UNSECURED_SCHEMES = ["neo4j", "bolt", "http"]
+ALL_SCHEMES = ["neo4j", "neo4j+s", "neo4j+ssc",
+               "bolt", "bolt+s", "bolt+ssc",
+               "http", "https", "http+s", "http+ssc"]
+SSC_SCHEMES = ["neo4j", "neo4j+ssc", "bolt", "bolt+ssc", "http", "http+ssc"]
+
+UNSECURED_LEGACY_SCHEMES = ["bolt", "http"]
+ALL_LEGACY_SCHEMES = ["bolt", "bolt+s", "bolt+ssc", "http", "https", "http+s", "http+ssc"]
+SSC_LEGACY_SCHEMES = ["bolt", "bolt+ssc", "http", "http+ssc"]
 
 
-class ServiceProfile(object):
+class DeploymentProfile(object):
 
     def __init__(self, release=None, topology=None, cert=None, schemes=None):
         self.release = release
@@ -71,8 +76,8 @@ class ServiceProfile(object):
 
 class TestProfile(object):
 
-    def __init__(self, service_profile=None, scheme=None):
-        self.service_profile = service_profile
+    def __init__(self, deployment_profile=None, scheme=None):
+        self.deployment_profile = deployment_profile
         self.scheme = scheme
         assert self.topology == "CE"
 
@@ -89,15 +94,15 @@ class TestProfile(object):
 
     @property
     def release(self):
-        return self.service_profile.release
+        return self.deployment_profile.release
 
     @property
     def topology(self):
-        return self.service_profile.topology
+        return self.deployment_profile.topology
 
     @property
     def cert(self):
-        return self.service_profile.cert
+        return self.deployment_profile.cert
 
     @property
     def release_str(self):
@@ -127,28 +132,28 @@ class TestProfile(object):
 
 # TODO: test with full certificates
 if QUICK_TEST:
-    neo4j_service_profiles = [
-        ServiceProfile(release=(4, 2), topology="CE", schemes=UNSECURED_SCHEMES),
+    neo4j_deployment_profiles = [
+        DeploymentProfile(release=(4, 2), topology="CE", schemes=UNSECURED_SCHEMES),
     ]
 else:
-    neo4j_service_profiles = [
-        ServiceProfile(release=(4, 2), topology="CE", schemes=UNSECURED_SCHEMES),
-        ServiceProfile(release=(4, 2), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+    neo4j_deployment_profiles = [
+        DeploymentProfile(release=(4, 2), topology="CE", schemes=UNSECURED_SCHEMES),
+        DeploymentProfile(release=(4, 2), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
         # ServiceProfile(release=(4, 2), topology="CE", cert="full", schemes=ALL_SCHEMES),
-        ServiceProfile(release=(4, 1), topology="CE", schemes=UNSECURED_SCHEMES),
-        ServiceProfile(release=(4, 1), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+        DeploymentProfile(release=(4, 1), topology="CE", schemes=UNSECURED_SCHEMES),
+        DeploymentProfile(release=(4, 1), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
         # ServiceProfile(release=(4, 1), topology="CE", cert="full", schemes=ALL_SCHEMES),
-        ServiceProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
-        ServiceProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+        DeploymentProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
+        DeploymentProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
         # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),
-        ServiceProfile(release=(3, 5), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
-        # ServiceProfile(release=(3, 5), topology="CE", cert="full", schemes=ALL_SCHEMES),
-        ServiceProfile(release=(3, 4), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
-        # ServiceProfile(release=(3, 4), topology="CE", cert="full", schemes=ALL_SCHEMES),
+        DeploymentProfile(release=(3, 5), topology="CE", cert="ssc", schemes=SSC_LEGACY_SCHEMES),
+        # ServiceProfile(release=(3, 5), topology="CE", cert="full", schemes=ALL_LEGACY_SCHEMES),
+        DeploymentProfile(release=(3, 4), topology="CE", cert="ssc", schemes=SSC_LEGACY_SCHEMES),
+        # ServiceProfile(release=(3, 4), topology="CE", cert="full", schemes=ALL_LEGACY_SCHEMES),
     ]
-neo4j_test_profiles = [TestProfile(sp, scheme=s)
-                       for sp in neo4j_service_profiles
-                       for s in sp.schemes]
+neo4j_test_profiles = [TestProfile(deployment_profile, scheme=scheme)
+                       for deployment_profile in neo4j_deployment_profiles
+                       for scheme in deployment_profile.schemes]
 
 
 @fixture(scope="session",
@@ -179,13 +184,13 @@ def uri(neo4j_service_and_uri):
 
 
 @fixture(scope="session")
-def connection_profile(uri):
-    return ConnectionProfile(uri)
+def service_profile(uri):
+    return ServiceProfile(uri)
 
 
 @fixture(scope="session")
-def connector(connection_profile):
-    return Connector(connection_profile)
+def connector(service_profile):
+    return Connector(service_profile)
 
 
 @fixture(scope="session")

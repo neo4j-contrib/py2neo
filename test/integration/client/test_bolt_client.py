@@ -22,10 +22,10 @@ from py2neo.client.bolt import Bolt
 
 
 @fixture(scope="session")
-def bolt_profile(connection_profile):
-    if connection_profile.protocol != "bolt":
+def bolt_profile(service_profile):
+    if service_profile.protocol != "bolt":
         skip("Not a Bolt profile")
-    return connection_profile
+    return service_profile
 
 
 @fixture()

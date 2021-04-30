@@ -17,7 +17,7 @@
 
 
 from logging import getLogger
-from os import chmod, getenv, makedirs, path
+from os import chmod, getenv, path
 from random import choice
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -163,10 +163,13 @@ class Neo4jInstance(object):
     @property
     def addresses(self):
         addresses = {
+            "neo4j": Address(("localhost", self.bolt_port)),
             "bolt": Address(("localhost", self.bolt_port)),
             "http": Address(("localhost", self.http_port)),
         }
         if self.service.secured:
+            addresses["neo4j+s"] = Address(("localhost", self.bolt_port))
+            addresses["neo4j+ssc"] = Address(("localhost", self.bolt_port))
             addresses["bolt+s"] = Address(("localhost", self.bolt_port))
             addresses["bolt+ssc"] = Address(("localhost", self.bolt_port))
             addresses["https"] = Address(("localhost", self.https_port))
