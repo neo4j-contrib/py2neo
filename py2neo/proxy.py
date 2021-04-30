@@ -99,19 +99,20 @@ class BoltRouter(WireRequestHandler):
             mode = metadata["mode"]
         except (KeyError, TypeError):
             mode = None
-        self.results[-1] = result = self.target.auto_run(cypher, parameters, graph_name,
+        self.results[-1] = result = self.target.auto_run(cypher, parameters,
+                                                         graph_name=graph_name,
                                                          readonly=(mode == "r"))
         self.client.write_message(0x70, [{"fields": result.fields()}])
         self.client.send()
 
-    def process_2f(self, *args):
+    def process_2f(self, args=None, *_):
         result = self.results[-1]
         for record in result.records():
             pass
         self.client.write_message(0x70, [{}])
         self.client.send()
 
-    def process_3f(self, *args):
+    def process_3f(self, args=None, *_):
         result = self.results[-1]
         self.client.write_message(0x71, result.records())
         self.client.write_message(0x70, [{}])

@@ -537,7 +537,7 @@ class Bolt1(Bolt):
     def _run(self, graph_name, cypher, parameters, extra=None, final=False):
         # TODO: limit logging for big parameter sets (e.g. bulk import)
         response = self.append_message(0x10, cypher, parameters)
-        result = BoltResult(graph_name, self, response)
+        result = BoltResult(self._transaction, self, response)
         self._transaction.append(result, final=final)
         return result
 
@@ -935,7 +935,7 @@ class Bolt3(Bolt2):
 
     def _run(self, graph_name, cypher, parameters, extra=None, final=False):
         response = self.append_message(0x10, cypher, parameters, extra or {})
-        result = BoltResult(graph_name, self, response)
+        result = BoltResult(self._transaction, self, response)
         self._transaction.append(result, final=final)
         return result
 
@@ -1172,7 +1172,6 @@ class BoltTransactionRef(ItemizedTask, TransactionRef):
         return extra
 
 
-# TODO: use 'has_more' metadata from PULL success response
 class BoltResult(ItemizedTask, Result):
     """ The result of a query carried out over a Bolt connection.
 
@@ -1182,26 +1181,14 @@ class BoltResult(ItemizedTask, Result):
     failure of the query.
     """
 
-    def __init__(self, graph_name, cx, response):
+    def __init__(self, tx, cx, response):
         ItemizedTask.__init__(self)
-        Result.__init__(self, graph_name)
+        Result.__init__(self, tx)
         self.__record_type = None
         self.__cx = cx
         self._profile = cx.profile
         self.append(response)
         self._last_taken = 0
-
-    @property
-    def graph_name(self):
-        return self._items[-1].metadata.get("db", super(BoltResult, self).graph_name)
-
-    @property
-    def protocol_version(self):
-        return self.__cx.protocol_version
-
-    @property
-    def query_id(self):
-        return self.header().metadata.get("qid")
 
     @property
     def offline(self):

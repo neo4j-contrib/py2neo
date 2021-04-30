@@ -1413,13 +1413,14 @@ class Connector(object):
                     "profile": cx.profile,
                     "time": tx.age}
 
-    def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
+    def auto_run(self, cypher, parameters=None, n=-1, graph_name=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a Cypher query within a new auto-commit transaction.
 
         :param cypher:
         :param parameters:
+        :param n:
         :param graph_name:
         :param readonly:
         :returns: :class:`.Result` object
@@ -1432,25 +1433,27 @@ class Connector(object):
         else:
             cx = self._acquire_rw(graph_name)
         try:
-            result = cx.auto_run(cypher, parameters, graph_name, readonly=readonly)
-            try:
-                cx.pull(result)
-            except TypeError:
-                # If the RUN fails, so will the PULL, due to
-                # transaction state.
-                pass
+            result = cx.auto_run(cypher, parameters, graph_name=graph_name, readonly=readonly)
+            if n != 0:
+                try:
+                    cx.pull(result, n=n)
+                except TypeError:
+                    # If the RUN fails, so will the PULL, due to
+                    # transaction state.
+                    pass
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
         else:
             return result
 
-    def run(self, tx, cypher, parameters=None):
+    def run(self, tx, cypher, parameters=None, n=-1):
         """ Run a Cypher query within an open explicit transaction.
 
         :param tx:
         :param cypher:
         :param parameters:
+        :param n:
         :returns: :class:`.Result` object
         :raises ConnectionUnavailable: if an attempt to run cannot be made
         :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
@@ -1459,7 +1462,13 @@ class Connector(object):
         cx = self._reacquire(tx)
         try:
             result = cx.run(tx, cypher, parameters)
-            cx.pull(result)
+            if n != 0:
+                try:
+                    cx.pull(result, n=n)
+                except TypeError:
+                    # If the RUN fails, so will the PULL, due to
+                    # transaction state.
+                    pass
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
@@ -1682,38 +1691,14 @@ class Result(object):
     """ Abstract base class representing the result of a Cypher query.
     """
 
-    def __init__(self, graph_name):
+    def __init__(self, tx):
         super(Result, self).__init__()
-        self._graph_name = graph_name
+        assert isinstance(tx, TransactionRef)
+        self._tx = tx
 
     @property
-    def graph_name(self):
-        """ Return the name of the database from which this result
-        originates.
-
-        :returns: database name
-        """
-        return self._graph_name
-
-    @property
-    def protocol_version(self):
-        """ Return the underlying protocol version used to transfer
-        this result, or :const:`None` if not applicable.
-
-        :returns: protocol version
-        """
-        return None
-
-    @property
-    def query_id(self):
-        """ Return the ID of the query behind this result. This method
-        may carry out network activity.
-
-        :returns: query ID or :const:`None`
-        :raises: :class:`.ConnectionBroken` if the transaction is
-            broken by an unexpected network event.
-        """
-        return None
+    def transaction(self):
+        return self._tx
 
     @property
     def offline(self):
