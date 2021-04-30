@@ -975,8 +975,8 @@ class Transaction(object):
             if self.ref:
                 result = self._connector.tx_run(self.ref, cypher, parameters)
             else:
-                result = self._connector.auto(self.graph.name, cypher, parameters,
-                                              readonly=self.readonly)
+                result = self._connector.auto_run(cypher, parameters, self.graph.name,
+                                                  readonly=self.readonly)
             return Cursor(result, hydrant)
         finally:
             if not self.ref:

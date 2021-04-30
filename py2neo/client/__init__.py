@@ -248,7 +248,7 @@ class Connection(object):
         cypher = "CALL " + procedure
         try:
             if tx is None:
-                result = self.auto(None, cypher)
+                result = self.auto_run(cypher)
             else:
                 result = self.tx_run(tx, cypher)
             self.pull(result)
@@ -279,15 +279,15 @@ class Connection(object):
     def reset(self, force=False):
         pass
 
-    def auto(self, graph_name, cypher, parameters=None, readonly=False,
-             # after=None, metadata=None, timeout=None
-             ):
+    def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
+                 # after=None, metadata=None, timeout=None
+                 ):
         """ Run a single query within an auto-commit transaction. This
         method may invoke network activity
 
-        :param graph_name:
         :param cypher:
         :param parameters:
+        :param graph_name:
         :param readonly:
         :returns:
         """
@@ -1413,14 +1413,14 @@ class Connector(object):
                     "profile": cx.profile,
                     "time": tx.age}
 
-    def auto(self, graph_name, cypher, parameters=None, readonly=False,
-             # after=None, metadata=None, timeout=None
-             ):
+    def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
+                 # after=None, metadata=None, timeout=None
+                 ):
         """ Run a Cypher query within a new auto-commit transaction.
 
-        :param graph_name:
         :param cypher:
         :param parameters:
+        :param graph_name:
         :param readonly:
         :returns: :class:`.Result` object
         :raises ConnectionUnavailable: if an attempt to run cannot be made
@@ -1432,7 +1432,7 @@ class Connector(object):
         else:
             cx = self._acquire_rw(graph_name)
         try:
-            result = cx.auto(graph_name, cypher, parameters, readonly=readonly)
+            result = cx.auto_run(cypher, parameters, graph_name, readonly=readonly)
             try:
                 cx.pull(result)
             except TypeError:
@@ -1475,7 +1475,7 @@ class Connector(object):
         if self.supports_multi():
             cx = self._acquire_ro("system")
             try:
-                result = cx.auto("system", "SHOW DATABASES")
+                result = cx.auto_run("SHOW DATABASES", graph_name="system")
                 cx.pull(result)
                 return result
             finally:

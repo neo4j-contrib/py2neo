@@ -33,7 +33,7 @@ def test_bolt_connection_pool_usage_for_autocommit(connector):
     address = connector.connection_data["host"], connector.connection_data["port"]
     n = len(pool.connections)
     assert pool.in_use_connection_count(address) == 0
-    cursor = connector.auto(None, "RETURN 1")
+    cursor = connector.auto_run("RETURN 1")
     assert 1 <= len(pool.connections) <= n + 1
     assert pool.in_use_connection_count(address) == 1
     n = len(pool.connections)
@@ -50,14 +50,14 @@ def test_bolt_connection_reuse_for_autocommit(connector):
     address = connector.connection_data["host"], connector.connection_data["port"]
     n = len(pool.connections)
     assert pool.in_use_connection_count(address) == 0
-    cursor = connector.auto(None, "RETURN 1")
+    cursor = connector.auto_run("RETURN 1")
     assert 1 <= len(pool.connections) <= n + 1
     assert pool.in_use_connection_count(address) == 1
     n = len(pool.connections)
     cursor.summary()
     assert len(pool.connections) == n
     assert pool.in_use_connection_count(address) == 0
-    cursor = connector.auto(None, "RETURN 1")
+    cursor = connector.auto_run("RETURN 1")
     assert len(pool.connections) == n
     assert pool.in_use_connection_count(address) == 1
     cursor.summary()
@@ -100,14 +100,15 @@ def test_bolt_connection_pool_usage_for_begin_rollback(connector):
 
 
 def test_keys(connector):
-    cursor = Cursor(connector.auto(None, "RETURN 'Alice' AS name, 33 AS age"))
+    cursor = Cursor(connector.auto_run("RETURN 'Alice' AS name, 33 AS age"))
     expected = ["name", "age"]
     actual = cursor.keys()
     assert expected == actual
 
 
 def test_records(connector):
-    cursor = Cursor(connector.auto(None, "UNWIND range(1, $x) AS n RETURN n, n * n AS n_sq", {"x": 3}))
+    cursor = Cursor(
+        connector.auto_run("UNWIND range(1, $x) AS n RETURN n, n * n AS n_sq", {"x": 3}))
     expected = deque([(1, 1), (2, 4), (3, 9)])
     for actual_record in cursor:
         expected_record = Record(["n", "n_sq"], expected.popleft())
@@ -115,7 +116,7 @@ def test_records(connector):
 
 
 def test_stats(connector):
-    cursor = Cursor(connector.auto(None, "CREATE ()", {}))
+    cursor = Cursor(connector.auto_run("CREATE ()"))
     stats = cursor.stats()
     assert stats["nodes_created"] == 1
 

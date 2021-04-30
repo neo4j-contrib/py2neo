@@ -99,7 +99,8 @@ class BoltRouter(WireRequestHandler):
             mode = metadata["mode"]
         except (KeyError, TypeError):
             mode = None
-        self.results[-1] = result = self.target.auto(graph_name, cypher, parameters, readonly=(mode == "r"))
+        self.results[-1] = result = self.target.auto_run(cypher, parameters, graph_name,
+                                                         readonly=(mode == "r"))
         self.client.write_message(0x70, [{"fields": result.fields()}])
         self.client.send()
 

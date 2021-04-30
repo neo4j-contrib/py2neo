@@ -172,9 +172,9 @@ class HTTP(Connection):
     def fast_forward(self, bookmark):
         raise NotImplementedError("Bookmarking is not yet supported over HTTP")
 
-    def auto(self, graph_name, cypher, parameters=None, readonly=False,
-             # after=None, metadata=None, timeout=None
-             ):
+    def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
+                 # after=None, metadata=None, timeout=None
+                 ):
         if graph_name and not self.supports_multi():
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
