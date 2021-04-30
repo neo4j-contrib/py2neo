@@ -527,7 +527,7 @@ class Bolt1(Bolt):
             if callable(self._on_unbind):
                 self._on_unbind(self._transaction)
 
-    def tx_run(self, tx, cypher, parameters=None):
+    def run(self, tx, cypher, parameters=None):
         self._assert_open()
         if tx is None:
             raise ValueError("Transaction is None")

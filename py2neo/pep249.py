@@ -180,7 +180,7 @@ class Connection(object):
 
     def __execute__(self, query, parameters=None):
         try:
-            result = self._cx.tx_run(self._tx, query, parameters)
+            result = self._cx.run(self._tx, query, parameters)
             self._cx.pull(result)
         except Neo4jError as error:
             self._tx = None

@@ -236,7 +236,7 @@ class HTTP(Connection):
             rs.audit(tx)
             return Bookmark()
 
-    def tx_run(self, tx, cypher, parameters=None):
+    def run(self, tx, cypher, parameters=None):
         try:
             r = self._post(tx.uri(), cypher, parameters)
         except ProtocolError:

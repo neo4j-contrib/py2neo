@@ -250,7 +250,7 @@ class Connection(object):
             if tx is None:
                 result = self.auto_run(cypher)
             else:
-                result = self.tx_run(tx, cypher)
+                result = self.run(tx, cypher)
             self.pull(result)
             result.buffer()
         except Neo4jError as error:
@@ -332,7 +332,7 @@ class Connection(object):
         """
         raise NotImplementedError
 
-    def tx_run(self, tx, cypher, parameters=None):
+    def run(self, tx, cypher, parameters=None):
         raise NotImplementedError  # may have network activity
 
     def pull(self, result, n=-1):
@@ -1445,7 +1445,7 @@ class Connector(object):
         else:
             return result
 
-    def tx_run(self, tx, cypher, parameters=None):
+    def run(self, tx, cypher, parameters=None):
         """ Run a Cypher query within an open explicit transaction.
 
         :param tx:
@@ -1458,7 +1458,7 @@ class Connector(object):
         """
         cx = self._reacquire(tx)
         try:
-            result = cx.tx_run(tx, cypher, parameters)
+            result = cx.run(tx, cypher, parameters)
             cx.pull(result)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
