@@ -1632,13 +1632,13 @@ class RoutingTable(object):
         return self._update_lock.locked()
 
     def set_updating(self):
-        self._update_lock.acquire(blocking=False)
+        self._update_lock.acquire(False)
 
     def set_not_updating(self):
         self._update_lock.release()
 
     def wait_until_updated(self):
-        self._update_lock.acquire(blocking=True)
+        self._update_lock.acquire(True)
         self._update_lock.release()
 
     def replace(self, routing_table):
