@@ -1347,6 +1347,40 @@ class Connector(object):
             self._routing.set_broken(profile)
         self.prune(profile)
 
+    def auto_run(self, cypher, parameters=None, n=-1, graph_name=None, readonly=False,
+                 # after=None, metadata=None, timeout=None
+                 ):
+        """ Run a Cypher query within a new auto-commit transaction.
+
+        :param cypher:
+        :param parameters:
+        :param n:
+        :param graph_name:
+        :param readonly:
+        :returns: :class:`.Result` object
+        :raises ConnectionUnavailable: if an attempt to run cannot be made
+        :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
+        :raises Failure: if the server signals a failure condition
+        """
+        if readonly:
+            cx = self._acquire_ro(graph_name)
+        else:
+            cx = self._acquire_rw(graph_name)
+        try:
+            result = cx.auto_run(cypher, parameters, graph_name=graph_name, readonly=readonly)
+            if n != 0:
+                try:
+                    cx.pull(result, n=n)
+                except TypeError:
+                    # If the RUN fails, so will the PULL, due to
+                    # transaction state.
+                    pass
+        except (ConnectionUnavailable, ConnectionBroken):
+            self.prune(cx.profile)
+            raise
+        else:
+            return result
+
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
               ):
@@ -1412,40 +1446,6 @@ class Connector(object):
             return {"bookmark": bookmark,
                     "profile": cx.profile,
                     "time": tx.age}
-
-    def auto_run(self, cypher, parameters=None, n=-1, graph_name=None, readonly=False,
-                 # after=None, metadata=None, timeout=None
-                 ):
-        """ Run a Cypher query within a new auto-commit transaction.
-
-        :param cypher:
-        :param parameters:
-        :param n:
-        :param graph_name:
-        :param readonly:
-        :returns: :class:`.Result` object
-        :raises ConnectionUnavailable: if an attempt to run cannot be made
-        :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
-        :raises Failure: if the server signals a failure condition
-        """
-        if readonly:
-            cx = self._acquire_ro(graph_name)
-        else:
-            cx = self._acquire_rw(graph_name)
-        try:
-            result = cx.auto_run(cypher, parameters, graph_name=graph_name, readonly=readonly)
-            if n != 0:
-                try:
-                    cx.pull(result, n=n)
-                except TypeError:
-                    # If the RUN fails, so will the PULL, due to
-                    # transaction state.
-                    pass
-        except (ConnectionUnavailable, ConnectionBroken):
-            self.prune(cx.profile)
-            raise
-        else:
-            return result
 
     def run(self, tx, cypher, parameters=None, n=-1):
         """ Run a Cypher query within an open explicit transaction.
