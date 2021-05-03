@@ -139,6 +139,8 @@ class Connection(object):
     :ivar Connection.user_agent:
     """
 
+    connection = None
+
     protocol_version = None
 
     server_agent = None
@@ -1120,13 +1122,15 @@ class Connector(object):
         :param tx: a bound transaction
         :raise TypeError: if the given transaction is invalid or not bound
         """
-        try:
-            return self._transactions[tx]
-        except KeyError:
+        cx = tx.connection
+        if cx is None:
             if tx.readonly:
                 return self._acquire_ro(tx.graph_name)
             else:
                 return self._acquire_rw(tx.graph_name)
+        else:
+            # TODO: error if broken?
+            return cx
 
     def _acquire_ro(self, graph_name=None):
         """ Acquire a readonly connection from a pool owned by this
@@ -1347,14 +1351,14 @@ class Connector(object):
             self._routing.set_broken(profile)
         self.prune(profile)
 
-    def auto_run(self, cypher, parameters=None, n=-1, graph_name=None, readonly=False,
+    def auto_run(self, cypher, parameters=None, pull=-1, graph_name=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a Cypher query within a new auto-commit transaction.
 
         :param cypher:
         :param parameters:
-        :param n:
+        :param pull:
         :param graph_name:
         :param readonly:
         :returns: :class:`.Result` object
@@ -1368,9 +1372,9 @@ class Connector(object):
             cx = self._acquire_rw(graph_name)
         try:
             result = cx.auto_run(cypher, parameters, graph_name=graph_name, readonly=readonly)
-            if n != 0:
+            if pull != 0:
                 try:
-                    cx.pull(result, n=n)
+                    cx.pull(result, n=pull)
                 except TypeError:
                     # If the RUN fails, so will the PULL, due to
                     # transaction state.
@@ -1447,13 +1451,17 @@ class Connector(object):
                     "profile": cx.profile,
                     "time": tx.age}
 
-    def run(self, tx, cypher, parameters=None, n=-1):
+    def run(self, tx, cypher, parameters=None, pull=-1):
         """ Run a Cypher query within an open explicit transaction.
 
         :param tx:
         :param cypher:
         :param parameters:
-        :param n:
+        :param pull:
+            Number of records to pull. If set to -1 (default) then all
+            records will be pulled. Any value greater than or equal to
+            zero will pull that number instead. Values other than -1
+            are only supported for Bolt version 4.0 and above.
         :returns: :class:`.Result` object
         :raises ConnectionUnavailable: if an attempt to run cannot be made
         :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
@@ -1462,9 +1470,9 @@ class Connector(object):
         cx = self._reacquire(tx)
         try:
             result = cx.run(tx, cypher, parameters)
-            if n != 0:
+            if pull != 0:
                 try:
-                    cx.pull(result, n=n)
+                    cx.pull(result, n=pull)
                 except TypeError:
                     # If the RUN fails, so will the PULL, due to
                     # transaction state.
@@ -1474,6 +1482,24 @@ class Connector(object):
             raise
         else:
             return result
+
+    def pull(self, result, n=-1):
+        if n == 0:
+            return
+        cx = self._reacquire(result.transaction)
+        try:
+            cx.pull(result, n=n)
+        except (ConnectionUnavailable, ConnectionBroken):
+            self.prune(cx.profile)
+            raise
+
+    def discard(self, result):
+        cx = self._reacquire(result.transaction)
+        try:
+            cx.discard(result)
+        except (ConnectionUnavailable, ConnectionBroken):
+            self.prune(cx.profile)
+            raise
 
     def supports_multi(self):
         assert self._pools  # this will break if no pools exist
@@ -1502,9 +1528,12 @@ class Connector(object):
             return []
         else:
             value = set()
-            while result.has_records():
+            while True:
+                record = result.fetch()
+                if record is None:
+                    break
                 (name, address, role, requested_status,
-                 current_status, error, default) = result.fetch()
+                 current_status, error, default) = record
                 value.add(name)
             return sorted(value)
 
@@ -1516,9 +1545,12 @@ class Connector(object):
         except TypeError:
             return None
         else:
-            while result.has_records():
+            while True:
+                record = result.fetch()
+                if record is None:
+                    break
                 (name, address, role, requested_status,
-                 current_status, error, default) = result.fetch()
+                 current_status, error, default) = record
                 if default:
                     return name
             return None
@@ -1759,15 +1791,6 @@ class Result(object):
         :returns: the next available record, or :const:`None`
         :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
-        """
-        raise NotImplementedError
-
-    def has_records(self):
-        """ Return :const:`True` if this result contains buffered
-        records, :const:`False` otherwise. This method does not carry
-        out any network activity.
-
-        :returns: boolean indicator
         """
         raise NotImplementedError
 

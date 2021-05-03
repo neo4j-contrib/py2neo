@@ -366,9 +366,6 @@ class HTTPResult(Result):
     def fetch(self):
         return self.take_record()
 
-    def has_records(self):
-        return self._cursor < len(self._data)
-
     def take_record(self):
         try:
             record = self._data[self._cursor]["rest"]

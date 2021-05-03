@@ -89,7 +89,7 @@ def run(uri, auth=None, routing=False, secure=False):
 
     def run_long_narrow(p):
         p.result = p.graph.run("UNWIND range(1, $n) AS _ "
-                               "RETURN 0", n=scale)
+                               "RETURN 0", pull=scale)
 
     print("Iterating long narrow result... ", end="", flush=True)
     print("{:.03f}s".format(ResultIterationPerformer(profile, run_long_narrow).run()))
@@ -100,7 +100,7 @@ def run(uri, auth=None, routing=False, secure=False):
 
     def run_long_triple_string(p):
         p.result = p.graph.run("UNWIND range(1, $n) AS _ RETURN 'aaaaaaaaa' AS a, "
-                               "'bbbbbbbbb' AS b, 'ccccccccc' AS c", n=scale)
+                               "'bbbbbbbbb' AS b, 'ccccccccc' AS c", pull=scale)
 
     print("Iterating long triple string result... ", end="", flush=True)
     print("{:.03f}s".format(ResultIterationPerformer(profile, run_long_triple_string).run()))
@@ -111,7 +111,7 @@ def run(uri, auth=None, routing=False, secure=False):
 
     def run_long_multi_type(p):
         p.result = p.graph.run("UNWIND range(1, $n) AS _ RETURN null, true, 0, 3.14, "
-                               "'Abc', [1, 2, 3], {one: 1, two: 2, three: 3}", n=scale)
+                               "'Abc', [1, 2, 3], {one: 1, two: 2, three: 3}", pull=scale)
 
     print("Iterating long multi-type result... ", end="", flush=True)
     print("{:.03f}s".format(ResultIterationPerformer(profile, run_long_multi_type).run()))

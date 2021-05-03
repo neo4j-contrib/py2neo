@@ -441,8 +441,7 @@ class Bolt1(Bolt):
             raise TypeError("Transaction metadata not supported until Bolt v3")
         if timeout:
             raise TypeError("Transaction timeout not supported until Bolt v3")
-        self._transaction = BoltTransactionRef(graph_name, self.protocol_version,
-                                               readonly, after)
+        self._transaction = BoltTransactionRef(self, graph_name, readonly, after)
 
     def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
                  # after=None, metadata=None, timeout=None
@@ -616,11 +615,13 @@ class Bolt1(Bolt):
         self._audit(result)
 
     def fetch(self, result):
-        if not result.has_records() and not result.done():
-            while self._responses[0] is not result.last():
-                self._wait(self._responses[0])
-            self._wait(result.last())
-            self._audit(result)
+        #if not result.done():
+        #    if not self._responses:
+        #        return None
+        #    while self._responses[0] is not result.last():
+        #        self._wait(self._responses[0])
+        #    self._wait(result.last())
+        #    self._audit(result)
         record = result.take_record()
         return record
 
@@ -853,7 +854,7 @@ class Bolt3(Bolt2):
                  ):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransactionRef(graph_name, self.protocol_version, readonly,
+        self._transaction = BoltTransactionRef(self, graph_name, readonly,
                                                # after, metadata, timeout
                                                )
         result = self._run(graph_name, cypher, parameters or {},
@@ -872,7 +873,7 @@ class Bolt3(Bolt2):
               ):
         self._assert_open()
         self._assert_no_transaction()
-        self._transaction = BoltTransactionRef(graph_name, self.protocol_version, readonly,
+        self._transaction = BoltTransactionRef(self, graph_name, readonly,
                                                # after, metadata, timeout
                                                )
         response = self.append_message(0x11, self._transaction.extra)
@@ -961,15 +962,16 @@ class Bolt4x0(Bolt3):
     }
 
     def _assert_result_consumable(self, result):
-        if not self._transaction:
+        tx = result.transaction
+        if not tx:
             raise TypeError("Result does not belong to open transaction")
         if result.complete():
             raise IndexError("Result is fully consumed")
         if result.has_more_records():
-            if result is self._transaction.last():
+            if result is tx.last():
                 return -1
             else:
-                return self._transaction.index(result)
+                return tx.index(result)
         else:
             raise IndexError("Result is fully consumed")
 
@@ -982,8 +984,7 @@ class Bolt4x0(Bolt3):
         try:
             self._sync(response)
         except BrokenWireError as error:
-            if self._transaction:
-                self._transaction.mark_broken()
+            result.transaction.mark_broken()
             raise_from(ConnectionBroken("Transaction broken by disconnection "
                                         "during pull"), error)
         else:
@@ -999,8 +1000,7 @@ class Bolt4x0(Bolt3):
         try:
             self._sync(response)
         except BrokenWireError as error:
-            if self._transaction:
-                self._transaction.mark_broken()
+            result.transaction.mark_broken()
             raise_from(ConnectionBroken("Transaction broken by disconnection "
                                         "during discard"), error)
         else:
@@ -1144,10 +1144,11 @@ class ItemizedTask(Task):
 
 class BoltTransactionRef(ItemizedTask, TransactionRef):
 
-    def __init__(self, graph_name, protocol_version,
+    def __init__(self, connection, graph_name,
                  readonly=False, after=None, metadata=None, timeout=None
                  ):
-        if graph_name and protocol_version < (4, 0):
+        self.connection = connection
+        if graph_name and connection.protocol_version < (4, 0):
             raise TypeError("Database selection is not supported "
                             "prior to Neo4j 4.0")
         ItemizedTask.__init__(self)
@@ -1224,15 +1225,6 @@ class BoltResult(ItemizedTask, Result):
 
     def fetch(self):
         return self.__cx.fetch(self)
-
-    def has_records(self):
-        i = self._last_taken
-        while i < self._items_len:
-            response = self._items[i]
-            if response.records:
-                return True
-            i += 1
-        return False
 
     def take_record(self):
         i = self._last_taken
