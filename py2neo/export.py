@@ -16,8 +16,25 @@
 # limitations under the License.
 
 
-from __future__ import absolute_import, print_function, unicode_literals
+"""
+This module allows exporting data to external formats.
 
+Example:
+
+    >>> from py2neo import Graph
+    >>> from py2neo.export import to_pandas_data_frame
+    >>> graph = Graph()
+    >>> to_pandas_data_frame(graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4"))
+       a.born              a.name
+    0    1964        Keanu Reeves
+    1    1967    Carrie-Anne Moss
+    2    1961  Laurence Fishburne
+    3    1960        Hugo Weaving
+
+"""
+
+
+from __future__ import absolute_import, print_function, unicode_literals
 
 from io import StringIO
 from warnings import warn
@@ -78,17 +95,6 @@ def to_pandas_series(cursor, field=0, index=None, dtype=None):
 def to_pandas_data_frame(cursor, index=None, columns=None, dtype=None):
     """ Consume and extract the entire result as a
     `pandas.DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_.
-
-    ::
-
-        >>> from py2neo import Graph
-        >>> graph = Graph()
-        >>> graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4").to_data_frame()
-           a.born              a.name
-        0    1964        Keanu Reeves
-        1    1967    Carrie-Anne Moss
-        2    1961  Laurence Fishburne
-        3    1960        Hugo Weaving
 
     .. note::
        This method requires `pandas` to be installed.
