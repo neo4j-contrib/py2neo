@@ -363,9 +363,6 @@ class HTTPResult(Result):
     def summary(self):
         return self._summary
 
-    def fetch(self):
-        return self.take_record()
-
     def take_record(self):
         try:
             record = self._buffer[self._cursor]["rest"]

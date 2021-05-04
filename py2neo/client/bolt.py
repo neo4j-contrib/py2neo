@@ -1167,9 +1167,6 @@ class BoltResult(ItemizedTask, Result):
             d.update(item.metadata)
         return d
 
-    def fetch(self):
-        return self.__cx.fetch(self)
-
     def take_record(self):
         i = self._last_taken
         while i < self._items_len:

@@ -1483,7 +1483,7 @@ class Connector(object):
         else:
             value = set()
             while True:
-                record = result.fetch()
+                record = result.take_record()
                 if record is None:
                     break
                 (name, address, role, requested_status,
@@ -1500,7 +1500,7 @@ class Connector(object):
             return None
         else:
             while True:
-                record = result.fetch()
+                record = result.take_record()
                 if record is None:
                     break
                 (name, address, role, requested_status,
@@ -1715,7 +1715,7 @@ class Result(object):
             broken by an unexpected network event.
         """
         while True:
-            record = self.fetch()
+            record = self.take_record()
             if record is None:
                 break
             yield record
@@ -1726,17 +1726,6 @@ class Result(object):
         method does not carry out any network activity.
 
         :returns: summary information
-        """
-        raise NotImplementedError
-
-    def fetch(self):
-        """ Fetch and return the next record in this result, or
-        :const:`None` if at the end of the result. This method may carry
-        out network activity.
-
-        :returns: the next available record, or :const:`None`
-        :raises: :class:`.ConnectionBroken` if the transaction is
-            broken by an unexpected network event.
         """
         raise NotImplementedError
 

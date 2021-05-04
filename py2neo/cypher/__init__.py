@@ -185,7 +185,7 @@ class Cursor(object):
         amount = int(amount)
         moved = 0
         while moved != amount:
-            values = self._result.fetch()
+            values = self._result.take_record()
             if values is None:
                 break
             if self._hydrant:
