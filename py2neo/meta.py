@@ -129,6 +129,7 @@ def get_metadata():
 
     version_data = get_version_data()
     source_url = "https://github.com/technige/py2neo"
+    release = version_data["release"]
 
     return {
         "name": PACKAGE_NAME,
@@ -139,7 +140,7 @@ def get_metadata():
         "url": "https://py2neo.org/",
         "project_urls": {
             "Bug Tracker": "{}/issues".format(source_url),
-            "Documentation": "https://py2neo.readthedocs.io/en/{}/".format(version_data["string"]),
+            "Documentation": "https://py2neo.org/{}.{}/".format(release[0], release[1]),
             "Source Code": source_url,
         },
         "license": "Apache License, Version 2.0",
