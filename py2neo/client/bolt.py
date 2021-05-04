@@ -1188,7 +1188,7 @@ class BoltResult(ItemizedTask, Result):
         i = self._last_taken
         while i < self._items_len:
             response = self._items[i]
-            records.extend(response.peek(limit - len(records)))
+            records.extend(response.peek_records(limit - len(records)))
             if len(records) == limit:
                 break
             i += 1
