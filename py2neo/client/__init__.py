@@ -255,7 +255,10 @@ class Connection(object):
                 raise
         else:
             fields = result.fields()
-            for record in result.records():
+            while True:
+                record = result.take()
+                if record is None:
+                    break
                 yield OrderedDict(zip(fields, record))
 
     def _get_version_and_edition(self):
@@ -1705,20 +1708,6 @@ class Result(object):
             broken by an unexpected network event.
         """
         raise NotImplementedError
-
-    def records(self):
-        """ Iterate through the remaining records, yielding each one in
-        turn. This method may carry out network activity.
-
-        :returns: record iterator
-        :raises: :class:`.ConnectionBroken` if the transaction is
-            broken by an unexpected network event.
-        """
-        while True:
-            record = self.take()
-            if record is None:
-                break
-            yield record
 
     def summary(self):
         """ Gather and return summary information as relates to the

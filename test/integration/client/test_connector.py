@@ -24,7 +24,12 @@ from py2neo.client import Connector
 def test_auto_run_with_pull_all(service_profile):
     cx = Connector(service_profile)
     result = cx.auto_run("UNWIND range(1, 5) AS n RETURN n")
-    assert list(result.records()) == [[1], [2], [3], [4], [5]]
+    assert result.take() == [1]
+    assert result.take() == [2]
+    assert result.take() == [3]
+    assert result.take() == [4]
+    assert result.take() == [5]
+    assert result.take() is None
     cx.close()
 
 
@@ -35,8 +40,13 @@ def test_auto_run_with_pull_3_then_pull_all(service_profile):
     except IndexError as error:
         skip(str(error))
     else:
-        assert list(result.records()) == [[1], [2], [3]]
+        assert result.take() == [1]
+        assert result.take() == [2]
+        assert result.take() == [3]
+        assert result.take() is None
         cx.pull(result)
-        assert list(result.records()) == [[4], [5]]
+        assert result.take() == [4]
+        assert result.take() == [5]
+        assert result.take() is None
     finally:
         cx.close()

@@ -107,14 +107,18 @@ class BoltRouter(WireRequestHandler):
 
     def process_2f(self, args=None, *_):
         result = self.results[-1]
-        for record in result.records():
+        while result.take() is not None:
             pass
         self.client.write_message(0x70, [{}])
         self.client.send()
 
     def process_3f(self, args=None, *_):
         result = self.results[-1]
-        self.client.write_message(0x71, result.records())
+        while True:
+            record = result.take()
+            if record is None:
+                break
+            self.client.write_message(0x71, record)
         self.client.write_message(0x70, [{}])
         self.client.send()
 

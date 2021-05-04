@@ -555,15 +555,18 @@ class Bolt1(Bolt):
         try:
             result = self.auto_run(query, parameters, graph_name)
             self.pull(result)
-            for ttl, address_data in result.records():
+            while True:
+                record = result.take()
+                if record is None:
+                    break
                 addresses = {}
-                for a in address_data:
+                for a in record[1]:
                     addresses[a["role"]] = [ConnectionProfile(self.profile, address=address)
                                             for address in a["addresses"]]
                 return (addresses.get("ROUTE", []),
                         addresses.get("READ", []),
                         addresses.get("WRITE", []),
-                        ttl)
+                        record[0])
         except Neo4jError as error:
             if error.title == "ProcedureNotFound":
                 raise_from(TypeError("Neo4j service does not support routing"), error)
