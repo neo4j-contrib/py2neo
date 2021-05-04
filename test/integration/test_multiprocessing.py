@@ -34,7 +34,7 @@ class Worker(Process):
     def run(self):
         tx = self.graph.begin()
         for n in range(self.n_nodes):
-            tx.run("CREATE (n:Thing {n:$n})", pull=n)
+            tx.run("CREATE (n:Thing {n:$n})", n=n)
         tx.commit()
         self.graph.service.connector.close()
 

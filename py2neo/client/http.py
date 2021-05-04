@@ -44,15 +44,12 @@ class HTTP(Connection):
         return JSONHydrant(graph)
 
     @classmethod
-    def open(cls, profile=None, user_agent=None, on_bind=None, on_unbind=None,
-             on_release=None, on_broken=None):
+    def open(cls, profile=None, user_agent=None, on_release=None, on_broken=None):
         """ Open an HTTP connection to a server.
 
         :param profile: :class:`.ConnectionProfile` detailing how and
             where to connect
         :param user_agent:
-        :param on_bind:
-        :param on_unbind:
         :param on_release:
         :param on_broken:
         :returns: :class:`.HTTP` connection object
@@ -62,15 +59,14 @@ class HTTP(Connection):
         if profile is None:
             profile = ConnectionProfile(scheme="http")
         try:
-            http = cls(profile, on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
+            http = cls(profile, on_release=on_release)
             http._hello(user_agent or http_user_agent())
             return http
         except HTTPError as error:
             raise_from(ConnectionUnavailable("Cannot open connection to %r", profile), error)
 
-    def __init__(self, profile, on_bind=None, on_unbind=None, on_release=None):
-        super(HTTP, self).__init__(profile, on_bind=on_bind, on_unbind=on_unbind,
-                                   on_release=on_release)
+    def __init__(self, profile, on_release=None):
+        super(HTTP, self).__init__(profile, on_release=on_release)
         self.http_pool = None
         self.headers = {}
         self.__closed = False
@@ -249,10 +245,17 @@ class HTTP(Connection):
             return HTTPResult(tx, rs.result(), profile=self.profile)
 
     def pull(self, result, n=-1):
-        pass
+        # TODO: lower-memory algorithm that doesn't require
+        #  duplication of potentially large data sets
+        if n == -1:
+            result._buffer.extend(result._data)
+            result._data[:] = []
+        else:
+            result._buffer.extend(result._data[:n])
+            result._data[:n] = []
 
     def discard(self, result):
-        pass
+        result._data[:] = []
 
     def sync(self, result):
         pass
@@ -337,10 +340,10 @@ class HTTPResult(Result):
 
     def __init__(self, tx, result, profile):
         Result.__init__(self, tx)
-        self._result = result
         self._profile = profile
         self._columns = result.get("columns", ())
         self._data = result.get("data", [])
+        self._buffer = []
         self._summary = {}
         if "stats" in result:
             self._summary["stats"] = result["stats"]
@@ -368,7 +371,7 @@ class HTTPResult(Result):
 
     def take_record(self):
         try:
-            record = self._data[self._cursor]["rest"]
+            record = self._buffer[self._cursor]["rest"]
         except IndexError:
             return None
         else:
@@ -379,7 +382,7 @@ class HTTPResult(Result):
         records = []
         for i in range(limit):
             try:
-                records.append(self._data[self._cursor + i]["rest"])
+                records.append(self._buffer[self._cursor + i]["rest"])
             except IndexError:
                 break
         return records

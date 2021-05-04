@@ -152,15 +152,12 @@ class Connection(object):
     # TODO: ping method
 
     @classmethod
-    def open(cls, profile=None, user_agent=None, on_bind=None, on_unbind=None,
-             on_release=None, on_broken=None):
+    def open(cls, profile=None, user_agent=None, on_release=None, on_broken=None):
         """ Open a connection to a server.
 
         :param profile: :class:`.ConnectionProfile` detailing how and
             where to connect
         :param user_agent:
-        :param on_bind:
-        :param on_unbind:
         :param on_release:
         :param on_broken:
         :returns: :class:`.Bolt` connection object
@@ -174,22 +171,18 @@ class Connection(object):
         if profile.protocol == "bolt":
             from py2neo.client.bolt import Bolt
             return Bolt.open(profile, user_agent=user_agent,
-                             on_bind=on_bind, on_unbind=on_unbind,
                              on_release=on_release, on_broken=on_broken)
         elif profile.protocol == "http":
             from py2neo.client.http import HTTP
             return HTTP.open(profile, user_agent=user_agent,
-                             on_bind=on_bind, on_unbind=on_unbind,
                              on_release=on_release, on_broken=on_broken)
         else:
             raise ValueError("Unknown scheme %r" % profile.scheme)
 
-    def __init__(self, profile, on_bind=None, on_unbind=None, on_release=None):
+    def __init__(self, profile, on_release=None):
         self.profile = profile
         self._neo4j_version = None
         self._neo4j_edition = None
-        self._on_bind = on_bind
-        self._on_unbind = on_unbind
         self._on_release = on_release
         self.__t_opened = monotonic()
 
@@ -340,9 +333,6 @@ class Connection(object):
     def pull(self, result, n=-1):
         """ Pull a number of records from a result.
 
-        :raises TypeError:
-            if the result does not belong to an open transaction.
-
         :raises IndexError:
             if the result has no more records available.
         """
@@ -350,9 +340,6 @@ class Connection(object):
 
     def discard(self, result):
         """ Discard the remainder of the result.
-
-        :raises TypeError:
-            if the result does not belong to an open transaction.
 
         :raises IndexError:
             if the result has no more records available.
@@ -592,7 +579,7 @@ class ConnectionPool(object):
 
     @classmethod
     def open(cls, profile=None, user_agent=None, init_size=None, max_size=None, max_age=None,
-             on_bind=None, on_unbind=None, on_broken=None):
+             on_broken=None):
         """ Create a new connection pool, with an option to seed one
         or more initial connections.
 
@@ -606,12 +593,6 @@ class ConnectionPool(object):
             free
         :param max_age: the maximum permitted age, in seconds, for
             connections to be retained in this pool
-        :param on_bind: callback to execute when binding a transaction
-            to a connection; this must accept two arguments
-            representing the transaction and the connection
-        :param on_unbind: callback to execute when unbinding a
-            transaction from a connection; this must accept an argument
-            representing the transaction
         :param on_broken: callback to execute when a connection in the
             pool is broken; this must accept an argument representing
             the connection profile and a second with an error message
@@ -620,21 +601,18 @@ class ConnectionPool(object):
         :raises: ValueError if the profile references an unsupported
             scheme
         """
-        pool = cls(profile, user_agent, max_size, max_age, on_bind, on_unbind, on_broken)
+        pool = cls(profile, user_agent, max_size, max_age, on_broken)
         seeds = [pool.acquire() for _ in range(init_size or cls.default_init_size)]
         for seed in seeds:
             seed.release()
         return pool
 
-    def __init__(self, profile, user_agent=None, max_size=None, max_age=None,
-                 on_bind=None, on_unbind=None, on_broken=None):
+    def __init__(self, profile, user_agent=None, max_size=None, max_age=None, on_broken=None):
         self._profile = profile or ConnectionProfile()
         self._user_agent = user_agent
         self._server_agent = None
         self._max_size = max_size or self.default_max_size
         self._max_age = max_age or self.default_max_age
-        self._on_bind = on_bind
-        self._on_unbind = on_unbind
         self._on_broken = on_broken
         self._in_use_list = deque()
         self._quarantine = deque()
@@ -767,7 +745,6 @@ class ConnectionPool(object):
             else:
                 self._opened_list.append(cx)
         cx = Connection.open(self.profile, user_agent=self.user_agent,
-                             on_bind=self._on_bind, on_unbind=self._on_unbind,
                              on_release=lambda c: self.release(c),
                              on_broken=lambda msg: self.__on_broken(msg))
         self._server_agent = cx.server_agent
@@ -959,7 +936,6 @@ class Connector(object):
         self._max_size = max_size
         self._max_age = max_age
         self._routing_refresh_ttl = routing_refresh_ttl
-        self._transactions = {}
         self._pools = {}
         if self._profile.routing:
             self._routing = Router()
@@ -997,8 +973,6 @@ class Connector(object):
                 init_size=self._init_size,
                 max_size=self._max_size,
                 max_age=self._max_age,
-                on_bind=self._on_bind,
-                on_unbind=self._on_unbind,
                 on_broken=self._on_broken)
             self._pools[profile] = pool
 
@@ -1316,31 +1290,6 @@ class Connector(object):
         """
         for pool in self._pools.values():
             pool.close()
-
-    def _on_bind(self, tx, cx):
-        """ Bind a transaction to a connection.
-
-        :param tx: an unbound transaction
-        :param tx: an connection to which to bind the transaction
-        :raise TypeError: if the given transaction is already bound
-        """
-        try:
-            cx0 = self._transactions[tx]
-        except KeyError:
-            self._transactions[tx] = cx
-        else:
-            raise TypeError("Transaction {!r} already bound to connection {!r}".format(tx, cx0))
-
-    def _on_unbind(self, tx):
-        """ Unbind a transaction from a connection.
-
-        :param tx: a bound transaction
-        :raise TypeError: if the given transaction is invalid or not bound
-        """
-        try:
-            del self._transactions[tx]
-        except KeyError:
-            raise TypeError("Invalid or unbound transaction {!r}".format(tx))
 
     def _on_broken(self, profile, message):
         """ Handle a broken connection.
@@ -1687,6 +1636,8 @@ class RoutingTable(object):
 class TransactionRef(object):
     """ Reference to a protocol-level transaction.
     """
+
+    connection = None
 
     def __init__(self, graph_name, txid=None, readonly=False):
         self.graph_name = graph_name

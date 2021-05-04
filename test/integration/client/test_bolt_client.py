@@ -70,7 +70,7 @@ def test_auto_run_pull_then_pull_all_then_pull(rx_bolt):
     r = rx_bolt.auto_run("UNWIND range(1, 5) AS n RETURN n")
     assert list(rx_bolt.pull(r, 3).records) == [[1], [2], [3]]
     assert list(rx_bolt.pull(r, -1).records) == [[4], [5]]
-    with raises(TypeError):
+    with raises(IndexError):
         rx_bolt.pull(r, 3)
 
 
@@ -87,7 +87,7 @@ def test_explicit_tx_run_pull_then_pull_all_then_pull(rx_bolt):
 def test_auto_run_discard_then_discard(bolt):
     r = bolt.auto_run("UNWIND range(1, 5) AS n RETURN n")
     bolt.discard(r)
-    with raises(TypeError):
+    with raises(IndexError):
         bolt.discard(r)
 
 
@@ -103,7 +103,7 @@ def test_explicit_tx_run_discard_then_discard(bolt):
 def test_auto_run_discard_then_pull(bolt):
     r = bolt.auto_run("UNWIND range(1, 5) AS n RETURN n")
     bolt.discard(r)
-    with raises(TypeError):
+    with raises(IndexError):
         bolt.pull(r)
 
 
@@ -145,7 +145,7 @@ def test_out_of_order_pull(rx_bolt):
     r1 = rx_bolt.run(tx, "UNWIND range(1, 5) AS n RETURN 'a', n")
     assert list(rx_bolt.pull(r1, 3).records) == [["a", 1], ["a", 2], ["a", 3]]
     r2 = rx_bolt.run(tx, "UNWIND range(1, 5) AS n RETURN 'b', n")
-    rx_bolt.pull(r2, 3)
-    rx_bolt.pull(r1, 3)
-    rx_bolt.pull(r2, 3)
+    assert list(rx_bolt.pull(r2, 3).records) == [["b", 1], ["b", 2], ["b", 3]]
+    assert list(rx_bolt.pull(r1, 3).records) == [["a", 4], ["a", 5]]
+    assert list(rx_bolt.pull(r2, 3).records) == [["b", 4], ["b", 5]]
     rx_bolt.commit(tx)

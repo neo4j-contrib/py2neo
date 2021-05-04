@@ -244,15 +244,12 @@ class Bolt(Connection):
         raise TypeError("Unable to agree supported protocol version")
 
     @classmethod
-    def open(cls, profile=None, user_agent=None, on_bind=None, on_unbind=None,
-             on_release=None, on_broken=None):
+    def open(cls, profile=None, user_agent=None, on_release=None, on_broken=None):
         """ Open and authenticate a Bolt connection.
 
         :param profile: :class:`.ConnectionProfile` detailing how and
             where to connect
         :param user_agent:
-        :param on_bind:
-        :param on_unbind:
         :param on_release:
         :param on_broken:
         :returns: :class:`.Bolt` connection object
@@ -267,8 +264,7 @@ class Bolt(Connection):
             subclass = cls._get_subclass(protocol_version)
             if subclass is None:
                 raise TypeError("Unable to agree supported protocol version")
-            bolt = subclass(wire, profile,
-                            on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
+            bolt = subclass(wire, profile, on_release=on_release)
             bolt._hello(user_agent or bolt_user_agent())
             return bolt
         except (TypeError, WireError) as error:
@@ -302,9 +298,8 @@ class Bolt(Connection):
         log.debug("[#%04X] S: <PROTOCOL> %d.%d", local_port, v[-1], v[-2])
         return v[-1], v[-2]
 
-    def __init__(self, wire, profile, on_bind=None, on_unbind=None, on_release=None):
-        super(Bolt, self).__init__(profile,
-                                   on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
+    def __init__(self, wire, profile, on_release=None):
+        super(Bolt, self).__init__(profile, on_release=on_release)
         self._wire = wire
         self.__local_port = wire.local_address.port_number
 
@@ -391,9 +386,8 @@ class Bolt1(Bolt):
         0x7F: "FAILURE",
     }
 
-    def __init__(self, wire, profile, on_bind=None, on_unbind=None, on_release=None):
-        super(Bolt1, self).__init__(wire, profile,
-                                    on_bind=on_bind, on_unbind=on_unbind, on_release=on_release)
+    def __init__(self, wire, profile, on_release=None):
+        super(Bolt1, self).__init__(wire, profile, on_release=on_release)
         self._reader = BoltMessageReader(wire)
         self._writer = BoltMessageWriter(wire, self.protocol_version)
         self._responses = deque()
@@ -476,8 +470,6 @@ class Bolt1(Bolt):
                                         "due to disconnection"), error)
         else:
             self._audit(self._transaction)
-            if callable(self._on_bind):
-                self._on_bind(self._transaction, self)
             return self._transaction
 
     def commit(self, tx):
@@ -499,9 +491,6 @@ class Bolt1(Bolt):
                 raise_from(ConnectionBroken("Failed to commit transaction"), error)
             else:
                 return Bookmark()
-        finally:
-            if callable(self._on_unbind):
-                self._on_unbind(self._transaction)
 
     def rollback(self, tx):
         self._assert_open()
@@ -522,9 +511,6 @@ class Bolt1(Bolt):
                 raise_from(ConnectionBroken("Failed to rollback transaction"), error)
             else:
                 return Bookmark()
-        finally:
-            if callable(self._on_unbind):
-                self._on_unbind(self._transaction)
 
     def run(self, tx, cypher, parameters=None):
         self._assert_open()
@@ -826,8 +812,8 @@ class Bolt3(Bolt2):
         0x7F: "FAILURE",
     }
 
-    def __init__(self, wire, profile, on_bind=None, on_unbind=None, on_release=None):
-        super(Bolt3, self).__init__(wire, profile, on_bind, on_unbind, on_release)
+    def __init__(self, wire, profile, on_release=None):
+        super(Bolt3, self).__init__(wire, profile, on_release)
         self._polite = False
 
     def _hello(self, user_agent):
@@ -884,8 +870,6 @@ class Bolt3(Bolt2):
                                         "due to disconnection"), error)
         else:
             self._audit(self._transaction)
-            if callable(self._on_bind):
-                self._on_bind(self._transaction, self)
             return self._transaction
 
     def commit(self, tx):
@@ -907,9 +891,6 @@ class Bolt3(Bolt2):
                 raise_from(ConnectionBroken("Failed to commit transaction"), error)
             else:
                 return Bookmark(response.metadata.get("bookmark"))
-        finally:
-            if callable(self._on_unbind):
-                self._on_unbind(self._transaction)
 
     def rollback(self, tx):
         self._assert_open()
@@ -930,9 +911,6 @@ class Bolt3(Bolt2):
                 raise_from(ConnectionBroken("Failed to rollback transaction"), error)
             else:
                 return Bookmark(response.metadata.get("bookmark"))
-        finally:
-            if callable(self._on_unbind):
-                self._on_unbind(self._transaction)
 
     def _run(self, graph_name, cypher, parameters, extra=None, final=False):
         response = self.append_message(0x10, cypher, parameters, extra or {})
@@ -962,9 +940,10 @@ class Bolt4x0(Bolt3):
     }
 
     def _assert_result_consumable(self, result):
-        tx = result.transaction
-        if not tx:
-            raise TypeError("Result does not belong to open transaction")
+        try:
+            tx = result.transaction
+        except AttributeError:
+            raise TypeError("Result object is unusable")
         if result.complete():
             raise IndexError("Result is fully consumed")
         if result.has_more_records():
