@@ -185,7 +185,7 @@ class Cursor(object):
         amount = int(amount)
         moved = 0
         while moved != amount:
-            values = self._result.take_record()
+            values = self._result.take()
             if values is None:
                 break
             if self._hydrant:
@@ -207,7 +207,7 @@ class Cursor(object):
             raise ValueError("Illegal preview size")
         records = []
         if self._fields:
-            for values in self._result.peek_records(int(limit)):
+            for values in self._result.peek(int(limit)):
                 if self._hydrant:
                     values = self._hydrant.hydrate_list(values)
                 records.append(values)

@@ -261,7 +261,7 @@ class HTTP(Connection):
         pass
 
     def fetch(self, result):
-        record = result.take_record()
+        record = result.take()
         return record
 
     def _post(self, url, statement=None, parameters=None):
@@ -363,7 +363,7 @@ class HTTPResult(Result):
     def summary(self):
         return self._summary
 
-    def take_record(self):
+    def take(self):
         try:
             record = self._buffer[self._cursor]["rest"]
         except IndexError:
@@ -372,7 +372,7 @@ class HTTPResult(Result):
             self._cursor += 1
             return record
 
-    def peek_records(self, limit):
+    def peek(self, limit):
         records = []
         for i in range(limit):
             try:

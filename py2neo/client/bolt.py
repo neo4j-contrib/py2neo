@@ -592,7 +592,7 @@ class Bolt1(Bolt):
         self._audit(result)
 
     def fetch(self, result):
-        return result.take_record()
+        return result.take()
 
     def _assert_no_transaction(self):
         if self._transaction:
@@ -1167,7 +1167,7 @@ class BoltResult(ItemizedTask, Result):
             d.update(item.metadata)
         return d
 
-    def take_record(self):
+    def take(self):
         i = self._last_taken
         while i < self._items_len:
             response = self._items[i]
@@ -1180,12 +1180,12 @@ class BoltResult(ItemizedTask, Result):
                 return record
         return None
 
-    def peek_records(self, limit):
+    def peek(self, limit):
         records = []
         i = self._last_taken
         while i < self._items_len:
             response = self._items[i]
-            records.extend(response.peek_records(limit - len(records)))
+            records.extend(response.peek(limit - len(records)))
             if len(records) == limit:
                 break
             i += 1

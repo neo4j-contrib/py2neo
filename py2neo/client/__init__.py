@@ -1483,7 +1483,7 @@ class Connector(object):
         else:
             value = set()
             while True:
-                record = result.take_record()
+                record = result.take()
                 if record is None:
                     break
                 (name, address, role, requested_status,
@@ -1500,7 +1500,7 @@ class Connector(object):
             return None
         else:
             while True:
-                record = result.take_record()
+                record = result.take()
                 if record is None:
                     break
                 (name, address, role, requested_status,
@@ -1715,7 +1715,7 @@ class Result(object):
             broken by an unexpected network event.
         """
         while True:
-            record = self.take_record()
+            record = self.take()
             if record is None:
                 break
             yield record
@@ -1729,7 +1729,7 @@ class Result(object):
         """
         raise NotImplementedError
 
-    def take_record(self):
+    def take(self):
         """ Return the next record from the buffer if one is available,
         :const:`None` otherwise. This method does not carry out any
         network activity.
@@ -1738,7 +1738,7 @@ class Result(object):
         """
         raise NotImplementedError
 
-    def peek_records(self, limit):
+    def peek(self, limit):
         """ Return up to `limit` records from the buffer if available.
         This method does not carry out any network activity.
 

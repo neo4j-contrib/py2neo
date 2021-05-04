@@ -299,7 +299,7 @@ class Cursor(object):
         if self._result is None:
             return
         while True:
-            record = self._result.take_record()
+            record = self._result.take()
             if record is None:
                 break
             yield tuple(record)
@@ -376,7 +376,7 @@ class Cursor(object):
         self.__check__()
         if self._result is None:
             return None
-        record = self._result.take_record()
+        record = self._result.take()
         if record is None:
             return None
         return tuple(record)
@@ -396,7 +396,7 @@ class Cursor(object):
             size = self.arraysize
         records = []
         for _ in range(size):
-            record = self._result.take_record()
+            record = self._result.take()
             if record is None:
                 break
             records.append(tuple(record))
@@ -414,7 +414,7 @@ class Cursor(object):
             return []
         records = []
         while True:
-            record = self._result.take_record()
+            record = self._result.take()
             if record is None:
                 break
             records.append(tuple(record))
