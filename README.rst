@@ -21,7 +21,7 @@ Py2neo
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
 
 As of version 2021.1, Py2neo contains full support for routing, as exposed by a Neo4j cluster.
-This can be enabled using a ``neo4j://...`` URI or by passing ``routing=True`` to a :class:`.Graph` constructor.
+This can be enabled using a ``neo4j://...`` URI or by passing ``routing=True`` to a ``Graph`` constructor.
 
 
 Quick Example
