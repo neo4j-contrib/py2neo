@@ -16,6 +16,8 @@
 # limitations under the License.
 
 
+from pytest import skip
+
 from py2neo.client import Connector
 
 
@@ -27,10 +29,14 @@ def test_auto_run_with_pull_all(service_profile):
 
 
 def test_auto_run_with_pull_3_then_pull_all(service_profile):
-    from pansi.console import watch; watch("py2neo")
     cx = Connector(service_profile)
-    result = cx.auto_run("UNWIND range(1, 5) AS n RETURN n", pull=3)
-    assert list(result.records()) == [[1], [2], [3]]
-    cx.pull(result)
-    assert list(result.records()) == [[4], [5]]
-    cx.close()
+    try:
+        result = cx.auto_run("UNWIND range(1, 5) AS n RETURN n", pull=3)
+    except IndexError as error:
+        skip(str(error))
+    else:
+        assert list(result.records()) == [[1], [2], [3]]
+        cx.pull(result)
+        assert list(result.records()) == [[4], [5]]
+    finally:
+        cx.close()

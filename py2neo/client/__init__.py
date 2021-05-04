@@ -247,7 +247,6 @@ class Connection(object):
             else:
                 result = self.run(tx, cypher)
             self.pull(result)
-            result.buffer()
         except Neo4jError as error:
             if error.title == "ProcedureNotFound":
                 raise TypeError("This Neo4j installation does not support the "
@@ -1314,6 +1313,9 @@ class Connector(object):
         :raises ConnectionUnavailable: if an attempt to run cannot be made
         :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
+        :raises IndexError:
+            if the request to pull the specified number of records
+            cannot be honoured
         """
         if readonly:
             cx = self._acquire_ro(graph_name)
@@ -1415,6 +1417,9 @@ class Connector(object):
         :raises ConnectionUnavailable: if an attempt to run cannot be made
         :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
+        :raises IndexError:
+            if the request to pull the specified number of records
+            cannot be honoured
         """
         cx = self._reacquire(tx)
         try:
@@ -1691,15 +1696,6 @@ class Result(object):
     def profile(self):
         raise NotImplementedError
 
-    def buffer(self):
-        """ Fetch the remainder of the result into memory. This method
-        may carry out network activity.
-
-        :raises: :class:`.ConnectionBroken` if the transaction is
-            broken by an unexpected network event.
-        """
-        raise NotImplementedError
-
     def fields(self):
         """ Return the list of field names for records in this result.
         This method may carry out network activity.
@@ -1718,7 +1714,6 @@ class Result(object):
         :raises: :class:`.ConnectionBroken` if the transaction is
             broken by an unexpected network event.
         """
-        self.buffer()
         while True:
             record = self.fetch()
             if record is None:

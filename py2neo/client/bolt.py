@@ -443,17 +443,7 @@ class Bolt1(Bolt):
         self._set_transaction(graph_name, readonly=readonly,
                               # after, metadata, timeout
                               )
-        result = self._run(graph_name, cypher, parameters or {}, final=True)
-        try:
-            # TODO: can we avoid this buffering before the first
-            #   PULL/DISCARD is sent?
-            result.buffer()
-        except BrokenWireError as error:
-            raise_from(ConnectionBroken("Transaction could not run "
-                                        "due to disconnection"), error)
-        else:
-            self._audit(self._transaction)
-            return result
+        return self._run(graph_name, cypher, parameters or {}, final=True)
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
@@ -527,10 +517,11 @@ class Bolt1(Bolt):
         return result
 
     def pull(self, result, n=-1, capacity=-1):
+        print(result, n, capacity)
         self._assert_open()
         self._assert_result_consumable(result)
         if n != -1:
-            raise TypeError("Flow control is not supported before Bolt 4.0")
+            raise IndexError("Flow control is not available in this version of Neo4j")
         response = self.append_message(0x3F, capacity=capacity)
         result.append(response, final=True)
         try:
@@ -601,15 +592,7 @@ class Bolt1(Bolt):
         self._audit(result)
 
     def fetch(self, result):
-        #if not result.done():
-        #    if not self._responses:
-        #        return None
-        #    while self._responses[0] is not result.last():
-        #        self._wait(self._responses[0])
-        #    self._wait(result.last())
-        #    self._audit(result)
-        record = result.take_record()
-        return record
+        return result.take_record()
 
     def _assert_no_transaction(self):
         if self._transaction:
@@ -623,9 +606,11 @@ class Bolt1(Bolt):
             raise ValueError("Transaction is broken")
 
     def _assert_result_consumable(self, result):
-        if not self._transaction:
-            raise TypeError("Cannot consume result without open transaction")
-        if result is not self._transaction.last():
+        try:
+            tx = result.transaction
+        except AttributeError:
+            raise TypeError("Result object is unusable")
+        if result is not tx.last():
             raise TypeError("Random query access is not supported before Bolt 4.0")
         if result.complete():
             raise IndexError("Result is fully consumed")
@@ -843,16 +828,8 @@ class Bolt3(Bolt2):
         self._transaction = BoltTransactionRef(self, graph_name, readonly,
                                                # after, metadata, timeout
                                                )
-        result = self._run(graph_name, cypher, parameters or {},
+        return self._run(graph_name, cypher, parameters or {},
                            self._transaction.extra, final=True)
-        try:
-            result.buffer()
-        except BrokenWireError as error:
-            raise_from(ConnectionBroken("Transaction could not run "
-                                        "due to disconnection"), error)
-        else:
-            self._audit(self._transaction)
-            return result
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
@@ -1178,19 +1155,7 @@ class BoltResult(ItemizedTask, Result):
     def profile(self):
         return self._profile
 
-    def buffer(self):
-        if self.done():
-            return
-        try:
-            self.__cx.sync(self)
-        except BrokenWireError as error:
-            self.__cx.transaction.mark_broken()
-            raise_from(ConnectionBroken("Transaction broken by disconnection "
-                                        "while buffering"), error)
-
     def header(self):
-        if not self.done():
-            self.buffer()
         return self._items[0]
 
     def fields(self):

@@ -146,8 +146,10 @@ else:
         DeploymentProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
         DeploymentProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
         # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),
+        DeploymentProfile(release=(3, 5), topology="CE", schemes=UNSECURED_LEGACY_SCHEMES),
         DeploymentProfile(release=(3, 5), topology="CE", cert="ssc", schemes=SSC_LEGACY_SCHEMES),
         # ServiceProfile(release=(3, 5), topology="CE", cert="full", schemes=ALL_LEGACY_SCHEMES),
+        DeploymentProfile(release=(3, 4), topology="CE", schemes=UNSECURED_LEGACY_SCHEMES),
         DeploymentProfile(release=(3, 4), topology="CE", cert="ssc", schemes=SSC_LEGACY_SCHEMES),
         # ServiceProfile(release=(3, 4), topology="CE", cert="full", schemes=ALL_LEGACY_SCHEMES),
     ]

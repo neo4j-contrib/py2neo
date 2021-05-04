@@ -770,7 +770,7 @@ class Schema(object):
         """
         cypher = "CREATE INDEX ON :{}({})".format(
             cypher_escape(label), ", ".join(map(cypher_escape, property_keys)))
-        self.graph.run(cypher).close()
+        self.graph.update(cypher)
         while property_keys not in self.get_indexes(label):
             sleep(0.1)
 
@@ -783,7 +783,7 @@ class Schema(object):
         """
         cypher = "CREATE CONSTRAINT ON (_:{}) ASSERT _.{} IS UNIQUE".format(
             cypher_escape(label), cypher_escape(property_key))
-        self.graph.run(cypher).close()
+        self.graph.update(cypher)
         while property_key not in self.get_uniqueness_constraints(label):
             sleep(0.1)
 
@@ -792,7 +792,7 @@ class Schema(object):
         """
         cypher = "DROP INDEX ON :{}({})".format(
             cypher_escape(label), ", ".join(map(cypher_escape, property_keys)))
-        self.graph.run(cypher).close()
+        self.graph.update(cypher)
 
     def drop_uniqueness_constraint(self, label, property_key):
         """ Remove the node uniqueness constraint for a given label and
@@ -800,7 +800,7 @@ class Schema(object):
         """
         cypher = "DROP CONSTRAINT ON (_:{}) ASSERT _.{} IS UNIQUE".format(
             cypher_escape(label), cypher_escape(property_key))
-        self.graph.run(cypher).close()
+        self.graph.update(cypher)
 
     def _get_indexes(self, label, unique_only=False):
         indexes = []
@@ -1000,7 +1000,7 @@ class Transaction(object):
         :param cypher: Cypher statement
         :param parameters: dictionary of parameters
         """
-        self.run(cypher, parameters, **kwparameters).close()
+        self.run(cypher, parameters, **kwparameters)
 
     @deprecated("The transaction.commit() method is deprecated, "
                 "use graph.commit(transaction) instead")

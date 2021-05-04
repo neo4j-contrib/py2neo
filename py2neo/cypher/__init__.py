@@ -123,11 +123,6 @@ class Cursor(object):
     def closed(self):
         return self._result.offline
 
-    def close(self):
-        """ Close this cursor and free up all associated resources.
-        """
-        self._result.buffer()
-
     def keys(self):
         """ Return the field names for the records in the stream.
         """
@@ -136,13 +131,11 @@ class Cursor(object):
     def summary(self):
         """ Return the result summary.
         """
-        self._result.buffer()
         return self._result.summary()
 
     def plan(self):
         """ Return the execution plan returned by this query, if any.
         """
-        self._result.buffer()
         metadata = self._result.summary()
         try:
             return metadata["plan"]
@@ -165,7 +158,6 @@ class Cursor(object):
         {'labels_added': 1, 'nodes_created': 1, 'properties_set': 1}
 
         """
-        self._result.buffer()
         metadata = self._result.summary()
         stats = {}
         for key, value in metadata.get("stats", {}).items():
@@ -249,7 +241,6 @@ class Cursor(object):
             >>> g.run("MATCH (a) WHERE a.email=$x RETURN a.name", x="bob@acme.com").evaluate()
             'Bob Robertson'
         """
-        self._result.buffer()
         if self.forward():
             try:
                 return self[field]

@@ -342,10 +342,7 @@ class Cursor(object):
     def close(self):
         """ Close the cursor immediately.
         """
-        if not self._closed:
-            if self._result is not None:
-                self._result.buffer()
-            self._closed = True
+        self._closed = True
 
     def execute(self, query, parameters=None):
         """ Execute a query.
@@ -354,8 +351,6 @@ class Cursor(object):
         :raises OperationalError: if the connection is broken
         """
         self.__check__()
-        if self._result is not None:
-            self._result.buffer()
         if not self.connection.in_transaction:
             self.connection.begin()
         self._result = self.connection.__execute__(query, parameters)

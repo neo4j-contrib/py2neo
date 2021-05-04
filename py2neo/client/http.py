@@ -357,9 +357,6 @@ class HTTPResult(Result):
     def profile(self):
         return self._profile
 
-    def buffer(self):
-        pass
-
     def fields(self):
         return self._columns
 
