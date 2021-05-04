@@ -12,7 +12,7 @@ function run_unit_tests
 {
     echo "Running unit tests"
     coverage run --append --rcfile="${COVERAGERC}" \
-             --module pytest -v ${ARGS} "${TEST}/unit"
+             --module pytest ${ARGS} "${TEST}/unit"
     STATUS="$?"
     if [[ ${STATUS} -eq 5 ]]
     then
@@ -29,7 +29,7 @@ function run_integration_tests
 {
     echo "Running integration tests"
     coverage run --append --rcfile="${COVERAGERC}" \
-             --module pytest -v ${ARGS} "${TEST}/integration"
+             --module pytest ${ARGS} "${TEST}/integration"
     STATUS="$?"
     if [[ ${STATUS} -ne 0 ]]
     then
