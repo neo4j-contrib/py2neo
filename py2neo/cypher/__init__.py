@@ -27,6 +27,7 @@ __all__ = [
 ]
 
 from functools import reduce
+from io import StringIO
 from operator import xor as xor_operator
 
 from py2neo.cypher.encoding import CypherEncoder
@@ -79,16 +80,26 @@ class Cursor(object):
 
     """
 
-    def __init__(self, result, hydrant=None):
+    def __init__(self, result, hydrant=None, sample_size=3):
         self._result = result
         self._fields = self._result.fields()
         self._hydrant = hydrant
         self._current = None
+        self.sample_size = sample_size
 
     def __repr__(self):
-        preview = self.preview(3)
+        preview = self.preview()
         if preview:
             return repr(preview)
+        else:
+            return "(No data)"
+
+    def _repr_html_(self):
+        preview = self.preview()
+        if preview:
+            s = StringIO()
+            preview.write_html(file=s, header=True)
+            return s.getvalue()
         else:
             return "(No data)"
 
@@ -194,7 +205,7 @@ class Cursor(object):
             moved += 1
         return moved
 
-    def preview(self, limit=1):
+    def preview(self, limit=None):
         """ Construct a :class:`.Table` containing a preview of
         upcoming records, including no more than the given `limit`.
 
@@ -203,11 +214,15 @@ class Cursor(object):
         :returns: :class:`.Table` containing the previewed records
         """
         from py2neo.export import Table
-        if limit < 0:
+        if not limit:
+            limit = self.sample_size
+        elif limit < 0:
             raise ValueError("Illegal preview size")
+        else:
+            limit = int(limit)
         records = []
         if self._fields:
-            for values in self._result.peek(int(limit)):
+            for values in self._result.peek(limit):
                 if self._hydrant:
                     values = self._hydrant.hydrate_list(values)
                 records.append(values)
