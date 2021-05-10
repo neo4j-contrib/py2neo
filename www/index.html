@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>py2neo</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <link href="//cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-wEmeIV1mKuiNpC+IOBjI7aAzPcEZeedi5yW5f2yOq55WWLwNGmvvx4Um1vskeMj0" crossorigin="anonymous">
+    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.2/styles/default.min.css">
+
+    <script src="//cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js" integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p" crossorigin="anonymous"></script>
+    <script src="//cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.min.js" integrity="sha384-lpyLfhYuitXl2zRZ5Bn2fqnhNAKOAaM/0Kr9laMspuaMiZfGmfwRNFh8HlMy49eQ" crossorigin="anonymous"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.2/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+
+      <style>
+        footer {
+          border-top: 1px solid #EEEEEE;
+          opacity: 75%;
+          font-style: italic;
+          margin: 2rem 0;
+          padding: 1rem 0;
+          text-align: center;
+        }
+          h2 {
+              margin: 2rem 0 1rem 0;
+          }
+
+          code {
+              font-size: 1rem;
+          }
+
+          pre {
+              font-size: 1rem;
+              line-height: 1.5;
+          }
+
+      </style>
+  </head>
+
+<body style="overflow-y:scroll">
+<div class="container">
+
+<header>
+<h1 style="text-align: center;padding: 3rem 0">
+  <img src="art/py2neo-2018.291x50.png" alt="py2neo logo">
+</h1>
+</header>
+
+<p>
+  <strong>Py2neo</strong> is a versatile client library and toolkit for working with <a href="https://neo4j.com/">Neo4j</a> from within <a href="https://www.python.org/">Python</a> applications and from the command line.
+  The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
+</p>
+
+<p>
+  As of version 2021.1, py2neo contains full support for routing, as exposed by a Neo4j cluster.
+  This can be enabled using a <code>neo4j://...</code> URI or by passing <code>routing=True</code> to a <code>Graph</code> constructor.
+</p>
+
+<pre><code lang="bash">$ pip install py2neo
+</code></pre>
+
+
+<!-- Links -->
+<div style="text-align:center">
+  <a class="btn btn-secondary btn-lg" href="https://pypi.org/project/py2neo/">PyPI project page</a>
+  <a class="btn btn-secondary btn-lg" href="https://github.com/technige/py2neo/releases/latest">Latest release</a>
+  <a class="btn btn-secondary btn-lg" href="https://py2neo.org/latest/">Latest docs</a>
+  <a class="btn btn-secondary btn-lg" href="https://twitter.com/py2neo">Twitter</a>
+  <!-- TODO: chat room -->
+  <!-- TODO: Medium account -->
+  <a class="btn btn-secondary btn-lg" href="https://github.com/technige/py2neo">Source code</a>
+</div>
+
+
+<h2>Code Examples</h2>
+<ul class="nav nav-tabs" id="myTab" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="subgraph-tab" data-bs-toggle="tab" data-bs-target="#subgraph" type="button" role="tab" aria-controls="subgraph" aria-selected="true">Subgraph API</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="cypher-tab" data-bs-toggle="tab" data-bs-target="#cypher" type="button" role="tab" aria-controls="cypher" aria-selected="false">Cypher Execution</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="ogm-tab" data-bs-toggle="tab" data-bs-target="#ogm" type="button" role="tab" aria-controls="ogm" aria-selected="false">Object-Graph Mapping</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="bulk-tab" data-bs-toggle="tab" data-bs-target="#bulk" type="button" role="tab" aria-controls="bulk" aria-selected="false">Bulk Data API</button>
+  </li>
+</ul>
+<div class="tab-content" id="myTabContent">
+
+<div class="tab-pane fade show active" id="subgraph" role="tabpanel" aria-labelledby="subgraph-tab">
+<pre><code lang="python">&gt;&gt;&gt; from py2neo import Graph, Node, Relationship
+&gt;&gt;&gt; g = Graph("neo4j://localhost:7687", auth=("neo4j", "badtiger"))
+&gt;&gt;&gt; a = Node("Person", name="Alice")
+&gt;&gt;&gt; b = Node("Person", name="Bob")
+&gt;&gt;&gt; KNOWS = Relationship.type("KNOWS")
+&gt;&gt;&gt; g.create(a | KNOWS(a, b) | b)
+&gt;&gt;&gt; list(g.relationships.match(r_type="KNOWS"))
+[KNOWS(Node('Person', name='Alice'), Node('Person', name='Bob'))]
+</code></pre>
+</div>
+
+<div class="tab-pane fade" id="cypher" role="tabpanel" aria-labelledby="cypher-tab">
+<pre><code lang="python">&gt;&gt;&gt; from py2neo import Graph
+&gt;&gt;&gt; g = Graph("neo4j://localhost:7687", auth=("neo4j", "badtiger"))
+&gt;&gt;&gt; g.update("CREATE (:Person {name: $names[0]})-[:KNOWS]->(:Person {name: $names[1]})", {"names": ["Alice", "Bob"]})
+&gt;&gt;&gt; g.query("MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.name, b.name")
+ a.name | b.name
+--------|--------
+ Alice  | Bob
+</code></pre>
+</div>
+
+<div class="tab-pane fade" id="ogm" role="tabpanel" aria-labelledby="ogm-tab">
+<pre><code lang="python">&gt;&gt;&gt; from py2neo.ogm import Repository, Model, Property, RelatedTo
+&gt;&gt;&gt; repo = Repository("neo4j://localhost:7687", auth=("neo4j", "badtiger"))
+&gt;&gt;&gt; class Person(Model):
+...     __primarykey__ = "name"
+...     name = Property()
+...     knows = RelatedTo("Person")
+...     def __init__(self, name):
+...         self.name = name
+...
+&gt;&gt;&gt; a = Person("Alice")
+&gt;&gt;&gt; b = Person("Bob")
+&gt;&gt;&gt; a.knows.add(b)
+&gt;&gt;&gt; repo.save(a, b)
+&gt;&gt;&gt; list(repo.get(Person, "Alice").knows.triples())
+[(&lt;Person name='Alice'&gt;, ('KNOWS', {}), &lt;Person name='Bob'&gt;)]
+</code></pre>
+</div>
+
+<div class="tab-pane fade" id="bulk" role="tabpanel" aria-labelledby="bulk-tab">
+<pre><code lang="python">&gt;&gt;&gt; from py2neo import Graph
+&gt;&gt;&gt; from py2neo.bulk import create_nodes, create_relationships
+&gt;&gt;&gt; g = Graph("neo4j://localhost:7687", auth=("neo4j", "badtiger"))
+&gt;&gt;&gt; create_nodes(g.auto(), [{"name": "Alice"}, {"name": "Bob"}], labels={"Person"})
+&gt;&gt;&gt; create_relationships(g.auto(), [("Alice", {}, "Bob")], "KNOWS", start_node_key=("Person", "name"), end_node_key=("Person", "name"))
+&gt;&gt;&gt; list(g.relationships.match(r_type="KNOWS"))
+[KNOWS(Node('Person', name='Alice'), Node('Person', name='Bob'))]
+</code></pre>
+</div>
+
+</div>
+
+<footer>
+  py2neo is built and maintained by <a href="https://twitter.com/technige">Nigel Small</a>
+</footer>
+
+</div>
+</body>
+</html>
