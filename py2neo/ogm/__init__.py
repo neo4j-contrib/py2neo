@@ -336,8 +336,9 @@ class RelatedObjects(object):
             tx.merge(related_object)
         # 2a. remove any relationships not in list of nodes
         subject_id = self.node.identity
-        tx.run("MATCH %s WHERE id(a) = $x AND NOT id(b) IN $y DELETE _" % self.__relationship_pattern,
-               x=subject_id, y=[obj.__node__.identity for obj, _ in related_objects])
+        if not self.subject.__preserve_existing_relationships__:
+            tx.run("MATCH %s WHERE id(a) = $x AND NOT id(b) IN $y DELETE _" % self.__relationship_pattern,
+                   x=subject_id, y=[obj.__node__.identity for obj, _ in related_objects])
         # 2b. merge all relationships
         for related_object, properties in related_objects:
             tx.run("MATCH (a) WHERE id(a) = $x MATCH (b) WHERE id(b) = $y "
@@ -423,6 +424,9 @@ class Model(object):
 
     __primarylabel__ = None
     __primarykey__ = None
+    
+    # Optionally preserve existing relationships for node when pushing to database
+    __preserve_existing_relationships__ = False
 
     __ogm = None
 
