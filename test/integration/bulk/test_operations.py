@@ -52,12 +52,27 @@ def test_create_nodes_from_property_dicts(graph):
 def test_merge_nodes_from_property_lists(graph):
     graph.delete_all()
     tx = graph.begin()
+    tx.update("CREATE (a:Person {name:'Alice', age:99})")
     merge_nodes(tx, DATA_LISTS, ("Person", "name"),
                 labels={"Person", "Employee"}, keys=HEADERS)
     graph.commit(tx)
     matched = graph.nodes.match("Person")
     assert matched.count() == 3
     assert all(node.labels == {"Person", "Employee"} for node in matched)
+    assert graph.nodes.match("Person", name="Alice").first()["age"] == 66
+
+
+def test_merge_nodes_with_preservation(graph):
+    graph.delete_all()
+    tx = graph.begin()
+    tx.update("CREATE (a:Person {name:'Alice', age:99})")
+    merge_nodes(tx, DATA_LISTS, ("Person", "name"),
+                labels={"Person", "Employee"}, keys=HEADERS, preserve=["age"])
+    graph.commit(tx)
+    matched = graph.nodes.match("Person")
+    assert matched.count() == 3
+    assert all(node.labels == {"Person", "Employee"} for node in matched)
+    assert graph.nodes.match("Person", name="Alice").first()["age"] == 99
 
 
 def test_merge_nodes_from_property_dicts(graph):

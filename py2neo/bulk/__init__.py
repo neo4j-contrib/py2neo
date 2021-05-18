@@ -117,7 +117,7 @@ def create_nodes(tx, data, labels=None, keys=None):
     list(tx.run(*unwind_create_nodes_query(data, labels, keys)))
 
 
-def merge_nodes(tx, data, merge_key, labels=None, keys=None):
+def merge_nodes(tx, data, merge_key, labels=None, keys=None, preserve=None):
     """ Merge nodes from an iterable sequence of raw node data.
 
     In a similar way to :func:`.create_nodes`, the raw node `data` can
@@ -151,6 +151,10 @@ def merge_nodes(tx, data, merge_key, labels=None, keys=None):
     The label included in the `merge_key` does not need to be
     separately included here.
 
+    If a list of keys are passed to the `preserve` argument, these
+    property values will be preserved in the case where the node
+    already exists.
+
     The example code below shows a simple merge based on a `Person`
     label and a `name` property:
 
@@ -177,8 +181,10 @@ def merge_nodes(tx, data, merge_key, labels=None, keys=None):
     :param labels: additional labels to apply to the merged nodes
     :param keys: optional set of keys for the supplied `data` (if
         supplied as value lists)
+    :param preserve: optional set of keys that designate property values
+        to preserve in nodes that already exist
     """
-    list(tx.run(*unwind_merge_nodes_query(data, merge_key, labels, keys)))
+    list(tx.run(*unwind_merge_nodes_query(data, merge_key, labels, keys, preserve)))
 
 
 def create_relationships(tx, data, rel_type, start_node_key=None, end_node_key=None, keys=None):
@@ -271,7 +277,8 @@ def create_relationships(tx, data, rel_type, start_node_key=None, end_node_key=N
         data, rel_type, start_node_key, end_node_key, keys)))
 
 
-def merge_relationships(tx, data, merge_key, start_node_key=None, end_node_key=None, keys=None):
+def merge_relationships(tx, data, merge_key, start_node_key=None, end_node_key=None, keys=None,
+                        preserve=None):
     """ Merge relationships from an iterable sequence of raw
     relationship data.
 
@@ -291,6 +298,10 @@ def merge_relationships(tx, data, merge_key, start_node_key=None, end_node_key=N
         ``("KNOWS", "since")``                   ``MERGE (a)-[ab:KNOWS {since:$x}]->(b)``
         ``("KNOWS", "since", "introduced by")``  ``MERGE (a)-[ab:KNOWS {since:$x, `introduced by`:$y}]->(b)``
         =======================================  ============================================================
+    
+    As with :func:`.merge_nodes`, a list of keys can be passed to the
+    `preserve` argument, which designate property values to be
+    preserved in the case where the relationship already exists.
 
     For details on how the `start_node_key` and `end_node_key`
     arguments can be used, see :func:`.create_relationships`.
@@ -309,7 +320,9 @@ def merge_relationships(tx, data, merge_key, start_node_key=None, end_node_key=N
         if not provided
     :param keys: optional set of field names for the relationship
         `detail` (if supplied as value lists)
+    :param preserve: optional set of keys that designate property values
+        to preserve in relationships that already exist
     :return:
     """
     list(tx.run(*unwind_merge_relationships_query(
-        data, merge_key, start_node_key, end_node_key, keys)))
+        data, merge_key, start_node_key, end_node_key, keys, preserve)))
