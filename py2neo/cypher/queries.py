@@ -36,7 +36,7 @@ def unwind_create_nodes_query(data, labels=None, keys=None):
                        data=list(data))
 
 
-def unwind_merge_nodes_query(data, merge_key, labels=None, keys=None):
+def unwind_merge_nodes_query(data, merge_key, labels=None, keys=None, preserve=None):
     """ Generate a parameterised ``UNWIND...MERGE`` query for bulk
     loading nodes into Neo4j.
 
@@ -44,12 +44,16 @@ def unwind_merge_nodes_query(data, merge_key, labels=None, keys=None):
     :param merge_key:
     :param labels:
     :param keys:
+    :param preserve:
+        Collection of key names for values that should be protected
+        should the node already exist.
     :return: (query, parameters) tuple
     """
     return cypher_join("UNWIND $data AS r",
                        _merge_clause("_", merge_key, "r", keys),
+                       _on_create_set_properties_clause("r", keys, preserve),
+                       _set_properties_clause("r", keys, exclude_keys=preserve),
                        _set_labels_clause(labels),
-                       _set_properties_clause("r", keys),
                        data=list(data))
 
 
@@ -74,7 +78,7 @@ def unwind_create_relationships_query(data, rel_type, start_node_key=None, end_n
 
 
 def unwind_merge_relationships_query(data, merge_key, start_node_key=None, end_node_key=None,
-                                     keys=None):
+                                     keys=None, preserve=None):
     """ Generate a parameterised ``UNWIND...MERGE`` query for bulk
     loading relationships into Neo4j.
 
@@ -83,13 +87,17 @@ def unwind_merge_relationships_query(data, merge_key, start_node_key=None, end_n
     :param start_node_key:
     :param end_node_key:
     :param keys:
+    :param preserve:
+        Collection of key names for values that should be protected
+        should the relationship already exist.
     :return: (query, parameters) tuple
     """
     return cypher_join("UNWIND $data AS r",
                        _match_clause("a", start_node_key, "r[0]"),
                        _match_clause("b", end_node_key, "r[2]"),
                        _merge_clause("_", merge_key, "r[1]", keys, "(a)-[", "]->(b)"),
-                       _set_properties_clause("r[1]", keys),
+                       _on_create_set_properties_clause("r[1]", keys, preserve),
+                       _set_properties_clause("r[1]", keys, exclude_keys=preserve),
                        data=_relationship_data(data))
 
 
@@ -161,14 +169,30 @@ def _set_labels_clause(labels):
         return None
 
 
-def _set_properties_clause(value, keys):
+def _set_properties_clause(expr, keys, exclude_keys=()):
     if keys is None:
         # data is list of dicts
-        return "SET _ += %s" % value
+        return "SET _ += %s" % expr
     else:
         # data is list of lists
-        fields = [CypherExpression("%s[%d]" % (value, i)) for i in range(len(keys))]
-        return "SET _ += " + cypher_repr(OrderedDict(zip(keys, fields)))
+        d = OrderedDict()
+        for i, key in enumerate(keys):
+            if exclude_keys and key in exclude_keys:
+                continue
+            d[key] = CypherExpression("%s[%d]" % (expr, i))
+        return "SET _ += " + cypher_repr(d)
+
+
+def _on_create_set_properties_clause(expr, all_keys, keys):
+    if keys is None:
+        return None
+    else:
+        # data is list of lists
+        d = OrderedDict()
+        for i, key in enumerate(all_keys):
+            if key in keys:
+                d[key] = CypherExpression("%s[%d]" % (expr, i))
+        return "ON CREATE SET _ += " + cypher_repr(d)
 
 
 def _relationship_data(data):

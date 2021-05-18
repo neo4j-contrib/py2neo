@@ -167,8 +167,8 @@ class TestUnwindMergeNodesQuery(object):
                                         labels=["Human", "Employee"])
         assert q == ("UNWIND $data AS r\n"
                      "MERGE (_:Person {name:r['name']})\n"
-                     "SET _:Employee:Human\n"
-                     "SET _ += r")
+                     "SET _ += r\n"
+                     "SET _:Employee:Human")
         assert p == {"data": node_data_dicts}
 
     @mark.parametrize("merge_key", ["Person", ("Person",)])
@@ -192,6 +192,15 @@ class TestUnwindMergeNodesQuery(object):
                      "MERGE (_:Person {name:r['name'], `family name`:r['family name']})\n"
                      "SET _ += r")
         assert p == {"data": node_data_dicts}
+
+    def test_list_data_with_preservation(self, node_data_lists, node_keys):
+        q, p = unwind_merge_nodes_query(node_data_lists, ("Person", "name"), keys=node_keys,
+                                        preserve=["age"])
+        assert q == ("UNWIND $data AS r\n"
+                     "MERGE (_:Person {name:r[0]})\n"
+                     "ON CREATE SET _ += {age: r[2]}\n"
+                     "SET _ += {name: r[0], `family name`: r[1]}")
+        assert p == {"data": node_data_lists}
 
 
 class TestUnwindCreateRelationshipsQuery(object):
@@ -332,3 +341,14 @@ class TestUnwindMergeRelationshipsQuery(object):
                      "MERGE (a)-[_:WORKS_FOR {`employee id`:r[1]['employee id']}]->(b)\n"
                      "SET _ += r[1]")
         assert p == {"data": rel_data_dicts}
+
+    def test_list_data_with_preservation(self, rel_data_lists, rel_type, rel_keys):
+        q, p = unwind_merge_relationships_query(rel_data_lists, ("WORKS_FOR", "employee id"),
+                                                keys=rel_keys, preserve=["since"])
+        assert q == ("UNWIND $data AS r\n"
+                     "MATCH (a) WHERE id(a) = r[0]\n"
+                     "MATCH (b) WHERE id(b) = r[2]\n"
+                     "MERGE (a)-[_:WORKS_FOR {`employee id`:r[1][0]}]->(b)\n"
+                     "ON CREATE SET _ += {since: r[1][2]}\n"
+                     "SET _ += {`employee id`: r[1][0], `job title`: r[1][1]}")
+        assert p == {"data": rel_data_lists}
