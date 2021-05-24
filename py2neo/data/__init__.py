@@ -264,8 +264,12 @@ class Subgraph(object):
         node_dict = {}
         for node in self.nodes:
             if node.graph is None:
-                p_label = getattr(node, "__primarylabel__", None) or primary_label
-                p_key = getattr(node, "__primarykey__", None) or primary_key
+                if node.__model__ is None:
+                    p_label = primary_label
+                    p_key = primary_key
+                else:
+                    p_label = node.__model__.__primarylabel__ or primary_label
+                    p_key = node.__model__.__primarykey__ or primary_key
                 key = (p_label, p_key, frozenset(node.labels))
                 node_dict.setdefault(key, []).append(node)
 
@@ -593,6 +597,9 @@ class Node(Entity):
         >>> a = Node("Person", name="Alice")
 
     """
+
+    #: OGM model class
+    __model__ = None
 
     @classmethod
     def ref(cls, graph, identity):

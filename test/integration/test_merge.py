@@ -328,16 +328,22 @@ def test_can_merge_with_arguments(graph, make_unique_id):
 
 
 def test_merge_with_magic_values_overrides_arguments(graph, make_unique_id):
+    from py2neo.ogm import Model
+
     label_a = make_unique_id()
     label_b = make_unique_id()
+
+    class ModelB(Model):
+        __primarylabel__ = label_b
+        __primarykey__ = "b"
+
     a = Node(label_a, a=1)
     b = Node(label_b, b=2)
     graph.create(a | b)
     a_id = a.identity
     b_id = b.identity
     node = Node(label_a, label_b, a=1, b=2)
-    node.__primarylabel__ = label_b
-    node.__primarykey__ = "b"
+    node.__model__ = ModelB
     graph.merge(node, label_a, "a")
     assert node.identity != a_id
     assert node.identity == b_id

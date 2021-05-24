@@ -461,12 +461,9 @@ class Model(object):
     @property
     def __ogm__(self):
         if self.__ogm is None:
-            self.__ogm = OGM(self, Node(self.__primarylabel__))
-        node = self.__ogm.node
-        if not hasattr(node, "__primarylabel__"):
-            setattr(node, "__primarylabel__", self.__primarylabel__)
-        if not hasattr(node, "__primarykey__"):
-            setattr(node, "__primarykey__", self.__primarykey__)
+            node = Node(self.__primarylabel__)
+            node.__model__ = self.__class__
+            self.__ogm = OGM(self, node)
         return self.__ogm
 
     @classmethod
@@ -478,10 +475,11 @@ class Model(object):
         """
         if node is None:
             return None
-        inst = Model()
-        inst.__ogm = OGM(inst, node)
-        inst.__class__ = cls
-        return inst
+        node.__model__ = cls
+        obj = Model()
+        obj.__ogm = OGM(obj, node)
+        obj.__class__ = cls
+        return obj
 
     @classmethod
     def match(cls, repository, primary_value=None):
@@ -527,9 +525,9 @@ class Model(object):
         ogm = self.__ogm__
         node = ogm.node
         if primary_label is None:
-            primary_label = getattr(node, "__primarylabel__", None)
+            primary_label = self.__primarylabel__
         if primary_key is None:
-            primary_key = getattr(node, "__primarykey__", "__id__")
+            primary_key = self.__primarykey__ or "__id__"
         if node.graph is None:
             if primary_key == "__id__":
                 node.add_label(primary_label)

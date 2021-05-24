@@ -71,11 +71,8 @@ class InstanceSubgraphTestCase(TestCase):
         self.film = Film("Die Hard")
         self.film_node = self.film.__node__
 
-    def test_instance_subgraph_inherits_primary_label(self):
-        assert self.film_node.__primarylabel__ == "Movie"
-
-    def test_instance_subgraph_inherits_primary_key(self):
-        assert self.film_node.__primarykey__ == "title"
+    def test_instance_subgraph_references_model(self):
+        assert self.film_node.__model__ is Film
 
 
 class InstanceLabelTestCase(TestCase):
