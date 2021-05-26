@@ -517,7 +517,6 @@ class Bolt1(Bolt):
         return result
 
     def pull(self, result, n=-1, capacity=-1):
-        print(result, n, capacity)
         self._assert_open()
         self._assert_result_consumable(result)
         if n != -1:
