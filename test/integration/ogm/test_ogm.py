@@ -168,3 +168,13 @@ def test_push(repo, thing):
     repo.push(thing)
     assert thing.__node__.graph is repo.graph
     assert thing.__node__.identity is not None
+
+
+def test_primary_value_with_single_key(repo):
+    person = UniquePerson()
+    assert person.__primaryvalue__ == "Alice"
+
+
+def test_primary_value_with_composite_key(repo):
+    person = UniqueFullyNamedPerson()
+    assert person.__primaryvalue__ == ("Alice", "Smith")

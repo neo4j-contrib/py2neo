@@ -503,6 +503,8 @@ class Model(object):
         primary_key = self.__primarykey__
         if primary_key == "__id__":
             return node.identity
+        elif isinstance(primary_key, tuple):
+            return tuple(node[key] for key in primary_key)
         else:
             return node[primary_key]
 

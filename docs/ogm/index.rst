@@ -56,6 +56,9 @@ Each instance may contain attributes that represent labels, nodes or related obj
       The primary node label used for Cypher `MATCH` and `MERGE`
       operations. By default the name of the class is used.
 
+      This value can also be a tuple, in which case a composite primary
+      label is implied.
+
    .. attribute:: __primarykey__
 
       The primary property key used for Cypher `MATCH` and `MERGE`
@@ -65,11 +68,15 @@ Each instance may contain attributes that represent labels, nodes or related obj
       :meth:`.Graph.create` and :meth:`.Graph.merge` on :class:`.Model`
       instances.
 
+      This value can also be a tuple, in which case a composite primary
+      key is implied.
+
    .. attribute:: __primaryvalue__
 
       The value of the property identified by :attr:`.__primarykey__`.
       If the key is ``"__id__"`` then this value returns the internal
-      node ID.
+      node ID. If the primary key is a tuple, then a corresponding
+      tuple of property values is returned.
 
    .. attribute:: __node__
 
