@@ -461,7 +461,10 @@ class Model(object):
     @property
     def __ogm__(self):
         if self.__ogm is None:
-            node = Node(self.__primarylabel__)
+            if isinstance(self.__primarylabel__, tuple):
+                node = Node(*self.__primarylabel__)
+            else:
+                node = Node(self.__primarylabel__)
             node.__model__ = self.__class__
             self.__ogm = OGM(self, node)
         return self.__ogm
@@ -553,7 +556,7 @@ class Model(object):
         if node.graph is not None:
             tx.push(node)
         else:
-            primary_key = getattr(node, "__primarykey__", "__id__")
+            primary_key = self.__primarykey__ or "__id__"
             if primary_key == "__id__":
                 tx.create(node)
             else:

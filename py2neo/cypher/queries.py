@@ -105,7 +105,13 @@ class NodeKey(object):
 
     def __init__(self, node_key):
         if isinstance(node_key, tuple):
-            self.__pl, self.__pk = node_key[0], node_key[1:]
+            self.__pl = node_key[0]
+            self.__pk = ()
+            for pk in node_key[1:]:
+                if isinstance(pk, tuple):
+                    self.__pk += pk
+                else:
+                    self.__pk += (pk,)
         else:
             self.__pl, self.__pk = node_key, ()
         if not isinstance(self.__pl, tuple):

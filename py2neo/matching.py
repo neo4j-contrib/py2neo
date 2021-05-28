@@ -630,7 +630,13 @@ class NodeMatcher(object):
         """
         criteria = {}
         if labels:
-            criteria["labels"] = frozenset(labels)
+            flat = []
+            for label in labels:
+                if isinstance(label, tuple):
+                    flat.extend(label)
+                else:
+                    flat.append(label)
+            criteria["labels"] = frozenset(flat)
         if properties:
             criteria["predicates"] = tuple(_property_predicates(properties))
         return self._match_class(self.graph, **criteria)

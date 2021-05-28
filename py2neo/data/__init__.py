@@ -156,6 +156,15 @@ class Subgraph(object):
         n = (set(self.nodes) ^ set(other.nodes)) | set().union(*(set(rel.nodes) for rel in r))
         return Subgraph(n, r)
 
+    @classmethod
+    def _is_bound(cls, entity, graph):
+        if entity.graph is None:
+            return False
+        elif entity.graph == graph:
+            return True
+        else:
+            raise ValueError("Entity %r is already bound to graph %r" % (entity, graph))
+
     def __db_create__(self, tx):
         """ Create new data in a remote :class:`.Graph` from this
         :class:`.Subgraph`.
@@ -168,7 +177,7 @@ class Subgraph(object):
         #   {frozenset(labels): [Node, Node, ...]}
         node_dict = {}
         for node in self.nodes:
-            if node.graph is None:
+            if not self._is_bound(node, tx.graph):
                 key = frozenset(node.labels)
                 node_dict.setdefault(key, []).append(node)
 
@@ -176,7 +185,7 @@ class Subgraph(object):
         #   {rel_type: [Rel, Rel, ...]}
         rel_dict = {}
         for relationship in self.relationships:
-            if relationship.graph is None:
+            if not self._is_bound(relationship, tx.graph):
                 key = type(relationship).__name__
                 rel_dict.setdefault(key, []).append(relationship)
 
@@ -208,11 +217,11 @@ class Subgraph(object):
         graph = tx.graph
         node_identities = []
         for relationship in self.relationships:
-            if relationship.graph is graph:
+            if self._is_bound(relationship, graph):
                 relationship.graph = None
                 relationship.identity = None
         for node in self.nodes:
-            if node.graph is graph:
+            if self._is_bound(node, graph):
                 node_identities.append(node.identity)
                 node.graph = None
                 node.identity = None
@@ -234,14 +243,20 @@ class Subgraph(object):
         node_ids = set()
         relationship_ids = set()
         for i, node in enumerate(self.nodes):
-            if node.graph is graph:
-                node_ids.add(node.identity)
-            else:
+            try:
+                if self._is_bound(node, graph):
+                    node_ids.add(node.identity)
+                else:
+                    return False
+            except ValueError:
                 return False
         for i, relationship in enumerate(self.relationships):
-            if relationship.graph is graph:
-                relationship_ids.add(relationship.identity)
-            else:
+            try:
+                if self._is_bound(relationship, graph):
+                    relationship_ids.add(relationship.identity)
+                else:
+                    return False
+            except ValueError:
                 return False
         statement = ("OPTIONAL MATCH (a) WHERE id(a) IN $x "
                      "OPTIONAL MATCH ()-[r]->() WHERE id(r) IN $y "
@@ -263,7 +278,7 @@ class Subgraph(object):
         #   {(p_label, p_key, frozenset(labels)): [Node, Node, ...]}
         node_dict = {}
         for node in self.nodes:
-            if node.graph is None:
+            if not self._is_bound(node, graph):
                 if node.__model__ is None:
                     p_label = primary_label
                     p_key = primary_key
@@ -277,7 +292,7 @@ class Subgraph(object):
         #   {rel_type: [Rel, Rel, ...]}
         rel_dict = {}
         for relationship in self.relationships:
-            if relationship.graph is None:
+            if not self._is_bound(relationship, graph):
                 key = type(relationship).__name__
                 rel_dict.setdefault(key, []).append(relationship)
 
@@ -315,9 +330,8 @@ class Subgraph(object):
         # Pull nodes
         nodes = {}
         for node in self.nodes:
-            if node.graph != tx.graph:
-                raise ValueError("Node %r does not belong to graph %r" % (node, tx.graph))
-            nodes[node.identity] = node
+            if self._is_bound(node, tx.graph):
+                nodes[node.identity] = node
         query = tx.run("MATCH (_) WHERE id(_) in $x "
                        "RETURN id(_), labels(_), properties(_)", x=list(nodes.keys()))
         for identity, new_labels, new_properties in query:
@@ -329,10 +343,8 @@ class Subgraph(object):
         # Pull relationships
         relationships = {}
         for relationship in self.relationships:
-            if relationship.graph != tx.graph:
-                raise ValueError(
-                    "Relationship %r does not belong to graph %r" % (relationship, tx.graph))
-            relationships[relationship.identity] = relationship
+            if self._is_bound(relationship, tx.graph):
+                relationships[relationship.identity] = relationship
         query = tx.run("MATCH ()-[_]->() WHERE id(_) in $x "
                        "RETURN id(_), properties(_)", x=list(relationships.keys()))
         for identity, new_properties in query:
@@ -346,9 +358,8 @@ class Subgraph(object):
 
         :param tx:
         """
-        graph = tx.graph
         for node in self.nodes:
-            if node.graph is graph:
+            if self._is_bound(node, tx.graph):
                 clauses = ["MATCH (_) WHERE id(_) = $x", "SET _ = $y"]
                 parameters = {"x": node.identity, "y": dict(node)}
                 old_labels = node._remote_labels - node._labels
@@ -359,7 +370,7 @@ class Subgraph(object):
                     clauses.append("SET _:%s" % ":".join(map(cypher_escape, new_labels)))
                 tx.run("\n".join(clauses), parameters)
         for relationship in self.relationships:
-            if relationship.graph is graph:
+            if self._is_bound(relationship, tx.graph):
                 clauses = ["MATCH ()-[_]->() WHERE id(_) = $x", "SET _ = $y"]
                 parameters = {"x": relationship.identity, "y": dict(relationship)}
                 tx.run("\n".join(clauses), parameters)
@@ -371,10 +382,9 @@ class Subgraph(object):
         :param tx:
         :return:
         """
-        graph = tx.graph
         relationship_identities = []
         for relationship in self.relationships:
-            if relationship.graph is graph:
+            if self._is_bound(relationship, tx.graph):
                 relationship_identities.append(relationship.identity)
                 relationship.graph = None
                 relationship.identity = None
@@ -681,19 +691,29 @@ class Node(Entity):
         :const:`False` otherwise.
         """
         self.__ensure_labels()
-        return label in self._labels
+        if isinstance(label, tuple):
+            return all(lab in self._labels for lab in label)
+        else:
+            return label in self._labels
 
     def add_label(self, label):
         """ Add the label `label` to this node.
         """
         self.__ensure_labels()
-        self._labels.add(label)
+        if isinstance(label, tuple):
+            self._labels.update(label)
+        else:
+            self._labels.add(label)
 
     def remove_label(self, label):
         """ Remove the label `label` from this node, if it exists.
         """
         self.__ensure_labels()
-        self._labels.discard(label)
+        if isinstance(label, tuple):
+            for lab in label:
+                self._labels.discard(lab)
+        else:
+            self._labels.discard(label)
 
     def clear_labels(self):
         """ Remove all labels from this node.
@@ -706,7 +726,8 @@ class Node(Entity):
         `labels`.
         """
         self.__ensure_labels()
-        self._labels.update(labels)
+        for label in labels:
+            self.add_label(label)
 
 
 class Relationship(Entity):
