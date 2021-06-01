@@ -279,12 +279,21 @@ class Subgraph(object):
         node_dict = {}
         for node in self.nodes:
             if not self._is_bound(node, graph):
-                if node.__model__ is None:
-                    p_label = primary_label
-                    p_key = primary_key
-                else:
+                # Determine primary label
+                if node.__primarylabel__ is not None:
+                    p_label = node.__primarylabel__
+                elif node.__model__ is not None:
                     p_label = node.__model__.__primarylabel__ or primary_label
+                else:
+                    p_label = primary_label
+                # Determine primary key
+                if node.__primarykey__ is not None:
+                    p_key = node.__primarykey__
+                elif node.__model__ is not None:
                     p_key = node.__model__.__primarykey__ or primary_key
+                else:
+                    p_key = primary_key
+                # Add node to the node dictionary
                 key = (p_label, p_key, frozenset(node.labels))
                 node_dict.setdefault(key, []).append(node)
 
@@ -610,6 +619,12 @@ class Node(Entity):
 
     #: OGM model class
     __model__ = None
+
+    #: Entity-level override for merge label
+    __primarylabel__ = None
+
+    #: Entity-level override for merge key
+    __primarykey__ = None
 
     @classmethod
     def ref(cls, graph, identity):

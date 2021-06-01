@@ -347,3 +347,81 @@ def test_merge_with_magic_values_overrides_arguments(graph, make_unique_id):
     graph.merge(node, label_a, "a")
     assert node.identity != a_id
     assert node.identity == b_id
+
+
+def test_can_merge_node_with_merge_arguments(graph):
+    graph.delete_all()
+    a = Node("Person", name="Alice")
+    graph.merge(a, "Person", "name")
+    assert graph.nodes.match("Person", name="Alice").first() == a
+
+
+def test_can_merge_node_with_primary_label_and_key(graph):
+    graph.delete_all()
+    a = Node("Person", name="Alice")
+    a.__primarylabel__ = "Person"
+    a.__primarykey__ = "name"
+    graph.merge(a)
+    assert graph.nodes.match("Person", name="Alice").first() == a
+
+
+def test_can_merge_node_with_model(graph):
+    from py2neo.ogm import Model
+
+    class Person(Model):
+        __primarylabel__ = "Person"
+        __primarykey__ = "name"
+
+    graph.delete_all()
+
+    a = Node("Person", name="Alice")
+    a.__model__ = Person
+    graph.merge(a)
+    assert graph.nodes.match("Person", name="Alice").first() == a
+
+
+def test_can_merge_node_with_model_overriding_arguments(graph):
+    from py2neo.ogm import Model
+
+    class Person(Model):
+        __primarylabel__ = "Person"
+        __primarykey__ = "name"
+
+    graph.delete_all()
+
+    a = Node("Person", name="Alice")
+    a.__model__ = Person
+    graph.merge(a, "Human", "nom")
+    assert graph.nodes.match("Person", name="Alice").first() == a
+
+
+def test_can_merge_node_with_primary_label_overriding_model(graph):
+    from py2neo.ogm import Model
+
+    class Person(Model):
+        __primarylabel__ = "Human"
+        __primarykey__ = "name"
+
+    graph.delete_all()
+
+    a = Node("Person", name="Alice")
+    a.__model__ = Person
+    a.__primarylabel__ = "Person"
+    graph.merge(a)
+    assert graph.nodes.match("Person", name="Alice").first() == a
+
+
+def test_can_merge_node_with_primary_key_overriding_model(graph):
+    from py2neo.ogm import Model
+
+    class Person(Model):
+        __primarylabel__ = "Person"
+        __primarykey__ = "nom"
+
+    graph.delete_all()
+
+    a = Node("Person", name="Alice")
+    a.__model__ = Person
+    a.__primarykey__ = "name"
+    graph.merge(a)
+    assert graph.nodes.match("Person", name="Alice").first() == a
