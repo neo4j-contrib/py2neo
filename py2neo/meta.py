@@ -136,7 +136,7 @@ def get_metadata():
         "version": (version_data["string"]),
         "description": PACKAGE_DESCRIPTION,
         "author": "Nigel Small",
-        "author_email": "py2neo@nige.tech",
+        "author_email": "technige@py2neo.org",
         "url": "https://py2neo.org/",
         "project_urls": {
             "Bug Tracker": "{}/issues".format(source_url),
