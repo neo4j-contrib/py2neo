@@ -133,7 +133,7 @@ class EqualTo(Predicate1):
     """
 
     def compile(self, key, i):
-        return "_.%s = $%s" % (cypher_escape(key), i), {"%s" % i: self.value}
+        return "_.%s = $`%s`" % (cypher_escape(key), i), {"%s" % i: self.value}
 
 
 class NotEqualTo(Predicate1):
@@ -143,7 +143,7 @@ class NotEqualTo(Predicate1):
     """
 
     def compile(self, key, i):
-        return "_.%s <> $%s" % (cypher_escape(key), i), {"%s" % i: self.value}
+        return "_.%s <> $`%s`" % (cypher_escape(key), i), {"%s" % i: self.value}
 
 
 class LessThan(Predicate1):
@@ -153,7 +153,7 @@ class LessThan(Predicate1):
     """
 
     def compile(self, key, i):
-        return "_.%s < $%s" % (cypher_escape(key), i), {"%s" % i: self.value}
+        return "_.%s < $`%s`" % (cypher_escape(key), i), {"%s" % i: self.value}
 
 
 class LessThanOrEqualTo(Predicate1):
@@ -163,7 +163,7 @@ class LessThanOrEqualTo(Predicate1):
     """
 
     def compile(self, key, i):
-        return "_.%s <= $%s" % (cypher_escape(key), i), {"%s" % i: self.value}
+        return "_.%s <= $`%s`" % (cypher_escape(key), i), {"%s" % i: self.value}
 
 
 class GreaterThan(Predicate1):
@@ -173,7 +173,7 @@ class GreaterThan(Predicate1):
     """
 
     def compile(self, key, i):
-        return "_.%s > $%s" % (cypher_escape(key), i), {"%s" % i: self.value}
+        return "_.%s > $`%s`" % (cypher_escape(key), i), {"%s" % i: self.value}
 
 
 class GreaterThanOrEqualTo(Predicate1):
@@ -183,7 +183,7 @@ class GreaterThanOrEqualTo(Predicate1):
     """
 
     def compile(self, key, i):
-        return "_.%s >= $%s" % (cypher_escape(key), i), {"%s" % i: self.value}
+        return "_.%s >= $`%s`" % (cypher_escape(key), i), {"%s" % i: self.value}
 
 
 class StartsWith(Predicate1):
@@ -198,7 +198,7 @@ class StartsWith(Predicate1):
     """
 
     def compile(self, key, i):
-        return "_.%s STARTS WITH $%s" % (cypher_escape(key), i), {"%s" % i: self.value}
+        return "_.%s STARTS WITH $`%s`" % (cypher_escape(key), i), {"%s" % i: self.value}
 
 
 class EndsWith(Predicate1):
@@ -212,7 +212,7 @@ class EndsWith(Predicate1):
     """
 
     def compile(self, key, i):
-        return "_.%s ENDS WITH $%s" % (cypher_escape(key), i), {"%s" % i: self.value}
+        return "_.%s ENDS WITH $`%s`" % (cypher_escape(key), i), {"%s" % i: self.value}
 
 
 class Contains(Predicate1):
@@ -226,7 +226,7 @@ class Contains(Predicate1):
     """
 
     def compile(self, key, i):
-        return "_.%s CONTAINS $%s" % (cypher_escape(key), i), {"%s" % i: self.value}
+        return "_.%s CONTAINS $`%s`" % (cypher_escape(key), i), {"%s" % i: self.value}
 
 
 class Like(Predicate1):
@@ -249,7 +249,7 @@ class Like(Predicate1):
         super(Like, self).__init__(value)
 
     def compile(self, key, i):
-        return "_.%s =~ $%s" % (cypher_escape(key), i), {"%s" % i: self.value}
+        return "_.%s =~ $`%s`" % (cypher_escape(key), i), {"%s" % i: self.value}
 
 
 class In(Predicate1):
@@ -271,7 +271,7 @@ class In(Predicate1):
     """
 
     def compile(self, key, i):
-        return "_.%s IN $%s" % (cypher_escape(key), i), {"%s" % i: list(self.value)}
+        return "_.%s IN $`%s`" % (cypher_escape(key), i), {"%s" % i: list(self.value)}
 
 
 class Connective(Predicate):
