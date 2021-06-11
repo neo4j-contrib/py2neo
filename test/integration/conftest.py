@@ -133,10 +133,13 @@ class TestProfile(object):
 # TODO: test with full certificates
 if QUICK_TEST:
     neo4j_deployment_profiles = [
-        DeploymentProfile(release=(4, 2), topology="CE", schemes=UNSECURED_SCHEMES),
+        DeploymentProfile(release=(4, 3), topology="CE", schemes=UNSECURED_SCHEMES),
     ]
 else:
     neo4j_deployment_profiles = [
+        DeploymentProfile(release=(4, 3), topology="CE", schemes=UNSECURED_SCHEMES),
+        DeploymentProfile(release=(4, 3), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+        # ServiceProfile(release=(4, 3), topology="CE", cert="full", schemes=ALL_SCHEMES),
         DeploymentProfile(release=(4, 2), topology="CE", schemes=UNSECURED_SCHEMES),
         DeploymentProfile(release=(4, 2), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
         # ServiceProfile(release=(4, 2), topology="CE", cert="full", schemes=ALL_SCHEMES),

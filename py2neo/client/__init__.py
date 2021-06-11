@@ -1501,9 +1501,7 @@ class Connector(object):
                 record = result.take()
                 if record is None:
                     break
-                (name, address, role, requested_status,
-                 current_status, error, default) = record
-                value.add(name)
+                value.add(record[0])  # The first column is 'name'
             return sorted(value)
 
     def default_graph_name(self):
@@ -1518,10 +1516,19 @@ class Connector(object):
                 record = result.take()
                 if record is None:
                     break
-                (name, address, role, requested_status,
-                 current_status, error, default) = record
+                if len(record) == 8:
+                    # From Neo4j 4.3 onwards, the 'home' column
+                    # (column eight) holds the per-user default
+                    # database. This may or may not be the same
+                    # as the per-system default, but takes priority.
+                    default = record[7]
+                else:
+                    # For versions of Neo4j between 4.0 and 4.2
+                    # inclusive, there is only a per-system default
+                    # database, flagged in the seventh column.
+                    default = record[6]
                 if default:
-                    return name
+                    return record[0]  # The first column is 'name'
             return None
 
 
