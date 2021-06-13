@@ -1,4 +1,4 @@
-name: Run tests (Ubuntu 21.04)
+name: Run tests with Python 3.7 on Ubuntu 20.04
 
 on:
   push:
