@@ -45,6 +45,7 @@ NEO4J_USER = "neo4j"
 NEO4J_PASSWORD = "password"
 NEO4J_DEBUG = getenv("NEO4J_DEBUG", "")
 NEO4J_PROCESS = {}
+NEO4J_VERSION = getenv("NEO4J_VERSION", "")
 
 
 UNSECURED_SCHEMES = ["neo4j", "bolt", "http"]
@@ -131,31 +132,36 @@ class TestProfile(object):
 
 
 # TODO: test with full certificates
-if QUICK_TEST:
-    neo4j_deployment_profiles = [
-        DeploymentProfile(release=(4, 3), topology="CE", schemes=UNSECURED_SCHEMES),
-    ]
-else:
-    neo4j_deployment_profiles = [
-        DeploymentProfile(release=(4, 3), topology="CE", schemes=UNSECURED_SCHEMES),
-        DeploymentProfile(release=(4, 3), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
-        # ServiceProfile(release=(4, 3), topology="CE", cert="full", schemes=ALL_SCHEMES),
-        DeploymentProfile(release=(4, 2), topology="CE", schemes=UNSECURED_SCHEMES),
-        DeploymentProfile(release=(4, 2), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
-        # ServiceProfile(release=(4, 2), topology="CE", cert="full", schemes=ALL_SCHEMES),
-        DeploymentProfile(release=(4, 1), topology="CE", schemes=UNSECURED_SCHEMES),
-        DeploymentProfile(release=(4, 1), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
-        # ServiceProfile(release=(4, 1), topology="CE", cert="full", schemes=ALL_SCHEMES),
-        DeploymentProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
-        DeploymentProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
-        # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),
-        DeploymentProfile(release=(3, 5), topology="CE", schemes=UNSECURED_LEGACY_SCHEMES),
-        DeploymentProfile(release=(3, 5), topology="CE", cert="ssc", schemes=SSC_LEGACY_SCHEMES),
-        # ServiceProfile(release=(3, 5), topology="CE", cert="full", schemes=ALL_LEGACY_SCHEMES),
-        DeploymentProfile(release=(3, 4), topology="CE", schemes=UNSECURED_LEGACY_SCHEMES),
-        DeploymentProfile(release=(3, 4), topology="CE", cert="ssc", schemes=SSC_LEGACY_SCHEMES),
-        # ServiceProfile(release=(3, 4), topology="CE", cert="full", schemes=ALL_LEGACY_SCHEMES),
-    ]
+neo4j_deployment_profiles = [
+    DeploymentProfile(release=(4, 3), topology="CE", schemes=UNSECURED_SCHEMES),
+    DeploymentProfile(release=(4, 3), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+    # ServiceProfile(release=(4, 3), topology="CE", cert="full", schemes=ALL_SCHEMES),
+    DeploymentProfile(release=(4, 2), topology="CE", schemes=UNSECURED_SCHEMES),
+    DeploymentProfile(release=(4, 2), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+    # ServiceProfile(release=(4, 2), topology="CE", cert="full", schemes=ALL_SCHEMES),
+    DeploymentProfile(release=(4, 1), topology="CE", schemes=UNSECURED_SCHEMES),
+    DeploymentProfile(release=(4, 1), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+    # ServiceProfile(release=(4, 1), topology="CE", cert="full", schemes=ALL_SCHEMES),
+    DeploymentProfile(release=(4, 0), topology="CE", schemes=UNSECURED_SCHEMES),
+    DeploymentProfile(release=(4, 0), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+    # ServiceProfile(release=(4, 0), topology="CE", cert="full", schemes=ALL_SCHEMES),
+    DeploymentProfile(release=(3, 5), topology="CE", schemes=UNSECURED_LEGACY_SCHEMES),
+    DeploymentProfile(release=(3, 5), topology="CE", cert="ssc", schemes=SSC_LEGACY_SCHEMES),
+    # ServiceProfile(release=(3, 5), topology="CE", cert="full", schemes=ALL_LEGACY_SCHEMES),
+    DeploymentProfile(release=(3, 4), topology="CE", schemes=UNSECURED_LEGACY_SCHEMES),
+    DeploymentProfile(release=(3, 4), topology="CE", cert="ssc", schemes=SSC_LEGACY_SCHEMES),
+    # ServiceProfile(release=(3, 4), topology="CE", cert="full", schemes=ALL_LEGACY_SCHEMES),
+]
+
+if NEO4J_VERSION == "LATEST":
+    neo4j_deployment_profiles = neo4j_deployment_profiles[:1]
+elif NEO4J_VERSION == "4.x":
+    neo4j_deployment_profiles = [profile for profile in neo4j_deployment_profiles
+                                 if profile.release[0] == "4"]
+elif NEO4J_VERSION == "3.x":
+    neo4j_deployment_profiles = [profile for profile in neo4j_deployment_profiles
+                                 if profile.release[0] == "3"]
+
 neo4j_test_profiles = [TestProfile(deployment_profile, scheme=scheme)
                        for deployment_profile in neo4j_deployment_profiles
                        for scheme in deployment_profile.schemes]
