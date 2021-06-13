@@ -157,10 +157,10 @@ if NEO4J_VERSION == "LATEST":
     neo4j_deployment_profiles = neo4j_deployment_profiles[:1]
 elif NEO4J_VERSION == "4.x":
     neo4j_deployment_profiles = [profile for profile in neo4j_deployment_profiles
-                                 if profile.release[0] == "4"]
+                                 if profile.release[0] == 4]
 elif NEO4J_VERSION == "3.x":
     neo4j_deployment_profiles = [profile for profile in neo4j_deployment_profiles
-                                 if profile.release[0] == "3"]
+                                 if profile.release[0] == 3]
 
 neo4j_test_profiles = [TestProfile(deployment_profile, scheme=scheme)
                        for deployment_profile in neo4j_deployment_profiles
