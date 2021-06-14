@@ -1,8 +1,12 @@
 Py2neo
 ======
-.. image:: https://img.shields.io/github/v/release/technige/py2neo?sort=semver
-   :target: https://github.com/technige/py2neo
-   :alt: GitHub release
+.. image:: https://img.shields.io/pypi/v/py2neo.svg
+   :target: https://pypi.python.org/pypi/py2neo
+   :alt: PyPI version
+
+.. image:: https://img.shields.io/pypi/dm/py2neo
+   :target: https://pypi.python.org/pypi/py2neo
+   :alt: PyPI Downloads
 
 .. image:: https://img.shields.io/github/license/technige/py2neo.svg
    :target: https://www.apache.org/licenses/LICENSE-2.0
@@ -16,8 +20,48 @@ Py2neo
 **Py2neo** is a client library and toolkit for working with `Neo4j <https://neo4j.com/>`_ from within `Python <https://www.python.org/>`_ applications and from the command line.
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
 
-As of version 2021.1, Py2neo contains full support for routing, as exposed by a Neo4j cluster.
+As of version 2021.1, py2neo contains full support for routing, as exposed by a Neo4j cluster.
 This can be enabled using a ``neo4j://...`` URI or by passing ``routing=True`` to a ``Graph`` constructor.
+
+
+Installation & Compatibility
+----------------------------
+
+To install the latest release of py2neo, simply use:
+
+.. code-block:: bash
+
+    $ pip install py2neo
+
+The following versions of Python and Neo4j (all editions) are supported:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Neo4j
+      - Python 3.5+
+      - Python 2.7 and 3.4
+    * - 4.3
+      - |test-neo43-py35+|
+      - |test-neo43-py27-py34|
+    * - 4.2
+      - |test-neo42-py35+|
+      - |test-neo42-py27-py34|
+    * - 4.1
+      - |test-neo41-py35+|
+      - |test-neo41-py27-py34|
+    * - 4.0
+      - |test-neo40-py35+|
+      - |test-neo40-py27-py34|
+    * - 3.5
+      - |test-neo35-py35+|
+      - |test-neo35-py27-py34|
+    * - 3.4
+      - |test-neo34-py35+|
+      - |test-neo34-py27-py34|
+
+Note that py2neo is developed and tested under **Linux** using standard CPython distributions.
+While other operating systems and Python distributions may work, support for these is not available.
 
 
 Quick Example
@@ -48,61 +92,11 @@ Note that py2neo is developed on a rolling basis, so patches are not made to old
 Users will instead need to install the latest release to adopt bug fixes.
 
 
-Installation
-------------
-.. image:: https://img.shields.io/pypi/v/py2neo.svg
-   :target: https://pypi.python.org/pypi/py2neo
-   :alt: PyPI version
+More
+----
 
-.. image:: https://img.shields.io/pypi/dm/py2neo
-   :target: https://pypi.python.org/pypi/py2neo
-   :alt: PyPI Downloads
+For more information, read the `handbook <http://py2neo.org/>`_.
 
-To install the latest release of py2neo, simply use:
-
-.. code-block::
-
-    $ pip install --upgrade py2neo
-
-To install the latest stable code from the GitHub master branch, use:
-
-.. code-block::
-
-    $ pip install git+https://github.com/technige/py2neo.git@master#egg=py2neo
-
-
-Compatibility
--------------
-
-The following versions of Python and Neo4j (all editions) are supported:
-
-.. list-table::
-    :header-rows: 1
-
-    * - Neo4j
-      - Python 3.5+
-      - Python 2.7 and 3.4
-    * - 4.3
-      - |test-neo43-py35+|
-      - |test-neo43-py27-py34|
-    * - 4.2
-      - |test-neo42-py35+|
-      - |test-neo42-py27-py34|
-    * - 4.1
-      - |test-neo41-py35+|
-      - |test-neo41-py27-py34|
-    * - 4.0
-      - |test-neo40-py35+|
-      - |test-neo40-py27-py34|
-    * - 3.5
-      - |test-neo35-py35+|
-      - |test-neo35-py27-py34|
-    * - 3.4
-      - |test-neo34-py35+|
-      - |test-neo34-py27-py34|
-
-Note that Py2neo is developed and tested under **Linux** using standard CPython distributions.
-While other operating systems and Python distributions may work, support for these is not available.
 
 .. |test-neo43-py27-py34| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo43-py27-py34
    :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo43-py27-py34"
@@ -151,9 +145,3 @@ While other operating systems and Python distributions may work, support for the
 .. |test-neo34-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo34-py35+
    :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo34-py35+"
    :alt: GitHub workflow status for tests against Neo4j 3.4 using py35+
-
-
-More
-----
-
-For more information, read the `handbook <http://py2neo.org/>`_.

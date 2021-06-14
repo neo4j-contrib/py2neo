@@ -1,6 +1,22 @@
 *******************
 The Py2neo Handbook
 *******************
+.. image:: https://img.shields.io/pypi/v/py2neo.svg
+   :target: https://pypi.python.org/pypi/py2neo
+   :alt: PyPI version
+
+.. image:: https://img.shields.io/pypi/dm/py2neo
+   :target: https://pypi.python.org/pypi/py2neo
+   :alt: PyPI Downloads
+
+.. image:: https://img.shields.io/github/license/technige/py2neo.svg
+   :target: https://www.apache.org/licenses/LICENSE-2.0
+   :alt: License
+
+.. image:: https://coveralls.io/repos/github/technige/py2neo/badge.svg?branch=master
+   :target: https://coveralls.io/github/technige/py2neo?branch=master
+   :alt: Coverage Status
+
 
 **Py2neo** is a client library and toolkit for working with Neo4j_ from within Python_ applications and from the command line.
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
@@ -8,7 +24,50 @@ The library supports both Bolt and HTTP and provides a high level API, an OGM, a
 As of version 2021.1, Py2neo contains full support for routing, as exposed by a Neo4j cluster.
 This can be enabled using a ``neo4j://...`` URI or by passing ``routing=True`` to a :class:`.Graph` constructor.
 
+Py2neo also provides support for the multi-database functionality added in Neo4j 4.0.
+More about this can be found in the documentation for the :class:`.Graph` class.
+
 Remember to take a look at the full :ref:`release notes <Version 2021.1>` for version 2021.1.
+
+
+Installation & Compatibility
+============================
+
+To install the latest release of py2neo, simply use:
+
+.. code-block:: bash
+
+    $ pip install py2neo
+
+The following versions of Python and Neo4j (all editions) are supported:
+
+.. list-table::
+    :header-rows: 1
+
+    * - Neo4j
+      - Python 3.5+
+      - Python 2.7 and 3.4
+    * - 4.3
+      - |test-neo43-py35+|
+      - |test-neo43-py27-py34|
+    * - 4.2
+      - |test-neo42-py35+|
+      - |test-neo42-py27-py34|
+    * - 4.1
+      - |test-neo41-py35+|
+      - |test-neo41-py27-py34|
+    * - 4.0
+      - |test-neo40-py35+|
+      - |test-neo40-py27-py34|
+    * - 3.5
+      - |test-neo35-py35+|
+      - |test-neo35-py27-py34|
+    * - 3.4
+      - |test-neo34-py35+|
+      - |test-neo34-py27-py34|
+
+Note that py2neo is developed and tested under **Linux** using standard CPython distributions.
+While other operating systems and Python distributions may work, support for these is not available.
 
 
 Quick Example
@@ -38,36 +97,6 @@ whereas a change in ``N`` may require some work. A change to the year is likely 
 Note that py2neo is developed on a rolling basis, so patches are not made to old versions.
 Users will instead need to install the latest release to adopt bug fixes.
 
-
-Installation
-============
-
-To install the latest release of py2neo, simply use:
-
-.. code-block:: bash
-
-    $ pip install --upgrade py2neo
-
-To install the latest stable code from the GitHub master branch, use:
-
-.. code-block:: bash
-
-    $ pip install git+https://github.com/technige/py2neo.git@master#egg=py2neo
-
-
-Requirements
-============
-
-The following versions of Python and Neo4j (all editions) are supported:
-
-- Python 2.7 / 3.4 / 3.5 / 3.6 / 3.7 / 3.8 / 3.9
-- Neo4j 3.4 / 3.5 / 4.0 / 4.1 / 4.2 / 4.3 (the latest point release of each version is recommended)
-
-Py2neo provides support for the multi-database functionality added in Neo4j 4.0.
-More about this can be found in the documentation for the :class:`.Graph` class.
-
-Note that Py2neo is developed and tested under **Linux** using standard CPython distributions.
-While other operating systems and Python distributions may work, support for these is not available.
 
 Core Graph API
 ==============
@@ -150,3 +179,52 @@ Command Line Tools
 .. _pip: https://pip.pypa.io/
 .. _Python: https://www.python.org/
 .. _Causal Clustering: https://neo4j.com/docs/operations-manual/current/clustering/
+
+
+.. |test-neo43-py27-py34| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo43-py27-py34
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo43-py27-py34"
+   :alt: GitHub workflow status for tests against Neo4j 4.3 using py27/py34
+
+.. |test-neo43-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo43-py35+
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo43-py35+"
+   :alt: GitHub workflow status for tests against Neo4j 4.3 using py35+
+
+.. |test-neo42-py27-py34| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo42-py27-py34
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo42-py27-py34"
+   :alt: GitHub workflow status for tests against Neo4j 4.2 using py27/py34
+
+.. |test-neo42-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo42-py35+
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo42-py35+"
+   :alt: GitHub workflow status for tests against Neo4j 4.2 using py35+
+
+.. |test-neo41-py27-py34| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo41-py27-py34
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo41-py27-py34"
+   :alt: GitHub workflow status for tests against Neo4j 4.1 using py27/py34
+
+.. |test-neo41-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo41-py35+
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo41-py35+"
+   :alt: GitHub workflow status for tests against Neo4j 4.1 using py35+
+
+.. |test-neo40-py27-py34| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo40-py27-py34
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo40-py27-py34"
+   :alt: GitHub workflow status for tests against Neo4j 4.0 using py27/py34
+
+.. |test-neo40-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo40-py35+
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo40-py35+"
+   :alt: GitHub workflow status for tests against Neo4j 4.0 using py35+
+
+.. |test-neo35-py27-py34| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo35-py27-py34
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo35-py27-py34"
+   :alt: GitHub workflow status for tests against Neo4j 3.5 using py27/py34
+
+.. |test-neo35-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo35-py35+
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo35-py35+"
+   :alt: GitHub workflow status for tests against Neo4j 3.5 using py35+
+
+.. |test-neo34-py27-py34| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo34-py27-py34
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo34-py27-py34"
+   :alt: GitHub workflow status for tests against Neo4j 3.4 using py27/py34
+
+.. |test-neo34-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo34-py35+
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo34-py35+"
+   :alt: GitHub workflow status for tests against Neo4j 3.4 using py35+
