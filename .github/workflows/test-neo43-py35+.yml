@@ -1,4 +1,4 @@
-name: Test with Neo4j 4.3 on py27/py34
+name: test-neo43-py35+
 
 on:
   push:
@@ -9,10 +9,10 @@ on:
 jobs:
   test:
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python-version: ["2.7", "3.4"]
+        python-version: ["3.5", "3.6", "3.7", "3.8", "3.9"]
 
     steps:
     - uses: actions/checkout@v2

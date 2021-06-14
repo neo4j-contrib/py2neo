@@ -1,4 +1,4 @@
-name: Test with Neo4j 4.1 on py27/py34
+name: test-neo41-py27-py34
 
 on:
   push:

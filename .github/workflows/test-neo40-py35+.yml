@@ -1,4 +1,4 @@
-name: Test with Neo4j 3.5 on py27/py34
+name: test-neo40-py35+
 
 on:
   push:
@@ -9,10 +9,10 @@ on:
 jobs:
   test:
 
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
-        python-version: ["2.7", "3.4"]
+        python-version: ["3.5", "3.6", "3.7", "3.8", "3.9"]
 
     steps:
     - uses: actions/checkout@v2
@@ -40,7 +40,7 @@ jobs:
     - name: Run tests
       run: bin/test -v -x
       env:
-        NEO4J_VERSION: '3.5'
+        NEO4J_VERSION: '4.0'
 
     - name: Upload coverage
       run: coveralls
