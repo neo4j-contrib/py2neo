@@ -1,4 +1,4 @@
-name: Run Neo4j 3.5 tests (Ubuntu 18.04)
+name: Test with Neo4j 3.5 on py27/py34
 
 on:
   push:
