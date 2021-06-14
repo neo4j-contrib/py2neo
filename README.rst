@@ -8,10 +8,6 @@ Py2neo
    :target: https://www.apache.org/licenses/LICENSE-2.0
    :alt: License
 
-.. image:: https://img.shields.io/github/workflow/status/technige/py2neo/Run%20tests%20(Ubuntu%2018.04)
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"Run%20tests%20(Ubuntu%2018.04)"
-   :alt: GitHub Workflow Status
-
 .. image:: https://coveralls.io/repos/github/technige/py2neo/badge.svg?branch=master
    :target: https://coveralls.io/github/technige/py2neo?branch=master
    :alt: Coverage Status
@@ -90,11 +86,21 @@ The following versions of Python and Neo4j (all editions) are supported:
 - Python 2.7 / 3.4 / 3.5 / 3.6 / 3.7 / 3.8 / 3.9
 - Neo4j 3.4 / 3.5 / 4.0 / 4.1 / 4.2 / 4.3 (the latest point release of each version is recommended)
 
+- Neo4j 3.4 |neo34_py27py34| |neo34_py35py36py37py38py39|
+
 Py2neo provides support for the multi-database functionality added in Neo4j 4.0.
 More about this can be found in the documentation for the ``Graph`` class.
 
 Note also that Py2neo is developed and tested under **Linux** using standard CPython distributions.
 While other operating systems and Python distributions may work, support for these is not available.
+
+.. |neo34_py27py34| image:: https://img.shields.io/github/workflow/status/technige/py2neo/Test%20with%20Neo4j%203.4%20on%20py27%2Fpy34
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"Test%20with%20Neo4j%203.4%20on%20py27%2Fpy34"
+   :alt: GitHub Workflow Status
+
+.. |neo34_py35py36py37py38py39| image:: https://img.shields.io/github/workflow/status/technige/py2neo/Test%20with%20Neo4j%203.4%20on%20py35/py36/py37/py38/py39
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"Test%20with%20Neo4j%203.4%20on%20py35/py36/py37/py38/py39"
+   :alt: GitHub Workflow Status
 
 
 More
