@@ -1,9 +1,8 @@
 --index-url https://pypi.python.org/simple/
 
 certifi
-cryptography
-docker
 english
+grolt>=1.0.4
 monotonic
 neotime~=1.7.4
 packaging

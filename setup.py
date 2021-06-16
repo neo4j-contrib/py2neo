@@ -108,8 +108,6 @@ with Release():
         "py_modules": [],
         "install_requires": [
             "certifi",
-            "cryptography",
-            "docker",
             "english",
             "monotonic",
             "neotime~=1.7.4",

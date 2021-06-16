@@ -1,4 +1,5 @@
 coverage
 coveralls
+grolt>=1.0.4
 pytest
 pytest-threadleak

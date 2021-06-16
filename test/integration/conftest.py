@@ -16,34 +16,20 @@
 # limitations under the License.
 
 
-from os import getenv
-from os.path import dirname, join as path_join
+from os import getenv, chmod, path
+from tempfile import mkdtemp
 from uuid import uuid4
 
+from grolt import Neo4jService, Neo4jDirectorySpec
+from grolt.security import make_self_signed_certificate, install_private_key, install_certificate, \
+    install_self_signed_certificate
 from pytest import fixture
 
 from py2neo import ServiceProfile, GraphService, Graph
 from py2neo.client import Connector
 from py2neo.ogm import Repository
-from py2neo.server import Neo4jService
-from py2neo.server.security import make_self_signed_certificate
 
 
-QUICK_TEST = bool(getenv("QUICK_TEST", False))
-
-NEO4J_HOST = "localhost"
-NEO4J_PORTS = {
-    "bolt": 7687,
-    "bolt+s": 7687,
-    "bolt+ssc": 7687,
-    "http": 7474,
-    "https": 7473,
-    "http+s": 7473,
-    "http+ssc": 7473,
-}
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "password"
-NEO4J_DEBUG = getenv("NEO4J_DEBUG", "")
 NEO4J_PROCESS = {}
 NEO4J_VERSION = getenv("NEO4J_VERSION", "")
 
@@ -113,22 +99,14 @@ class TestProfile(object):
         if self.cert == "full":
             raise NotImplementedError("Full certificates are not yet supported")
         elif self.cert == "ssc":
-            cert_key_pair = make_self_signed_certificate()
+            certificates_dir = install_self_signed_certificate(self.release_str)
+            dir_spec = Neo4jDirectorySpec(certificates_dir=certificates_dir)
         else:
-            cert_key_pair = None, None
-        service = Neo4jService.single_instance(name=service_name,
-                                               image_tag=self.release_str,
-                                               auth=("neo4j", "password"),
-                                               cert_key_pair=cert_key_pair)
-        service.start()
-        try:
-            addresses = [instance.addresses[self.scheme]
-                         for instance in service.instances]
-            uris = ["{}://{}:{}".format(self.scheme, address.host, address.port)
-                    for address in addresses]
+            dir_spec = None
+        with Neo4jService(name=service_name, image=self.release_str,
+                          auth=("neo4j", "password"), dir_spec=dir_spec) as service:
+            uris = [router.uri(self.scheme) for router in service.routers()]
             yield service, uris[0]
-        finally:
-            service.stop()
 
 
 # TODO: test with full certificates
@@ -242,7 +220,7 @@ def repo(graph):
 @fixture(scope="function")
 def movie_graph(graph):
     graph.delete_all()
-    with open(path_join(dirname(__file__), "..", "resources", "movies.cypher")) as f:
+    with open(path.join(path.dirname(__file__), "..", "resources", "movies.cypher")) as f:
         cypher = f.read()
     graph.run(cypher)
     yield graph
