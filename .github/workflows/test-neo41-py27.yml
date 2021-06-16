@@ -1,4 +1,4 @@
-name: test-neo40-py27-py34
+name: test-neo41-py27
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-18.04
     strategy:
       matrix:
-        python-version: ["2.7", "3.4"]
+        python-version: ["2.7"]
 
     steps:
     - uses: actions/checkout@v2
@@ -40,7 +40,7 @@ jobs:
     - name: Run tests
       run: bin/test -v -x
       env:
-        NEO4J_VERSION: '4.0'
+        NEO4J_VERSION: '4.1'
 
     - name: Upload coverage
       run: coveralls
