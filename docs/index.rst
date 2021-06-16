@@ -27,7 +27,7 @@ This can be enabled using a ``neo4j://...`` URI or by passing ``routing=True`` t
 Py2neo also provides support for the multi-database functionality added in Neo4j 4.0.
 More about this can be found in the documentation for the :class:`.Graph` class.
 
-Remember to take a look at the full :ref:`release notes <Version 2021.1>` for version 2021.1.
+Remember to take a look at the full :ref:`release notes <Version 2021.2>` for version 2021.2.
 
 
 Installation & Compatibility

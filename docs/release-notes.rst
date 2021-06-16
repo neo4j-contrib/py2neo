@@ -5,12 +5,21 @@ Release notes
 *************
 
 
+Version 2021.2
+==============
+
+Highlights
+----------
+- Dropped support for Python 3.4
+
+
 Version 2021.1
 ==============
 
 Highlights
 ----------
 - Full support for routing
+- Full support for Neo4j 4.3
 - Big stability improvements for multithreaded usage.
 - Retries built into :meth:`.Graph.update` and :meth:`.Graph.query` methods
 - New PEP249 (DB API 2.0) compatibility
