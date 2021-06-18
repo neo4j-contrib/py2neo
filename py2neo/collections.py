@@ -34,21 +34,6 @@ def is_collection(obj):
         return True
 
 
-def iter_items(iterable):
-    """ Iterate through all items (key-value pairs) within an iterable
-    dictionary-like object. If the object has a `keys` method, this is
-    used along with `__getitem__` to yield each pair in turn. If no
-    `keys` method exists, each iterable element is assumed to be a
-    2-tuple of key and value.
-    """
-    if hasattr(iterable, "keys"):
-        for key in iterable.keys():
-            yield key, iterable[key]
-    else:
-        for key, value in iterable:
-            yield key, value
-
-
 class SetView(Set):
 
     def __init__(self, collection):
