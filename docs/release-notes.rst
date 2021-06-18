@@ -11,6 +11,7 @@ Version 2021.2
 Highlights
 ----------
 - Dropped support for Python 3.4
+- Command line functionality moved to separate **ipy2neo** project
 
 
 Version 2021.1

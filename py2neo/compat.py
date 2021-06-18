@@ -208,33 +208,3 @@ def metaclass(mcs):
         attributes.pop("__weakref__", None)
         return mcs(cls.__name__, cls.__bases__, attributes)
     return _metaclass
-
-
-def argument(*args, **kwargs):
-    """ Decorator for specifying argparse arguments attached to a
-    function.
-
-    ::
-
-        @argument("-v", "--verbose", action="count", default=0,
-                  help="Increase verbosity.")
-        def foo(verbose):
-            pass
-
-    """
-
-    def f__(f):
-        def f_(*a, **kw):
-            return f(*a, **kw)
-
-        f_.__name__ = f.__name__
-        f_.__doc__ = f.__doc__
-        f_.__dict__.update(f.__dict__)
-        if hasattr(f, "arguments"):
-            f_.arguments = f.arguments
-        else:
-            f_.arguments = []
-        f_.arguments.insert(0, (args, kwargs))
-        return f_
-
-    return f__

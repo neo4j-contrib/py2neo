@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from os import getenv, path
 from warnings import warn
 
@@ -88,7 +89,6 @@ with Release():
         "long_description_content_type": "text/x-rst",
         "entry_points": {
             "console_scripts": [
-                "py2neo = py2neo.__main__:main",
             ],
             "pygments.lexers": [
                 "py2neo.cypher = py2neo.cypher.lexer:CypherLexer",
@@ -113,8 +113,6 @@ with Release():
             "neotime~=1.7.4",
             "packaging",
             "pansi>=2020.7.3",
-            "prompt_toolkit~=2.0.7; python_version < '3.6'",
-            "prompt_toolkit>=2.0.7; python_version >= '3.6'",
             "pygments>=2.0.0",
             "pytz",
             "six>=1.15.0",

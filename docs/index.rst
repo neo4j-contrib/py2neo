@@ -18,8 +18,11 @@ The Py2neo Handbook
    :alt: Coverage Status
 
 
-**Py2neo** is a client library and toolkit for working with Neo4j_ from within Python_ applications and from the command line.
-The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, an interactive console, a Cypher lexer for Pygments, and many other bells and whistles.
+**Py2neo** is a client library and toolkit for working with Neo4j_ from within Python_ applications.
+The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, a Cypher lexer for Pygments, and many other bells and whistles.
+
+Command line tooling has been removed from the library in py2neo 2021.2.
+This functionality now exists in the separate **ipy2neo** project.
 
 As of version 2021.1, Py2neo contains full support for routing, as exposed by a Neo4j cluster.
 This can be enabled using a ``neo4j://...`` URI or by passing ``routing=True`` to a :class:`.Graph` constructor.
@@ -164,15 +167,6 @@ Python DB API 2.0 Compatibility
     :maxdepth: 2
 
     pep249/index
-
-
-Command Line Tools
-==================
-
-.. toctree::
-    :maxdepth: 2
-
-    cli
 
 
 .. _Neo4j: https://neo4j.com/
