@@ -16,13 +16,11 @@
 # limitations under the License.
 
 
-from os import getenv, chmod, path
-from tempfile import mkdtemp
+from os import getenv, path
 from uuid import uuid4
 
 from grolt import Neo4jService, Neo4jDirectorySpec
-from grolt.security import make_self_signed_certificate, install_private_key, install_certificate, \
-    install_self_signed_certificate
+from grolt.security import install_self_signed_certificate
 from pytest import fixture
 
 from py2neo import ServiceProfile, GraphService, Graph
