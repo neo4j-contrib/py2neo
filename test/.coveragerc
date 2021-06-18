@@ -6,7 +6,6 @@ omit =
     */__main__.py
     py2neo/compat.py
     py2neo/meta.py
-    py2neo/experimental/*
     py2neo/movies/*
     py2neo/ogm/models/*
     py2neo/vendor/*
