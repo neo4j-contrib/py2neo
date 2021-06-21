@@ -998,8 +998,6 @@ class Connector(object):
         else:
             self._router = None
         self._add_pools(*self._initial_routers)
-        if self._profile.routing:
-            self.refresh_routing_table(None)
 
     def __repr__(self):
         return "<{} to {!r}>".format(self.__class__.__name__, self.profile)
