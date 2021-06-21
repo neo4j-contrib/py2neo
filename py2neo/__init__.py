@@ -409,11 +409,11 @@ class ConnectionProfile(Mapping):
     @property
     def uri(self):
         """ A full URI for the profile. This generally includes all
-        other information, excluding the password (for security
+        other information, excluding auth details (for security
         reasons). If unspecified, and uninfluenced by environment
-        variables, this will default to ``'bolt://neo4j@localhost:7687'``.
+        variables, this will default to ``'bolt://localhost:7687'``.
         """
-        return "%s://%s@%s:%s" % (self.scheme, self.user, self.host, self.port)
+        return "%s://%s:%s" % (self.scheme, self.host, self.port)
 
     @classmethod
     def from_config_parser(cls, parser, section, prefix=None):
