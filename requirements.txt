@@ -2,7 +2,6 @@
 
 certifi
 english
-grolt>=1.0.4
 monotonic
 neotime~=1.7.4
 packaging
