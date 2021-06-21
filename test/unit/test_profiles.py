@@ -37,7 +37,7 @@ def test_default_profile():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://neo4j@localhost:7687',
+        'uri': 'bolt://localhost:7687',
         'user': 'neo4j',
     }
 
@@ -57,7 +57,7 @@ def test_profile_from_profile():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://neo4j@localhost:7687',
+        'uri': 'bolt://localhost:7687',
         'user': 'neo4j',
     }
 
@@ -74,7 +74,7 @@ def test_profile_from_dict():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://neo4j@localhost:7687',
+        'uri': 'bolt://localhost:7687',
         'user': 'neo4j',
     }
     prof1 = ConnectionProfile(dict1)
@@ -100,7 +100,7 @@ def test_bolt_uri_only():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://neo4j@host:9999',
+        'uri': 'bolt://host:9999',
         'user': 'neo4j',
     }
 
@@ -118,7 +118,7 @@ def test_http_uri_only():
         'scheme': 'http',
         'secure': False,
         'verify': True,
-        'uri': 'http://neo4j@host:9999',
+        'uri': 'http://host:9999',
         'user': 'neo4j',
     }
 
@@ -136,7 +136,7 @@ def test_http_uri_wth_secure():
         'scheme': 'https',
         'secure': True,
         'verify': True,
-        'uri': 'https://neo4j@host:9999',
+        'uri': 'https://host:9999',
         'user': 'neo4j',
     }
 
@@ -154,7 +154,7 @@ def test_http_uri_wth_secure_and_no_verify():
         'scheme': 'http+ssc',
         'secure': True,
         'verify': False,
-        'uri': 'http+ssc://neo4j@host:9999',
+        'uri': 'http+ssc://host:9999',
         'user': 'neo4j',
     }
 
@@ -172,7 +172,7 @@ def test_https_uri_only():
         'scheme': 'https',
         'secure': True,
         'verify': True,
-        'uri': 'https://neo4j@host:9999',
+        'uri': 'https://host:9999',
         'user': 'neo4j',
     }
 
@@ -190,7 +190,7 @@ def test_https_uri_without_secure():
         'scheme': 'http',
         'secure': False,
         'verify': True,
-        'uri': 'http://neo4j@host:9999',
+        'uri': 'http://host:9999',
         'user': 'neo4j',
     }
 
@@ -208,7 +208,7 @@ def test_uri_and_scheme():
         'scheme': 'http',
         'secure': False,
         'verify': True,
-        'uri': 'http://neo4j@host:9999',
+        'uri': 'http://host:9999',
         'user': 'neo4j',
     }
 
@@ -226,7 +226,7 @@ def test_uri_and_host():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://neo4j@other:9999',
+        'uri': 'bolt://other:9999',
         'user': 'neo4j',
     }
 
@@ -244,7 +244,7 @@ def test_uri_and_port():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://neo4j@host:8888',
+        'uri': 'bolt://host:8888',
         'user': 'neo4j',
     }
 
@@ -262,7 +262,7 @@ def test_bolt_uri_with_ssc():
         'scheme': 'bolt+ssc',
         'secure': True,
         'verify': False,
-        'uri': 'bolt+ssc://neo4j@host:9999',
+        'uri': 'bolt+ssc://host:9999',
         'user': 'neo4j',
     }
 
@@ -280,7 +280,7 @@ def test_bolt_uri_with_user():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://bob@host:9999',
+        'uri': 'bolt://host:9999',
         'user': 'bob',
     }
 
@@ -298,7 +298,7 @@ def test_bolt_uri_with_user_and_password():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://bob@host:9999',
+        'uri': 'bolt://host:9999',
         'user': 'bob',
     }
 
@@ -316,7 +316,7 @@ def test_secure_and_verify():
         'scheme': 'bolt+s',
         'secure': True,
         'verify': True,
-        'uri': 'bolt+s://neo4j@localhost:7687',
+        'uri': 'bolt+s://localhost:7687',
         'user': 'neo4j',
     }
 
@@ -374,7 +374,7 @@ def test_bolt_default_port():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://neo4j@host:7687',
+        'uri': 'bolt://host:7687',
         'user': 'neo4j',
     }
 
@@ -392,7 +392,7 @@ def test_http_default_port():
         'scheme': 'http',
         'secure': False,
         'verify': True,
-        'uri': 'http://neo4j@host:7474',
+        'uri': 'http://host:7474',
         'user': 'neo4j',
     }
 
@@ -410,7 +410,7 @@ def test_https_default_port():
         'scheme': 'https',
         'secure': True,
         'verify': True,
-        'uri': 'https://neo4j@host:7473',
+        'uri': 'https://host:7473',
         'user': 'neo4j',
     }
 
@@ -428,7 +428,7 @@ def test_explicit_auth_tuple():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://bob@localhost:7687',
+        'uri': 'bolt://localhost:7687',
         'user': 'bob',
     }
 
@@ -447,7 +447,7 @@ def test_explicit_auth_string():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://bob@localhost:7687',
+        'uri': 'bolt://localhost:7687',
         'user': 'bob',
     }
 
@@ -488,7 +488,7 @@ def test_to_dict():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://neo4j@localhost:7687',
+        'uri': 'bolt://localhost:7687',
         'user': 'neo4j',
     }
 
@@ -507,7 +507,7 @@ def test_to_dict_with_password():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://neo4j@localhost:7687',
+        'uri': 'bolt://localhost:7687',
         'user': 'neo4j',
     }
 
@@ -529,7 +529,7 @@ def test_loading_profile_from_file():
         'port': 7777,
         'port_number': 7777,
         'protocol': 'bolt',
-        'uri': 'bolt://shaggy@graph.mystery.inc:7777',
+        'uri': 'bolt://graph.mystery.inc:7777',
     }
 
 
@@ -537,7 +537,7 @@ def test_uri_env_var(monkeypatch):
     import py2neo
     monkeypatch.setattr(py2neo, "NEO4J_URI", "http://alice@somewhere:8899")
     prof = ConnectionProfile()
-    assert prof.uri == "http://alice@somewhere:8899"
+    assert prof.uri == "http://somewhere:8899"
 
 
 def test_auth_env_var(monkeypatch):
@@ -575,7 +575,7 @@ def test_default_service_profile():
         'scheme': 'bolt',
         'secure': False,
         'verify': True,
-        'uri': 'bolt://neo4j@localhost:7687',
+        'uri': 'bolt://localhost:7687',
         'user': 'neo4j',
     }
 
@@ -594,7 +594,7 @@ def test_default_service_profile_with_neo4j_uri():
         'scheme': 'neo4j',
         'secure': False,
         'verify': True,
-        'uri': 'neo4j://neo4j@localhost:7687',
+        'uri': 'neo4j://localhost:7687',
         'user': 'neo4j',
     }
 
@@ -613,7 +613,7 @@ def test_default_service_profile_with_neo4j_plus_s_uri():
         'scheme': 'neo4j+s',
         'secure': True,
         'verify': True,
-        'uri': 'neo4j+s://neo4j@localhost:7687',
+        'uri': 'neo4j+s://localhost:7687',
         'user': 'neo4j',
     }
 
@@ -632,7 +632,7 @@ def test_default_service_profile_with_neo4j_plus_ssc_uri():
         'scheme': 'neo4j+ssc',
         'secure': True,
         'verify': False,
-        'uri': 'neo4j+ssc://neo4j@localhost:7687',
+        'uri': 'neo4j+ssc://localhost:7687',
         'user': 'neo4j',
     }
 
@@ -651,6 +651,6 @@ def test_default_service_profile_with_routing_keyword():
         'scheme': 'neo4j',
         'secure': False,
         'verify': True,
-        'uri': 'neo4j://neo4j@localhost:7687',
+        'uri': 'neo4j://localhost:7687',
         'user': 'neo4j',
     }
