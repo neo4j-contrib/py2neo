@@ -550,43 +550,8 @@ class Bolt1(Bolt):
             self._audit(self._transaction)
             return response
 
-    def _get_routing_info(self, graph_name, query, parameters):
-        try:
-            result = self.auto_run(query, parameters, graph_name)
-            self.pull(result)
-            while True:
-                record = result.take()
-                if record is None:
-                    break
-                addresses = {}
-                for a in record[1]:
-                    addresses[a["role"]] = [ConnectionProfile(self.profile, address=address)
-                                            for address in a["addresses"]]
-                return (addresses.get("ROUTE", []),
-                        addresses.get("READ", []),
-                        addresses.get("WRITE", []),
-                        record[0])
-        except Neo4jError as error:
-            if error.title == "ProcedureNotFound":
-                raise_from(TypeError("Neo4j service does not support routing"), error)
-            else:
-                raise
-
     def route(self, graph_name=None, context=None):
-        #
-        # Bolt 1 (< Neo4j 3.2) (Clusters only)
-        #     cx.run("CALL dbms.cluster.routing.getServers"
-        #
-        #
-        # Bolt 1 (>= Neo4j 3.2) / Bolt 2 / Bolt 3 (Clusters only)
-        #     cx.run("CALL dbms.cluster.routing.getRoutingTable($context)",
-        #    {"context": self.routing_context}
-        #
-        if graph_name is not None:
-            raise TypeError("Multiple graph databases are not available prior to Bolt v4")
-        query = "CALL dbms.cluster.routing.getRoutingTable($context)"
-        parameters = {"context": context or {}}
-        return self._get_routing_info(None, query, parameters)
+        return self._route1(graph_name, context)
 
     def sync(self, result):
         self.send()
@@ -966,19 +931,7 @@ class Bolt4x0(Bolt3):
             return response
 
     def route(self, graph_name=None, context=None):
-        # In Neo4j 4.0 and above, routing is available for all
-        # topologies, standalone or clustered.
-        context = dict(context or {})
-        context["address"] = str(self.profile.address)
-        if graph_name is None:
-            # Default database
-            query = "CALL dbms.routing.getRoutingTable($context)"
-            parameters = {"context": context}
-        else:
-            # Named database
-            query = "CALL dbms.routing.getRoutingTable($context, $database)"
-            parameters = {"context": context, "database": graph_name}
-        return self._get_routing_info("system", query, parameters)
+        return self._route4(graph_name, context)
 
 
 class Bolt4x1(Bolt4x0):

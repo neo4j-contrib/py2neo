@@ -174,8 +174,8 @@ class HTTP(Connection):
         if graph_name and not self.supports_multi():
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
-        if readonly:
-            log.warning("Readonly transactions are not supported over HTTP")
+        # if readonly:
+        #     log.warning("Readonly transactions are not supported over HTTP")
         r = self._post(HTTPTransactionRef.autocommit_uri(graph_name), cypher, parameters)
         rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
         self.release()
@@ -188,8 +188,8 @@ class HTTP(Connection):
         if graph_name and not self.supports_multi():
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
-        if readonly:
-            log.warning("Readonly transactions are not supported over HTTP")
+        # if readonly:
+        #     log.warning("Readonly transactions are not supported over HTTP")
         # if after:
         #     raise TypeError("Bookmarks are not supported over HTTP")
         # if metadata:
@@ -256,6 +256,47 @@ class HTTP(Connection):
 
     def discard(self, result):
         result._data[:] = []
+
+    def _get_http_profiles(self):
+        scheme = "https" if self.profile.secure else "http"
+        profiles = {}
+        try:
+            result = self.auto_run("CALL dbms.cluster.overview")
+            self.pull(result)
+            while True:
+                record = result.take()
+                if record is None:
+                    break
+                key = None
+                value = None
+                for address in record[1]:
+                    profile = ConnectionProfile(address)
+                    if profile.scheme == "bolt":
+                        key = profile.address
+                    elif profile.scheme == scheme:
+                        value = profile.address
+                    else:
+                        pass  # unusable value (should never happen)
+                if key and value:
+                    profiles[key] = value
+        except Neo4jError as error:
+            if error.title == "ProcedureNotFound":
+                raise_from(TypeError("Neo4j service does not expose a cluster overview"), error)
+            else:
+                raise
+        else:
+            return profiles, scheme
+
+    def route(self, graph_name=None, context=None):
+        if self._neo4j_version >= Version("4.0"):
+            routers, readers, writers, ttl = self._route4(graph_name, context)
+        else:
+            routers, readers, writers, ttl = self._route1(graph_name, context)
+        profiles, scheme = self._get_http_profiles()  # Convert Bolt addresses to HTTP
+        return ([ConnectionProfile(_, scheme=scheme, address=profiles[_.address]) for _ in routers],
+                [ConnectionProfile(_, scheme=scheme, address=profiles[_.address]) for _ in readers],
+                [ConnectionProfile(_, scheme=scheme, address=profiles[_.address]) for _ in writers],
+                ttl)
 
     def sync(self, result):
         pass

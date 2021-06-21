@@ -27,6 +27,7 @@ from uuid import UUID, uuid4
 
 from monotonic import monotonic
 from packaging.version import Version
+from six import raise_from
 
 from py2neo import ConnectionProfile, ServiceProfile
 from py2neo.compat import string_types
@@ -347,6 +348,59 @@ class Connection(object):
             if the result has no more records available.
         """
         raise NotImplementedError
+
+    def _get_bolt_routing_info(self, graph_name, query, parameters):
+        try:
+            result = self.auto_run(query, parameters, graph_name)
+            self.pull(result)
+            while True:
+                record = result.take()
+                if record is None:
+                    break
+                addresses = {}
+                for a in record[1]:
+                    addresses[a["role"]] = [ConnectionProfile(self.profile, protocol="bolt", address=address)
+                                            for address in a["addresses"]]
+                return (addresses.get("ROUTE", []),
+                        addresses.get("READ", []),
+                        addresses.get("WRITE", []),
+                        record[0])
+        except Neo4jError as error:
+            if error.title == "ProcedureNotFound":
+                raise_from(TypeError("Neo4j service does not support routing"), error)
+            else:
+                raise
+
+    def _route1(self, graph_name=None, context=None):
+        #
+        # Bolt 1 (< Neo4j 3.2) (Clusters only)
+        #     cx.run("CALL dbms.cluster.routing.getServers"
+        #
+        #
+        # Bolt 1 (>= Neo4j 3.2) / Bolt 2 / Bolt 3 (Clusters only)
+        #     cx.run("CALL dbms.cluster.routing.getRoutingTable($context)",
+        #    {"context": self.routing_context}
+        #
+        if graph_name is not None:
+            raise TypeError("Multiple graph databases are not available prior to Bolt v4")
+        query = "CALL dbms.cluster.routing.getRoutingTable($context)"
+        parameters = {"context": context or {}}
+        return self._get_bolt_routing_info(None, query, parameters)
+
+    def _route4(self, graph_name=None, context=None):
+        # In Neo4j 4.0 and above, routing is available for all
+        # topologies, standalone or clustered.
+        context = dict(context or {})
+        context["address"] = str(self.profile.address)
+        if graph_name is None:
+            # Default database
+            query = "CALL dbms.routing.getRoutingTable($context)"
+            parameters = {"context": context}
+        else:
+            # Named database
+            query = "CALL dbms.routing.getRoutingTable($context, $database)"
+            parameters = {"context": context, "database": graph_name}
+        return self._get_bolt_routing_info("system", query, parameters)
 
     def route(self, graph_name=None, context=None):
         """ Fetch the routing table for a given database.
@@ -1011,8 +1065,9 @@ class Connector(object):
         :returns:
             :class:`.RoutingTable` instance for the graph database
         """
+        if self._router is None:
+            raise TypeError("Routing not enabled for service")
         log.debug("Attempting to refresh routing table for %s", _repr_graph_name(graph_name))
-        assert self._router is not None
         rt = self._router.get_routing_table(graph_name)
         rt.set_updating()
         try:
