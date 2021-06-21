@@ -10,8 +10,9 @@ Version 2021.2
 
 Highlights
 ----------
-- Dropped support for Python 3.4
-- Command line functionality moved to separate **ipy2neo** project
+- Routing support has been added for HTTP connections
+- Support for Python 3.4 has been dropped
+- Command line functionality has been moved to the separate **ipy2neo** project
 
 
 Version 2021.1
