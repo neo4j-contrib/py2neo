@@ -497,7 +497,7 @@ class Connection(object):
         :raises TypeError: if the dbms.listConnections procedure is not
             supported by the underlying Neo4j installation
         """
-        from neotime import DateTime
+        from interchange.time import DateTime
         records = []
         for record in self._system_call(tx, "dbms.listConnections"):
             server_profile = ConnectionProfile(scheme=record["connector"],
@@ -526,7 +526,7 @@ class Connection(object):
         :raises TypeError: if the dbms.listTransactions procedure is not
             supported by the underlying Neo4j installation
         """
-        from neotime import DateTime
+        from interchange.time import DateTime
         records = []
         for record in self._system_call(tx, "dbms.listTransactions"):
             server_profile = ConnectionProfile(scheme=record["protocol"],
@@ -572,7 +572,7 @@ class Connection(object):
         :raises TypeError: if the dbms.listQueries procedure is not
             supported by the underlying Neo4j installation
         """
-        from neotime import DateTime
+        from interchange.time import DateTime
         records = []
         for record in self._system_call(tx, "dbms.listQueries"):
             server_profile = ConnectionProfile(scheme=record["protocol"],

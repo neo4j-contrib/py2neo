@@ -16,12 +16,15 @@
 # limitations under the License.
 
 
-from neotime import Date, Time, DateTime, Duration
 from packaging.version import Version
+
+from interchange.space import CartesianPoint, WGS84Point
+from interchange.time import Date, Time, DateTime, Duration
+
 from pytest import skip
 
+
 from py2neo.data import Node
-from py2neo.data.spatial import CartesianPoint, WGS84Point
 
 
 def test_null(graph):

@@ -18,7 +18,7 @@
 
 from unittest import TestCase
 
-from neotime import Date, Time, DateTime, Duration
+from interchange.time import Date, Time, DateTime, Duration
 from pytest import raises
 
 from py2neo.data import Node

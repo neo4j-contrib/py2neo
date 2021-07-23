@@ -1,12 +1,10 @@
 --index-url https://pypi.python.org/simple/
 
 certifi
-english
+interchange==2021.0.dev0
 monotonic
-neotime~=1.7.4
 packaging
 pansi>=2020.7.3
 pygments>=2.0.0
-pytz
 six>=1.15.0
 urllib3

@@ -170,7 +170,7 @@ class CypherEncoder(object):
     def encode_value(self, value):
         from py2neo.cypher import CypherExpression
         from py2neo.data import Node, Relationship, Path
-        from neotime import Date, Time, DateTime, Duration
+        from interchange.time import Date, Time, DateTime, Duration
         if value is None:
             return u"null"
         if value is True:

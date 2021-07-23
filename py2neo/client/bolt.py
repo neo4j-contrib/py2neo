@@ -49,7 +49,7 @@ __all__ = [
 ]
 
 
-from collections import deque
+from collections import deque, namedtuple
 from io import BytesIO
 from itertools import islice
 from logging import getLogger
@@ -57,9 +57,11 @@ from struct import pack as struct_pack, unpack as struct_unpack
 
 from six import PY2, raise_from
 
+from interchange.packstream import pack_into, UnpackStream, Structure
+
 from py2neo import ConnectionProfile
-from py2neo.client import bolt_user_agent, Connection, TransactionRef, Result, Bookmark
-from py2neo.client.packstream import pack_into, UnpackStream, PackStreamHydrant
+from py2neo.client import bolt_user_agent, Connection, Hydrant, TransactionRef, Result, Bookmark
+from py2neo.data import Node, Relationship, Path
 from py2neo.errors import (Neo4jError,
                            ConnectionUnavailable,
                            ConnectionBroken,
@@ -71,6 +73,73 @@ BOLT_SIGNATURE = b"\x60\x60\xB0\x17"
 
 
 log = getLogger(__name__)
+
+
+unbound_relationship = namedtuple("UnboundRelationship", ["id", "type", "properties"])
+
+
+class PackStreamHydrant(Hydrant):
+
+    def __init__(self, graph):
+        self.graph = graph
+
+    def hydrate_list(self, obj):
+        for i, value in enumerate(obj):
+            t = type(value)
+            if t is list:
+                obj[i] = self.hydrate_list(value)
+            elif t is dict:
+                obj[i] = self.hydrate_dict(value)
+            elif t is Structure:
+                obj[i] = self.hydrate_structure(value)
+        return obj
+
+    def hydrate_dict(self, obj):
+        for key, value in obj.items():
+            t = type(value)
+            if t is list:
+                obj[key] = self.hydrate_list(value)
+            elif t is dict:
+                obj[key] = self.hydrate_dict(value)
+            elif t is Structure:
+                obj[key] = self.hydrate_structure(value)
+        return obj
+
+    def hydrate_structure(self, obj):
+        tag = obj.tag
+        if tag == 78:
+            return self._hydrate_node(*obj.fields)
+        elif tag == 82:
+            return self._hydrate_relationship(*obj.fields)
+        elif tag == 80:
+            return self._hydrate_path(*obj.fields)
+        else:
+            return obj
+
+    def _hydrate_node(self, identity, labels, properties):
+        node = Node.ref(self.graph, identity)
+        node.clear_labels()
+        node.update_labels(labels)
+        node.clear()
+        node.update(properties)
+        return node
+
+    def _hydrate_relationship(self, identity, start_node_id, end_node_id, r_type, properties):
+        start_node = Node.ref(self.graph, start_node_id)
+        end_node = Node.ref(self.graph, end_node_id)
+        rel = Relationship.ref(self.graph, identity, start_node, r_type, end_node)
+        rel.clear()
+        rel.update(properties)
+        return rel
+
+    def _hydrate_path(self, nodes, relationships, sequence):
+        nodes = [self._hydrate_node(n_id, n_label, n_properties)
+                 for n_id, n_label, n_properties in nodes]
+        u_rels = []
+        for r_id, r_type, r_properties in relationships:
+            u_rel = unbound_relationship(r_id, r_type, r_properties)
+            u_rels.append(u_rel)
+        return Path.hydrate(self.graph, nodes, u_rels, sequence)
 
 
 class BoltMessageReader(object):

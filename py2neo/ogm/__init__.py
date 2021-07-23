@@ -32,7 +32,7 @@ __all__ = [
 
 from collections import OrderedDict
 
-from english.casing import Words
+from interchange.text import Words
 
 from py2neo.collections import PropertyDict
 from py2neo.compat import metaclass, deprecated

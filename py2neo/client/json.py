@@ -19,8 +19,9 @@
 from collections import namedtuple
 from logging import getLogger
 
+from interchange.packstream import Structure
+
 from py2neo.client import Hydrant
-from py2neo.client.packstream import Structure
 from py2neo.compat import Sequence, Mapping, integer_types, string_types
 from py2neo.matching import RelationshipMatcher
 
