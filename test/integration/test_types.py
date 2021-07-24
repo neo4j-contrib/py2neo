@@ -18,7 +18,7 @@
 
 from packaging.version import Version
 
-from interchange.space import CartesianPoint, WGS84Point
+from interchange.geo import CartesianPoint, WGS84Point
 from interchange.time import Date, Time, DateTime, Duration
 
 from pytest import skip
