@@ -108,7 +108,7 @@ with Release():
         "py_modules": [],
         "install_requires": [
             "certifi",
-            "interchange==2021.0.dev1",
+            "interchange==2021.0.0",
             "monotonic",
             "packaging",
             "pansi>=2020.7.3",
