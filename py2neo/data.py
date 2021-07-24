@@ -35,7 +35,8 @@ from collections import OrderedDict
 from itertools import chain
 from uuid import uuid4
 
-from py2neo.collections import SetView, PropertyDict
+from interchange.collections import SetView, PropertyDict
+
 from py2neo.compat import string_types, ustr, xstr
 from py2neo.cypher import cypher_escape, cypher_repr, cypher_join
 from py2neo.cypher.encoding import CypherEncoder, LabelSetView

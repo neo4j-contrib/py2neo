@@ -19,7 +19,6 @@
 from io import StringIO
 from unittest import TestCase
 
-from py2neo.collections import PropertyDict
 from py2neo.cypher import Record
 from py2neo.data import Subgraph, Walkable, Node, Relationship, Path, walk
 from py2neo.export import Table
@@ -354,71 +353,6 @@ class DataListTestCase(TestCase):
                                          u'Bob\t44\r\n'
                                          u'Carol\t55\r\n'
                                          u'Dave\t66\r\n')
-
-
-class PropertySetTestCase(TestCase):
-
-    def test_equality(self):
-        first = PropertyDict({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
-        second = PropertyDict({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
-        assert first == second
-
-    def test_inequality(self):
-        first = PropertyDict({"name": "Alice", "age": 33, "colours": ["red", "purple"]})
-        second = PropertyDict({"name": "Bob", "age": 44, "colours": ["blue", "purple"]})
-        assert first != second
-
-    def test_getter(self):
-        properties = PropertyDict({"name": "Alice"})
-        assert properties["name"] == "Alice"
-
-    def test_getter_with_none(self):
-        properties = PropertyDict({"name": "Alice"})
-        assert properties["age"] is None
-
-    def test_setter(self):
-        properties = PropertyDict({"name": "Alice"})
-        properties["age"] = 33
-        assert properties == {"name": "Alice", "age": 33}
-
-    def test_setter_with_none(self):
-        properties = PropertyDict({"name": "Alice", "age": 33})
-        properties["age"] = None
-        assert properties == {"name": "Alice"}
-
-    def test_setter_with_none_for_non_existent(self):
-        properties = PropertyDict({"name": "Alice"})
-        properties["age"] = None
-        assert properties == {"name": "Alice"}
-
-    def test_setdefault_without_default_with_existing(self):
-        properties = PropertyDict({"name": "Alice", "age": 33})
-        value = properties.setdefault("age")
-        assert properties == {"name": "Alice", "age": 33}
-        assert value == 33
-
-    def test_setdefault_without_default_with_non_existent(self):
-        properties = PropertyDict({"name": "Alice"})
-        value = properties.setdefault("age")
-        assert properties == {"name": "Alice"}
-        assert value is None
-
-    def test_setdefault_with_default_with_existing(self):
-        properties = PropertyDict({"name": "Alice", "age": 33})
-        value = properties.setdefault("age", 34)
-        assert properties == {"name": "Alice", "age": 33}
-        assert value == 33
-
-    def test_setdefault_with_default_with_non_existent(self):
-        properties = PropertyDict({"name": "Alice"})
-        value = properties.setdefault("age", 33)
-        assert properties == {"name": "Alice", "age": 33}
-        assert value == 33
-
-    def test_deleter(self):
-        properties = PropertyDict({"name": "Alice", "age": 33})
-        del properties["age"]
-        assert properties == {"name": "Alice"}
 
 
 class SubgraphTestCase(TestCase):

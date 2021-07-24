@@ -77,8 +77,6 @@ __all__ = [
 
 ]
 
-
-from py2neo.collections import is_collection
 from py2neo.compat import Sequence, Set
 from py2neo.cypher import cypher_escape, cypher_repr
 
@@ -740,7 +738,7 @@ class RelationshipMatch(object):
         parameters = {}
         if self._r_type is None:
             relationship_detail = ""
-        elif is_collection(self._r_type):
+        elif isinstance(self._r_type, (tuple, list, Set)):
             relationship_detail = ":" + "|".join(cypher_escape(r_type_name(t))
                                                  for t in self._r_type)
         else:

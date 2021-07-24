@@ -68,16 +68,18 @@ from py2neo.addressing import Address
 from py2neo.compat import Mapping, string_types, urlsplit
 from py2neo.meta import get_metadata
 
-from py2neo.database import *
-from py2neo.errors import *
-from py2neo.matching import *
-from py2neo.data import *
-
-
-__all__ += database.__all__
-__all__ += errors.__all__
-__all__ += matching.__all__
-__all__ += data.__all__
+try:
+    from py2neo.database import *
+    from py2neo.errors import *
+    from py2neo.matching import *
+    from py2neo.data import *
+except ImportError:
+    pass
+else:
+    __all__ += database.__all__
+    __all__ += errors.__all__
+    __all__ += matching.__all__
+    __all__ += data.__all__
 
 
 metadata = get_metadata()

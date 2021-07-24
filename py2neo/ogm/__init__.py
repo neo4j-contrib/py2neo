@@ -32,9 +32,9 @@ __all__ = [
 
 from collections import OrderedDict
 
+from interchange.collections import PropertyDict
 from interchange.text import Words
 
-from py2neo.collections import PropertyDict
 from py2neo.compat import metaclass, deprecated
 from py2neo.cypher import cypher_escape
 from py2neo.data import Node

@@ -27,7 +27,8 @@ from collections import OrderedDict
 from re import compile as re_compile
 from unicodedata import category
 
-from py2neo.collections import SetView
+from interchange.collections import SetView
+
 from py2neo.compat import uchr, ustr, numeric_types, string_types, unicode_types
 
 
