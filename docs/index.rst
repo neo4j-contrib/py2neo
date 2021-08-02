@@ -126,6 +126,7 @@ A comprehensive set of graph structure data types and operations are provided, a
     :maxdepth: 2
 
     data/index
+    data/time
     data/spatial
 
 

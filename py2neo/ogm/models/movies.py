@@ -53,8 +53,5 @@ class Person(Model):
     wrote = RelatedTo(Movie)
     reviewed = RelatedTo(Movie)
 
-    def __init__(self, name=None):
-        self.name = name
-
     def __lt__(self, other):
         return self.name < other.name

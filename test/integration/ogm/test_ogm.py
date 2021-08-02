@@ -30,6 +30,7 @@ class Wife(Model):
     husband = RelatedTo("Husband")
 
     def __init__(self):
+        super(Wife, self).__init__()
         husband = Husband()
         self.husband.add(husband)
         husband.wife.add(self)
@@ -44,7 +45,7 @@ class UniquePerson(Model):
     name = Property()
 
     def __init__(self):
-        self.name = "Alice"
+        super(UniquePerson, self).__init__("Alice")
 
 
 class UniqueFullyNamedPerson(Model):
@@ -54,8 +55,7 @@ class UniqueFullyNamedPerson(Model):
     age = Property()
 
     def __init__(self):
-        self.name = "Alice"
-        self.family_name = "Smith"
+        super(UniqueFullyNamedPerson, self).__init__("Alice", "Smith")
 
 
 class PersonWithExplicitLabel(Model):
@@ -63,7 +63,7 @@ class PersonWithExplicitLabel(Model):
     name = Property()
 
     def __init__(self):
-        self.name = "Alice"
+        super(PersonWithExplicitLabel, self).__init__(name="Alice")
 
 
 class PersonWithCompositeLabels(Model):
@@ -71,7 +71,7 @@ class PersonWithCompositeLabels(Model):
     name = Property()
 
     def __init__(self):
-        self.name = "Alice"
+        super(PersonWithCompositeLabels, self).__init__(name="Alice")
 
 
 @fixture(params=[SimplePerson,

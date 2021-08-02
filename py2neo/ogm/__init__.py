@@ -414,17 +414,47 @@ class ModelType(type):
 
 @metaclass(ModelType)
 class Model(object):
-    """ The base class for all OGM object classes.
+    """ Base class for all OGM object classes.
+
+    This class provides a default constructor, allowing initial
+    property values to be provided. Positional arguments are mapped,
+    in order, to primary key fields; keywords arguments are mapped
+    directly by name.
 
     *Changed in 2020.0: this used to be called GraphObject, but was
     renamed to avoid ambiguity. The old name is still available as an
     alias.*
+
+    *Changed in 2021.2: added default constructor.*
     """
 
     __primarylabel__ = None
     __primarykey__ = None
 
     __ogm = None
+
+    def __init__(self, *values, **properties):
+        p = {}
+        if self.__primarykey__ == "__id__":
+            primary_key = ()
+        elif isinstance(self.__primarykey__, tuple):
+            primary_key = self.__primarykey__
+        else:
+            primary_key = (self.__primarykey__,)
+        for i, value in enumerate(values):
+            try:
+                key = primary_key[i]
+            except IndexError:
+                raise IndexError("Model constructor value at index %d does not correspond to "
+                                 "any part of primary key %r" % (i, self.__primarykey__))
+            else:
+                p[key] = value
+        p.update(properties)
+        for key, value in p.items():
+            try:
+                setattr(self, key, value)
+            except AttributeError:
+                raise ValueError("No such property %r" % key)
 
     def __eq__(self, other):
         if self is other:

@@ -37,9 +37,6 @@ class Film(MovieModel):
 
     actors = RelatedFrom("Person", "ACTED_IN")
 
-    def __init__(self, title):
-        self.title = title
-
 
 class Person(MovieModel):
     __primarykey__ = "name"

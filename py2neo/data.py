@@ -35,6 +35,10 @@ from collections import OrderedDict
 from itertools import chain
 from uuid import uuid4
 
+# noinspection PyUnresolvedReferences
+from interchange import geo as spatial
+# noinspection PyUnresolvedReferences
+from interchange import time
 from interchange.collections import SetView, PropertyDict
 
 from py2neo.compat import string_types, ustr, xstr

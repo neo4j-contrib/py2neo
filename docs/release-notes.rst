@@ -8,8 +8,8 @@ Release notes
 Version 2021.2
 ==============
 
-Highlights
-----------
+Highlights (2021.2)
+-------------------
 - Routing support has been added for HTTP connections
 - Support for Python 3.4 has been dropped
 - Command line functionality has been moved to the separate **ipy2neo** project
@@ -19,8 +19,8 @@ Highlights
 Version 2021.1
 ==============
 
-Highlights
-----------
+Highlights (2021.1)
+-------------------
 - Full support for routing
 - Full support for Neo4j 4.3
 - Big stability improvements for multithreaded usage.

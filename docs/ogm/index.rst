@@ -49,7 +49,7 @@ Each :class:`.Model` wraps a node as well as a set of pointers to :class:`.Relat
 A :class:`.Model` instance may be constructed just like any other Python object but can also be `matched <#py2neo.ogm.Model.match>`_ from the database.
 Each instance may contain attributes that represent labels, nodes or related objects.
 
-.. class:: py2neo.ogm.Model
+.. autoclass:: py2neo.ogm.Model
 
    .. attribute:: __primarylabel__
 
