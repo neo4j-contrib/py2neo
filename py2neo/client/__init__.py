@@ -204,10 +204,6 @@ class Connection(object):
         raise NotImplementedError
 
     @property
-    def local_port(self):
-        raise NotImplementedError
-
-    @property
     def bytes_sent(self):
         raise NotImplementedError
 

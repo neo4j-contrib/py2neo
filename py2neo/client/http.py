@@ -104,10 +104,6 @@ class HTTP(Connection):
     def broken(self):
         return False
 
-    @property
-    def local_port(self):
-        raise NotImplementedError
-
     def _hello(self, user_agent):
         self.headers.update(make_headers(basic_auth=":".join(self.profile.auth),
                                          user_agent=user_agent))
