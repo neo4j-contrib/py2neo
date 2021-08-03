@@ -39,18 +39,6 @@ class BrokenConnection(_Connection):
     def broken(self):
         return True
 
-    @property
-    def local_port(self):
-        return 0
-
-    @property
-    def bytes_sent(self):
-        return 0
-
-    @property
-    def bytes_received(self):
-        return 0
-
 
 class DodgyConnection(_Connection):
 
@@ -64,18 +52,6 @@ class DodgyConnection(_Connection):
     @property
     def broken(self):
         return False
-
-    @property
-    def local_port(self):
-        return 0
-
-    @property
-    def bytes_sent(self):
-        return 0
-
-    @property
-    def bytes_received(self):
-        return 0
 
     def begin(self, *args, **kwargs):
         raise Neo4jError.hydrate({"code": "Neo.DatabaseError.General.UnknownError",

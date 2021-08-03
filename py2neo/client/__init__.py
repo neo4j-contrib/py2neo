@@ -204,14 +204,6 @@ class Connection(object):
         raise NotImplementedError
 
     @property
-    def bytes_sent(self):
-        raise NotImplementedError
-
-    @property
-    def bytes_received(self):
-        raise NotImplementedError
-
-    @property
     def age(self):
         """ The age of this connection in seconds.
         """
@@ -672,9 +664,6 @@ class ConnectionPool(object):
         self._supports_multi = False
         # stats
         self._time_opened = monotonic()
-        self._opened_list = deque()
-        self._bytes_sent = 0
-        self._bytes_received = 0
 
     def __str__(self):
         in_use_list = list(self._in_use_list)
@@ -745,20 +734,6 @@ class ConnectionPool(object):
         """
         return monotonic() - self._time_opened
 
-    @property
-    def bytes_sent(self):
-        b = self._bytes_sent
-        for cx in list(self._opened_list):
-            b += cx.bytes_sent
-        return b
-
-    @property
-    def bytes_received(self):
-        b = self._bytes_received
-        for cx in list(self._opened_list):
-            b += cx.bytes_received
-        return b
-
     def _sanitize(self, cx, force_reset=False):
         """ Attempt to clean up a connection, such that it can be
         reused.
@@ -783,24 +758,13 @@ class ConnectionPool(object):
         self._quarantine.remove(cx)
         return cx
 
-    def connect(self):
-        """ Open a new connection, adding it to a list of opened
-        connections in order to collect statistics. This method also
-        collects stats from closed or broken connections into a
-        pool-wide running total.
+    def _connect(self):
+        """ Open and return a new connection.
         """
-        for _ in range(len(self._opened_list)):
-            cx = self._opened_list.popleft()
-            if cx.closed or cx.broken:
-                self._bytes_sent += cx.bytes_sent
-                self._bytes_received += cx.bytes_received
-            else:
-                self._opened_list.append(cx)
         cx = Connection.open(self.profile, user_agent=self.user_agent,
                              on_release=lambda c: self.release(c),
                              on_broken=lambda msg: self.__on_broken(msg))
         self._server_agent = cx.server_agent
-        self._opened_list.append(cx)
         return cx
 
     def _has_capacity(self):
@@ -846,7 +810,7 @@ class ConnectionPool(object):
                     # a new connection. This may raise a
                     # ConnectionUnavailable exception, which
                     # should bubble up to the caller.
-                    cx = self.connect()
+                    cx = self._connect()
                     if cx.supports_multi():
                         self._supports_multi = True
                 else:
@@ -1137,20 +1101,6 @@ class Connector(object):
         """
         return {profile: pool.in_use
                 for profile, pool in self._pools.items()}
-
-    @property
-    def bytes_sent(self):
-        b = 0
-        for pool in list(self._pools.values()):
-            b += pool.bytes_sent
-        return b
-
-    @property
-    def bytes_received(self):
-        b = 0
-        for pool in list(self._pools.values()):
-            b += pool.bytes_received
-        return b
 
     def _reacquire(self, tx):
         """ Lookup and return the connection bound to this

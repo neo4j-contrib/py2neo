@@ -420,14 +420,6 @@ class Bolt(Connection):
     def local_port(self):
         return self.__local_port
 
-    @property
-    def bytes_sent(self):
-        return self._wire.bytes_sent
-
-    @property
-    def bytes_received(self):
-        return self._wire.bytes_received
-
     def _assert_open(self):
         if self.closed:
             raise ConnectionUnavailable("Connection has been closed")
