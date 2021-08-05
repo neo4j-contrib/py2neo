@@ -57,7 +57,7 @@ from struct import pack as struct_pack, unpack as struct_unpack
 
 from six import PY2, raise_from
 
-from interchange.packstream import pack_into, UnpackStream, Structure
+from interchange.packstream import pack, unpack, Structure, Packer
 
 from py2neo import ConnectionProfile
 from py2neo.client import bolt_user_agent, Connection, Hydrant, TransactionRef, Result, Bookmark
@@ -164,8 +164,7 @@ class BoltMessageReader(object):
         message = b"".join(chunks)
         _, n = divmod(message[0], 0x10)
         try:
-            unpacker = UnpackStream(message, offset=2)
-            fields = [unpacker.unpack() for _ in range(n)]
+            fields = list(unpack(message, offset=2))
         except ValueError as error:
             raise_from(ProtocolError("Bad message content"), error)
         else:
@@ -186,8 +185,7 @@ class BoltMessageReader(object):
         message = bytearray(b"".join(map(bytes, chunks)))
         _, n = divmod(message[0], 0x10)
         try:
-            unpacker = UnpackStream(message, offset=2)
-            fields = [unpacker.unpack() for _ in range(n)]
+            fields = list(unpack(message, offset=2))
         except ValueError as error:
             raise_from(ProtocolError("Bad message content"), error)
         else:
@@ -237,7 +235,9 @@ class BoltMessageWriter(object):
         buffer = self.buffer
         buffer.seek(0)
         buffer.write(bytearray([0xB0 + len(fields), tag]))
-        pack_into(buffer, *fields, version=self.protocol_version)
+        packer = Packer(buffer, version=self.protocol_version)
+        for field in fields:
+            packer.pack(field)
         buffer.truncate()
         buffer.seek(0)
         while self._write_chunk(buffer.read(0x7FFF)):
