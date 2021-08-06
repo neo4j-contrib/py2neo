@@ -703,13 +703,24 @@ class Repository(object):
 
     def save(self, *objects):
         """ Save data from the local object into the remote graph.
+
+        Each object in `objects` can be a :class:`Model` object or an
+        iterable of such objects.
+
+        :param objects: :class:`Model` objects to save.
         """
 
-        def push_all(tx):
-            for obj in objects:
-                tx.push(obj)
+        def push_all(tx, iterable):
+            for obj in iterable:
+                if hasattr(obj, "__db_push__"):
+                    tx.push(obj)
+                elif hasattr(obj, "__iter__"):
+                    push_all(tx, obj)
+                else:
+                    raise ValueError("Object %r is neither savable "
+                                     "nor iterable" % obj)
 
-        self.graph.update(push_all)
+        self.graph.update(lambda tx: push_all(tx, objects))
 
     def delete(self, obj):
         """ Delete the object in the remote graph.

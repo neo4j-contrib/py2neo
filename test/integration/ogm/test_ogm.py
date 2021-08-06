@@ -102,6 +102,11 @@ def test_save(repo, thing):
     assert repo.exists(thing)
 
 
+def test_save_iterable(repo, thing):
+    repo.save(iter([thing]))
+    assert repo.exists(thing)
+
+
 def test_delete(repo, thing):
     repo.save(thing)
     repo.delete(thing)
