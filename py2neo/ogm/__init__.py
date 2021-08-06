@@ -251,21 +251,30 @@ class RelatedObjects(object):
     def add(self, obj, properties=None, **kwproperties):
         """ Add or update a related object.
 
-        :param obj: the :py:class:`.Model` to relate
-        :param properties: dictionary of properties to attach to the relationship (optional)
-        :param kwproperties: additional keyword properties (optional)
+        This method returns the number of new related objects that were
+        added: 0 if an existing object was updated, or 1 if a new
+        object was added.
+
+        :param obj:
+            :py:class:`.Model` to relate.
+        :param properties:
+            Dictionary of properties to attach to the relationship
+            (optional).
+        :param kwproperties:
+            Additional keyword properties (optional).
+        :returns:
+            Number of new related objects that were added.
         """
         if not isinstance(obj, Model):
             raise TypeError("Related objects must be Model instances")
         related_objects = self._related_objects
         properties = dict(properties or {}, **kwproperties)
-        added = False
         for i, (related_object, p) in enumerate(related_objects):
             if related_object == obj:
                 related_objects[i] = (obj, PropertyDict(p, **properties))
-                added = True
-        if not added:
-            related_objects.append((obj, properties))
+                return 0  # existing object was updated
+        related_objects.append((obj, properties))
+        return 1  # new object was added
 
     def clear(self):
         """ Remove all related objects from this set.
