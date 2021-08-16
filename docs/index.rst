@@ -170,6 +170,16 @@ Python DB API 2.0 Compatibility
     pep249/index
 
 
+Guides
+======
+
+.. toctree::
+    :maxdepth: 2
+
+    guides/cypher-execution
+    guides/import-and-export
+
+
 .. _Neo4j: https://neo4j.com/
 .. _pip: https://pip.pypa.io/
 .. _Python: https://www.python.org/
