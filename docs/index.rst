@@ -148,7 +148,7 @@ Bulk Operations
     :maxdepth: 2
 
     bulk/index
-    bulk/export
+    integration/index
 
 
 Object-Graph Mapping

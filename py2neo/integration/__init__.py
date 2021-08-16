@@ -17,129 +17,18 @@
 
 
 """
-This module allows exporting data to external formats.
-
-Example:
-
-    >>> from py2neo import Graph
-    >>> from py2neo.export import to_pandas_data_frame
-    >>> graph = Graph()
-    >>> to_pandas_data_frame(graph.run("MATCH (a:Person) RETURN a.name, a.born LIMIT 4"))
-       a.born              a.name
-    0    1964        Keanu Reeves
-    1    1967    Carrie-Anne Moss
-    2    1961  Laurence Fishburne
-    3    1960        Hugo Weaving
-
+This package provides facilities to integrate with third party
+libraries, primarily to allow importing from and exporting to
+external data formats.
 """
 
 
 from __future__ import absolute_import, print_function, unicode_literals
 
 from io import StringIO
-from warnings import warn
 
 from py2neo.compat import numeric_types, ustr
 from py2neo.cypher import cypher_repr, cypher_str
-
-
-def to_numpy_ndarray(cursor, dtype=None, order='K'):
-    """ Consume and extract the entire result as a
-    `numpy.ndarray <https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.html>`_.
-
-    .. note::
-       This method requires `numpy` to be installed.
-
-    :param cursor:
-    :param dtype:
-    :param order:
-    :warns: If `numpy` is not installed
-    :returns: `ndarray
-        <https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.html>`__ object.
-    """
-    try:
-        # noinspection PyPackageRequirements
-        from numpy import array
-    except ImportError:
-        warn("Numpy is not installed.")
-        raise
-    else:
-        return array(list(map(list, cursor)), dtype=dtype, order=order)
-
-
-def to_pandas_series(cursor, field=0, index=None, dtype=None):
-    """ Consume and extract one field of the entire result as a
-    `pandas.Series <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`_.
-
-    .. note::
-       This method requires `pandas` to be installed.
-
-    :param cursor:
-    :param field:
-    :param index:
-    :param dtype:
-    :warns: If `pandas` is not installed
-    :returns: `Series
-        <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`__ object.
-    """
-    try:
-        # noinspection PyPackageRequirements
-        from pandas import Series
-    except ImportError:
-        warn("Pandas is not installed.")
-        raise
-    else:
-        return Series([record[field] for record in cursor], index=index, dtype=dtype)
-
-
-def to_pandas_data_frame(cursor, index=None, columns=None, dtype=None):
-    """ Consume and extract the entire result as a
-    `pandas.DataFrame <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#dataframe>`_.
-
-    .. note::
-       This method requires `pandas` to be installed.
-
-    :param cursor:
-    :param index: Index to use for resulting frame.
-    :param columns: Column labels to use for resulting frame.
-    :param dtype: Data type to force.
-    :warns: If `pandas` is not installed
-    :returns: `DataFrame
-        <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`__ object.
-    """
-    try:
-        # noinspection PyPackageRequirements
-        from pandas import DataFrame
-    except ImportError:
-        warn("Pandas is not installed.")
-        raise
-    else:
-        return DataFrame(list(map(dict, cursor)), index=index, columns=columns, dtype=dtype)
-
-
-def to_sympy_matrix(cursor, mutable=False):
-    """ Consume and extract the entire result as a
-    `sympy.Matrix <http://docs.sympy.org/latest/tutorial/matrices.html>`_.
-
-    .. note::
-       This method requires `sympy` to be installed.
-
-    :param cursor:
-    :param mutable:
-    :returns: `Matrix
-        <http://docs.sympy.org/latest/tutorial/matrices.html>`_ object.
-    """
-    try:
-        # noinspection PyPackageRequirements
-        from sympy import MutableMatrix, ImmutableMatrix
-    except ImportError:
-        warn("Sympy is not installed.")
-        raise
-    else:
-        if mutable:
-            return MutableMatrix(list(map(list, cursor)))
-        else:
-            return ImmutableMatrix(list(map(list, cursor)))
 
 
 class Table(list):

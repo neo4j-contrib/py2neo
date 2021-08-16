@@ -213,7 +213,7 @@ class Cursor(object):
             preview
         :returns: :class:`.Table` containing the previewed records
         """
-        from py2neo.export import Table
+        from py2neo.integration import Table
         if not limit:
             limit = self.sample_size
         elif limit < 0:
@@ -291,7 +291,7 @@ class Cursor(object):
 
         :return: the full query result
         """
-        from py2neo.export import Table
+        from py2neo.integration import Table
         return Table(self)
 
     def to_subgraph(self):
@@ -323,8 +323,8 @@ class Cursor(object):
         :returns: `ndarray
             <https://docs.scipy.org/doc/numpy/reference/generated/numpy.ndarray.html>`__ object.
         """
-        from py2neo.export import to_numpy_ndarray
-        return to_numpy_ndarray(self, dtype, order)
+        from py2neo.integration.numpy import cursor_to_ndarray
+        return cursor_to_ndarray(self, dtype, order)
 
     def to_series(self, field=0, index=None, dtype=None):
         """ Consume and extract one field of the entire result as a
@@ -340,8 +340,8 @@ class Cursor(object):
         :returns: `Series
             <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`__ object.
         """
-        from py2neo.export import to_pandas_series
-        return to_pandas_series(self, field, index, dtype)
+        from py2neo.integration.pandas import cursor_to_series
+        return cursor_to_series(self, field, index, dtype)
 
     def to_data_frame(self, index=None, columns=None, dtype=None):
         """ Consume and extract the entire result as a
@@ -368,8 +368,8 @@ class Cursor(object):
         :returns: `DataFrame
             <http://pandas.pydata.org/pandas-docs/stable/dsintro.html#series>`__ object.
         """
-        from py2neo.export import to_pandas_data_frame
-        return to_pandas_data_frame(self, index, columns, dtype)
+        from py2neo.integration.pandas import cursor_to_data_frame
+        return cursor_to_data_frame(self, index, columns, dtype)
 
     def to_matrix(self, mutable=False):
         """ Consume and extract the entire result as a
@@ -382,8 +382,8 @@ class Cursor(object):
         :returns: `Matrix
             <http://docs.sympy.org/latest/tutorial/matrices.html>`_ object.
         """
-        from py2neo.export import to_sympy_matrix
-        return to_sympy_matrix(self, mutable)
+        from py2neo.integration.sympy import cursor_to_matrix
+        return cursor_to_matrix(self, mutable)
 
 
 class Record(tuple, Mapping):
