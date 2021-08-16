@@ -416,9 +416,11 @@ class Graph(object):
         return self.run(cypher, parameters, **kwparameters).evaluate()
 
     def update(self, cypher, parameters=None, timeout=None):
-        """ Call a function representing a transactional unit of work.
+        """ Execute a transactional unit of work that carries out
+        write operations but does not return a result.
 
-        The function must always accept a :class:`~py2neo.Transaction`
+        The `cypher` argument can be either a single string statement
+        or a callable that accepts a :class:`~py2neo.Transaction`
         object as its first argument. Additional arguments can be
         passed though the `args` and `kwargs` arguments of this method.
 
@@ -426,6 +428,10 @@ class Graph(object):
         attempts fail due to connectivity or other transient errors.
         As such, the function should have no non-idempotent side
         effects.
+
+        Note that hybrid read-write queries (i.e. those which carry out
+        updates *and* return a result should use the non-retrying
+        :class:`.run` method instead.
 
         :param cypher: cypher string or transaction function containing
             a unit of work
@@ -484,13 +490,18 @@ class Graph(object):
         raise WriteServiceUnavailable("Failed to execute update after %r tries" % n)
 
     def query(self, cypher, parameters=None, timeout=None):
-        """ Run a single readonly query within an auto-commit
+        """ Run a single query within a readonly auto-commit
         :class:`~py2neo.Transaction`.
+
+        Should query execution fail due to connection failure or other
+        transient error, retries will be attempted. There will be a
+        minimum of three attempts, and retries will continue until the
+        timeout passes.
 
         :param cypher: Cypher statement
         :param parameters: dictionary of parameters
         :param timeout:
-        :returns:
+        :returns: result :class:`~.cypher.Cursor` object
         :raises TypeError: if the underlying connection profile does not
             support readonly transactions
         :raises ServiceUnavailable: if the query does not successfully
