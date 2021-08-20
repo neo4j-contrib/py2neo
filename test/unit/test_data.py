@@ -21,7 +21,7 @@ from unittest import TestCase
 
 from py2neo.cypher import Record
 from py2neo.data import Subgraph, Walkable, Node, Relationship, Path, walk
-from py2neo.export import Table
+from py2neo.integration import Table
 
 
 KNOWS = Relationship.type("KNOWS")
