@@ -652,7 +652,9 @@ class Bolt1(Bolt):
         else:
             peer = "C" if tag < 0x70 else "S"
             n_fields = len(fields)
-            if n_fields == 0:
+            if name == "RECORD":
+                log.debug("[#%04X] %s: %s * %d", port, peer, name, n_fields)
+            elif n_fields == 0:
                 log.debug("[#%04X] %s: %s", port, peer, name)
             elif n_fields == 1:
                 log.debug("[#%04X] %s: %s %r", port, peer, name, fields[0])
