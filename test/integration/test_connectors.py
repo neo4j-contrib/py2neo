@@ -20,8 +20,9 @@ from __future__ import absolute_import
 
 from collections import deque
 
-from pytest import mark, skip
+from pytest import mark, skip, raises
 
+from py2neo import ClientError
 from py2neo.cypher import Cursor, Record
 
 
@@ -206,3 +207,8 @@ def test_stats(connector):
 #     expected = CypherStats(nodes_created=1)
 #     actual = cursor.stats()
 #     assert expected == actual
+
+
+def test_bad_cypher(connector):
+    with raises(ClientError):
+        _ = connector.auto_run("X")

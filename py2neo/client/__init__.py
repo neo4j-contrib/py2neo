@@ -1338,12 +1338,7 @@ class Connector(object):
         try:
             result = cx.auto_run(cypher, parameters, graph_name=graph_name, readonly=readonly)
             if pull != 0:
-                try:
-                    cx.pull(result, n=pull)
-                except TypeError:
-                    # If the RUN fails, so will the PULL, due to
-                    # transaction state.
-                    pass
+                cx.pull(result, n=pull)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
@@ -1439,12 +1434,7 @@ class Connector(object):
         try:
             result = cx.run(tx, cypher, parameters)
             if pull != 0:
-                try:
-                    cx.pull(result, n=pull)
-                except TypeError:
-                    # If the RUN fails, so will the PULL, due to
-                    # transaction state.
-                    pass
+                cx.pull(result, n=pull)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
