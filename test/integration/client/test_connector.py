@@ -16,27 +16,62 @@
 # limitations under the License.
 
 
-from pytest import skip
+from __future__ import absolute_import
 
+from collections import deque
+
+from pytest import skip, raises
+
+from py2neo import ClientError
 from py2neo.client import Connector
+from py2neo.cypher import Cursor, Record
+
+
+def test_keys(connector):
+    result = connector.auto_run("RETURN 'Alice' AS name, 33 AS age")
+    connector.pull(result, -1)
+    cursor = Cursor(result)
+    expected = ["name", "age"]
+    actual = cursor.keys()
+    assert expected == actual
+
+
+def test_records(connector):
+    result = connector.auto_run("UNWIND range(1, $x) AS n RETURN n, n * n AS n_sq", {"x": 3})
+    connector.pull(result, -1)
+    cursor = Cursor(result)
+    expected = deque([(1, 1), (2, 4), (3, 9)])
+    for actual_record in cursor:
+        expected_record = Record(["n", "n_sq"], expected.popleft())
+        assert expected_record == actual_record
+
+
+def test_stats(connector):
+    result = connector.auto_run("CREATE ()")
+    connector.pull(result, -1)
+    cursor = Cursor(result)
+    stats = cursor.stats()
+    assert stats["nodes_created"] == 1
 
 
 def test_auto_run_with_pull_all(service_profile):
-    cx = Connector(service_profile)
-    result = cx.auto_run("UNWIND range(1, 5) AS n RETURN n")
+    connector = Connector(service_profile)
+    result = connector.auto_run("UNWIND range(1, 5) AS n RETURN n")
+    connector.pull(result, -1)
     assert result.take() == [1]
     assert result.take() == [2]
     assert result.take() == [3]
     assert result.take() == [4]
     assert result.take() == [5]
     assert result.take() is None
-    cx.close()
+    connector.close()
 
 
 def test_auto_run_with_pull_3_then_pull_all(service_profile):
-    cx = Connector(service_profile)
+    connector = Connector(service_profile)
     try:
-        result = cx.auto_run("UNWIND range(1, 5) AS n RETURN n", pull=3)
+        result = connector.auto_run("UNWIND range(1, 5) AS n RETURN n")
+        connector.pull(result, 3)
     except IndexError as error:
         skip(str(error))
     else:
@@ -44,9 +79,15 @@ def test_auto_run_with_pull_3_then_pull_all(service_profile):
         assert result.take() == [2]
         assert result.take() == [3]
         assert result.take() is None
-        cx.pull(result)
+        connector.pull(result)
         assert result.take() == [4]
         assert result.take() == [5]
         assert result.take() is None
     finally:
-        cx.close()
+        connector.close()
+
+
+def test_bad_cypher(connector):
+    with raises(ClientError):
+        result = connector.auto_run("X")
+        connector.pull(result, -1)

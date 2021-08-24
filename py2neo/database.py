@@ -989,6 +989,7 @@ class Transaction(object):
                 result = self._connector.auto_run(cypher, parameters,
                                                   graph_name=self.graph.name,
                                                   readonly=self.readonly)
+            self._connector.pull(result, -1)
             return Cursor(result, hydrant)
         finally:
             if not self.ref:

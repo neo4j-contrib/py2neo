@@ -1102,22 +1102,13 @@ class Connector(object):
         return {profile: pool.in_use
                 for profile, pool in self._pools.items()}
 
-    def _reacquire(self, tx):
-        """ Lookup and return the connection bound to this
-        transaction, if any, otherwise acquire a new connection.
-
-        :param tx: a bound transaction
-        :raise TypeError: if the given transaction is invalid or not bound
+    def _acquire(self, graph_name=None, readonly=False):
+        """ Acquire a connection from a pool owned by this connector.
         """
-        cx = tx.connection
-        if cx is None:
-            if tx.readonly:
-                return self._acquire_ro(tx.graph_name)
-            else:
-                return self._acquire_rw(tx.graph_name)
+        if readonly:
+            return self._acquire_ro(graph_name)
         else:
-            # TODO: error if broken?
-            return cx
+            return self._acquire_rw(graph_name)
 
     def _acquire_ro(self, graph_name=None):
         """ Acquire a readonly connection from a pool owned by this
@@ -1257,6 +1248,20 @@ class Connector(object):
             # should have occurred during business-as-normal.
             sleep(0.2)
 
+    def _reacquire(self, tx):
+        """ Lookup and return the connection bound to this
+        transaction, if any, otherwise acquire a new connection.
+
+        :param tx: a bound transaction
+        :raise TypeError: if the given transaction is invalid or not bound
+        """
+        cx = tx.connection
+        if cx is None:
+            return self._acquire(tx.graph_name, tx.readonly)
+        else:
+            # TODO: error if broken?
+            return cx
+
     def prune(self, profile):
         """ Release all broken connections for a given profile, then
         close these and all other free connections. If this empties the
@@ -1313,14 +1318,13 @@ class Connector(object):
             self._router.set_broken(profile)
         self.prune(profile)
 
-    def auto_run(self, cypher, parameters=None, pull=-1, graph_name=None, readonly=False,
+    def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
         """ Run a Cypher query within a new auto-commit transaction.
 
         :param cypher:
         :param parameters:
-        :param pull:
         :param graph_name:
         :param readonly:
         :returns: :class:`.Result` object
@@ -1331,19 +1335,12 @@ class Connector(object):
             if the request to pull the specified number of records
             cannot be honoured
         """
-        if readonly:
-            cx = self._acquire_ro(graph_name)
-        else:
-            cx = self._acquire_rw(graph_name)
+        cx = self._acquire(graph_name)
         try:
-            result = cx.auto_run(cypher, parameters, graph_name=graph_name, readonly=readonly)
-            if pull != 0:
-                cx.pull(result, n=pull)
+            return cx.auto_run(cypher, parameters, graph_name=graph_name, readonly=readonly)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
-        else:
-            return result
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
@@ -1357,10 +1354,7 @@ class Connector(object):
         :raises ConnectionBroken: if a begin attempt is made, but fails due to disconnection
         :raises Failure: if the server signals a failure condition
         """
-        if readonly:
-            cx = self._acquire_ro(graph_name)
-        else:
-            cx = self._acquire_rw(graph_name)
+        cx = self._acquire(graph_name)
         try:
             return cx.begin(graph_name, readonly=readonly,
                             # after=after, metadata=metadata, timeout=timeout
@@ -1411,17 +1405,12 @@ class Connector(object):
                     "profile": cx.profile,
                     "time": tx.age}
 
-    def run(self, tx, cypher, parameters=None, pull=-1):
+    def run(self, tx, cypher, parameters=None):
         """ Run a Cypher query within an open explicit transaction.
 
         :param tx:
         :param cypher:
         :param parameters:
-        :param pull:
-            Number of records to pull. If set to -1 (default) then all
-            records will be pulled. Any value greater than or equal to
-            zero will pull that number instead. Values other than -1
-            are only supported for Bolt version 4.0 and above.
         :returns: :class:`.Result` object
         :raises ConnectionUnavailable: if an attempt to run cannot be made
         :raises ConnectionBroken: if an attempt to run is made, but fails due to disconnection
@@ -1432,14 +1421,10 @@ class Connector(object):
         """
         cx = self._reacquire(tx)
         try:
-            result = cx.run(tx, cypher, parameters)
-            if pull != 0:
-                cx.pull(result, n=pull)
+            return cx.run(tx, cypher, parameters)
         except (ConnectionUnavailable, ConnectionBroken):
             self.prune(cx.profile)
             raise
-        else:
-            return result
 
     def pull(self, result, n=-1):
         if n == 0:

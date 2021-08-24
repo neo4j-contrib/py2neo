@@ -16,32 +16,7 @@
 # limitations under the License.
 
 
-from pytest import fixture, skip, raises
-
-from py2neo.client.bolt import Bolt
-
-
-@fixture(scope="session")
-def bolt_profile(service_profile):
-    if service_profile.protocol != "bolt":
-        skip("Not a Bolt profile")
-    return service_profile
-
-
-@fixture()
-def bolt(bolt_profile):
-    bolt = Bolt.open(bolt_profile)
-    try:
-        yield bolt
-    finally:
-        bolt.close()
-
-
-@fixture()
-def rx_bolt(bolt):
-    if bolt.protocol_version < (4, 0):
-        skip("Bolt reactive not available")
-    return bolt
+from pytest import raises
 
 
 def test_hello_goodbye(bolt):

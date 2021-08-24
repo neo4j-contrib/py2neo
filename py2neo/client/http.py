@@ -167,16 +167,18 @@ class HTTP(Connection):
     def auto_run(self, cypher, parameters=None, graph_name=None, readonly=False,
                  # after=None, metadata=None, timeout=None
                  ):
-        if graph_name and not self.supports_multi():
-            raise TypeError("Neo4j {} does not support "
-                            "named graphs".format(self.neo4j_version))
-        # if readonly:
-        #     log.warning("Readonly transactions are not supported over HTTP")
-        r = self._post(HTTPTransactionRef.autocommit_uri(graph_name), cypher, parameters)
-        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-        self.release()
-        rs.audit()
-        return HTTPResult(HTTPTransactionRef(graph_name), rs.result(), profile=self.profile)
+        try:
+            if graph_name and not self.supports_multi():
+                raise TypeError("Neo4j {} does not support "
+                                "named graphs".format(self.neo4j_version))
+            # if readonly:
+            #     log.warning("Readonly transactions are not supported over HTTP")
+            r = self._post(HTTPTransactionRef.autocommit_uri(graph_name), cypher, parameters)
+            rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
+            rs.audit()
+            return HTTPResult(HTTPTransactionRef(graph_name), rs.result(), profile=self.profile)
+        finally:
+            self.release()
 
     def begin(self, graph_name, readonly=False,
               # after=None, metadata=None, timeout=None
@@ -184,49 +186,53 @@ class HTTP(Connection):
         if graph_name and not self.supports_multi():
             raise TypeError("Neo4j {} does not support "
                             "named graphs".format(self.neo4j_version))
-        # if readonly:
-        #     log.warning("Readonly transactions are not supported over HTTP")
-        # if after:
-        #     raise TypeError("Bookmarks are not supported over HTTP")
-        # if metadata:
-        #     raise TypeError("Transaction metadata is not supported over HTTP")
-        # if timeout:
-        #     raise TypeError("Transaction timeouts are not supported over HTTP")
-        r = self._post(HTTPTransactionRef.begin_uri(graph_name))
-        rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-        location_path = urlsplit(r.headers["Location"]).path
-        tx = HTTPTransactionRef(graph_name, location_path.rpartition("/")[-1])
-        self.release()
-        rs.audit(tx)
-        return tx
+        try:
+            # if readonly:
+            #     log.warning("Readonly transactions are not supported over HTTP")
+            # if after:
+            #     raise TypeError("Bookmarks are not supported over HTTP")
+            # if metadata:
+            #     raise TypeError("Transaction metadata is not supported over HTTP")
+            # if timeout:
+            #     raise TypeError("Transaction timeouts are not supported over HTTP")
+            r = self._post(HTTPTransactionRef.begin_uri(graph_name))
+            rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
+            location_path = urlsplit(r.headers["Location"]).path
+            tx = HTTPTransactionRef(graph_name, location_path.rpartition("/")[-1])
+            rs.audit(tx)
+            return tx
+        finally:
+            self.release()
 
     def commit(self, tx):
-        if tx.broken:
-            raise ValueError("Transaction is broken")
         try:
+            if tx.broken:
+                raise ValueError("Transaction is broken")
             r = self._post(tx.commit_uri())
         except ProtocolError:
             tx.mark_broken()
             raise
         else:
             rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-            self.release()
             rs.audit(tx)
             return Bookmark()
+        finally:
+            self.release()
 
     def rollback(self, tx):
-        if tx.broken:
-            raise ValueError("Transaction is broken")
         try:
+            if tx.broken:
+                raise ValueError("Transaction is broken")
             r = self._delete(tx.uri())
         except ProtocolError:
             tx.mark_broken()
             raise
         else:
             rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-            self.release()
             rs.audit(tx)
             return Bookmark()
+        finally:
+            self.release()
 
     def run(self, tx, cypher, parameters=None):
         try:
@@ -236,22 +242,29 @@ class HTTP(Connection):
             raise
         else:
             rs = HTTPResponse.from_json(r.status, r.data.decode("utf-8"))
-            self.release()
             rs.audit(tx)
             return HTTPResult(tx, rs.result(), profile=self.profile)
+        finally:
+            self.release()
 
     def pull(self, result, n=-1):
-        # TODO: lower-memory algorithm that doesn't require
-        #  duplication of potentially large data sets
-        if n == -1:
-            result._buffer.extend(result._data)
-            result._data[:] = []
-        else:
-            result._buffer.extend(result._data[:n])
-            result._data[:n] = []
+        try:
+            # TODO: lower-memory algorithm that doesn't require
+            #  duplication of potentially large data sets
+            if n == -1:
+                result._buffer.extend(result._data)
+                result._data[:] = []
+            else:
+                result._buffer.extend(result._data[:n])
+                result._data[:n] = []
+        finally:
+            self.release()
 
     def discard(self, result):
-        result._data[:] = []
+        try:
+            result._data[:] = []
+        finally:
+            self.release()
 
     def _get_http_profiles(self):
         scheme = "https" if self.profile.secure else "http"
@@ -284,15 +297,18 @@ class HTTP(Connection):
             return profiles, scheme
 
     def route(self, graph_name=None, context=None):
-        if self._neo4j_version >= Version("4.0"):
-            routers, readers, writers, ttl = self._route4(graph_name, context)
-        else:
-            routers, readers, writers, ttl = self._route1(graph_name, context)
-        profiles, scheme = self._get_http_profiles()  # Convert Bolt addresses to HTTP
-        return ([ConnectionProfile(_, scheme=scheme, address=profiles[_.address]) for _ in routers],
-                [ConnectionProfile(_, scheme=scheme, address=profiles[_.address]) for _ in readers],
-                [ConnectionProfile(_, scheme=scheme, address=profiles[_.address]) for _ in writers],
+        try:
+            if self._neo4j_version >= Version("4.0"):
+                routers, readers, writers, ttl = self._route4(graph_name, context)
+            else:
+                routers, readers, writers, ttl = self._route1(graph_name, context)
+            profiles, scheme = self._get_http_profiles()  # Convert Bolt addresses to HTTP
+            return ([ConnectionProfile(_, scheme=scheme, address=profiles[_.address]) for _ in routers],
+                    [ConnectionProfile(_, scheme=scheme, address=profiles[_.address]) for _ in readers],
+                    [ConnectionProfile(_, scheme=scheme, address=profiles[_.address]) for _ in writers],
                 ttl)
+        finally:
+            self.release()
 
     def sync(self, result):
         pass
