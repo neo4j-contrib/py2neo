@@ -8,12 +8,31 @@ Release notes
 Version 2021.2
 ==============
 
-Highlights (2021.2)
--------------------
-- Routing support has been added for HTTP connections
+General (2021.2)
+----------------
 - Support for Python 3.4 has been dropped
 - Command line functionality has been moved to the separate **ipy2neo** project
 - Data type and PackStream functionality has been moved to the separate **interchange** project
+- Various experimental modules removed from project
+
+OGM (2021.2)
+------------
+- Allow `Repository.save` for iterables
+- `RelatedObjects.add` now returns number of additions performed
+- Added default constructor for `Model` objects
+
+Integration (2021.2)
+--------------------
+- Moved third-party library integrations to `py2neo.integration` namespace
+
+Bolt (2021.2)
+-------------
+- Record content is no longer logged
+
+HTTP (2021.2)
+-------------
+- Routing support has been added for HTTP connections
+- Improved HTTP connection housekeeping
 
 
 Version 2021.1
