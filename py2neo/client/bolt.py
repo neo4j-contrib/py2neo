@@ -158,10 +158,22 @@ class BoltMessageReader(object):
                 raise_from(ConnectionBroken("Failed to read message"), error)
             else:
                 if hi == lo == 0:
-                    break
-                size = hi << 8 | lo
-                chunks.append(self.wire.read(size))
+                    # We hit a zero chunk...
+                    if chunks:
+                        # ... and some non-zero chunks have been collected,
+                        # therefore we can exit the loop with a message.
+                        break
+                    else:
+                        # ... and no non-zero chunks have yet been collected,
+                        # therefore, this must be a null message used for
+                        # keep-alive and we should carry on looping.
+                        pass
+                else:
+                    # We found a non-zero chunk which can be collected.
+                    size = hi << 8 | lo
+                    chunks.append(self.wire.read(size))
         message = b"".join(chunks)
+        assert message  # the message should never be empty
         _, n = divmod(message[0], 0x10)
         try:
             fields = list(unpack(message, offset=2))
@@ -179,10 +191,22 @@ class BoltMessageReader(object):
                 raise_from(ConnectionBroken("Failed to read message"), error)
             else:
                 if hi == lo == 0:
-                    break
-                size = hi << 8 | lo
-                chunks.append(self.wire.read(size))
+                    # We hit a zero chunk...
+                    if chunks:
+                        # ... and some non-zero chunks have been collected,
+                        # therefore we can exit the loop with a message.
+                        break
+                    else:
+                        # ... and no non-zero chunks have yet been collected,
+                        # therefore, this must be a null message used for
+                        # keep-alive and we should carry on looping.
+                        pass
+                else:
+                    # We found a non-zero chunk which can be collected.
+                    size = hi << 8 | lo
+                    chunks.append(self.wire.read(size))
         message = bytearray(b"".join(map(bytes, chunks)))
+        assert message  # the message should never be empty
         _, n = divmod(message[0], 0x10)
         try:
             fields = list(unpack(message, offset=2))
