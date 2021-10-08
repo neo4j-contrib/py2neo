@@ -109,8 +109,8 @@ class Subgraph(object):
         self.__nodes = frozenset(nodes or [])
         self.__relationships = frozenset(relationships or [])
         self.__nodes |= frozenset(chain.from_iterable(r.nodes for r in self.__relationships))
-        if not self.__nodes:
-            raise ValueError("Subgraphs must contain at least one node")
+        #if not self.__nodes:
+        #    raise ValueError("Subgraphs must contain at least one node")
 
     def __repr__(self):
         return "Subgraph({%s}, {%s})" % (", ".join(map(repr, self.nodes)),
@@ -582,6 +582,18 @@ class Entity(PropertyDict, Walkable):
         # the one in Walkable. The hack below forces Entity to
         # use the Walkable implementation.
         return Walkable.__or__(self, other)
+
+    def __ior__(self, other):
+        raise TypeError("In-place union is not permitted for %s objects" % self.__class__.__name__)
+
+    def __iand__(self, other):
+        raise TypeError("In-place intersection is not permitted for %s objects" % self.__class__.__name__)
+
+    def __isub__(self, other):
+        raise TypeError("In-place difference is not permitted for %s objects" % self.__class__.__name__)
+
+    def __ixor__(self, other):
+        raise TypeError("In-place symmetric difference is not permitted for %s objects" % self.__class__.__name__)
 
     @property
     def graph(self):

@@ -307,7 +307,7 @@ class Cursor(object):
                 if s is None:
                     s = s_
                 else:
-                    s |= s_
+                    s = s | s_
         return s
 
     def to_ndarray(self, dtype=None, order='K'):
@@ -564,7 +564,7 @@ class Record(tuple, Mapping):
                 if s is None:
                     s = value
                 else:
-                    s |= value
+                    s = s | value
         return s
 
 

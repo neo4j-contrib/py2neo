@@ -19,6 +19,8 @@
 from io import StringIO
 from unittest import TestCase
 
+from _pytest.python_api import raises
+
 from py2neo.cypher import Record
 from py2neo.data import Subgraph, Walkable, Node, Relationship, Path, walk
 from py2neo.integration import Table
@@ -405,8 +407,9 @@ class SubgraphTestCase(TestCase):
         assert self.subgraph.keys() == {"name", "age", "since"}
 
     def test_empty_subgraph(self):
-        with self.assertRaises(ValueError):
-            Subgraph()
+        s = Subgraph()
+        assert len(s.nodes) == 0
+        assert len(s.relationships) == 0
 
 
 class WalkableTestCase(TestCase):
@@ -869,7 +872,17 @@ class ConcatenationTestCase(TestCase):
 
 class UnionTestCase(TestCase):
 
-    def test_graph_union(self):
+    def test_node_union(self):
+        s = alice | bob
+        assert len(s.nodes) == 2
+        assert len(s.relationships) == 0
+
+    def test_node_union_in_place(self):
+        n = Node()
+        with raises(TypeError):
+            n |= alice
+
+    def test_subgraph_union(self):
         graph_1 = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
         graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
         graph = graph_1 | graph_2
@@ -877,10 +890,33 @@ class UnionTestCase(TestCase):
         assert len(graph.relationships) == 5
         assert graph.nodes == (alice | bob | carol | dave).nodes
 
+    def test_subgraph_union_in_place(self):
+        graph = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
+        graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
+        graph |= graph_2
+        assert len(graph.nodes) == 4
+        assert len(graph.relationships) == 5
+        assert graph.nodes == (alice | bob | carol | dave).nodes
+
 
 class IntersectionTestCase(TestCase):
 
-    def test_graph_intersection(self):
+    def test_node_intersection_same(self):
+        s = alice & alice
+        assert len(s.nodes) == 1
+        assert len(s.relationships) == 0
+
+    def test_node_intersection_different(self):
+        s = alice & bob
+        assert len(s.nodes) == 0
+        assert len(s.relationships) == 0
+
+    def test_node_intersection_in_place(self):
+        n = Node()
+        with raises(TypeError):
+            n &= alice
+
+    def test_subgraph_intersection(self):
         graph_1 = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
         graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
         graph = graph_1 & graph_2
@@ -888,10 +924,33 @@ class IntersectionTestCase(TestCase):
         assert len(graph.relationships) == 1
         assert graph.nodes == (bob | carol).nodes
 
+    def test_subgraph_intersection_in_place(self):
+        graph = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
+        graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
+        graph &= graph_2
+        assert len(graph.nodes) == 2
+        assert len(graph.relationships) == 1
+        assert graph.nodes == (bob | carol).nodes
+
 
 class DifferenceTestCase(TestCase):
 
-    def test_graph_difference(self):
+    def test_node_difference_same(self):
+        s = alice - alice
+        assert len(s.nodes) == 0
+        assert len(s.relationships) == 0
+
+    def test_node_difference_different(self):
+        s = alice - bob
+        assert len(s.nodes) == 1
+        assert len(s.relationships) == 0
+
+    def test_node_difference_in_place(self):
+        n = Node()
+        with raises(TypeError):
+            n -= alice
+
+    def test_subgraph_difference(self):
         graph_1 = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
         graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
         graph = graph_1 - graph_2
@@ -899,13 +958,46 @@ class DifferenceTestCase(TestCase):
         assert len(graph.relationships) == 2
         assert graph.nodes == (alice | bob | carol).nodes
 
+    def test_subgraph_difference_in_place(self):
+        graph = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
+        graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
+        graph -= graph_2
+        assert len(graph.nodes) == 3
+        assert len(graph.relationships) == 2
+        assert graph.nodes == (alice | bob | carol).nodes
+
 
 class SymmetricDifferenceTestCase(TestCase):
 
-    def test_graph_symmetric_difference(self):
+    def test_node_symmetric_difference_same(self):
+        s = alice ^ alice
+        assert len(s.nodes) == 0
+        assert len(s.relationships) == 0
+
+    def test_node_symmetric_difference_different(self):
+        s = alice ^ bob
+        assert len(s.nodes) == 2
+        assert len(s.relationships) == 0
+
+    def test_node_symmetric_difference_in_place(self):
+        n = Node()
+        with raises(TypeError):
+            n ^= alice
+
+    def test_subgraph_symmetric_difference(self):
         graph_1 = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
         graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
         graph = graph_1 ^ graph_2
+        assert len(graph.nodes) == 4
+        assert len(graph.relationships) == 4
+        assert graph.nodes == (alice | bob | carol | dave).nodes
+        assert graph.relationships == frozenset(alice_knows_bob | alice_likes_carol |
+                                                carol_married_to_dave | dave_works_for_dave)
+
+    def test_subgraph_symmetric_difference_in_place(self):
+        graph = (alice_knows_bob | alice_likes_carol | carol_dislikes_bob)
+        graph_2 = (carol_dislikes_bob | carol_married_to_dave | dave_works_for_dave)
+        graph ^= graph_2
         assert len(graph.nodes) == 4
         assert len(graph.relationships) == 4
         assert graph.nodes == (alice | bob | carol | dave).nodes
