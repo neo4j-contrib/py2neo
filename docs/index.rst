@@ -50,6 +50,9 @@ The following versions of Python and Neo4j (all editions) are supported:
     * - Neo4j
       - Python 3.5+
       - Python 2.7
+    * - 4.4
+      - |test-neo44-py35+|
+      - |test-neo44-py27|
     * - 4.3
       - |test-neo43-py35+|
       - |test-neo43-py27|
@@ -185,6 +188,14 @@ Guides
 .. _Python: https://www.python.org/
 .. _Causal Clustering: https://neo4j.com/docs/operations-manual/current/clustering/
 
+
+.. |test-neo44-py27| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo44-py27
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo44-py27"
+   :alt: GitHub workflow status for tests against Neo4j 4.4 using py27
+
+.. |test-neo44-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo44-py35+
+   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo44-py35+"
+   :alt: GitHub workflow status for tests against Neo4j 4.4 using py35+
 
 .. |test-neo43-py27| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo43-py27
    :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo43-py27"
