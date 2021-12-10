@@ -1,4 +1,4 @@
-name: test-neo43-py27
+name: test-neo44-py27
 
 on:
   push:
