@@ -146,20 +146,20 @@ class Subgraph(object):
         return bool(self.__relationships)
 
     def __or__(self, other):
-        return Subgraph(set(self.nodes) | set(other.nodes), set(self.relationships) | set(other.relationships))
+        return self.__class__(set(self.nodes) | set(other.nodes), set(self.relationships) | set(other.relationships))
 
     def __and__(self, other):
-        return Subgraph(set(self.nodes) & set(other.nodes), set(self.relationships) & set(other.relationships))
+        return self.__class__(set(self.nodes) & set(other.nodes), set(self.relationships) & set(other.relationships))
 
     def __sub__(self, other):
         r = set(self.relationships) - set(other.relationships)
         n = (set(self.nodes) - set(other.nodes)) | set().union(*(set(rel.nodes) for rel in r))
-        return Subgraph(n, r)
+        return self.__class__(n, r)
 
     def __xor__(self, other):
         r = set(self.relationships) ^ set(other.relationships)
         n = (set(self.nodes) ^ set(other.nodes)) | set().union(*(set(rel.nodes) for rel in r))
-        return Subgraph(n, r)
+        return self.__class__(n, r)
 
     @classmethod
     def _is_bound(cls, entity, graph):
