@@ -18,13 +18,45 @@
 
 from pytest import fixture, raises
 
-from py2neo import Node, Relationship
+from py2neo import Node, Relationship, Subgraph
 
 
 @fixture
 def new_graph(graph):
     graph.run("MATCH (n) DETACH DELETE n")
     return graph
+
+
+def test_show_broken_id_0(new_graph):
+    sg = Subgraph()
+
+    new_graph.run("CREATE (:NOPE)-[:NOTHING]->(:ANOTHER)")
+
+    res = new_graph.run("MATCH p = (n:NOPE)-[e]-(m) RETURN p")
+    for record in res:
+        sg = sg | record["p"]
+
+    ids = [i.identity for i in sg.nodes]
+    counts = {node.identity: ids.count(node.identity) for node in sg.nodes}
+
+    # we expect this:
+    #assert set(counts.values()) == set([1])
+    # instead we get:
+    assert set(counts.values()) == set([2, 1])
+
+    # doing this again should change nothing, since subgraphs don't keep duplicates
+    # *UNLESS* a node's id is 0
+    res = new_graph.run("MATCH p = (n:NOPE)-[e]-(m) RETURN p")
+    for record in res:
+        sg = sg | record["p"]
+
+    ids = [i.identity for i in sg.nodes]
+    counts = {node.identity: ids.count(node.identity) for node in sg.nodes}
+
+    # we expect this:
+    #assert set(counts.values()) == set([1])
+    # instead we get:
+    assert set(counts.values()) == set([4, 1])
 
 
 def test_can_create_node(graph):
