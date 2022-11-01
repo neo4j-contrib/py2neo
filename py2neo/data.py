@@ -688,7 +688,7 @@ class Node(Entity):
         return not self.__eq__(other)
 
     def __hash__(self):
-        if self.graph and self.identity:
+        if self.graph and self.identity is not None:
             return hash(self.graph.service) ^ hash(self.graph.name) ^ hash(self.identity)
         else:
             return hash(id(self))

@@ -40,9 +40,9 @@ def test_show_broken_id_0(new_graph):
     counts = {node.identity: ids.count(node.identity) for node in sg.nodes}
 
     # we expect this:
-    #assert set(counts.values()) == set([1])
+    assert set(counts.values()) == set([1])
     # instead we get:
-    assert set(counts.values()) == set([2, 1])
+    # assert set(counts.values()) == set([2, 1])
 
     # doing this again should change nothing, since subgraphs don't keep duplicates
     # *UNLESS* a node's id is 0
@@ -54,9 +54,9 @@ def test_show_broken_id_0(new_graph):
     counts = {node.identity: ids.count(node.identity) for node in sg.nodes}
 
     # we expect this:
-    #assert set(counts.values()) == set([1])
+    assert set(counts.values()) == set([1])
     # instead we get:
-    assert set(counts.values()) == set([4, 1])
+    #assert set(counts.values()) == set([4, 1])
 
 
 def test_can_create_node(graph):
