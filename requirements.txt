@@ -5,6 +5,6 @@ interchange~=2021.0.4
 monotonic
 packaging
 pansi>=2020.7.3
-pygments>=2.0.0
+pygments>=2.7.4
 six>=1.15.0
 urllib3
