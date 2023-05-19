@@ -1,5 +1,8 @@
 Py2neo
 ======
+
+** **Please now consider this project to be EOL. There will be no more updates. It is recommended to use the official Neo4j drivers instead.** **
+
 .. image:: https://img.shields.io/pypi/v/py2neo.svg
    :target: https://pypi.python.org/pypi/py2neo
    :alt: PyPI version
