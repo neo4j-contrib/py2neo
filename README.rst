@@ -3,6 +3,13 @@ Py2neo
 
 ** **Please now consider this project to be EOL. There will be no more updates. It is recommended to use the official Neo4j drivers instead.** **
 
+Official Neo4j driver: https://github.com/neo4j/neo4j-python-driver
+
+Official Neo4j driver docs: https://neo4j.com/docs/getting-started/languages-guides/neo4j-python/
+
+
+---
+
 .. image:: https://img.shields.io/pypi/v/py2neo.svg
    :target: https://pypi.python.org/pypi/py2neo
    :alt: PyPI version
