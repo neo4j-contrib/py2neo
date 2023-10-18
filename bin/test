@@ -51,4 +51,3 @@ run_unit_tests
 run_integration_tests
 
 coverage report --rcfile="${COVERAGERC}"
-coverage xml --rcfile="${COVERAGERC}"

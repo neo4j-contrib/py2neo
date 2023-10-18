@@ -1,0 +1,15 @@
+*~
+*.py[co]
+__pycache__
+.pytest_cache
+.idea
+
+*.egg-info
+dist
+build
+
+neo4j-community-*
+neo4j-enterprise-*
+
+.coverage
+.tox
