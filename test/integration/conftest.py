@@ -109,6 +109,9 @@ class TestProfile(object):
 
 # TODO: test with full certificates
 neo4j_deployment_profiles = [
+    DeploymentProfile(release=(4, 4), topology="CE", schemes=UNSECURED_SCHEMES),
+    DeploymentProfile(release=(4, 4), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
+    # ServiceProfile(release=(4, 4), topology="CE", cert="full", schemes=ALL_SCHEMES),
     DeploymentProfile(release=(4, 3), topology="CE", schemes=UNSECURED_SCHEMES),
     DeploymentProfile(release=(4, 3), topology="CE", cert="ssc", schemes=SSC_SCHEMES),
     # ServiceProfile(release=(4, 3), topology="CE", cert="full", schemes=ALL_SCHEMES),
@@ -134,6 +137,9 @@ if NEO4J_VERSION == "LATEST":
 elif NEO4J_VERSION == "4.x":
     neo4j_deployment_profiles = [profile for profile in neo4j_deployment_profiles
                                  if profile.release[0] == 4]
+elif NEO4J_VERSION == "4.4":
+    neo4j_deployment_profiles = [profile for profile in neo4j_deployment_profiles
+                                 if profile.release == (4, 4)]
 elif NEO4J_VERSION == "4.3":
     neo4j_deployment_profiles = [profile for profile in neo4j_deployment_profiles
                                  if profile.release == (4, 3)]

@@ -10,7 +10,8 @@ function check_license {
 
 
 function check_copyright {
-    YEAR=$(date +%Y)
+    #YEAR=$(date +%Y)
+    YEAR=2021 # when this project was abandoned
     find "${SRC}" -type d \( -path "${SRC}/vendor" \) -prune -o -name '*.py' -print0 | xargs -0 grep -L -e "Copyright.* 20[0-9][0-9]-${YEAR}"
 }
 

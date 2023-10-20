@@ -1,5 +1,6 @@
+. # py2neo
+./test/vendor/grolt
+
 coverage
-coveralls
-grolt>=1.0.6
 pytest
 pytest-threadleak
