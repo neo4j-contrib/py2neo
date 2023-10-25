@@ -1,6 +1,6 @@
-*******************
-The Py2neo Handbook
-*******************
+***************************
+The Py2neo Handbook - EOL !
+***************************
 .. image:: https://img.shields.io/pypi/v/py2neo.svg
    :target: https://pypi.python.org/pypi/py2neo
    :alt: PyPI version
@@ -20,6 +20,17 @@ The Py2neo Handbook
 
 **Py2neo** is a client library and toolkit for working with Neo4j_ from within Python_ applications.
 The library supports both Bolt and HTTP and provides a high level API, an OGM, admin tools, a Cypher lexer for Pygments, and many other bells and whistles.
+
+.. warning::
+   Py2neo is now **End of Life**. There will be **no more updates**.
+   It is recommended to use the official Neo4j drivers instead, or if you have more feature-rich use cases like OGM, consider other options like `neomodel <https://neomodel.readthedocs.io/en/latest/index.html>`_.
+
+   Since the original maintainer of the library deleted the PyPI index, it was necessary to create a new tag for the latest version : **2021.1.4**
+
+   As for past versions, you can still find them in PyPI, but under a new package name : `py2neo-history <https://pypi.org/project/py2neo-history/>`_
+
+Original introduction :
+=======================
 
 Command line tooling has been removed from the library in py2neo 2021.2.
 This functionality now exists in the separate **ipy2neo** project.
@@ -190,57 +201,57 @@ Guides
 
 
 .. |test-neo44-py27| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo44-py27
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo44-py27"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo44-py27"
    :alt: GitHub workflow status for tests against Neo4j 4.4 using py27
 
 .. |test-neo44-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo44-py35+
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo44-py35+"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo44-py35+"
    :alt: GitHub workflow status for tests against Neo4j 4.4 using py35+
 
 .. |test-neo43-py27| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo43-py27
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo43-py27"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo43-py27"
    :alt: GitHub workflow status for tests against Neo4j 4.3 using py27
 
 .. |test-neo43-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo43-py35+
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo43-py35+"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo43-py35+"
    :alt: GitHub workflow status for tests against Neo4j 4.3 using py35+
 
 .. |test-neo42-py27| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo42-py27
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo42-py27"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo42-py27"
    :alt: GitHub workflow status for tests against Neo4j 4.2 using py27
 
 .. |test-neo42-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo42-py35+
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo42-py35+"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo42-py35+"
    :alt: GitHub workflow status for tests against Neo4j 4.2 using py35+
 
 .. |test-neo41-py27| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo41-py27
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo41-py27"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo41-py27"
    :alt: GitHub workflow status for tests against Neo4j 4.1 using py27
 
 .. |test-neo41-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo41-py35+
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo41-py35+"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo41-py35+"
    :alt: GitHub workflow status for tests against Neo4j 4.1 using py35+
 
 .. |test-neo40-py27| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo40-py27
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo40-py27"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo40-py27"
    :alt: GitHub workflow status for tests against Neo4j 4.0 using py27
 
 .. |test-neo40-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo40-py35+
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo40-py35+"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo40-py35+"
    :alt: GitHub workflow status for tests against Neo4j 4.0 using py35+
 
 .. |test-neo35-py27| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo35-py27
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo35-py27"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo35-py27"
    :alt: GitHub workflow status for tests against Neo4j 3.5 using py27
 
 .. |test-neo35-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo35-py35+
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo35-py35+"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo35-py35+"
    :alt: GitHub workflow status for tests against Neo4j 3.5 using py35+
 
 .. |test-neo34-py27| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo34-py27
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo34-py27"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo34-py27"
    :alt: GitHub workflow status for tests against Neo4j 3.4 using py27
 
 .. |test-neo34-py35+| image:: https://img.shields.io/github/workflow/status/technige/py2neo/test-neo34-py35+
-   :target: https://github.com/technige/py2neo/actions?query=workflow%3A"test-neo34-py35+"
+   :target: https://github.com/neo4j-contrib/py2neo/actions?query=workflow%3A"test-neo34-py35+"
    :alt: GitHub workflow status for tests against Neo4j 3.4 using py35+
