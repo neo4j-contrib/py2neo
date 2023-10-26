@@ -1,6 +1,9 @@
 name: Deploy documentation to Pages
 
 on:
+  push:
+    branches:
+      - cicd
   release:
     types: [created]
 
