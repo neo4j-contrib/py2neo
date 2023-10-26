@@ -1,12 +1,8 @@
 name: Deploy documentation to Pages
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - 'docs/**'
-      - '.github/workflows/gh_pages.yml'
+  release:
+    types: [created]
 
 permissions:
   contents: read
