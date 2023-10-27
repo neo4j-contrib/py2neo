@@ -3,8 +3,10 @@ name: test-neo41-py27
 on:
   push:
     branches: [ master ]
+    paths-ignore: ['docs/**']
   pull_request:
     branches: [ master ]
+    paths-ignore: ['docs/**']
 
 jobs:
   test:

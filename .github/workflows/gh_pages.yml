@@ -1,6 +1,7 @@
 name: Deploy documentation to Pages
 
 on:
+  workflow_dispatch:
   release:
     types: [created]
 
