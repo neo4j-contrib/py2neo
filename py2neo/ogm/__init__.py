@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2021, Nigel Small
+# Copyright (c) "Neo4j"
+# Neo4j Sweden AB [https://neo4j.com]
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -481,7 +482,7 @@ class Model(object):
                         # isn't yet set, assume the objects are
                         # not equal.
                         #
-                        # See https://github.com/technige/py2neo/issues/839
+                        # See https://github.com/neo4j-contrib/py2neo/issues/839
                         #
                         return False
                     else:

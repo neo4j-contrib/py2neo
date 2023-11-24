@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2021, Nigel Small
+# Copyright (c) "Neo4j"
+# Neo4j Sweden AB [https://neo4j.com]
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,10 +25,10 @@ package_metadata = {
     "name": "grolt",
     "version": "1.0.7",
     "description": "Docker-based development and testing framework for Neo4j",
-    "long_description": "Please see https://github.com/technige/grolt "
+    "long_description": "Please see https://github.com/neo4j-contrib/grolt "
                         "for details.",
-    "author": "Nigel Small",
-    "author_email": "technige@py2neo.org",
+    "author": "Neo4j, Inc.",
+    "author_email": "drivers@neo4j.com",
     "entry_points": {
         "console_scripts": [
             "grolt = grolt.__main__:grolt",

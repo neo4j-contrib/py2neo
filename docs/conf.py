@@ -140,12 +140,6 @@ html_theme = 'pydoctheme'
 html_theme_options = {
     'sidebarwidth': 330,
     'collapsiblesidebar': True,
-    #'logo': 'py2neo-v4.280x336.png',
-    #'logo_align': 'left',
-    #'github_user': 'technige',
-    #'github_repo': 'py2neo',
-    #'github_branch': 'v3',
-    #'travis_button': True,
 }
 
 # Add any paths that contain custom themes here, relative to this directory.

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 
-# Copyright 2011-2021, Nigel Small
+# Copyright (c) "Neo4j"
+# Neo4j Sweden AB [https://neo4j.com]
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -128,15 +129,15 @@ def get_version_data():
 def get_metadata():
 
     version_data = get_version_data()
-    source_url = "https://github.com/technige/py2neo"
+    source_url = "https://github.com/neo4j-contrib/py2neo"
     release = version_data["release"]
 
     return {
         "name": PACKAGE_NAME,
         "version": (version_data["string"]),
         "description": PACKAGE_DESCRIPTION,
-        "author": "Nigel Small",
-        "author_email": "technige@py2neo.org",
+        "author": "Neo4j, Inc.",
+        "author_email": "drivers@neo4j.com",
         "url": "https://py2neo.org/",
         "project_urls": {
             "Bug Tracker": "{}/issues".format(source_url),
