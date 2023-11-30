@@ -6,7 +6,10 @@ Py2neo
 ** **For archival purposes, ownership of Py2neo has now been officially transferred to Neo4j. In return, Neo4j have very kindly made a generous donation to The Bone Cancer Research Trust <https://www.bcrt.org.uk/>. The new project home is at <https://github.com/neo4j-contrib/py2neo>. I am hugely grateful to everyone who has contributed to and used this project over the years. --Nigel** **
 
 The version history of py2neo on PyPI got lost.
-If you need an older version, you can install [`py2neo-history`](https://pypi.org/project/py2neo-history/) instead.
+If you need an older version, you can install |py2neo-history|_ instead.
+
+.. |py2neo-history| replace:: ``py2neo-history``
+.. _py2neo-history:  https://pypi.org/project/py2neo-history/
 
 .. image:: https://img.shields.io/pypi/v/py2neo.svg
    :target: https://pypi.python.org/pypi/py2neo
