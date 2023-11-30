@@ -1,7 +1,7 @@
 Py2neo
 ======
 
-** **Please now consider this project to be EOL. There will be no more updates. It is recommended to use the official Neo4j drivers instead.** **
+** **Py2neo has now been officially picked up by Neo4j and all code and copyrights have been transferred. In return, Neo4j have very kindly made a generous donation to The Bone Cancer Research Trust <https://www.bcrt.org.uk/>. The new project home is at <https://github.com/neo4j-contrib/py2neo>. I am hugely grateful to everyone who has contributed to and used this project over the years. --Nigel** **
 
 The version history of py2neo on PyPI got lost.
 If you need an older version, you can install [`py2neo-history`](https://pypi.org/project/py2neo-history/) instead.
